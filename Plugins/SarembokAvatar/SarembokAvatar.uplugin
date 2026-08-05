@@ -1,16 +1,20 @@
 {
-    "FileVersion":3,
-    "Version":1,
-    "VersionName":"1.0",
-    "FriendlyName":"Sarembok Avatar",
-    "Category":"Sarembok",
+    "FileVersion": 3,
+    "Version": 1,
+    "VersionName": "0.1",
+    "FriendlyName": "Sarembok Avatar",
+    "Description": "Sarembok Autonomous AI Digital Human Avatar Runtime",
+    "Category": "Sarembok AI",
+    "CreatedBy": "Sarembok",
+    "CanContainContent": true,
+    "EnabledByDefault": true,
 
     "Modules":
     [
         {
-            "Name":"SarembokAvatar",
-            "Type":"Runtime",
-            "LoadingPhase":"Default"
+            "Name": "SarembokAvatar",
+            "Type": "Runtime",
+            "LoadingPhase": "Default"
         }
     ]
 }

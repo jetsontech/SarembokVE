@@ -1,13 +1,30 @@
 #include "SarembokAgent.h"
 
-
-void FSarembokAgent::Initialize()
+void FSarembokAgent::StartupModule()
 {
 
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("Sarembok Agent Initialized")
+        TEXT("SarembokAgent Initialized")
     );
 
 }
+
+
+void FSarembokAgent::ShutdownModule()
+{
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("SarembokAgent Shutdown")
+    );
+
+}
+
+
+IMPLEMENT_MODULE(
+    FSarembokAgent,
+    SarembokAgent
+)

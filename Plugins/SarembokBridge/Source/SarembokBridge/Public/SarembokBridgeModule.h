@@ -2,8 +2,8 @@
 
 #include "Modules/ModuleManager.h"
 
-class FSarembokBridgeModule :
-    public IModuleInterface
+
+class FSarembokBridgeModule : public IModuleInterface
 {
 
 public:

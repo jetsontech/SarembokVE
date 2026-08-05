@@ -1,12 +1,14 @@
 #pragma once
 
-#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 
-class SAREMBOKMemory_API FSarembokMemory
+class FSarembokMemory : public IModuleInterface
 {
 
 public:
 
-    void Initialize();
+    virtual void StartupModule() override;
+
+    virtual void ShutdownModule() override;
 
 };

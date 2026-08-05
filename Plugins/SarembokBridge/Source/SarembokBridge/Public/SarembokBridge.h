@@ -1,17 +1,12 @@
 #pragma once
 
-#include "Modules/ModuleManager.h"
+#include "CoreMinimal.h"
 
-
-class FSarembokBridgeModule :
-public IModuleInterface
+class SAREMBOKBRIDGE_API FSarembokBridge
 {
 
 public:
 
-virtual void StartupModule() override;
-
-virtual void ShutdownModule() override;
-
+    void Initialize();
 
 };

@@ -1,13 +1,30 @@
 #include "SarembokVision.h"
 
-
-void FSarembokVision::Initialize()
+void FSarembokVision::StartupModule()
 {
 
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("Sarembok Vision Initialized")
+        TEXT("SarembokVision Initialized")
     );
 
 }
+
+
+void FSarembokVision::ShutdownModule()
+{
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("SarembokVision Shutdown")
+    );
+
+}
+
+
+IMPLEMENT_MODULE(
+    FSarembokVision,
+    SarembokVision
+)

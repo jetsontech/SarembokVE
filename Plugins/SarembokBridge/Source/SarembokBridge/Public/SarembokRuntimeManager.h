@@ -1,21 +1,23 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "UObject/NoExportTypes.h"
+#include "SarembokRuntimeManager.generated.h"
 
-class SAREMBOKBRIDGE_API FSarembokRuntimeManager
+UCLASS()
+class SAREMBOKBRIDGE_API USarembokRuntimeManager : public UObject
 {
+    GENERATED_BODY()
+
 public:
+    void InitializeRuntime();
+    void ShutdownRuntime();
 
-    static FSarembokRuntimeManager& Get();
-
-    void Initialize();
-    void Shutdown();
-
-    bool IsInitialized() const { return bInitialized; }
+    bool IsInitialized() const
+    {
+        return bInitialized;
+    }
 
 private:
-
-    FSarembokRuntimeManager();
-
     bool bInitialized = false;
 };

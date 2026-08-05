@@ -16,12 +16,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$ROOT = Split-Path -Parent $PSScriptRoot
 $PROJECT = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 
 $TEMPLATES = Join-Path $PSScriptRoot "Templates"
 $PLUGINS = Join-Path $PROJECT "Plugins"
-$SOURCE = Join-Path $PROJECT "Source"
 
 
 function Write-Header {
@@ -33,7 +31,7 @@ function Write-Header {
 }
 
 
-function Ensure-Folder($path)
+function New-Folder($path)
 {
     if (!(Test-Path $path))
     {
@@ -59,7 +57,7 @@ function Write-Template($template,$destination)
 }
 
 
-function Create-Bridge
+function New-Bridge
 {
 
     Write-Host ""
@@ -69,18 +67,18 @@ function Create-Bridge
         Join-Path $PLUGINS "SarembokBridge"
 
 
-    Ensure-Folder $PLUGIN_ROOT
+    New-Folder $PLUGIN_ROOT
 
-    Ensure-Folder `
+    New-Folder `
         (Join-Path $PLUGIN_ROOT "Source")
 
-    Ensure-Folder `
+    New-Folder `
         (Join-Path $PLUGIN_ROOT "Source\SarembokBridge")
 
-    Ensure-Folder `
+    New-Folder `
         (Join-Path $PLUGIN_ROOT "Source\SarembokBridge\Public")
 
-    Ensure-Folder `
+    New-Folder `
         (Join-Path $PLUGIN_ROOT "Source\SarembokBridge\Private")
 
 
@@ -110,14 +108,14 @@ function Create-Bridge
 
 
 
-function Create-Runtime
+function New-Runtime
 {
     Write-Host "Runtime generation placeholder"
 }
 
 
 
-function Create-Plugin
+function New-Plugin
 {
     Write-Host "Plugin generation placeholder"
 }
@@ -132,27 +130,27 @@ switch($Create)
 
     "Bridge"
     {
-        Create-Bridge
+        New-Bridge
     }
 
 
     "Runtime"
     {
-        Create-Runtime
+        New-Runtime
     }
 
 
     "Plugin"
     {
-        Create-Plugin
+        New-Plugin
     }
 
 
     "All"
     {
-        Create-Bridge
-        Create-Runtime
-        Create-Plugin
+        New-Bridge
+        New-Runtime
+        New-Plugin
     }
 
 }

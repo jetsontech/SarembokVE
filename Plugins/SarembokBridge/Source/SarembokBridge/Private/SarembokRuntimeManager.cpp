@@ -1,16 +1,6 @@
 #include "SarembokRuntimeManager.h"
 
-FSarembokRuntimeManager::FSarembokRuntimeManager()
-{
-}
-
-FSarembokRuntimeManager& FSarembokRuntimeManager::Get()
-{
-    static FSarembokRuntimeManager Instance;
-    return Instance;
-}
-
-void FSarembokRuntimeManager::Initialize()
+void USarembokRuntimeManager::InitializeRuntime()
 {
     if (bInitialized)
     {
@@ -19,10 +9,14 @@ void FSarembokRuntimeManager::Initialize()
 
     bInitialized = true;
 
-    UE_LOG(LogTemp, Display, TEXT("Sarembok Runtime Manager Initialized"));
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("Sarembok Runtime Manager Initialized")
+    );
 }
 
-void FSarembokRuntimeManager::Shutdown()
+void USarembokRuntimeManager::ShutdownRuntime()
 {
     if (!bInitialized)
     {
@@ -31,5 +25,9 @@ void FSarembokRuntimeManager::Shutdown()
 
     bInitialized = false;
 
-    UE_LOG(LogTemp, Display, TEXT("Sarembok Runtime Manager Shutdown"));
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("Sarembok Runtime Manager Shutdown")
+    );
 }

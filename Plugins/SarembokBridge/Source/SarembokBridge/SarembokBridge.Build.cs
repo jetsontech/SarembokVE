@@ -13,6 +13,8 @@ public class SarembokBridge : ModuleRules
                 "Core",
                 "CoreUObject",
                 "Engine",
+                
+                "WebSockets",
                 "Projects",
                 "Sockets",
                 "Networking",
@@ -23,3 +25,6 @@ public class SarembokBridge : ModuleRules
         );
     }
 }
+
+
+

@@ -1,13 +1,30 @@
 #include "SarembokMemory.h"
 
-
-void FSarembokMemory::Initialize()
+void FSarembokMemory::StartupModule()
 {
 
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("Sarembok Memory Initialized")
+        TEXT("SarembokMemory Initialized")
     );
 
 }
+
+
+void FSarembokMemory::ShutdownModule()
+{
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("SarembokMemory Shutdown")
+    );
+
+}
+
+
+IMPLEMENT_MODULE(
+    FSarembokMemory,
+    SarembokMemory
+)
