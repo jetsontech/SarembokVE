@@ -45,3 +45,8 @@ void FSarembokBridgeService::SendMessage(const FSarembokMessage& Message)
 
     WebSocketClient->SendMessage(Message.Data);
 }
+
+void FSarembokBridgeService::ReceiveMessage(const FSarembokMessage& Message)
+{
+    FSarembokMessageRouter::Get().Dispatch(Message);
+}
