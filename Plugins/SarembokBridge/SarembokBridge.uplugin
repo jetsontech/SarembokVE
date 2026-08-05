@@ -1,0 +1,17 @@
+{
+    "FileVersion":3,
+    "Version":1,
+    "VersionName":"2.0",
+    "FriendlyName":"Sarembok Bridge",
+    "Description":"Sarembok Digital Human Runtime Bridge",
+    "Category":"Sarembok",
+
+    "Modules":
+    [
+        {
+            "Name":"SarembokBridge",
+            "Type":"Runtime",
+            "LoadingPhase":"Default"
+        }
+    ]
+}

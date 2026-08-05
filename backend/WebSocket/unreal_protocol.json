@@ -1,0 +1,14 @@
+{
+"events":
+[
+"CHAT",
+"VOICE_START",
+"VOICE_END",
+"VISION_FRAME",
+"FACE_COMMAND",
+"GESTURE_COMMAND"
+],
+
+"runtime":
+"ws://127.0.0.1:9000"
+}

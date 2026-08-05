@@ -1,0 +1,6 @@
+{
+    "name": "SarembokVE",
+    "version": "0.4",
+    "endpoint": "ws://127.0.0.1:9000",
+    "mode": "digital_human"
+}

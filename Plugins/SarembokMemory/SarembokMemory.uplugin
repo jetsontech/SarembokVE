@@ -1,0 +1,16 @@
+{
+    "FileVersion":3,
+    "Version":1,
+    "VersionName":"1.0",
+    "FriendlyName":"Sarembok Memory",
+    "Category":"Sarembok",
+
+    "Modules":
+    [
+        {
+            "Name":"SarembokMemory",
+            "Type":"Runtime",
+            "LoadingPhase":"Default"
+        }
+    ]
+}

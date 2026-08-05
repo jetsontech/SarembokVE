@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sarembok_VE Terminal</title>
+    <style>
+        :root {
+            --bg-main: #0d0d0f;
+            --bg-panel: #16161a;
+            --text-main: #ffffff;
+            --text-sys: #aaaaaa;
+            --text-user: #00ffcc;
+            --text-model: #ff007f;
+            --cyan: #00ffcc;
+            --pink: #ff007f;
+            --yellow: #ffb300;
+            --red: #ff3366;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .terminal-container {
+            background-color: var(--bg-panel);
+            width: 800px;
+            max-width: 95%;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h2 {
+            text-align: center;
+            margin: 0;
+            font-size: 24px;
+            letter-spacing: 1px;
+        }
+
+        .top-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid;
+            border-radius: 30px;
+            padding: 10px 20px;
+            color: inherit;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        
+        .btn-outline.cyan { border-color: var(--cyan); color: var(--cyan); }
+        .btn-outline.cyan:hover { background: rgba(0, 255, 204, 0.1); }
+        .btn-outline.pink { border-color: var(--pink); color: var(--pink); }
+        .btn-outline.pink:hover { background: rgba(255, 0, 127, 0.1); }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: #0d0d0f;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            color: #fff;
+            font-family: inherit;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--cyan);
+        }
+
+        .btn-solid {
+            border: none;
+            border-radius: 8px;
+            padding: 0 20px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            color: #000;
+        }
+
+        .btn-solid.send { background-color: var(--cyan); }
+        .btn-solid.clear { background-color: var(--yellow); }
+        .btn-solid.stop { background-color: var(--red); color: #fff; }
+
+        .terminal-output {
+            background: #0d0d0f;
+            border-radius: 8px;
+            padding: 20px;
+            height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-size: 14px;
+        }
+
+        .log-sys { color: var(--text-sys); }
+        .log-user { color: var(--text-user); font-weight: bold; }
+        .log-model { color: var(--text-model); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="terminal-container">
+        <h2>Sarembok_VE Terminal</h2>
+        
+        <div class="top-controls">
+            <button class="btn-outline cyan" id="btn-audio">🎙 Audio Stream</button>
+            <button class="btn-outline pink" id="btn-snap">👁️ Snap Screen</button>
+        </div>
+
+        <div class="input-group">
+            <input type="text" id="chat-input" placeholder="Type command or ask about screen..." autocomplete="off">
+            <button class="btn-solid send" id="btn-send">Send</button>
+            <button class="btn-solid clear" id="btn-clear">Clear</button>
+            <button class="btn-solid stop" id="btn-stop">Stop</button>
+        </div>
+
+        <div class="terminal-output" id="terminal-output">
+            <div class="log-sys">[SYSTEM] Frontier live core interface loaded.</div>
+        </div>
+    </div>
+
+    <video id="hidden-video" style="display:none;" autoplay></video>
+    <canvas id="hidden-canvas" style="display:none;"></canvas>
+
+    <script>
+        const terminal = document.getElementById('terminal-output');
+        const inputField = document.getElementById('chat-input');
+        
+        let ws;
+        let audioCtx;
+        let nextPlayTime = 0;
+        let screenStream = null;
+
+        function appendLog(role, message, cssClass) {
+            const div = document.createElement('div');
+            div.className = cssClass;
+            div.textContent = role ? `${role}: ${message}` : message;
+            terminal.appendChild(div);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function initAudioEngine() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/live`);
+
+            ws.onopen = () => {
+                appendLog('SYSTEM', 'Live WebSocket Linked.', 'log-sys');
+            };
+
+            ws.onmessage = async (event) => {
+                const data = JSON.parse(event.data);
+                
+                if (data.text) {
+                    appendLog('MODEL', data.text, 'log-model');
+                }
+                
+                if (data.audio) {
+                    initAudioEngine();
+                    
+                    const binaryString = atob(data.audio);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    
+                    const int16Array = new Int16Array(bytes.buffer);
+                    const float32Array = new Float32Array(int16Array.length);
+                    for (let i = 0; i < int16Array.length; i++) {
+                        float32Array[i] = int16Array[i] / 32768.0; 
+                    }
+
+                    const audioBuffer = audioCtx.createBuffer(1, float32Array.length, 24000);
+                    audioBuffer.getChannelData(0).set(float32Array);
+
+                    const source = audioCtx.createBufferSource();
+                    source.buffer = audioBuffer;
+                    source.connect(audioCtx.destination);
+                    
+                    if (nextPlayTime < audioCtx.currentTime) {
+                        nextPlayTime = audioCtx.currentTime + 0.1;
+                    }
+                    source.start(nextPlayTime);
+                    nextPlayTime += audioBuffer.duration;
+                }
+            };
+
+            ws.onclose = () => {
+                appendLog('SYSTEM', 'Connection dropped. Auto-reconnecting in 2s...', 'log-sys');
+                setTimeout(connectWebSocket, 2000);
+            };
+
+            ws.onerror = (error) => {
+                console.error("WebSocket Fault:", error);
+            };
+        }
+
+        async function captureScreen() {
+            try {
+                if (!screenStream) {
+                    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                    const video = document.getElementById('hidden-video');
+                    video.srcObject = screenStream;
+                    await new Promise(resolve => video.onplaying = resolve);
+                }
+
+                const video = document.getElementById('hidden-video');
+                const canvas = document.getElementById('hidden-canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                return canvas.toDataURL('image/jpeg', 0.8);
+            } catch (err) {
+                appendLog('SYSTEM', `Screen capture failed: ${err.message}`, 'log-sys');
+                return null;
+            }
+        }
+
+        document.getElementById('btn-send').addEventListener('click', () => {
+            initAudioEngine();
+            const text = inputField.value.trim();
+            if (text && ws && ws.readyState === WebSocket.OPEN) {
+                appendLog('USER', text, 'log-user');
+                ws.send(JSON.stringify({ type: "text", text: text }));
+                inputField.value = '';
+            }
+        });
+
+        document.getElementById('btn-snap').addEventListener('click', async () => {
+            initAudioEngine();
+            appendLog('SYSTEM', 'Requesting optic snapshot...', 'log-sys');
+            const base64Image = await captureScreen();
+            
+            if (base64Image && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: "vision", image: base64Image }));
+                appendLog('SYSTEM', 'Optic snapshot pushed to live stream.', 'log-sys');
+            }
+        });
+
+        inputField.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') document.getElementById('btn-send').click();
+        });
+
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            terminal.innerHTML = '<div class="log-sys">[SYSTEM] Output cleared.</div>';
+        });
+
+        document.getElementById('btn-stop').addEventListener('click', () => {
+            if (audioCtx) {
+                audioCtx.suspend();
+                appendLog('SYSTEM', 'Audio playback suspended.', 'log-sys');
+            }
+        });
+
+        window.onload = connectWebSocket;
+    </script>
+</body>
+</html>

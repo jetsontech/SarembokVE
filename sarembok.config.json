@@ -1,0 +1,13 @@
+{
+"platform":"Sarembok VE",
+"version":"0.1",
+"modules":[
+"Runtime",
+"Bridge",
+"MetaHuman",
+"Agents",
+"Memory",
+"Voice",
+"Vision"
+]
+}

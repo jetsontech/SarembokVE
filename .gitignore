@@ -1,0 +1,22 @@
+# Unreal Engine Ignored Folders
+Binaries/
+Build/
+DerivedDataCache/
+Intermediate/
+Saved/
+.vs/
+*.VC.db
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.user
+
+# Build outputs
+HostProfiler/
+Profiling/
+Log/
+
+# Asset caches and temp files
+*.opendb
+DerivedDataCache/

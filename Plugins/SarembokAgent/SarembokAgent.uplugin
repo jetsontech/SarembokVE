@@ -1,0 +1,16 @@
+{
+    "FileVersion":3,
+    "Version":1,
+    "VersionName":"1.0",
+    "FriendlyName":"Sarembok Agent",
+    "Category":"Sarembok",
+
+    "Modules":
+    [
+        {
+            "Name":"SarembokAgent",
+            "Type":"Runtime",
+            "LoadingPhase":"Default"
+        }
+    ]
+}

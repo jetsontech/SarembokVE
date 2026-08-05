@@ -1,0 +1,16 @@
+{
+    "FileVersion":3,
+    "Version":1,
+    "VersionName":"1.0",
+    "FriendlyName":"Sarembok Voice",
+    "Category":"Sarembok",
+
+    "Modules":
+    [
+        {
+            "Name":"SarembokVoice",
+            "Type":"Runtime",
+            "LoadingPhase":"Default"
+        }
+    ]
+}

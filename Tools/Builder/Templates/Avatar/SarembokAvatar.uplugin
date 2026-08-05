@@ -1,0 +1,16 @@
+{
+    "FileVersion":3,
+    "Version":1,
+    "VersionName":"1.0",
+    "FriendlyName":"Sarembok Avatar",
+    "Category":"Sarembok",
+
+    "Modules":
+    [
+        {
+            "Name":"SarembokAvatar",
+            "Type":"Runtime",
+            "LoadingPhase":"Default"
+        }
+    ]
+}

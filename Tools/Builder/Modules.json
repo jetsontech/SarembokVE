@@ -1,0 +1,54 @@
+{
+    "Modules":
+    [
+        {
+            "Name":"SarembokBridge",
+            "Type":"Core",
+            "Dependencies":[]
+        },
+
+        {
+            "Name":"SarembokAvatar",
+            "Type":"DigitalHuman",
+            "Dependencies":
+            [
+                "SarembokBridge"
+            ]
+        },
+
+        {
+            "Name":"SarembokVoice",
+            "Type":"AI",
+            "Dependencies":
+            [
+                "SarembokBridge"
+            ]
+        },
+
+        {
+            "Name":"SarembokVision",
+            "Type":"AI",
+            "Dependencies":
+            [
+                "SarembokBridge"
+            ]
+        },
+
+        {
+            "Name":"SarembokAgent",
+            "Type":"RuntimeAI",
+            "Dependencies":
+            [
+                "SarembokVoice",
+                "SarembokVision",
+                "SarembokMemory"
+            ]
+        },
+
+        {
+            "Name":"SarembokMemory",
+            "Type":"Knowledge",
+            "Dependencies":[]
+        }
+    ]
+}
