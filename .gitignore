@@ -20,3 +20,6 @@ Log/
 # Asset caches and temp files
 *.opendb
 DerivedDataCache/
+
+# Virtual Environment
+venv/
