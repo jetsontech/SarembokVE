@@ -2,8 +2,7 @@ using UnrealBuildTool;
 
 public class SarembokBridge : ModuleRules
 {
-    public SarembokBridge(ReadOnlyTargetRules Target)
-        : base(Target)
+    public SarembokBridge(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
@@ -13,9 +12,8 @@ public class SarembokBridge : ModuleRules
                 "Core",
                 "CoreUObject",
                 "Engine",
-                
+                "InputCore",
                 "WebSockets",
-                "Projects",
                 "Sockets",
                 "Networking",
                 "WebSockets",
@@ -25,6 +23,3 @@ public class SarembokBridge : ModuleRules
         );
     }
 }
-
-
-

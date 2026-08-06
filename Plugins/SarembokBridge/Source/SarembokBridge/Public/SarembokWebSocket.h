@@ -3,25 +3,17 @@
 #include "CoreMinimal.h"
 #include "IWebSocket.h"
 
-
 class FSarembokWebSocket
 {
-
 public:
+    FSarembokWebSocket();
+    ~FSarembokWebSocket();
 
-
-void Connect();
-
-
-void Send(
-FString Event,
-FString Data
-);
-
+    void Connect();
+    void Disconnect();
+    bool IsConnected() const;
+    void SendMessage(const FString& Message);
 
 private:
-
-TSharedPtr<IWebSocket> Socket;
-
-
+    TSharedPtr<IWebSocket> Socket;
 };
