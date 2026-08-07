@@ -33,7 +33,16 @@ void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
     {
         JsonObject->TryGetStringField(TEXT("command"), LastCommand);
         JsonObject->TryGetStringField(TEXT("target"), LastTarget);
-        JsonObject->TryGetStringField(TEXT("payload"), LastPayload);
+
+        const TSharedPtr<FJsonObject>* PayloadObject;
+        if (JsonObject->TryGetObjectField(TEXT("payload"), PayloadObject))
+        {
+            LastPayload.Empty();
+            for (const auto& Field : (*PayloadObject)->Values)
+            {
+                LastPayload += Field.Key + TEXT("=") + Field.Value->AsString() + TEXT(";");
+            }
+        }
     }
 }
 
