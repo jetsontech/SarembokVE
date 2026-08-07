@@ -2,7 +2,7 @@
   "FileVersion": 3,
   "EngineAssociation": "5.8",
   "Category": "",
-  "Description": "",
+  "Description": "Sarembok Virtual Environment",
   "Modules": [
     {
       "Name": "SarembokVE",
@@ -11,9 +11,11 @@
     }
   ],
   "Plugins": [
-    {
-      "Name": "SarembokBridge",
-      "Enabled": true
-    }
+    { "Name": "SarembokBridge", "Enabled": true },
+    { "Name": "SarembokAvatar", "Enabled": true },
+    { "Name": "SarembokVoice", "Enabled": true },
+    { "Name": "SarembokVision", "Enabled": true },
+    { "Name": "SarembokAgent", "Enabled": true },
+    { "Name": "SarembokMemory", "Enabled": true }
   ]
 }
