@@ -29,6 +29,6 @@ public:
 
 private:
 
-    ESarembokLoopState CurrentState = ESareMBOKLoopState::Idle;
+    ESarembokLoopState CurrentState = ESarembokLoopState::Idle;
     FString CurrentContext;
 };
