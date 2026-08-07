@@ -5,9 +5,7 @@ public class SarembokBridge : ModuleRules
     public SarembokBridge(ReadOnlyTargetRules Target)
         : base(Target)
     {
-        PCHUsage =
-            PCHUsageMode.UseExplicitOrSharedPCHs;
-
+        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
         PublicDependencyModuleNames.AddRange(
             new string[]
@@ -17,7 +15,10 @@ public class SarembokBridge : ModuleRules
                 "Engine",
                 "Projects",
                 "Sockets",
-                "Networking"
+                "Networking",
+                "WebSockets",
+                "Json",
+                "JsonUtilities"
             }
         );
     }
