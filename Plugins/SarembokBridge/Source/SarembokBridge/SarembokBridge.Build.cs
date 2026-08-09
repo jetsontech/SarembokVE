@@ -2,24 +2,29 @@ using UnrealBuildTool;
 
 public class SarembokBridge : ModuleRules
 {
-    public SarembokBridge(ReadOnlyTargetRules Target) : base(Target)
-    {
-        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+	public SarembokBridge(ReadOnlyTargetRules Target) : base(Target)
+	{
+		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-        PublicDependencyModuleNames.AddRange(
-            new string[]
-            {
-                "Core",
-                "CoreUObject",
-                "Engine",
-                "InputCore",
-                "WebSockets",
-                "Sockets",
-                "Networking",
-                "WebSockets",
-                "Json",
-                "JsonUtilities"
-            }
-        );
-    }
+		PublicDependencyModuleNames.AddRange(
+			new string[]
+			{
+				"Core",
+				"CoreUObject",
+				"Engine",
+				"WebSockets",
+				"Json",
+				"JsonUtilities"
+			}
+		);
+
+		PrivateDependencyModuleNames.AddRange(
+			new string[]
+			{
+				"Projects"
+			}
+		);
+
+		CppStandard = CppStandardVersion.Cpp20;
+	}
 }

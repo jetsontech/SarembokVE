@@ -16,33 +16,61 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
 {
     ParseCommand(Message);
 
-    UE_LOG(LogTemp, Display,
+    UE_LOG(
+        LogTemp,
+        Display,
         TEXT("Sarembok Command: %s Target: %s Payload: %s"),
         *LastCommand,
         *LastTarget,
-        *LastPayload);
+        *LastPayload
+    );
 }
 
 void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
 {
     TSharedPtr<FJsonObject> JsonObject;
 
-    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Message);
+    TSharedRef<TJsonReader<>> Reader =
+        TJsonReaderFactory<>::Create(Message);
 
-    if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
+    if (!FJsonSerializer::Deserialize(Reader, JsonObject) ||
+        !JsonObject.IsValid())
     {
-        JsonObject->TryGetStringField(TEXT("command"), LastCommand);
-        JsonObject->TryGetStringField(TEXT("target"), LastTarget);
+        LastCommand.Empty();
+        LastTarget.Empty();
+        LastPayload.Empty();
+        return;
+    }
 
-        const TSharedPtr<FJsonObject>* PayloadObject;
-        if (JsonObject->TryGetObjectField(TEXT("payload"), PayloadObject))
+    JsonObject->TryGetStringField(TEXT("command"), LastCommand);
+    JsonObject->TryGetStringField(TEXT("target"), LastTarget);
+
+    const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
+
+    if (JsonObject->TryGetObjectField(TEXT("payload"), PayloadObject) &&
+        PayloadObject != nullptr &&
+        PayloadObject->IsValid())
+    {
+        LastPayload.Empty();
+
+        for (const TPair<FString, TSharedPtr<FJsonValue>>& Field :
+             (*PayloadObject)->Values)
         {
-            LastPayload.Empty();
-            for (const auto& Field : (*PayloadObject)->Values)
-            {
-                LastPayload += Field.Key + TEXT("=") + Field.Value->AsString() + TEXT(";");
-            }
+            const FString Key = Field.Key;
+            const FString Value =
+                Field.Value.IsValid()
+                    ? Field.Value->AsString()
+                    : FString();
+
+            LastPayload += Key;
+            LastPayload += TEXT("=");
+            LastPayload += Value;
+            LastPayload += TEXT(";");
         }
+    }
+    else
+    {
+        LastPayload.Empty();
     }
 }
 
