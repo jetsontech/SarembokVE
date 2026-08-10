@@ -1,123 +1,132 @@
 #include "SarembokWebSocketClient.h"
 
+#include "Modules/ModuleManager.h"
 #include "WebSocketsModule.h"
-
 
 FSarembokWebSocketClient::FSarembokWebSocketClient()
 {
-	ServerURL = TEXT("ws://127.0.0.1:8765");
-}
+    ServerURL = TEXT("ws://127.0.0.1:8765");
+    Dispatcher = MakeShared<FSarembokMessageDispatcher>();
 
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("[SAREMBOK] WebSocket Client Created - Server: %s"),
+        *ServerURL
+    );
+}
 
 FSarembokWebSocketClient::~FSarembokWebSocketClient()
 {
-	Disconnect();
+    Disconnect();
 }
-
 
 void FSarembokWebSocketClient::Connect()
 {
-	FWebSocketsModule& Module =
-		FModuleManager::LoadModuleChecked<FWebSocketsModule>("WebSockets");
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("[SAREMBOK] Connecting to %s"),
+        *ServerURL
+    );
 
+    if (Socket.IsValid())
+    {
+        if (Socket->IsConnected())
+        {
+            UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] WebSocket is already connected"));
+            return;
+        }
 
-	Socket = Module.CreateWebSocket(ServerURL);
+        Socket->Close();
+        Socket.Reset();
+    }
 
+    FWebSocketsModule& Module =
+        FModuleManager::LoadModuleChecked<FWebSocketsModule>(TEXT("WebSockets"));
 
-	Socket->OnConnected().AddRaw(
-		this,
-		&FSarembokWebSocketClient::OnConnected
-	);
+    Socket = Module.CreateWebSocket(ServerURL);
 
+    if (!Socket.IsValid())
+    {
+        UE_LOG(LogTemp, Error, TEXT("[SAREMBOK] FAILED to create WebSocket"));
+        return;
+    }
 
-	Socket->OnMessage().AddRaw(
-		this,
-		&FSarembokWebSocketClient::OnMessage
-	);
+    Socket->OnConnected().AddRaw(this, &FSarembokWebSocketClient::OnConnected);
+    Socket->OnMessage().AddRaw(this, &FSarembokWebSocketClient::OnMessage);
+    Socket->OnConnectionError().AddRaw(this, &FSarembokWebSocketClient::OnConnectionError);
+    Socket->OnClosed().AddRaw(this, &FSarembokWebSocketClient::OnClosed);
 
-
-	Socket->OnConnectionError().AddRaw(
-		this,
-		&FSarembokWebSocketClient::OnConnectionError
-	);
-
-
-	Socket->OnClosed().AddRaw(
-		this,
-		&FSarembokWebSocketClient::OnClosed
-	);
-
-
-	Socket->Connect();
+    Socket->Connect();
 }
-
 
 void FSarembokWebSocketClient::Disconnect()
 {
-	if(Socket.IsValid())
-	{
-		Socket->Close();
-		Socket.Reset();
-	}
+    if (!Socket.IsValid())
+    {
+        return;
+    }
+
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Disconnecting from %s"), *ServerURL);
+
+    if (Socket->IsConnected())
+    {
+        Socket->Close();
+    }
+
+    Socket.Reset();
 }
 
-
-void FSarembokWebSocketClient::SendMessage(
-	const FString& Message
-)
+void FSarembokWebSocketClient::SendMessage(const FString& Message)
 {
-	if(Socket.IsValid() && Socket->IsConnected())
-	{
-		Socket->Send(Message);
-	}
-}
+    if (!Socket.IsValid() || !Socket->IsConnected())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[SAREMBOK] TX FAILED - WebSocket not connected"));
+        return;
+    }
 
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] TX: %s"), *Message);
+    Socket->Send(Message);
+}
 
 void FSarembokWebSocketClient::OnConnected()
 {
-	UE_LOG(
-		LogTemp,
-		Display,
-		TEXT("Connected to Sarembok Core")
-	);
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] CONNECTED TO SAREMBOK RUNTIME"));
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Server: %s"), *ServerURL);
+
+    const FString TestMessage = TEXT("{\"event\":\"user_detected\"}");
+    SendMessage(TestMessage);
 }
 
-
-void FSarembokWebSocketClient::OnMessage(
-	const FString& Message
-)
+void FSarembokWebSocketClient::OnMessage(const FString& Message)
 {
-	UE_LOG(
-		LogTemp,
-		Display,
-		TEXT("Sarembok Message: %s"),
-		*Message
-	);
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] RX FROM SAREMBOK RUNTIME:"));
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] %s"), *Message);
+
+    if (Dispatcher.IsValid())
+    {
+        Dispatcher->DispatchMessage(Message);
+    }
 }
 
-
-void FSarembokWebSocketClient::OnConnectionError(
-	const FString& Error
-)
+void FSarembokWebSocketClient::OnConnectionError(const FString& Error)
 {
-	UE_LOG(
-		LogTemp,
-		Error,
-		TEXT("Sarembok Connection Error: %s"),
-		*Error
-	);
+    UE_LOG(LogTemp, Error, TEXT("[SAREMBOK] WEBSOCKET CONNECTION ERROR: %s"), *Error);
 }
-
 
 void FSarembokWebSocketClient::OnClosed(
-	int32 StatusCode,
-	const FString& Reason,
-	bool bWasClean
+    int32 StatusCode,
+    const FString& Reason,
+    bool bWasClean
 )
 {
-	UE_LOG(
-		LogTemp,
-		Display,
-		TEXT("Sarembok Connection Closed")
-	);
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("[SAREMBOK] WEBSOCKET CLOSED - Status=%d Clean=%s Reason=%s"),
+        StatusCode,
+        bWasClean ? TEXT("true") : TEXT("false"),
+        *Reason
+    );
 }
