@@ -19,7 +19,7 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("Sarembok Command: %s Target: %s Payload: %s"),
+        TEXT("[SAREMBOK] COMMAND ROUTED | Command=%s | Target=%s | Payload=%s"),
         *LastCommand,
         *LastTarget,
         *LastPayload
@@ -28,6 +28,10 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
 
 void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
 {
+    LastCommand.Empty();
+    LastTarget.Empty();
+    LastPayload.Empty();
+
     TSharedPtr<FJsonObject> JsonObject;
 
     TSharedRef<TJsonReader<>> Reader =
@@ -36,9 +40,7 @@ void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
     if (!FJsonSerializer::Deserialize(Reader, JsonObject) ||
         !JsonObject.IsValid())
     {
-        LastCommand.Empty();
-        LastTarget.Empty();
-        LastPayload.Empty();
+        UE_LOG(LogTemp, Error, TEXT("[SAREMBOK] Invalid command JSON"));
         return;
     }
 
@@ -48,29 +50,19 @@ void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
     const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
 
     if (JsonObject->TryGetObjectField(TEXT("payload"), PayloadObject) &&
-        PayloadObject != nullptr &&
+        PayloadObject &&
         PayloadObject->IsValid())
     {
-        LastPayload.Empty();
+        TSharedRef<TJsonWriter<>> Writer =
+            TJsonWriterFactory<>::Create(&LastPayload);
 
-        for (const TPair<FString, TSharedPtr<FJsonValue>>& Field :
-             (*PayloadObject)->Values)
-        {
-            const FString Key = Field.Key;
-            const FString Value =
-                Field.Value.IsValid()
-                    ? Field.Value->AsString()
-                    : FString();
-
-            LastPayload += Key;
-            LastPayload += TEXT("=");
-            LastPayload += Value;
-            LastPayload += TEXT(";");
-        }
+        FJsonSerializer::Serialize(PayloadObject->ToSharedRef(), Writer);
+        Writer->Close();
     }
-    else
+
+    if (LastCommand.IsEmpty())
     {
-        LastPayload.Empty();
+        UE_LOG(LogTemp, Warning, TEXT("[SAREMBOK] Command received without command field"));
     }
 }
 
