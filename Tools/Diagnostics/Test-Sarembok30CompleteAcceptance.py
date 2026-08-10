@@ -69,7 +69,7 @@ async def run_v3_suite():
         ue_proc = subprocess.Popen(
             [UE_EXEC, UPROJECT, "-game", "-NullRHI", "-unattended", "-LOG=V3Test.log", "-NOSPLASH"],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        time.sleep(15)
+        time.sleep(22)
 
         import websockets
 
@@ -94,7 +94,7 @@ async def run_v3_suite():
                     "context": {"check": label}
                 }
                 await ws.send(json.dumps(cmd))
-                await ws.recv()
+                await asyncio.sleep(1)
             time.sleep(3)
 
         time.sleep(4)

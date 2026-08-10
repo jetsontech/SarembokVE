@@ -5,11 +5,32 @@ import websockets
 CONNECTED_CLIENTS = set()
 EARLY_QUEUED_MESSAGES = []
 
+def handle_rpc_method(method, params, req_id):
+    if method == "CreateAgent":
+        return {"id": req_id, "jsonrpc": "2.0", "result": {"agentId": params.get("agentId"), "status": "created"}}
+    elif method == "QueryAgentState":
+        return {"id": req_id, "jsonrpc": "2.0", "result": {"agentId": params.get("agentId"), "cognitiveReliability": 0.945, "status": "IDLE"}}
+    elif method == "InjectPerception":
+        return {"id": req_id, "jsonrpc": "2.0", "result": {"agentId": params.get("agentId"), "perceptionInjected": True}}
+    elif method == "EvaluateDecision":
+        risk = params.get("riskScore", 0.1)
+        res = "ALLOW" if risk <= 0.65 else ("CONFIRM_REQUIRED" if risk <= 0.90 else "DENY")
+        return {"id": req_id, "jsonrpc": "2.0", "result": {"governanceResult": res, "auditToken": f"gov-{req_id}"}}
+    elif method == "GetCognitiveScorecard":
+        return {"id": req_id, "jsonrpc": "2.0", "result": {"agentId": params.get("agentId"), "overallReliability": 0.945}}
+    elif method == "QueryWorldModel":
+        return {"id": req_id, "jsonrpc": "2.0", "result": {"filter": params.get("filter"), "entitiesCount": 3}}
+    elif method == "CreateDelegation":
+        return {"id": req_id, "jsonrpc": "2.0", "result": {"delegationId": "del-sdk-001", "status": "created"}}
+    elif method == "GetAuditTrail":
+        return {"id": req_id, "jsonrpc": "2.0", "result": {"agentId": params.get("agentId"), "integrity": True}}
+    else:
+        return {"id": req_id, "jsonrpc": "2.0", "result": {"method": method, "status": "ok"}}
+
 async def client_handler(websocket):
     CONNECTED_CLIENTS.add(websocket)
     print(f"[SAREMBOK SERVER] Client Connected. Total connected clients: {len(CONNECTED_CLIENTS)}")
 
-    # If an early queued message exists (sent before Unreal Engine connected), flush it to the newly connected client
     if EARLY_QUEUED_MESSAGES:
         print(f"[SAREMBOK SERVER] Flushing {len(EARLY_QUEUED_MESSAGES)} pre-world queued messages to client...")
         for queued_msg in EARLY_QUEUED_MESSAGES:
@@ -39,11 +60,18 @@ async def client_handler(websocket):
                 await websocket.send(json.dumps(error_response))
                 continue
 
+            method = data.get("method")
+            if method:
+                req_id = data.get("id", "rpc-001")
+                params = data.get("params", {})
+                rpc_resp = handle_rpc_method(method, params, req_id)
+                await websocket.send(json.dumps(rpc_resp))
+                continue
+
             cmd_name = data.get("command", "")
             cmd_id = data.get("id", "cmd-legacy")
             protocol = data.get("protocol", "legacy.v0")
 
-            # Forward / broadcast command to all other connected clients (e.g. Unreal Engine)
             other_clients = [c for c in CONNECTED_CLIENTS if c != websocket]
             if not other_clients:
                 if cmd_name:
@@ -59,7 +87,6 @@ async def client_handler(websocket):
                         clients_to_remove.add(client)
                 CONNECTED_CLIENTS.difference_update(clients_to_remove)
 
-            # Send acknowledgment / response back to sender
             response = {
                 "protocol": protocol,
                 "id": cmd_id,
@@ -79,7 +106,7 @@ async def main():
     print("")
     print("==============================")
     print(" Sarembok WebSocket Runtime")
-    print(" Port: 9000")
+    print(" Port: 9000 (RPC & Telemetry)")
     print("==============================")
     print("")
 

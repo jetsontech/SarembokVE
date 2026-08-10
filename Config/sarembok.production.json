@@ -1,0 +1,14 @@
+{
+    "environment":  "production",
+    "governance":  {
+                       "hardRiskCeiling":  0.9,
+                       "confidenceFloor":  0.65,
+                       "riskThreshold":  0.65
+                   },
+    "version":  "3.0.0",
+    "resilience":  {
+                       "walEnabled":  true,
+                       "autoReconnect":  true
+                   },
+    "websocketPort":  9000
+}
