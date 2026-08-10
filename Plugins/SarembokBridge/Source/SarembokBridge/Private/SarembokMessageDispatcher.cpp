@@ -1,4 +1,5 @@
 #include "SarembokMessageDispatcher.h"
+#include "SarembokCommandBus.h"
 
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonReader.h"
@@ -29,12 +30,9 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
 void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
 {
     TSharedPtr<FJsonObject> JsonObject;
+    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Message);
 
-    TSharedRef<TJsonReader<>> Reader =
-        TJsonReaderFactory<>::Create(Message);
-
-    if (!FJsonSerializer::Deserialize(Reader, JsonObject) ||
-        !JsonObject.IsValid())
+    if (!FJsonSerializer::Deserialize(Reader, JsonObject) || !JsonObject.IsValid())
     {
         LastCommand.Empty();
         LastTarget.Empty();
@@ -42,36 +40,40 @@ void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
         return;
     }
 
-    JsonObject->TryGetStringField(TEXT("command"), LastCommand);
-    JsonObject->TryGetStringField(TEXT("target"), LastTarget);
+    if (!JsonObject->TryGetStringField(TEXT("command"), LastCommand))
+    {
+        LastCommand.Empty();
+    }
+
+    if (!JsonObject->TryGetStringField(TEXT("target"), LastTarget))
+    {
+        LastTarget.Empty();
+    }
 
     const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
+    LastPayload.Empty();
 
     if (JsonObject->TryGetObjectField(TEXT("payload"), PayloadObject) &&
         PayloadObject != nullptr &&
         PayloadObject->IsValid())
     {
-        LastPayload.Empty();
-
-        for (const TPair<FString, TSharedPtr<FJsonValue>>& Field :
-             (*PayloadObject)->Values)
-        {
-            const FString Key = Field.Key;
-            const FString Value =
-                Field.Value.IsValid()
-                    ? Field.Value->AsString()
-                    : FString();
-
-            LastPayload += Key;
-            LastPayload += TEXT("=");
-            LastPayload += Value;
-            LastPayload += TEXT(";");
-        }
+        TSharedRef<TJsonWriter<>> Writer =
+            TJsonWriterFactory<>::Create(&LastPayload);
+        FJsonSerializer::Serialize(PayloadObject->ToSharedRef(), Writer);
+        Writer->Close();
     }
-    else
+
+    if (LastCommand.IsEmpty())
     {
-        LastPayload.Empty();
+        return;
     }
+
+    FSarembokCommand Command;
+    Command.Command = LastCommand;
+    Command.Target = LastTarget;
+    Command.Payload = LastPayload;
+
+    FSarembokCommandBus::Get().Dispatch(Command);
 }
 
 FString FSarembokMessageDispatcher::GetLastCommand() const
