@@ -24,6 +24,41 @@ def handle_rpc_method(method, params, req_id):
         return {"id": req_id, "jsonrpc": "2.0", "result": {"delegationId": "del-sdk-001", "status": "created"}}
     elif method == "GetAuditTrail":
         return {"id": req_id, "jsonrpc": "2.0", "result": {"agentId": params.get("agentId"), "integrity": True}}
+    elif method == "SendMessage":
+        return {"id": req_id, "jsonrpc": "2.0", "result": {
+            "agentId": params.get("agentId"),
+            "messageId": f"msg-{req_id}",
+            "delivered": True
+        }}
+    elif method == "GetEvents":
+        return {"id": req_id, "jsonrpc": "2.0", "result": {
+            "agentId": params.get("agentId"),
+            "events": [
+                {"type": "PERCEPTION", "timestamp": "2026-08-10T19:00:00Z", "traceId": "tr-001"},
+                {"type": "DECISION", "timestamp": "2026-08-10T19:00:01Z", "traceId": "tr-002"},
+                {"type": "ACTION", "timestamp": "2026-08-10T19:00:02Z", "traceId": "tr-003"}
+            ],
+            "count": 3
+        }}
+    elif method == "GetMetrics":
+        return {"id": req_id, "jsonrpc": "2.0", "result": {
+            "agentId": params.get("agentId"),
+            "metrics": {
+                "perception": 0.96,
+                "memory": 0.91,
+                "reasoning": 0.94,
+                "policy": 0.99,
+                "overall": 0.945
+            },
+            "uptimeSeconds": 3600
+        }}
+    elif method == "RestoreState":
+        return {"id": req_id, "jsonrpc": "2.0", "result": {
+            "agentId": params.get("agentId"),
+            "restored": True,
+            "walEntriesReplayed": params.get("walEntries", 0),
+            "stateConsistent": True
+        }}
     else:
         return {"id": req_id, "jsonrpc": "2.0", "result": {"method": method, "status": "ok"}}
 

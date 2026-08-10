@@ -67,6 +67,22 @@ class SarembokClient:
     def get_audit_trail(self, agent_id):
         return self._call("GetAuditTrail", {"agentId": agent_id})
 
+    # 9. Messaging
+    def send_message(self, agent_id, content):
+        return self._call("SendMessage", {"agentId": agent_id, "content": content})
+
+    # 10. Event Telemetry
+    def get_events(self, agent_id):
+        return self._call("GetEvents", {"agentId": agent_id})
+
+    # 11. Metrics
+    def get_metrics(self, agent_id):
+        return self._call("GetMetrics", {"agentId": agent_id})
+
+    # 12. State Restoration & WAL
+    def restore_state(self, agent_id, wal_entries=0):
+        return self._call("RestoreState", {"agentId": agent_id, "walEntries": wal_entries})
+
     def close(self):
         if self.ws:
             self.ws.close()

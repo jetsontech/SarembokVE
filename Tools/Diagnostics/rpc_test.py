@@ -18,6 +18,10 @@ RPC_TESTS = [
     {"jsonrpc": "2.0", "id": "t7", "method": "QueryWorldModel", "params": {"filter": "entities"}},
     {"jsonrpc": "2.0", "id": "t8", "method": "CreateDelegation", "params": {}},
     {"jsonrpc": "2.0", "id": "t9", "method": "GetAuditTrail", "params": {"agentId": "test-agent"}},
+    {"jsonrpc": "2.0", "id": "t10", "method": "SendMessage", "params": {"agentId": "test-agent", "content": "Hello agent"}},
+    {"jsonrpc": "2.0", "id": "t11", "method": "GetEvents", "params": {"agentId": "test-agent"}},
+    {"jsonrpc": "2.0", "id": "t12", "method": "GetMetrics", "params": {"agentId": "test-agent"}},
+    {"jsonrpc": "2.0", "id": "t13", "method": "RestoreState", "params": {"agentId": "test-agent", "walEntries": 42}},
 ]
 
 async def test():

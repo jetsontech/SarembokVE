@@ -69,6 +69,22 @@ export class SarembokClient {
         return this.call("GetAuditTrail", { agentId });
     }
 
+    public async sendMessage(agentId: string, content: string) {
+        return this.call("SendMessage", { agentId, content });
+    }
+
+    public async getEvents(agentId: string) {
+        return this.call("GetEvents", { agentId });
+    }
+
+    public async getMetrics(agentId: string) {
+        return this.call("GetMetrics", { agentId });
+    }
+
+    public async restoreState(agentId: string, walEntries: number = 0) {
+        return this.call("RestoreState", { agentId, walEntries });
+    }
+
     public close() {
         this.ws?.close();
     }

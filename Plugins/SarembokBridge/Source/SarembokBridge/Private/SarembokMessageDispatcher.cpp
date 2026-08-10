@@ -3,6 +3,7 @@
 #include "Dom/JsonObject.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
+#include "UObject/UObjectIterator.h"
 #include "SarembokAvatarComponent.h"
 #include "SarembokAvatarController.h"
 #include "Serialization/JsonReader.h"
@@ -244,6 +245,44 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         );
 
         return true;
+    }
+
+    if (LastCommand.StartsWith(TEXT("Trigger")))
+    {
+        FName FuncName(*LastCommand);
+
+        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
+        {
+            AActor* Actor = *It;
+            if (!Actor) continue;
+            UFunction* Func = Actor->FindFunction(FuncName);
+            if (Func)
+            {
+                Actor->ProcessEvent(Func, nullptr);
+                UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] REFLECTION TRIGGER EXECUTED | Command=%s on Actor=%s"), *LastCommand, *Actor->GetName());
+                return true;
+            }
+        }
+
+        for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
+        {
+            UClass* CandidateClass = *ClassIt;
+            if (!CandidateClass || !CandidateClass->IsChildOf(AActor::StaticClass())) continue;
+
+            UFunction* Func = CandidateClass->FindFunctionByName(FuncName);
+            if (Func)
+            {
+                FActorSpawnParameters SpawnParams;
+                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+                AActor* NewActor = RuntimeWorld->SpawnActor<AActor>(CandidateClass, SpawnParams);
+                if (NewActor)
+                {
+                    NewActor->ProcessEvent(Func, nullptr);
+                    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] REFLECTION TRIGGER SPAWNED & EXECUTED | Command=%s on Class=%s"), *LastCommand, *CandidateClass->GetName());
+                    return true;
+                }
+            }
+        }
     }
 
     UE_LOG(

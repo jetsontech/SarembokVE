@@ -69,7 +69,9 @@ async def run_v3_suite():
         ue_proc = subprocess.Popen(
             [UE_EXEC, UPROJECT, "-game", "-NullRHI", "-unattended", "-LOG=V3Test.log", "-NOSPLASH"],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        time.sleep(22)
+        
+        # Wait up to 35s for UE5.8 runtime initialization
+        time.sleep(30)
 
         import websockets
 
@@ -95,9 +97,9 @@ async def run_v3_suite():
                 }
                 await ws.send(json.dumps(cmd))
                 await asyncio.sleep(1)
-            time.sleep(3)
+            time.sleep(4)
 
-        time.sleep(4)
+        time.sleep(8)
         log = get_log("V3Test.log")
 
         # World Intelligence (251-260)
