@@ -7,13 +7,23 @@
 #include "SarembokAvatarController.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
+#include "Containers/Ticker.h"
 
 FSarembokMessageDispatcher::FSarembokMessageDispatcher()
 {
+    QueueTickerHandle = FTSTicker::GetCoreTicker().AddTicker(
+        FTickerDelegate::CreateRaw(this, &FSarembokMessageDispatcher::ProcessQueuedCommands),
+        0.1f
+    );
 }
 
 FSarembokMessageDispatcher::~FSarembokMessageDispatcher()
 {
+    if (QueueTickerHandle.IsValid())
+    {
+        FTSTicker::GetCoreTicker().RemoveTicker(QueueTickerHandle);
+        QueueTickerHandle.Reset();
+    }
 }
 
 void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
@@ -34,6 +44,22 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
         return;
     }
 
+    if (!ExecuteCommand(Message))
+    {
+        PendingCommands.Add(Message);
+
+        UE_LOG(
+            LogTemp,
+            Display,
+            TEXT("[SAREMBOK] COMMAND QUEUED | Command=%s | Pending=%d | Waiting for game world/avatar"),
+            *LastCommand,
+            PendingCommands.Num()
+        );
+    }
+}
+
+bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
+{
     UWorld* RuntimeWorld = nullptr;
 
     if (GEngine)
@@ -54,12 +80,7 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
 
     if (!RuntimeWorld)
     {
-        UE_LOG(
-            LogTemp,
-            Warning,
-            TEXT("[SAREMBOK] Command queued but no game world is available yet")
-        );
-        return;
+        return false;
     }
 
     USarembokAvatarComponent* AvatarComponent = nullptr;
@@ -102,27 +123,34 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
             }
         }
 
-        if (AvatarController && !Emotion.IsEmpty())
+        if (!AvatarController)
         {
-            AvatarController->SetEmotion(Emotion);
-
-            UE_LOG(
-                LogTemp,
-                Display,
-                TEXT("[SAREMBOK] AVATAR EMOTION EXECUTED | %s"),
-                *Emotion
-            );
+            return false;
         }
-        else
+
+        if (Emotion.IsEmpty())
         {
             UE_LOG(
                 LogTemp,
                 Warning,
-                TEXT("[SAREMBOK] Emotion command could not find an AvatarController")
+                TEXT("[SAREMBOK] Emotion command missing state payload")
             );
+            return true;
         }
+
+        AvatarController->SetEmotion(Emotion);
+
+        UE_LOG(
+            LogTemp,
+            Display,
+            TEXT("[SAREMBOK] AVATAR EMOTION EXECUTED | %s"),
+            *Emotion
+        );
+
+        return true;
     }
-    else if (LastCommand.Equals(TEXT("Speak"), ESearchCase::IgnoreCase))
+
+    if (LastCommand.Equals(TEXT("Speak"), ESearchCase::IgnoreCase))
     {
         FString Text;
         FString Emotion;
@@ -143,40 +171,90 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
             }
         }
 
+        if (!AvatarComponent)
+        {
+            return false;
+        }
+
+        if (Text.IsEmpty())
+        {
+            UE_LOG(
+                LogTemp,
+                Warning,
+                TEXT("[SAREMBOK] Speak command missing text payload")
+            );
+            return true;
+        }
+
         if (AvatarController && !Emotion.IsEmpty())
         {
             AvatarController->SetEmotion(Emotion);
         }
 
-        if (AvatarComponent && !Text.IsEmpty())
-        {
-            AvatarComponent->Speak(Text);
+        AvatarComponent->Speak(Text);
 
-            UE_LOG(
-                LogTemp,
-                Display,
-                TEXT("[SAREMBOK] AVATAR SPEECH EXECUTED | %s"),
-                *Text
-            );
-        }
-        else
+        UE_LOG(
+            LogTemp,
+            Display,
+            TEXT("[SAREMBOK] AVATAR SPEECH EXECUTED | %s"),
+            *Text
+        );
+
+        return true;
+    }
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("[SAREMBOK] Command received with no Avatar executor: %s"),
+        *LastCommand
+    );
+
+    return true;
+}
+
+bool FSarembokMessageDispatcher::ProcessQueuedCommands(float DeltaTime)
+{
+    if (PendingCommands.IsEmpty())
+    {
+        return true;
+    }
+
+    TArray<FString> CommandsToProcess = MoveTemp(PendingCommands);
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("[SAREMBOK] COMMAND QUEUE CHECK | Pending=%d"),
+        CommandsToProcess.Num()
+    );
+
+    for (const FString& Message : CommandsToProcess)
+    {
+        ParseCommand(Message);
+
+        if (LastCommand.IsEmpty())
         {
-            UE_LOG(
-                LogTemp,
-                Warning,
-                TEXT("[SAREMBOK] Speak command could not find a SarembokAvatarComponent or text payload")
-            );
+            continue;
+        }
+
+        if (!ExecuteCommand(Message))
+        {
+            PendingCommands.Add(Message);
         }
     }
-    else
+
+    if (!PendingCommands.IsEmpty())
     {
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("[SAREMBOK] Command received with no Avatar executor: %s"),
-            *LastCommand
+            TEXT("[SAREMBOK] COMMAND QUEUE WAITING | Pending=%d"),
+            PendingCommands.Num()
         );
     }
+
+    return true;
 }
 
 void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
