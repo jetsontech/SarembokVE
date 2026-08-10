@@ -14,7 +14,10 @@ public class SarembokAgent : ModuleRules
         {
             "Core",
             "CoreUObject",
-            "Engine"
+            "Engine",
+            "SarembokVision",
+            "SarembokMemory",
+            "SarembokBridge"
         });
     }
 }

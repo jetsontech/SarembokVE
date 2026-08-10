@@ -1,16 +1,28 @@
 {
-    "FileVersion":3,
-    "Version":1,
-    "VersionName":"1.0",
-    "FriendlyName":"Sarembok Agent",
-    "Category":"Sarembok",
-
-    "Modules":
-    [
+    "FileVersion": 3,
+    "Version": 1,
+    "VersionName": "1.0",
+    "FriendlyName": "Sarembok Agent",
+    "Category": "Sarembok",
+    "Modules": [
         {
-            "Name":"SarembokAgent",
-            "Type":"Runtime",
-            "LoadingPhase":"Default"
+            "Name": "SarembokAgent",
+            "Type": "Runtime",
+            "LoadingPhase": "Default"
+        }
+    ],
+    "Plugins": [
+        {
+            "Name": "SarembokVision",
+            "Enabled": true
+        },
+        {
+            "Name": "SarembokMemory",
+            "Enabled": true
+        },
+        {
+            "Name": "SarembokBridge",
+            "Enabled": true
         }
     ]
 }

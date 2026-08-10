@@ -1,16 +1,20 @@
 {
-    "FileVersion":3,
-    "Version":1,
-    "VersionName":"1.0",
-    "FriendlyName":"Sarembok Vision",
-    "Category":"Sarembok",
-
-    "Modules":
-    [
+    "FileVersion": 3,
+    "Version": 1,
+    "VersionName": "1.0",
+    "FriendlyName": "Sarembok Vision",
+    "Category": "Sarembok",
+    "Modules": [
         {
-            "Name":"SarembokVision",
-            "Type":"Runtime",
-            "LoadingPhase":"Default"
+            "Name": "SarembokVision",
+            "Type": "Runtime",
+            "LoadingPhase": "Default"
+        }
+    ],
+    "Plugins": [
+        {
+            "Name": "SarembokAvatar",
+            "Enabled": true
         }
     ]
 }

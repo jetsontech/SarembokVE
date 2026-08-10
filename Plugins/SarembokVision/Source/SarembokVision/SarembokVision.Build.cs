@@ -14,7 +14,8 @@ public class SarembokVision : ModuleRules
         {
             "Core",
             "CoreUObject",
-            "Engine"
+            "Engine",
+            "SarembokAvatar"
         });
     }
 }

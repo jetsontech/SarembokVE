@@ -34,6 +34,13 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
 {
     ParseCommand(Message);
 
+    // v1.2: Create execution trace
+    FString TraceId = ExtractTraceId(Message);
+    FSarembokExecutionTrace Trace;
+    Trace.TraceId = TraceId.IsEmpty() ? LastId : TraceId;
+    Trace.StartTime = FDateTime::UtcNow();
+    Trace.AddEvent(TEXT("BRIDGE"), TEXT("ROUTED"), LastId, LastCommand);
+
     UE_LOG(
         LogTemp,
         Display,
@@ -54,6 +61,8 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
     {
         PendingCommands.Add(Message);
 
+        Trace.AddEvent(TEXT("BRIDGE"), TEXT("QUEUED"), LastId);
+
         UE_LOG(
             LogTemp,
             Display,
@@ -63,6 +72,28 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
             PendingCommands.Num()
         );
     }
+    else
+    {
+        Trace.AddEvent(TEXT("BRIDGE"), TEXT("EXECUTED"), LastId, LastCommand);
+    }
+
+    // Complete and store trace
+    Trace.Complete();
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("[SAREMBOK][BRIDGE] TRACE_COMPLETE | TraceId=%s | Events=%d"),
+        *Trace.TraceId,
+        Trace.Events.Num()
+    );
+
+    // FIFO eviction
+    if (ExecutionTraces.Num() >= MaxTraces)
+    {
+        ExecutionTraces.RemoveAt(0);
+    }
+    ExecutionTraces.Add(Trace);
 }
 
 bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
@@ -426,4 +457,44 @@ FString FSarembokMessageDispatcher::GetLastProtocol() const
 FString FSarembokMessageDispatcher::GetLastCorrelationId() const
 {
     return LastId;
+}
+
+FString FSarembokMessageDispatcher::ExtractTraceId(const FString& Message) const
+{
+    TSharedPtr<FJsonObject> JsonObject;
+    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Message);
+
+    if (!FJsonSerializer::Deserialize(Reader, JsonObject) || !JsonObject.IsValid())
+    {
+        return TEXT("");
+    }
+
+    const TSharedPtr<FJsonObject>* ContextObject = nullptr;
+    if (JsonObject->TryGetObjectField(TEXT("context"), ContextObject) &&
+        ContextObject && ContextObject->IsValid())
+    {
+        FString TraceId;
+        if ((*ContextObject)->TryGetStringField(TEXT("trace"), TraceId))
+        {
+            return TraceId;
+        }
+    }
+
+    return TEXT("");
+}
+
+const TArray<FSarembokExecutionTrace>& FSarembokMessageDispatcher::GetTraces() const
+{
+    return ExecutionTraces;
+}
+
+TArray<FSarembokExecutionTrace> FSarembokMessageDispatcher::GetRecentTraces(int32 Count) const
+{
+    TArray<FSarembokExecutionTrace> Result;
+    int32 StartIdx = FMath::Max(0, ExecutionTraces.Num() - Count);
+    for (int32 i = StartIdx; i < ExecutionTraces.Num(); ++i)
+    {
+        Result.Add(ExecutionTraces[i]);
+    }
+    return Result;
 }
