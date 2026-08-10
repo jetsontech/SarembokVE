@@ -493,6 +493,41 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         return true;
     }
 
+    if (LastCommand.StartsWith(TEXT("TriggerRealtimeTest"), ESearchCase::IgnoreCase))
+    {
+        AActor* RealtimeCtrl = nullptr;
+        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
+        {
+            if (It->GetClass()->GetName().Contains(TEXT("SarembokRealtimeDemoController")))
+            {
+                RealtimeCtrl = *It;
+                break;
+            }
+        }
+
+        if (!RealtimeCtrl)
+        {
+            UClass* RealtimeClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokAgent.SarembokRealtimeDemoController"));
+            if (RealtimeClass)
+            {
+                FActorSpawnParameters SpawnParams;
+                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+                RealtimeCtrl = RuntimeWorld->SpawnActor<AActor>(RealtimeClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+            }
+        }
+
+        if (RealtimeCtrl)
+        {
+            UFunction* Func = RealtimeCtrl->FindFunction(*LastCommand);
+            if (Func)
+            {
+                RealtimeCtrl->ProcessEvent(Func, nullptr);
+                return true;
+            }
+        }
+        return true;
+    }
+
     UE_LOG(
         LogTemp,
         Display,

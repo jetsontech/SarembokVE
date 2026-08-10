@@ -19,7 +19,8 @@ public class SarembokAgent : ModuleRules
             "JsonUtilities",
             "SarembokVision",
             "SarembokMemory",
-            "SarembokBridge"
+            "SarembokBridge",
+            "SarembokVoice"
         });
     }
 }
