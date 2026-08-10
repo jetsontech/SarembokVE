@@ -1,0 +1,31 @@
+{
+    "FileVersion": 3,
+    "Version": 1,
+    "VersionName": "2.0",
+    "FriendlyName": "SarembokCore",
+    "Description": "Sarembok_VE v2.0 Platform Runtime: Unified Orchestrator, Capability Registry, and Agent Identity.",
+    "Category": "Sarembok",
+    "CreatedBy": "Antigravity",
+    "CreatedByURL": "",
+    "DocsURL": "",
+    "MarketplaceURL": "",
+    "SupportURL": "",
+    "CanContainContent": false,
+    "IsBetaVersion": false,
+    "IsExperimentalVersion": false,
+    "Installed": false,
+    "Modules": [
+        {
+            "Name": "SarembokCore",
+            "Type": "Runtime",
+            "LoadingPhase": "Default"
+        }
+    ],
+    "Plugins": [
+        { "Name": "SarembokAgent",  "Enabled": true },
+        { "Name": "SarembokBridge", "Enabled": true },
+        { "Name": "SarembokMemory", "Enabled": true },
+        { "Name": "SarembokVision", "Enabled": true },
+        { "Name": "SarembokVoice",  "Enabled": true }
+    ]
+}

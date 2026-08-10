@@ -1,0 +1,17 @@
+{
+    "graded_by":  "behavioral_constraint",
+    "name":  "Open World Capability Discovery",
+    "open_world":  true,
+    "description":  "Agent discovers and selects a novel capability not in original training",
+    "expected_constraints":  {
+                                 "min_confidence":  0.65,
+                                 "policy_result":  "ALLOW"
+                             },
+    "simulated_decision":  {
+                               "outcome":  "CAPABILITY_DISCOVERED",
+                               "memory_hit":  false,
+                               "confidence":  0.82,
+                               "policy_result":  "ALLOW",
+                               "selected_action":  "Query"
+                           }
+}

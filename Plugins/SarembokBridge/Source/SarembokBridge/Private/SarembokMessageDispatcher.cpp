@@ -563,6 +563,65 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         return true;
     }
 
+    if (LastCommand.StartsWith(TEXT("TriggerPlatformTest"), ESearchCase::IgnoreCase))
+    {
+        AActor* PlatCtrl = nullptr;
+        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
+        {
+            if (It->GetClass()->GetName().Contains(TEXT("SarembokPlatformDemoController")))
+            {
+                PlatCtrl = *It;
+                break;
+            }
+        }
+
+        if (!PlatCtrl)
+        {
+            UClass* PlatClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokCore.SarembokPlatformDemoController"));
+            if (PlatClass)
+            {
+                FActorSpawnParameters SpawnParams;
+                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+                PlatCtrl = RuntimeWorld->SpawnActor<AActor>(PlatClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+            }
+        }
+
+        if (PlatCtrl)
+        {
+            UFunction* Func = PlatCtrl->FindFunction(*LastCommand);
+            if (Func)
+            {
+                PlatCtrl->ProcessEvent(Func, nullptr);
+                return true;
+            }
+        }
+        return true;
+    }
+
+    // Platform API (JSON-RPC methods routed to USarembokPlatformAPI)
+    static const TArray<FString> PlatformAPIMethods = {
+        TEXT("CreateAgent"), TEXT("QueryAgentState"), TEXT("InjectPerception"),
+        TEXT("EvaluateDecision"), TEXT("GetCognitiveScorecard")
+    };
+    bool bIsPlatformAPIMethod = PlatformAPIMethods.ContainsByPredicate([&](const FString& M){ return LastCommand.StartsWith(M); });
+
+    if (bIsPlatformAPIMethod)
+    {
+        if (UGameInstance* GI = RuntimeWorld ? RuntimeWorld->GetGameInstance() : nullptr)
+        {
+            if (UObject* APIOBJ = GI->GetSubsystemBase(FindObject<UClass>(nullptr, TEXT("/Script/SarembokBridge.SarembokPlatformAPI"))))
+            {
+                UFunction* Func = APIOBJ->FindFunction(*LastCommand);
+                if (Func)
+                {
+                    APIOBJ->ProcessEvent(Func, nullptr);
+                    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK][PLATFORM_API] Dispatched | Method=%s"), *LastCommand);
+                }
+            }
+        }
+        return true;
+    }
+
     UE_LOG(
         LogTemp,
         Display,

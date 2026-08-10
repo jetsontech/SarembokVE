@@ -1,0 +1,18 @@
+{
+    "graded_by":  "behavioral_constraint",
+    "name":  "Open World Greeting Variant",
+    "open_world":  true,
+    "description":  "Greeting with non-predetermined emotional context",
+    "expected_constraints":  {
+                                 "memory_hit":  false,
+                                 "policy_result":  "ALLOW",
+                                 "min_confidence":  0.7
+                             },
+    "simulated_decision":  {
+                               "outcome":  "SUCCESS",
+                               "memory_hit":  false,
+                               "confidence":  0.88,
+                               "policy_result":  "ALLOW",
+                               "selected_action":  "SpeakGreeting"
+                           }
+}

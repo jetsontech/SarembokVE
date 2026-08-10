@@ -11,11 +11,13 @@
     }
   ],
   "Plugins": [
-    { "Name": "SarembokBridge", "Enabled": true },
-    { "Name": "SarembokAvatar", "Enabled": true },
-    { "Name": "SarembokVoice", "Enabled": true },
-    { "Name": "SarembokVision", "Enabled": true },
-    { "Name": "SarembokAgent", "Enabled": true },
-    { "Name": "SarembokMemory", "Enabled": true }
+    { "Name": "SarembokBridge",      "Enabled": true },
+    { "Name": "SarembokAvatar",      "Enabled": true },
+    { "Name": "SarembokVoice",       "Enabled": true },
+    { "Name": "SarembokVision",      "Enabled": true },
+    { "Name": "SarembokAgent",       "Enabled": true },
+    { "Name": "SarembokMemory",      "Enabled": true },
+    { "Name": "SarembokCore",        "Enabled": true },
+    { "Name": "SarembokGovernance",  "Enabled": true }
   ]
 }

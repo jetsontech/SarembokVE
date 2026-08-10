@@ -1,0 +1,21 @@
+{
+    "FileVersion": 3,
+    "Version": 1,
+    "VersionName": "2.0",
+    "FriendlyName": "SarembokGovernance",
+    "Description": "Sarembok_VE v2.0 Cognitive Governance: multi-factor authorization, audit trail, safety evaluation.",
+    "Category": "Sarembok",
+    "CreatedBy": "Antigravity",
+    "CanContainContent": false,
+    "Modules": [
+        {
+            "Name": "SarembokGovernance",
+            "Type": "Runtime",
+            "LoadingPhase": "Default"
+        }
+    ],
+    "Plugins": [
+        { "Name": "SarembokCore",  "Enabled": true },
+        { "Name": "SarembokAgent", "Enabled": true }
+    ]
+}

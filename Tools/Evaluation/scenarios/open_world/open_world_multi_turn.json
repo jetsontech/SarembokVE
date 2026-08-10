@@ -1,0 +1,17 @@
+{
+    "graded_by":  "behavioral_constraint",
+    "name":  "Open World Multi-Turn Conversation",
+    "open_world":  true,
+    "description":  "Multi-turn conversation without scripted responses",
+    "expected_constraints":  {
+                                 "min_confidence":  0.7,
+                                 "outcome":  "CONVERSATION_CONTINUED"
+                             },
+    "simulated_decision":  {
+                               "outcome":  "CONVERSATION_CONTINUED",
+                               "memory_hit":  true,
+                               "confidence":  0.91,
+                               "policy_result":  "ALLOW",
+                               "selected_action":  "ContinueConversation"
+                           }
+}
