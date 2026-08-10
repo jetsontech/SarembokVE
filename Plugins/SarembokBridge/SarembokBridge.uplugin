@@ -6,6 +6,12 @@
   "Description": "WebSocket bridge plugin for Sarembok.",
   "Category": "Sarembok",
   "EnabledByDefault": true,
+  "Plugins": [
+    {
+      "Name": "SarembokAvatar",
+      "Enabled": true
+    }
+  ],
   "Modules": [
     {
       "Name": "SarembokBridge",
