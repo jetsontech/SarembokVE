@@ -6,6 +6,7 @@ void USarembokVoiceManager::Initialize(FSubsystemCollectionBase& Collection)
 
     CurrentSpeech = TEXT("");
     bVoiceAvailable = true;
+    SpeechQueue.Empty();
 
     UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Voice Subsystem Initialized"));
 }
@@ -13,6 +14,8 @@ void USarembokVoiceManager::Initialize(FSubsystemCollectionBase& Collection)
 void USarembokVoiceManager::Deinitialize()
 {
     bVoiceAvailable = false;
+    SpeechQueue.Empty();
+
     UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Voice Subsystem Deinitialized"));
 
     Super::Deinitialize();
@@ -38,6 +41,7 @@ ESarembokVoiceStatus USarembokVoiceManager::SpeakWithResult(const FString& Text)
     }
 
     CurrentSpeech = Text;
+    SpeechQueue.Add(Text);
 
     UE_LOG(
         LogTemp,
@@ -57,4 +61,15 @@ bool USarembokVoiceManager::IsVoiceAvailable() const
 FString USarembokVoiceManager::GetCurrentSpeech() const
 {
     return CurrentSpeech;
+}
+
+float USarembokVoiceManager::GetActiveVisemeWeight() const
+{
+    // Return speech viseme activation weight when active speech text is present
+    return CurrentSpeech.IsEmpty() ? 0.0f : 0.65f;
+}
+
+int32 USarembokVoiceManager::GetSpeechQueueCount() const
+{
+    return SpeechQueue.Num();
 }

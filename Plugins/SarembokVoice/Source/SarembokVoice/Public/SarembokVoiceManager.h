@@ -35,8 +35,15 @@ public:
     UFUNCTION(BlueprintCallable, Category="Sarembok Voice")
     FString GetCurrentSpeech() const;
 
+    UFUNCTION(BlueprintPure, Category="Sarembok Voice")
+    float GetActiveVisemeWeight() const;
+
+    UFUNCTION(BlueprintPure, Category="Sarembok Voice")
+    int32 GetSpeechQueueCount() const;
+
 private:
 
     FString CurrentSpeech;
     bool bVoiceAvailable = true;
+    TArray<FString> SpeechQueue;
 };
