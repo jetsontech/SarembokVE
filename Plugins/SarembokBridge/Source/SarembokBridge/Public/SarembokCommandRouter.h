@@ -5,7 +5,7 @@
 #include "SarembokCommandRouter.generated.h"
 
 USTRUCT(BlueprintType)
-struct FSarembokCommand
+struct SAREMBOKBRIDGE_API FSarembokCommand
 {
     GENERATED_BODY()
 
@@ -25,7 +25,6 @@ class SAREMBOKBRIDGE_API USarembokCommandRouter : public UObject
     GENERATED_BODY()
 
 public:
-
     UFUNCTION(BlueprintCallable, Category="Sarembok Bridge")
     bool RouteCommand(const FSarembokCommand& Command);
 
@@ -33,6 +32,5 @@ public:
     FString GetLastCommand() const;
 
 private:
-
     FString LastCommand;
 };
