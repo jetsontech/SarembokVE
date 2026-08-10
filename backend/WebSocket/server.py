@@ -24,18 +24,32 @@ async def client_handler(websocket):
         async for message in websocket:
             print(f"[SAREMBOK SERVER] Received message: {message}")
 
-            # If no other client is currently connected, queue the command message for when Unreal Engine connects
+            try:
+                data = json.loads(message)
+            except Exception:
+                error_response = {
+                    "protocol": "sarembok.v1",
+                    "id": "cmd-error",
+                    "type": "error",
+                    "error": {
+                        "code": "INVALID_JSON",
+                        "message": "Malformed JSON payload received"
+                    }
+                }
+                await websocket.send(json.dumps(error_response))
+                continue
+
+            cmd_name = data.get("command", "")
+            cmd_id = data.get("id", "cmd-legacy")
+            protocol = data.get("protocol", "legacy.v0")
+
+            # Forward / broadcast command to all other connected clients (e.g. Unreal Engine)
             other_clients = [c for c in CONNECTED_CLIENTS if c != websocket]
             if not other_clients:
-                try:
-                    data = json.loads(message)
-                    if "command" in data:
-                        EARLY_QUEUED_MESSAGES.append(message)
-                        print(f"[SAREMBOK SERVER] Pre-world command queued on server: {data.get('command')}")
-                except Exception:
-                    pass
+                if cmd_name:
+                    EARLY_QUEUED_MESSAGES.append(message)
+                    print(f"[SAREMBOK SERVER] Pre-world command queued on server: {cmd_name}")
             else:
-                # Forward / broadcast command to all other connected clients
                 clients_to_remove = set()
                 for client in other_clients:
                     try:
@@ -45,23 +59,15 @@ async def client_handler(websocket):
                         clients_to_remove.add(client)
                 CONNECTED_CLIENTS.difference_update(clients_to_remove)
 
-            # Send acknowledgment back to sender
-            try:
-                data = json.loads(message)
-                cmd = data.get("command", "")
-                response = {
-                    "type": "ai_response",
-                    "text": "Sarembok Runtime Online",
-                    "command": cmd,
-                    "state": "active"
-                }
-            except Exception:
-                response = {
-                    "type": "ai_response",
-                    "text": "Sarembok Runtime Online",
-                    "state": "active"
-                }
-
+            # Send acknowledgment / response back to sender
+            response = {
+                "protocol": protocol,
+                "id": cmd_id,
+                "type": "ai_response",
+                "text": "Sarembok Runtime Online",
+                "command": cmd_name,
+                "state": "active"
+            }
             await websocket.send(json.dumps(response))
 
     except websockets.exceptions.ConnectionClosed:

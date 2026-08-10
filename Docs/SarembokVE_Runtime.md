@@ -13,55 +13,92 @@ The Unreal project is modularized into 6 core plugins located in `C:\Sarembok_VE
 | Subsystem Plugin | Primary Purpose | Key Classes & Headers |
 | :--- | :--- | :--- |
 | **`SarembokBridge`** | WebSocket runtime communication, message dispatching, ticker-based world/avatar discovery, command constants | `FSarembokMessageDispatcher`, `USarembokWebSocketClient`, `SarembokCommandConstants.h` |
-| **`SarembokAvatar`** | Digital human character management, emotion control, state machine, and MetaHuman compatibility | `USarembokAvatarComponent`, `USarembokAvatarController`, `USarembokAvatarManager` |
-| **`SarembokVoice`** | Audio execution, TTS pipeline integration, speech playback, and voice execution status | `USarembokVoiceManager`, `ESarembokVoiceStatus` |
-| **`SarembokVision`** | Real-time scene observation and camera frame processing | `USarembokVisionManager`, `FSarembokObservation` |
-| **`SarembokAgent`** | Task planning, autonomous loops, and intent routing | `USarembokAgentManager`, `FSarembokTask` |
-| **`SarembokMemory`** | Key-value state persistence and memory retrieval | `ISarembokMemoryInterface` |
+| **`SarembokAvatar`** | Digital human character management, emotion control, MetaHuman ARKit morph targets | `USarembokAvatarComponent`, `USarembokAvatarController`, `USarembokAvatarManager` |
+| **`SarembokVoice`** | Audio execution, TTS pipeline integration, viseme calculation, speech queue tracking | `USarembokVoiceManager`, `ESarembokVoiceStatus` |
+| **`SarembokVision`** | Real-time UWorld scene actor observation, spatial location tracking, and frame capture | `USarembokVisionManager`, `FSarembokObservation` |
+| **`SarembokAgent`** | Task planning, autonomous closed-loop execution (`RunAutonomousLoop`), state machine | `USarembokAgentManager`, `FSarembokTask` |
+| **`SarembokMemory`** | Thread-safe key-value state persistence (`StoreMemory`, `RecallMemory`) | `USarembokMemorySubsystem`, `ISarembokMemoryInterface` |
 
 ---
 
-## Command Lifecycle & Dispatch Architecture
+## Canonical Command Protocol (`sarembok.v1`)
+
+Authoritative versioned JSON command envelope schema:
+
+```json
+{
+  "protocol": "sarembok.v1",
+  "id": "cmd-000001",
+  "timestamp": "2026-08-09T23:39:00Z",
+  "command": "Speak",
+  "target": "Avatar",
+  "payload": {
+    "text": "Hello from Sarembok",
+    "emotion": "Joyful"
+  },
+  "context": {
+    "agent": "default",
+    "task": "greeting"
+  }
+}
+```
+
+Corresponding command result response:
+
+```json
+{
+  "protocol": "sarembok.v1",
+  "id": "cmd-000001",
+  "type": "command_result",
+  "status": "completed",
+  "command": "Speak",
+  "target": "Avatar",
+  "result": {
+    "voice": "executed",
+    "duration_ms": 1840
+  }
+}
+```
+
+---
+
+## Perception-Reasoning-Action Closed Loop
 
 ```
-[External AI Backend] 
-        │
-        ▼ (WebSocket JSON on ws://127.0.0.1:9000)
-[SarembokBridge :: WS Client]
-        │
-        ▼
-[FSarembokMessageDispatcher]
-        │
-  ├── Parse JSON via SarembokCommandConstants (command, target, payload)
-  ├── Search Runtime World (Game/PIE context)
-  ├── If Avatar Missing ──► Spawns Deterministic Fallback Avatar (SarembokRuntimeAvatarActor)
-  ├── If World Unavailable ──► Queue in PendingCommands & Retry on Core Ticker (0.1s)
-  └── Execute Command:
-        ├── "Emotion" ──► USarembokAvatarController::SetEmotion()
-        └── "Speak"   ──► USarembokAvatarComponent::Speak() ──► USarembokVoiceManager::SpeakWithResult()
+VISION (Observe scene actors & location vectors)
+  │
+  ▼
+MEMORY (Thread-safe key-value store / recall)
+  │
+  ▼
+AGENT (Reasoning state machine & intent synthesis)
+  │
+  ▼
+BRIDGE (Dispatches versioned sarembok.v1 JSON envelope with correlation ID)
+  │
+  ├── Emotion ──► AVATAR (MetaHuman morph targets: Happy/Sad/Angry/Surprised/Calm)
+  └── Speak ────► VOICE  (Viseme open weight & speech queue)
+  │
+  ▼
+DIGITAL HUMAN (Character expression & speech update world state)
+  │
+  └──────────────► VISION (Feedback loop)
 ```
 
 ---
 
-## Centralized Command Protocol (`SarembokCommandConstants.h`)
+## Hardware-Adaptive Rendering Baseline
 
-Authoritative string constants declared in `SarembokCommandConstants.h`:
+The hardware configuration in `Config/DefaultEngine.ini` guarantees compatibility with **Intel Iris Xe integrated graphics**:
 
-- **Commands**: `Emotion`, `Speak`, `Chat`, `Facial`, `Gesture`
-- **Targets**: `Avatar`, `Voice`, `System`
-- **JSON Field Keys**: `command`, `target`, `payload`, `state`, `text`, `emotion`
-- **Default WebSocket Endpoint**: `ws://127.0.0.1:9000`
+- Target Shader Format: `PCD3D_SM5`
+- Dynamic GI Method: 0 (Disabled / Baseline)
+- Reflection Method: 0 (Disabled / Baseline)
+- Nanite: Disabled (`r.Nanite.ProjectEnabled=False`)
+- Virtual Shadow Maps: Disabled (`r.Shadow.Virtual.Enable=0`)
+- Hardware Ray Tracing: Disabled (`r.RayTracing=0`)
 
----
-
-## Voice Execution Status (`ESarembokVoiceStatus`)
-
-`USarembokVoiceManager` exposes `SpeakWithResult(Text)` returning:
-
-- `ESarembokVoiceStatus::Executed` — Speech command accepted and executed.
-- `ESarembokVoiceStatus::Queued` — Speech command queued.
-- `ESarembokVoiceStatus::Unavailable` — Voice executor/audio subsystem currently unavailable.
-- `ESarembokVoiceStatus::Failed` — Payload validation or execution fault.
+*Note: Future high-end hardware profiles (SM6/Lumen/Nanite) can be enabled per-device profile without breaking default iGPU compatibility.*
 
 ---
 
@@ -79,14 +116,6 @@ Project operations are managed through unified PowerShell tools in `Tools/`:
   ```powershell
   powershell -ExecutionPolicy Bypass -File Tools/Builder/SarembokBuilder.ps1 -Action Diagnose
   ```
-- **Generate VS Solution**:
-  ```powershell
-  powershell -ExecutionPolicy Bypass -File Tools/Builder/SarembokBuilder.ps1 -Action Generate
-  ```
-- **Clean Generated Binaries**:
-  ```powershell
-  powershell -ExecutionPolicy Bypass -File Tools/Builder/SarembokBuilder.ps1 -Action Clean
-  ```
 
 ### 2. Standalone Health Diagnostics (`Tools/Diagnostics/Test-SarembokProject.ps1`)
 
@@ -95,20 +124,9 @@ Audits git status, UE 5.8 installation, `.uproject` plugins, `Build.cs` configur
 powershell -ExecutionPolicy Bypass -File Tools/Diagnostics/Test-SarembokProject.ps1
 ```
 
----
+### 3. End-to-End Runtime Test Pyramid (`Tools/Diagnostics/Test-SarembokRuntimeEndToEnd.py`)
 
-## WebSocket Integration Test Suite
-
-The integration test suite (`Tools/Diagnostics/Test-WebSocketIntegration.py`) validates:
-
-1. Connection & Valid `Emotion` command lifecycle
-2. Valid `Speak` command lifecycle
-3. Malformed JSON protocol resilience
-4. Unknown command routing
-5. Missing payload handling
-6. Disconnect & Reconnect cycle
-
-Run tests via:
+Executes the 22-step deterministic acceptance test pyramid:
 ```powershell
-python Tools/Diagnostics/Test-WebSocketIntegration.py
+python Tools/Diagnostics/Test-SarembokRuntimeEndToEnd.py
 ```
