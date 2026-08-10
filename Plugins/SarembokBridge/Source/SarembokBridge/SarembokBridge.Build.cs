@@ -21,7 +21,8 @@ public class SarembokBridge : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Projects"
+				"Projects",
+				"SarembokAvatar"
 			}
 		);
 
