@@ -1,11 +1,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Containers/Ticker.h"
 
 class FSarembokMessageDispatcher
 {
 public:
-
     FSarembokMessageDispatcher();
     ~FSarembokMessageDispatcher();
 
@@ -14,7 +14,6 @@ public:
     FString GetLastCommand() const;
 
 private:
-
     void ParseCommand(const FString& Message);
     bool ExecuteCommand(const FString& Message);
     bool ProcessQueuedCommands(float DeltaTime);
@@ -24,5 +23,5 @@ private:
     FString LastPayload;
 
     TArray<FString> PendingCommands;
-    FDelegateHandle QueueTickerHandle;
+    FTSTicker::FDelegateHandle QueueTickerHandle;
 };
