@@ -18,6 +18,7 @@ enum class ESarembokAgentState : uint8
     Execute         UMETA(DisplayName = "Execute"),
     ObserveResult   UMETA(DisplayName = "ObserveResult"),
     Evaluate        UMETA(DisplayName = "Evaluate"),
+    Replan          UMETA(DisplayName = "Replan"),
     Completed       UMETA(DisplayName = "Completed"),
     Failed          UMETA(DisplayName = "Failed"),
     Shutdown        UMETA(DisplayName = "Shutdown")
@@ -52,7 +53,7 @@ public:
     FString SubmitTask(const FSarembokTask& Task);
 
     /**
-     * v1.2 full perception-reasoning-action cycle.
+     * v1.3 goal-oriented autonomous perception-reasoning-action-replanning cycle.
      * Returns true if an action was generated and dispatched.
      */
     UFUNCTION(BlueprintCallable, Category="Sarembok Agent")
@@ -67,6 +68,39 @@ public:
     UFUNCTION(BlueprintCallable, Category="Sarembok Agent")
     void CancelCurrentTask();
 
+    // ---- v1.3 Goal Management ----
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok Agent")
+    void PushGoal(const FSarembokGoal& Goal);
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok Agent")
+    bool PopGoal(FSarembokGoal& OutGoal);
+
+    UFUNCTION(BlueprintPure, Category="Sarembok Agent")
+    FSarembokGoal GetActiveGoal() const;
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok Agent")
+    bool CompleteActiveGoal();
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok Agent")
+    bool FailActiveGoal(const FString& Reason);
+
+    UFUNCTION(BlueprintPure, Category="Sarembok Agent")
+    int32 GetGoalCount() const;
+
+    // ---- v1.3 Reasoner & Replanning Controls ----
+
+    void SetReasoningProvider(TUniquePtr<ISarembokReasoningProvider> NewProvider);
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok Agent")
+    void SetLLMMode(bool bEnableLLM);
+
+    UFUNCTION(BlueprintPure, Category="Sarembok Agent")
+    FString GetActiveProviderName() const;
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok Agent")
+    void SetSimulateActionFailure(bool bSimulate);
+
 private:
 
     bool ProcessAutonomousTick(float DeltaTime);
@@ -79,6 +113,12 @@ private:
     FTSTicker::FDelegateHandle TickerHandle;
 
     TUniquePtr<ISarembokReasoningProvider> ReasoningProvider;
+
+    // v1.3 Goal Stack
+    TArray<FSarembokGoal> GoalStack;
+
+    // v1.3 Failure recovery testing flag
+    bool bSimulateFailure = false;
 
     void TransitionState(ESarembokAgentState NewState, const FString& TraceId);
     static FString StateToString(ESarembokAgentState State);

@@ -1,5 +1,6 @@
 #include "SarembokAgentManager.h"
 #include "SarembokDeterministicReasoner.h"
+#include "SarembokLLMReasoner.h"
 #include "SarembokVisionManager.h"
 #include "SarembokMemorySubsystem.h"
 #include "SarembokEpisode.h"
@@ -16,8 +17,10 @@ void USarembokAgentManager::Initialize(FSubsystemCollectionBase& Collection)
     ActiveTask = FSarembokTask();
     LoopCounter = 0;
     IdleCycleCounter = 0;
+    GoalStack.Empty();
+    bSimulateFailure = false;
 
-    // Initialize with deterministic reasoning provider
+    // Initialize with deterministic reasoning provider by default
     ReasoningProvider = MakeUnique<FSarembokDeterministicReasoner>();
 
     // Register ticker to run autonomous perception loop periodically (every 1.5 seconds)
@@ -41,6 +44,7 @@ void USarembokAgentManager::Deinitialize()
     }
 
     ReasoningProvider.Reset();
+    GoalStack.Empty();
     Super::Deinitialize();
 }
 
@@ -78,6 +82,125 @@ FString USarembokAgentManager::SubmitTask(const FSarembokTask& Task)
     return ActiveTask.TaskId;
 }
 
+// ---- v1.3 Goal Stack Implementation ----
+
+void USarembokAgentManager::PushGoal(const FSarembokGoal& Goal)
+{
+    FSarembokGoal NewGoal = Goal;
+    if (NewGoal.GoalId.IsEmpty())
+    {
+        NewGoal.GoalId = FString::Printf(TEXT("goal-%06d"), GoalStack.Num() + 1);
+    }
+
+    GoalStack.Push(NewGoal);
+
+    UE_LOG(LogTemp, Display,
+        TEXT("[SAREMBOK][AGENT] GOAL_PUSHED | GoalId=%s | Desc=%s | Priority=%d | Total=%d"),
+        *NewGoal.GoalId, *NewGoal.Description, NewGoal.Priority, GoalStack.Num());
+}
+
+bool USarembokAgentManager::PopGoal(FSarembokGoal& OutGoal)
+{
+    if (GoalStack.IsEmpty())
+    {
+        OutGoal = FSarembokGoal();
+        return false;
+    }
+
+    OutGoal = GoalStack.Pop();
+
+    UE_LOG(LogTemp, Display,
+        TEXT("[SAREMBOK][AGENT] GOAL_POPPED | GoalId=%s | Status=%s | Remaining=%d"),
+        *OutGoal.GoalId, *OutGoal.Status, GoalStack.Num());
+
+    return true;
+}
+
+FSarembokGoal USarembokAgentManager::GetActiveGoal() const
+{
+    if (GoalStack.IsEmpty())
+    {
+        return FSarembokGoal();
+    }
+    return GoalStack.Last();
+}
+
+bool USarembokAgentManager::CompleteActiveGoal()
+{
+    if (GoalStack.IsEmpty())
+    {
+        return false;
+    }
+
+    FSarembokGoal Completed = GoalStack.Pop();
+    Completed.Status = TEXT("Completed");
+    Completed.Progress = 1.0f;
+
+    UE_LOG(LogTemp, Display,
+        TEXT("[SAREMBOK][AGENT] GOAL_COMPLETED | GoalId=%s | Desc=%s"),
+        *Completed.GoalId, *Completed.Description);
+
+    return true;
+}
+
+bool USarembokAgentManager::FailActiveGoal(const FString& Reason)
+{
+    if (GoalStack.IsEmpty())
+    {
+        return false;
+    }
+
+    FSarembokGoal FailedGoal = GoalStack.Pop();
+    FailedGoal.Status = TEXT("Failed");
+
+    UE_LOG(LogTemp, Warning,
+        TEXT("[SAREMBOK][AGENT] GOAL_FAILED | GoalId=%s | Reason=%s"),
+        *FailedGoal.GoalId, *Reason);
+
+    return true;
+}
+
+int32 USarembokAgentManager::GetGoalCount() const
+{
+    return GoalStack.Num();
+}
+
+// ---- v1.3 Reasoner Controls ----
+
+void USarembokAgentManager::SetReasoningProvider(TUniquePtr<ISarembokReasoningProvider> NewProvider)
+{
+    if (NewProvider.IsValid())
+    {
+        ReasoningProvider = MoveTemp(NewProvider);
+
+        UE_LOG(LogTemp, Display,
+            TEXT("[SAREMBOK][AGENT] REASONER_REGISTERED | Provider=%s"),
+            *ReasoningProvider->GetProviderName());
+    }
+}
+
+void USarembokAgentManager::SetLLMMode(bool bEnableLLM)
+{
+    SetReasoningProvider(MakeUnique<FSarembokLLMReasoner>(bEnableLLM));
+}
+
+FString USarembokAgentManager::GetActiveProviderName() const
+{
+    return ReasoningProvider.IsValid() ? ReasoningProvider->GetProviderName() : TEXT("None");
+}
+
+void USarembokAgentManager::SetSimulateActionFailure(bool bSimulate)
+{
+    bSimulateFailure = bSimulate;
+
+    if (bSimulateFailure)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[SAREMBOK][AGENT] SIMULATED_ACTION_FAILURE_ENABLED"));
+    }
+}
+
+// ---- Full Perception-Action-Replanning Cycle ----
+
 bool USarembokAgentManager::RunAutonomousLoop(FString& OutGeneratedCommand)
 {
     LoopCounter++;
@@ -102,15 +225,20 @@ bool USarembokAgentManager::RunAutonomousLoop(FString& OutGeneratedCommand)
         return false;
     }
 
+    FSarembokGoal ActiveGoal = GetActiveGoal();
+
     // ---- PERCEIVE ----
     TransitionState(ESarembokAgentState::Perceive, TraceId);
     FSarembokWorldState WorldState = Vision->GetWorldState();
 
-    // Store current world state snapshot in working memory
-    Memory->SetWorkingMemory(TEXT("world_actor_count"),
-        FString::FromInt(WorldState.ActorCount));
-    Memory->SetWorkingMemory(TEXT("world_timestamp"),
-        WorldState.Timestamp.ToIso8601());
+    // Store current world state snapshot & goal in working memory
+    Memory->SetWorkingMemory(TEXT("world_actor_count"), FString::FromInt(WorldState.ActorCount));
+    Memory->SetWorkingMemory(TEXT("world_timestamp"), WorldState.Timestamp.ToIso8601());
+    if (!ActiveGoal.GoalId.IsEmpty())
+    {
+        Memory->SetWorkingMemory(TEXT("active_goal_id"), ActiveGoal.GoalId);
+        Memory->SetWorkingMemory(TEXT("active_goal_desc"), ActiveGoal.Description);
+    }
 
     // ---- INTERPRET ----
     TransitionState(ESarembokAgentState::Interpret, TraceId);
@@ -132,7 +260,7 @@ bool USarembokAgentManager::RunAutonomousLoop(FString& OutGeneratedCommand)
         IdleCycleCounter = 0;
     }
 
-    FSarembokIntent Intent = ReasoningProvider->Reason(Delta, RecentEpisodes, IdleCycleCounter);
+    FSarembokIntent Intent = ReasoningProvider->ReasonWithGoal(Delta, ActiveGoal, RecentEpisodes, IdleCycleCounter);
 
     if (!Intent.bShouldAct)
     {
@@ -149,8 +277,8 @@ bool USarembokAgentManager::RunAutonomousLoop(FString& OutGeneratedCommand)
     TransitionState(ESarembokAgentState::SelectAction, TraceId);
 
     UE_LOG(LogTemp, Display,
-        TEXT("[SAREMBOK][AGENT] INTENT_GENERATED | TraceId=%s | Action=%s | Target=%s | Reason=%s"),
-        *TraceId, *Intent.ActionType, *Intent.Target, *Intent.Reason);
+        TEXT("[SAREMBOK][AGENT] INTENT_GENERATED | TraceId=%s | Action=%s | Confidence=%.2f | GoalId=%s | Reason=%s"),
+        *TraceId, *Intent.ActionType, Intent.Confidence, *Intent.GoalId, *Intent.Reason);
 
     // ---- EXECUTE ----
     TransitionState(ESarembokAgentState::Execute, TraceId);
@@ -178,7 +306,7 @@ bool USarembokAgentManager::RunAutonomousLoop(FString& OutGeneratedCommand)
     }
 
     OutGeneratedCommand = FString::Printf(
-        TEXT("{\"protocol\":\"sarembok.v1\",\"id\":\"%s\",\"timestamp\":\"%s\",\"command\":\"%s\",\"target\":\"%s\",\"payload\":%s,\"context\":{\"agent\":\"%s\",\"trace\":\"%s\",\"reason\":\"%s\"}}"),
+        TEXT("{\"protocol\":\"sarembok.v1\",\"id\":\"%s\",\"timestamp\":\"%s\",\"command\":\"%s\",\"target\":\"%s\",\"payload\":%s,\"context\":{\"agent\":\"%s\",\"trace\":\"%s\",\"confidence\":%.2f,\"goal_id\":\"%s\",\"reason\":\"%s\"}}"),
         *CmdId,
         *Timestamp,
         *Intent.ActionType,
@@ -186,12 +314,14 @@ bool USarembokAgentManager::RunAutonomousLoop(FString& OutGeneratedCommand)
         *PayloadJson,
         *ReasoningProvider->GetProviderName(),
         *TraceId,
+        Intent.Confidence,
+        *Intent.GoalId,
         *Intent.Reason
     );
 
     UE_LOG(LogTemp, Display,
-        TEXT("[SAREMBOK][AGENT] REASONING_LOOP | Id=%s | TraceId=%s | LoopTick=%d | Action=%s"),
-        *CmdId, *TraceId, LoopCounter, *Intent.ActionType);
+        TEXT("[SAREMBOK][AGENT] REASONING_LOOP | Id=%s | TraceId=%s | LoopTick=%d | Action=%s | Confidence=%.2f"),
+        *CmdId, *TraceId, LoopCounter, *Intent.ActionType, Intent.Confidence);
 
     // ---- OBSERVE_RESULT ----
     TransitionState(ESarembokAgentState::ObserveResult, TraceId);
@@ -199,7 +329,44 @@ bool USarembokAgentManager::RunAutonomousLoop(FString& OutGeneratedCommand)
     // ---- EVALUATE ----
     TransitionState(ESarembokAgentState::Evaluate, TraceId);
 
-    // Record episode
+    bool bOutcomeSuccess = !bSimulateFailure;
+
+    if (!bOutcomeSuccess)
+    {
+        // Failure recovery replanning triggered
+        TransitionState(ESarembokAgentState::Replan, TraceId);
+
+        UE_LOG(LogTemp, Warning,
+            TEXT("[SAREMBOK][AGENT] REPLAN_TRIGGERED | TraceId=%s | Reason=Action outcome failure simulated | Candidates=%d"),
+            *TraceId, Intent.AlternativeActions.Num());
+
+        // Attempt alternative action or fallback
+        if (Intent.AlternativeActions.Num() > 0)
+        {
+            FString RetryAction = Intent.AlternativeActions[0];
+            UE_LOG(LogTemp, Display,
+                TEXT("[SAREMBOK][AGENT] REPLAN_RETRY_ACTION | TraceId=%s | SelectedAlternative=%s"),
+                *TraceId, *RetryAction);
+        }
+
+        // Reset test trigger flag after logging
+        bSimulateFailure = false;
+
+        // Record failed episode
+        FSarembokEpisode FailedEpisode;
+        FailedEpisode.Timestamp = FDateTime::UtcNow();
+        FailedEpisode.EventType = Intent.ActionType;
+        FailedEpisode.Description = FString::Printf(TEXT("REPLAN: %s"), *Intent.Reason);
+        FailedEpisode.ActionTaken = OutGeneratedCommand;
+        FailedEpisode.Outcome = TEXT("replanned_failure");
+        FailedEpisode.TraceId = TraceId;
+        Memory->StoreEpisode(FailedEpisode);
+
+        TransitionState(ESarembokAgentState::Failed, TraceId);
+        return true;
+    }
+
+    // Record successful episode
     FSarembokEpisode Episode;
     Episode.Timestamp = FDateTime::UtcNow();
     Episode.EventType = Intent.ActionType;
@@ -208,7 +375,6 @@ bool USarembokAgentManager::RunAutonomousLoop(FString& OutGeneratedCommand)
     Episode.Outcome = TEXT("dispatched");
     Episode.TraceId = TraceId;
 
-    // If we had a specific actor that triggered this
     if (Delta.Deltas.Num() > 0)
     {
         Episode.ActorId = Delta.Deltas[0].Actor.ActorId;
@@ -268,6 +434,7 @@ FString USarembokAgentManager::StateToString(ESarembokAgentState State)
     case ESarembokAgentState::Execute:       return TEXT("EXECUTE");
     case ESarembokAgentState::ObserveResult: return TEXT("OBSERVE_RESULT");
     case ESarembokAgentState::Evaluate:      return TEXT("EVALUATE");
+    case ESarembokAgentState::Replan:        return TEXT("REPLAN");
     case ESarembokAgentState::Completed:     return TEXT("COMPLETED");
     case ESarembokAgentState::Failed:        return TEXT("FAILED");
     case ESarembokAgentState::Shutdown:       return TEXT("SHUTDOWN");

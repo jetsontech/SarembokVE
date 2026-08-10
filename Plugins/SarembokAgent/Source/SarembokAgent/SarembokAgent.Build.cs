@@ -15,6 +15,8 @@ public class SarembokAgent : ModuleRules
             "Core",
             "CoreUObject",
             "Engine",
+            "Json",
+            "JsonUtilities",
             "SarembokVision",
             "SarembokMemory",
             "SarembokBridge"

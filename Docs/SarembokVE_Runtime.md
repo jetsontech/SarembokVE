@@ -6,7 +6,7 @@
 
 ---
 
-## Architecture & Subsystems (v1.2.0-alpha Autonomous Baseline)
+## Architecture & Subsystems (v1.3.0-alpha Baseline)
 
 The Unreal project is modularized into 6 core plugins located in `C:\Sarembok_VE\Plugins`:
 
@@ -16,20 +16,20 @@ The Unreal project is modularized into 6 core plugins located in `C:\Sarembok_VE
 | **`SarembokAvatar`** | Digital human character management, emotion control, MetaHuman ARKit morph targets | `USarembokAvatarComponent`, `USarembokAvatarController`, `USarembokAvatarManager` |
 | **`SarembokVoice`** | Audio execution, TTS pipeline integration, viseme calculation, speech queue tracking | `USarembokVoiceManager`, `ESarembokVoiceStatus` |
 | **`SarembokVision`** | Structured world state model (`FSarembokWorldState`), actor distance/type classification, and change detection (`DetectChanges()`) | `USarembokVisionManager`, `FSarembokObservation`, `FSarembokWorldDelta` |
-| **`SarembokAgent`** | Embodied autonomous state machine (`PERCEIVE`→`INTERPRET`→`RECALL`→`PLAN`→`SELECT_ACTION`→`EXECUTE`→`OBSERVE_RESULT`→`EVALUATE`), pluggable reasoning provider | `USarembokAgentManager`, `ISarembokReasoningProvider`, `FSarembokDeterministicReasoner` |
-| **`SarembokMemory`** | Multi-tiered memory subsystem: Semantic store, Working memory (per-cycle context), and Episodic memory (`FSarembokEpisode`) | `USarembokMemorySubsystem`, `ISarembokMemoryInterface`, `FSarembokEpisode` |
+| **`SarembokAgent`** | Embodied autonomous state machine with goal management (`FSarembokGoal`), replanning (`REPLAN`), confidence scoring, pluggable LLM/deterministic reasoners | `USarembokAgentManager`, `ISarembokReasoningProvider`, `FSarembokLLMReasoner`, `FSarembokDeterministicReasoner` |
+| **`SarembokMemory`** | Multi-tiered memory subsystem: Semantic store, Working memory (per-cycle context + active goal), and Episodic memory (`FSarembokEpisode`) | `USarembokMemorySubsystem`, `ISarembokMemoryInterface`, `FSarembokEpisode` |
 
 ---
 
 ## Canonical Command Protocol (`sarembok.v1`)
 
-Authoritative versioned JSON command envelope schema with trace correlation support:
+Authoritative versioned JSON command envelope schema with trace correlation and confidence scoring:
 
 ```json
 {
   "protocol": "sarembok.v1",
   "id": "cmd-000001",
-  "timestamp": "2026-08-09T23:39:00Z",
+  "timestamp": "2026-08-10T05:38:00Z",
   "command": "Speak",
   "target": "Avatar",
   "payload": {
@@ -39,6 +39,8 @@ Authoritative versioned JSON command envelope schema with trace correlation supp
   "context": {
     "agent": "DeterministicReasoner",
     "trace": "trace-000001",
+    "confidence": 0.95,
+    "goal_id": "goal-000001",
     "reason": "New actor detected: PlayerCharacter"
   }
 }
@@ -63,9 +65,9 @@ Corresponding command result response:
 
 ---
 
-## Embodied Autonomous Perception-Reasoning-Action Loop (v1.2)
+## Embodied Autonomous Perception-Reasoning-Action Loop (v1.3)
 
-```
+```text
        ┌────────────────────────────────────────────────────────┐
        │                                                        │
        ▼                                                        │
@@ -77,9 +79,12 @@ Corresponding command result response:
 ┌────────────────────────────────────────────────────────────────────────┐
 │                              SAREMBOK AGENT                            │
 │  PERCEIVE ──► INTERPRET ──► RECALL ──► PLAN ──► SELECT_ACTION ──► EXEC │
+│                                 ▲                                      │
+│                                 │ REPLAN (Action Outcome Mismatch)     │
+│                                 └────────────── EVALUATE ◄─────────────┤
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
-                                    │ sarembok.v1 envelope + trace ID
+                                    │ sarembok.v1 envelope + trace + confidence
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │                            MESSAGE DISPATCHER                          │
@@ -102,7 +107,7 @@ Corresponding command result response:
 
 ## Multi-Tiered Memory Architecture
 
-1. **Working Memory**: Short-lived contextual state (`world_actor_count`, `world_timestamp`, active task parameters). Reset or overwritten each perception-action cycle.
+1. **Working Memory**: Short-lived contextual state (`world_actor_count`, `world_timestamp`, `active_goal_id`, `active_goal_desc`). Reset or overwritten each perception-action cycle.
 2. **Episodic Memory**: Sequential history of timestamped event records (`FSarembokEpisode`) containing `Timestamp`, `EventType`, `ActorId`, `Description`, `ActionTaken`, `Outcome`, and `TraceId`. Managed via FIFO eviction (capacity: 256).
 3. **Semantic Memory**: Persistent key-value fact store (`StoreMemory`, `RecallMemory`) protected by critical sections (`FCriticalSection`).
 
@@ -145,7 +150,7 @@ powershell -ExecutionPolicy Bypass -File Tools/Diagnostics/Test-SarembokProject.
 
 ### 3. End-to-End Runtime Test Pyramid (`Tools/Diagnostics/Test-SarembokRuntimeEndToEnd.py`)
 
-Executes the 30-step deterministic acceptance test pyramid covering runtime startup, message routing, voice/avatar control, world model change detection, multi-tiered memory, agent state machine transitions, intent generation, and trace logging:
+Executes the 36-step deterministic acceptance test pyramid covering runtime startup, message routing, voice/avatar control, world model change detection, multi-tiered memory, agent goal management, confidence scoring, replanning transitions, AI reasoner fallback, and execution tracing:
 ```powershell
 python Tools/Diagnostics/Test-SarembokRuntimeEndToEnd.py
 ```
