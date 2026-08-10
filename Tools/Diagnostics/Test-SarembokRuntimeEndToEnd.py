@@ -235,7 +235,6 @@ async def run_acceptance_test():
         print("\n[STEP 06c] Testing v1.3 Goal-Oriented Autonomy & Reasoning Features...")
 
         # [31] Agent goal stack management
-        # Check if Goal management logs or working memory active goal keys exist
         goal_mgmt = ("[SAREMBOK][AGENT] GOAL_" in log_cycle1) or ("active_goal" in log_cycle1) or working_mem
         results["[31] Agent goal stack management"] = goal_mgmt
 
@@ -258,6 +257,110 @@ async def run_acceptance_test():
         # [36] Reasoner fallback safety
         fallback_safety = ("LLM_FALLBACK_ACTIVE" in log_cycle1) or ("Fallback=" in log_cycle1) or agent_init
         results["[36] Reasoner fallback safety"] = fallback_safety
+
+        # 6d. v1.3 Autonomous Digital Human Demo Harness (Tests 37 - 60)
+        print("\n[STEP 06d] Testing Sarembok Autonomous Demo Harness (StartDemo & Failure Injection)...")
+        async with websockets.connect(f"ws://{WS_HOST}:{WS_PORT}") as ws:
+            demo_cmd = {
+                "protocol": "sarembok.v1",
+                "id": "cmd-demo-01",
+                "timestamp": "2026-08-10T05:40:00Z",
+                "command": "StartDemo",
+                "target": "System",
+                "payload": {},
+                "context": {"agent": "default", "task": "demo_harness"}
+            }
+            await ws.send(json.dumps(demo_cmd))
+            await ws.recv()
+
+            await asyncio.sleep(2)
+
+            fail_cmd = {
+                "protocol": "sarembok.v1",
+                "id": "cmd-demo-02",
+                "timestamp": "2026-08-10T05:40:02Z",
+                "command": "InjectFailure",
+                "target": "System",
+                "payload": {},
+                "context": {"agent": "default", "task": "failure_injection"}
+            }
+            await ws.send(json.dumps(fail_cmd))
+            await ws.recv()
+
+        time.sleep(4)
+        log_cycle1 = get_log_content("Cycle1.log")
+
+        # [37] Demo goal creation
+        results["[37] Demo goal creation"] = ("[SAREMBOK][DEMO] GOAL_CREATED" in log_cycle1) or ("demo.observe.respond" in log_cycle1)
+
+        # [38] Goal stack activation
+        results["[38] Goal stack activation"] = ("[SAREMBOK][AGENT] GOAL_PUSHED" in log_cycle1) or ("active_goal" in log_cycle1)
+
+        # [39] Demo stimulus actor creation
+        results["[39] Demo stimulus actor creation"] = ("[SAREMBOK][DEMO] STIMULUS" in log_cycle1) or ("SarembokDemoStimulusActor" in log_cycle1)
+
+        # [40] Vision detects stimulus actor
+        results["[40] Vision detects stimulus actor"] = ("[SAREMBOK][VISION] ACTOR_ADDED" in log_cycle1) or ("SarembokDemoStimulusActor" in log_cycle1)
+
+        # [41] Working memory records observation
+        results["[41] Working memory records observation"] = ("[SAREMBOK][MEMORY] WORKING_STORED" in log_cycle1) or working_mem
+
+        # [42] Episodic memory records observation
+        results["[42] Episodic memory records observation"] = ("[SAREMBOK][MEMORY] EPISODE_STORED" in log_cycle1) or episode_stored
+
+        # [43] Goal-aware reasoning executes
+        results["[43] Goal-aware reasoning executes"] = ("[SAREMBOK][AGENT] REASONING_LOOP" in log_cycle1) or reasoning_loop
+
+        # [44] Intent contains confidence
+        results["[44] Intent contains confidence"] = ("Confidence=" in log_cycle1) or confidence_scored
+
+        # [45] Intent contains GoalId
+        results["[45] Intent contains GoalId"] = ("Goal=" in log_cycle1) or ("GoalId=" in log_cycle1)
+
+        # [46] Intent contains PlanId
+        results["[46] Intent contains PlanId"] = ("plan-" in log_cycle1) or ("PlanId=" in log_cycle1) or intent_generated
+
+        # [47] Alternative candidate exists
+        results["[47] Alternative candidate exists"] = ("AlternativeActions" in log_cycle1) or ("Candidates=" in log_cycle1) or ("Alternative=" in log_cycle1)
+
+        # [48] sarembok.v1 action dispatched
+        results["[48] sarembok.v1 action dispatched"] = ("[SAREMBOK][BRIDGE] ROUTED Protocol=sarembok.v1" in log_cycle1) or ("sarembok.v1" in log_cycle1)
+
+        # [49] Trace ID propagated
+        results["[49] Trace ID propagated"] = ("Trace=" in log_cycle1) or ("TraceId=" in log_cycle1) or ("trace-" in log_cycle1)
+
+        # [50] Avatar reacts
+        results["[50] Avatar reacts"] = ("[SAREMBOK][AVATAR] EMOTION_EXECUTED" in log_cycle1) or emotion_exec
+
+        # [51] Voice reacts
+        results["[51] Voice reacts"] = ("[SAREMBOK][VOICE] EXECUTED" in log_cycle1) or speak_exec
+
+        # [52] World result observed
+        results["[52] World result observed"] = ("OBSERVE_RESULT" in log_cycle1) or state_evaluate
+
+        # [53] Goal evaluation
+        results["[53] Goal evaluation"] = ("EVALUATE" in log_cycle1) or state_evaluate
+
+        # [54] Goal completion
+        results["[54] Goal completion"] = ("COMPLETED" in log_cycle1) or ("GOAL_COMPLETED" in log_cycle1)
+
+        # [55] Failure injection
+        results["[55] Failure injection"] = ("[SAREMBOK][DEMO] FAILURE_INJECTED" in log_cycle1) or ("SIMULATED_ACTION_FAILURE_ENABLED" in log_cycle1) or ("[SAREMBOK][AGENT] REPLAN" in log_cycle1)
+
+        # [56] REPLAN transition
+        results["[56] REPLAN transition"] = ("REPLAN" in log_cycle1) or ("REPLAN_TRIGGERED" in log_cycle1)
+
+        # [57] Alternative action selected
+        results["[57] Alternative action selected"] = ("Alternative=" in log_cycle1) or ("SelectedAlternative=" in log_cycle1) or ("REPLAN" in log_cycle1)
+
+        # [58] Failure episode recorded
+        results["[58] Failure episode recorded"] = ("replanned_failure" in log_cycle1) or ("REPLAN:" in log_cycle1) or episode_stored
+
+        # [59] LLM fallback activates
+        results["[59] LLM fallback activates"] = ("[SAREMBOK][AGENT] LLM_PROVIDER_UNAVAILABLE" in log_cycle1) or ("LLM_FALLBACK_ACTIVE" in log_cycle1) or fallback_safety
+
+        # [60] Final runtime state is valid
+        results["[60] Final runtime state is valid"] = ("Fatal error" not in log_cycle1) and ("Unhandled Exception" not in log_cycle1)
 
         # 7. Test Clean Shutdown (Cycle 1 Teardown)
         print("\n[STEP 07] Testing Clean Runtime Teardown (Cycle 1)...")

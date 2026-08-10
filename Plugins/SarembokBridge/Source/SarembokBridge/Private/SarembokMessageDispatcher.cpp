@@ -41,6 +41,7 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
     Trace.StartTime = FDateTime::UtcNow();
     Trace.AddEvent(TEXT("BRIDGE"), TEXT("ROUTED"), LastId, LastCommand);
 
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK][BRIDGE] ROUTED Protocol=%s"), *LastProtocol);
     UE_LOG(
         LogTemp,
         Display,
@@ -309,6 +310,76 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
             *Text
         );
 
+        return true;
+    }
+
+    if (LastCommand.Equals(TEXT("StartDemo"), ESearchCase::IgnoreCase) || LastCommand.Equals(TEXT("DemoGoal"), ESearchCase::IgnoreCase))
+    {
+        AActor* DemoCtrl = nullptr;
+        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
+        {
+            if (It->GetClass()->GetName().Contains(TEXT("SarembokDemoController")))
+            {
+                DemoCtrl = *It;
+                break;
+            }
+        }
+
+        if (!DemoCtrl)
+        {
+            UClass* DemoClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokAgent.SarembokDemoController"));
+            if (DemoClass)
+            {
+                FActorSpawnParameters SpawnParams;
+                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+                DemoCtrl = RuntimeWorld->SpawnActor<AActor>(DemoClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+            }
+        }
+
+        if (DemoCtrl)
+        {
+            UFunction* Func = DemoCtrl->FindFunction(FName(TEXT("StartAutonomousDemo")));
+            if (Func)
+            {
+                DemoCtrl->ProcessEvent(Func, nullptr);
+                return true;
+            }
+        }
+        return true;
+    }
+
+    if (LastCommand.Equals(TEXT("InjectFailure"), ESearchCase::IgnoreCase))
+    {
+        AActor* DemoCtrl = nullptr;
+        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
+        {
+            if (It->GetClass()->GetName().Contains(TEXT("SarembokDemoController")))
+            {
+                DemoCtrl = *It;
+                break;
+            }
+        }
+
+        if (!DemoCtrl)
+        {
+            UClass* DemoClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokAgent.SarembokDemoController"));
+            if (DemoClass)
+            {
+                FActorSpawnParameters SpawnParams;
+                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+                DemoCtrl = RuntimeWorld->SpawnActor<AActor>(DemoClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+            }
+        }
+
+        if (DemoCtrl)
+        {
+            UFunction* Func = DemoCtrl->FindFunction(FName(TEXT("InjectDemoFailure")));
+            if (Func)
+            {
+                DemoCtrl->ProcessEvent(Func, nullptr);
+                return true;
+            }
+        }
         return true;
     }
 

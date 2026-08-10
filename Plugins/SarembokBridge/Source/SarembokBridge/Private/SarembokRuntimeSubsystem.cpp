@@ -28,14 +28,17 @@ void USarembokRuntimeSubsystem::Deinitialize()
 void USarembokRuntimeSubsystem::Speak(const FString& Message)
 {
     UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Speak: %s"), *Message);
+    OnSpeak.Broadcast(Message);
 }
 
 void USarembokRuntimeSubsystem::SetEmotion(const FString& Emotion)
 {
     UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Emotion: %s"), *Emotion);
+    OnEmotionSet.Broadcast(Emotion);
 }
 
 void USarembokRuntimeSubsystem::Observe(const FString& Target)
 {
     UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Observe: %s"), *Target);
+    OnObserve.Broadcast(Target);
 }

@@ -237,6 +237,8 @@ FSarembokWorldDelta USarembokVisionManager::DetectChanges()
             ActorDelta.Actor = Pair.Value;
             Delta.Deltas.Add(ActorDelta);
             Delta.AddedCount++;
+
+            UE_LOG(LogTemp, Display, TEXT("[SAREMBOK][VISION] ACTOR_ADDED Actor=%s"), *Pair.Value.ActorName);
         }
         else
         {

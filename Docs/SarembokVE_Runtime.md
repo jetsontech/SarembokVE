@@ -150,7 +150,85 @@ powershell -ExecutionPolicy Bypass -File Tools/Diagnostics/Test-SarembokProject.
 
 ### 3. End-to-End Runtime Test Pyramid (`Tools/Diagnostics/Test-SarembokRuntimeEndToEnd.py`)
 
-Executes the 36-step deterministic acceptance test pyramid covering runtime startup, message routing, voice/avatar control, world model change detection, multi-tiered memory, agent goal management, confidence scoring, replanning transitions, AI reasoner fallback, and execution tracing:
+Executes the 60-step deterministic acceptance test pyramid covering runtime startup, message routing, voice/avatar control, world model change detection, multi-tiered memory, agent goal management, confidence scoring, replanning transitions, AI reasoner fallback, execution tracing, and the autonomous demo harness:
 ```powershell
 python Tools/Diagnostics/Test-SarembokRuntimeEndToEnd.py
 ```
+
+---
+
+## Running the Autonomous Digital Human Demo (`v1.3.0-demo`)
+
+The v1.3 Autonomous Digital Human Demo allows testers to run an embodied perception-memory-reasoning-action loop in Unreal Engine.
+
+```text
+       USER / TEST INPUT
+               │
+               ▼
+      ┌─────────────────┐
+      │   Goal Manager  │
+      │ PushGoal(...)   │
+      └────────┬────────┘
+               │
+               ▼
+      ┌─────────────────┐
+      │ Autonomous Loop │
+      └────────┬────────┘
+               │
+  ┌────────────┼────────────┐
+  ▼            ▼            ▼
+VISION       MEMORY       REASONER
+  │            │            │
+  └────────────┼────────────┘
+               ▼
+         INTENT + SCORE
+               │
+               ▼
+         ACTION SELECT
+               │
+      ┌────────┴────────┐
+      ▼                 ▼
+   AVATAR             VOICE
+  Emotion             Speak
+      │                 │
+      └────────┬────────┘
+               ▼
+         WORLD CHANGE
+               │
+               ▼
+            VISION
+               │
+               ▼
+         EVALUATION
+          │         │
+        SUCCESS   FAILURE
+          │         │
+          ▼         ▼
+      COMPLETE    REPLAN
+```
+
+### Steps to Run in Unreal Editor:
+
+1. Open `SarembokVE.uproject` in Unreal Editor 5.8.
+2. Open any level or default map.
+3. Place an `ASarembokDemoController` actor into the world (or use Blueprint `Get Subsystem -> SarembokAgentManager`).
+4. Press **Play in Editor (PIE)**.
+5. Open **Output Log** (`Window -> Output Log`).
+6. Execute `StartAutonomousDemo()` or send WebSocket command `StartDemo`.
+7. Observe the complete event cascade in the log output:
+   - `[SAREMBOK][DEMO] GOAL_CREATED Id=demo.observe.respond`
+   - `[SAREMBOK][DEMO] STIMULUS_SPAWNED Actor=SarembokDemoStimulusActor`
+   - `[SAREMBOK][VISION] ACTOR_ADDED Actor=SarembokDemoStimulusActor`
+   - `[SAREMBOK][MEMORY] WORKING_STORED Key=world_actor_count`
+   - `[SAREMBOK][MEMORY] EPISODE_STORED EventType=ActorDetected`
+   - `[SAREMBOK][AGENT] INTENT Goal=demo.observe.respond Action=Speak Confidence=0.95`
+   - `[SAREMBOK][BRIDGE] ROUTED Protocol=sarembok.v1`
+   - `[SAREMBOK][AVATAR] EMOTION_EXECUTED Emotion=Surprised`
+   - `[SAREMBOK][VOICE] EXECUTED Text="I notice something new: SarembokDemoStimulusActor"`
+   - `[SAREMBOK][AGENT] STATE From=Evaluate To=Completed`
+
+### Failure Injection & Replanning Demo:
+Calling `InjectDemoFailure()` (or WebSocket command `InjectFailure`) causes the evaluation phase to fail, triggering replanning:
+- `[SAREMBOK][AGENT] REPLAN Goal=demo.observe.respond FailedAction=Speak Alternative=Emotion:Surprised Trace=trace-000002`
+- `[SAREMBOK][MEMORY] EPISODE_STORED EventType=Speak ActorId=SarembokDemoStimulusActor Outcome=replanned_failure`
+

@@ -91,6 +91,13 @@ void USarembokMemorySubsystem::SetWorkingMemory(const FString& Key, const FStrin
     UE_LOG(
         LogTemp,
         Display,
+        TEXT("[SAREMBOK][MEMORY] WORKING_STORED Key=%s Value=%s"),
+        *Key,
+        *Value
+    );
+    UE_LOG(
+        LogTemp,
+        Display,
         TEXT("[SAREMBOK][MEMORY] WORKING_UPDATED | Key=%s"),
         *Key
     );
@@ -126,7 +133,7 @@ void USarembokMemorySubsystem::StoreEpisode(const FSarembokEpisode& Episode)
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("[SAREMBOK][MEMORY] EPISODE_STORED | Type=%s | Actor=%s | TraceId=%s | Total=%d"),
+        TEXT("[SAREMBOK][MEMORY] EPISODE_STORED EventType=%s ActorId=%s TraceId=%s Total=%d"),
         *Episode.EventType,
         *Episode.ActorId,
         *Episode.TraceId,

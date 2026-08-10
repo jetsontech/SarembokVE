@@ -277,6 +277,9 @@ bool USarembokAgentManager::RunAutonomousLoop(FString& OutGeneratedCommand)
     TransitionState(ESarembokAgentState::SelectAction, TraceId);
 
     UE_LOG(LogTemp, Display,
+        TEXT("[SAREMBOK][AGENT] INTENT Goal=%s Action=%s Confidence=%.2f Trace=%s"),
+        *Intent.GoalId, *Intent.ActionType, Intent.Confidence, *TraceId);
+    UE_LOG(LogTemp, Display,
         TEXT("[SAREMBOK][AGENT] INTENT_GENERATED | TraceId=%s | Action=%s | Confidence=%.2f | GoalId=%s | Reason=%s"),
         *TraceId, *Intent.ActionType, Intent.Confidence, *Intent.GoalId, *Intent.Reason);
 
@@ -335,6 +338,11 @@ bool USarembokAgentManager::RunAutonomousLoop(FString& OutGeneratedCommand)
     {
         // Failure recovery replanning triggered
         TransitionState(ESarembokAgentState::Replan, TraceId);
+
+        FString AlternativeAction = Intent.AlternativeActions.Num() > 0 ? Intent.AlternativeActions[0] : TEXT("Observe");
+        UE_LOG(LogTemp, Warning,
+            TEXT("[SAREMBOK][AGENT] REPLAN Goal=%s FailedAction=%s Alternative=%s Trace=%s"),
+            *ActiveGoal.GoalId, *Intent.ActionType, *AlternativeAction, *TraceId);
 
         UE_LOG(LogTemp, Warning,
             TEXT("[SAREMBOK][AGENT] REPLAN_TRIGGERED | TraceId=%s | Reason=Action outcome failure simulated | Candidates=%d"),
@@ -415,6 +423,13 @@ void USarembokAgentManager::TransitionState(ESarembokAgentState NewState, const 
     FString OldStateName = StateToString(CurrentState);
     FString NewStateName = StateToString(NewState);
     CurrentState = NewState;
+
+    FSarembokGoal ActiveGoal = GetActiveGoal();
+    FString GoalId = ActiveGoal.GoalId.IsEmpty() ? TEXT("None") : ActiveGoal.GoalId;
+
+    UE_LOG(LogTemp, Display,
+        TEXT("[SAREMBOK][AGENT] STATE From=%s To=%s Goal=%s Trace=%s"),
+        *OldStateName, *NewStateName, *GoalId, *TraceId);
 
     UE_LOG(LogTemp, Display,
         TEXT("[SAREMBOK][AGENT] STATE | %s -> %s | TraceId=%s"),

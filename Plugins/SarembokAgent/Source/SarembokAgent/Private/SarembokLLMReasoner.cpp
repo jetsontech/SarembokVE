@@ -40,6 +40,8 @@ FSarembokIntent FSarembokLLMReasoner::ReasonWithGoal(
 {
     if (!bAIOnline)
     {
+        UE_LOG(LogTemp, Display, TEXT("[SAREMBOK][AGENT] LLM_PROVIDER_UNAVAILABLE"));
+        UE_LOG(LogTemp, Display, TEXT("[SAREMBOK][AGENT] FALLBACK_DETERMINISTIC"));
         UE_LOG(LogTemp, Display,
             TEXT("[SAREMBOK][AGENT] LLM_FALLBACK_ACTIVE | Provider=LLMReasoner | Fallback=DeterministicReasoner"));
 
