@@ -131,6 +131,7 @@ switch ($Action) {
         New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
 
         Copy-Item -Path "$ProjectRoot\SarembokVE.uproject" -Destination $StagingDir
+        if (Test-Path "$ProjectRoot\Binaries") { Copy-Item -Path "$ProjectRoot\Binaries" -Destination $StagingDir -Recurse }
         Copy-Item -Path "$ProjectRoot\Plugins" -Destination $StagingDir -Recurse
         Copy-Item -Path "$ProjectRoot\Config" -Destination $StagingDir -Recurse
         Copy-Item -Path "$ProjectRoot\backend" -Destination $StagingDir -Recurse
