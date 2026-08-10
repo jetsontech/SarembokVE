@@ -42,7 +42,7 @@ python Tools/Diagnostics/Test-SarembokRuntimeEndToEnd.py
 ## Documentation
 
 Full runtime architecture, WebSocket JSON command schemas, hardware-adaptive rendering baselines, and building guidelines are documented in:
-- [SarembokVE_Runtime.md](file:///C:/Sarembok_VE/Docs/SarembokVE_Runtime.md)
+- [SarembokVE_Runtime.md](Docs/SarembokVE_Runtime.md)
 
 ## License
 
