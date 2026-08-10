@@ -1,53 +1,61 @@
-# Sarembok Cloud Runtime — Bootstrap
+# Sarembok_VE Cloud Runtime
 
-This directory is the first cloud-native deployment layer for Sarembok VE.
+This directory contains the standalone cloud-native compatibility gateway for Sarembok_VE.
 
-## What this is
+## Runtime contract
 
-`server.py` exposes the same 12 public JSON-RPC method names used by the official Python and TypeScript SDKs over WebSocket on port `9000`.
-
-It is a **compatibility gateway**, not a claim that the Unreal Engine production subsystems have been ported to Python. It provides persistent SQLite/WAL-backed cloud state and a stable transport contract so the runtime can be moved off the Unreal workstation without breaking the SDK surface.
+`server.py` preserves the existing public JSON-RPC contract over WebSocket on port `9000`.
 
 ## Local validation
 
-From the repository root:
+From `C:\Sarembok_VE`:
 
 ```powershell
-docker compose -f Deployment/cloud/compose.yaml up --build -d
+docker compose -f Deployment/cloud/compose.yaml build --no-cache
+docker compose -f Deployment/cloud/compose.yaml up -d
 python Deployment/cloud/smoke_test.py
 ```
 
-Expected result:
+Expected:
 
 ```text
 CLOUD SMOKE TEST: 12/12 FACETS PASSED
 ```
 
-The container persists state in the `sarembok-data` volume.
+## Hardening
 
-## Architecture boundary
+The runtime provides:
+
+- Optional token authentication via `SAREMBOK_AUTH_TOKEN`.
+- Constant-time token comparison.
+- Maximum WebSocket message size.
+- Maximum concurrent connection count.
+- Request and method validation.
+- Serialized SQLite access with a busy timeout.
+- Structured application logging.
+- SIGINT/SIGTERM graceful shutdown.
+- WebSocket ping/pong liveness.
+- Compression disabled at the runtime boundary.
+- Non-root container execution.
+- Read-only container filesystem with writable `/data` and constrained `/tmp`.
+- Dropped Linux capabilities and `no-new-privileges`.
+- Container CPU, memory, and PID limits.
+- Localhost-only port publishing in the development Compose profile.
+
+Authentication remains optional for local compatibility testing. A production deployment must provide `SAREMBOK_AUTH_TOKEN` through a secret mechanism and place TLS/WSS termination in front of the runtime before exposing it to the Internet.
+
+## Deployment boundary
 
 ```text
-Cloud Runtime (Python)
-  ├── JSON-RPC transport :9000
-  ├── 12-facet compatibility contract
-  ├── SQLite + WAL persistence
-  ├── Agent state
-  ├── Events / messages
-  └── Recovery metadata
-
-Unreal Client
-  └── Presentation / embodiment / rendering
+Internet
+   |
+HTTPS / WSS
+   |
+TLS termination + authentication
+   |
+Sarembok_VE Cloud Runtime :9000
+   |
+SQLite WAL volume
 ```
 
-## Next gates
-
-1. Build and run locally.
-2. Run the 12-facet smoke test.
-3. Compare cloud responses against the existing qualification contract.
-4. Add TLS/WSS reverse proxy.
-5. Add authentication and authorization.
-6. Add structured telemetry and metrics export.
-7. Deploy the validated container to a minimal VM.
-
-No cloud provider or domain is required for this bootstrap stage.
+The runtime must not be published directly to the public Internet without the TLS/authentication boundary.
