@@ -2,38 +2,38 @@
 
 #include "CoreMinimal.h"
 #include "IWebSocket.h"
+#include "SarembokMessageDispatcher.h"
 
 class FSarembokWebSocketClient
 {
 public:
 
-	FSarembokWebSocketClient();
+    FSarembokWebSocketClient();
 
-	~FSarembokWebSocketClient();
+    ~FSarembokWebSocketClient();
 
-	void Connect();
+    void Connect();
 
-	void Disconnect();
+    void Disconnect();
 
-	void SendMessage(const FString& Message);
-
+    void SendMessage(const FString& Message);
 
 private:
 
-	void OnConnected();
+    void OnConnected();
 
-	void OnMessage(const FString& Message);
+    void OnMessage(const FString& Message);
 
-	void OnConnectionError(const FString& Error);
+    void OnConnectionError(const FString& Error);
 
-	void OnClosed(
-		int32 StatusCode,
-		const FString& Reason,
-		bool bWasClean
-	);
+    void OnClosed(
+        int32 StatusCode,
+        const FString& Reason,
+        bool bWasClean
+    );
 
+    TSharedPtr<IWebSocket> Socket;
+    TSharedPtr<FSarembokMessageDispatcher> Dispatcher;
 
-	TSharedPtr<IWebSocket> Socket;
-
-	FString ServerURL;
+    FString ServerURL;
 };
