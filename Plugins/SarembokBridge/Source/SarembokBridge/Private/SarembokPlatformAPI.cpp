@@ -68,6 +68,27 @@ FSarembokAPIResponse USarembokPlatformAPI::GetCognitiveScorecard(const FString& 
     return MakeSuccess(TEXT("get-cognitive-scorecard"), ResultJson);
 }
 
+FSarembokAPIResponse USarembokPlatformAPI::QueryWorldModel(const FString& QueryFilter)
+{
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK][PLATFORM_API] QueryWorldModel | Filter=%s"), *QueryFilter);
+    FString ResultJson = FString::Printf(TEXT("{\"filter\":\"%s\",\"entitiesCount\":3,\"disagreementsCount\":0}"), *QueryFilter);
+    return MakeSuccess(TEXT("query-world-model"), ResultJson);
+}
+
+FSarembokAPIResponse USarembokPlatformAPI::CreateDelegation(const FString& SourceAgentId, const FString& TargetAgentId, const FString& GoalId)
+{
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK][PLATFORM_API] CreateDelegation | Src=%s | Tgt=%s | Goal=%s"), *SourceAgentId, *TargetAgentId, *GoalId);
+    FString ResultJson = FString::Printf(TEXT("{\"delegationId\":\"del-api-001\",\"source\":\"%s\",\"target\":\"%s\",\"status\":\"created\"}"), *SourceAgentId, *TargetAgentId);
+    return MakeSuccess(TEXT("create-delegation"), ResultJson);
+}
+
+FSarembokAPIResponse USarembokPlatformAPI::GetAuditTrail(const FString& AgentId)
+{
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK][PLATFORM_API] GetAuditTrail | AgentId=%s"), *AgentId);
+    FString ResultJson = FString::Printf(TEXT("{\"agentId\":\"%s\",\"recordsCount\":12,\"status\":\"integrity_verified\"}"), *AgentId);
+    return MakeSuccess(TEXT("get-audit-trail"), ResultJson);
+}
+
 FString USarembokPlatformAPI::DispatchRequest(const FString& RequestJson)
 {
     TSharedPtr<FJsonObject> Obj;
@@ -81,10 +102,13 @@ FString USarembokPlatformAPI::DispatchRequest(const FString& RequestJson)
     FString ReqId  = Obj->GetStringField(TEXT("id"));
 
     FSarembokAPIResponse Resp;
-    if      (Method == TEXT("CreateAgent"))         Resp = CreateAgent(Obj->GetStringField(TEXT("agentId")), Obj->GetStringField(TEXT("displayName")));
-    else if (Method == TEXT("QueryAgentState"))      Resp = QueryAgentState(Obj->GetStringField(TEXT("agentId")));
-    else if (Method == TEXT("InjectPerception"))     Resp = InjectPerception(Obj->GetStringField(TEXT("agentId")), Obj->GetStringField(TEXT("perception")));
-    else if (Method == TEXT("GetCognitiveScorecard")) Resp = GetCognitiveScorecard(Obj->GetStringField(TEXT("agentId")));
+    if      (Method == TEXT("CreateAgent"))           Resp = CreateAgent(Obj->GetStringField(TEXT("agentId")), Obj->GetStringField(TEXT("displayName")));
+    else if (Method == TEXT("QueryAgentState"))        Resp = QueryAgentState(Obj->GetStringField(TEXT("agentId")));
+    else if (Method == TEXT("InjectPerception"))       Resp = InjectPerception(Obj->GetStringField(TEXT("agentId")), Obj->GetStringField(TEXT("perception")));
+    else if (Method == TEXT("GetCognitiveScorecard"))   Resp = GetCognitiveScorecard(Obj->GetStringField(TEXT("agentId")));
+    else if (Method == TEXT("QueryWorldModel"))        Resp = QueryWorldModel(Obj->GetStringField(TEXT("filter")));
+    else if (Method == TEXT("CreateDelegation"))       Resp = CreateDelegation(Obj->GetStringField(TEXT("sourceAgentId")), Obj->GetStringField(TEXT("targetAgentId")), Obj->GetStringField(TEXT("goalId")));
+    else if (Method == TEXT("GetAuditTrail"))          Resp = GetAuditTrail(Obj->GetStringField(TEXT("agentId")));
     else
     {
         return FString::Printf(TEXT("{\"id\":\"%s\",\"error\":\"unknown_method\",\"method\":\"%s\"}"), *ReqId, *Method);

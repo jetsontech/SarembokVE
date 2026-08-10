@@ -53,6 +53,15 @@ public:
     UFUNCTION(BlueprintCallable, Category="Sarembok|PlatformAPI")
     FSarembokAPIResponse GetCognitiveScorecard(const FString& AgentId);
 
+    UFUNCTION(BlueprintCallable, Category="Sarembok|PlatformAPI")
+    FSarembokAPIResponse QueryWorldModel(const FString& QueryFilter);
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok|PlatformAPI")
+    FSarembokAPIResponse CreateDelegation(const FString& SourceAgentId, const FString& TargetAgentId, const FString& GoalId);
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok|PlatformAPI")
+    FSarembokAPIResponse GetAuditTrail(const FString& AgentId);
+
     // Dispatch a raw WebSocket JSON-RPC request string
     UFUNCTION(BlueprintCallable, Category="Sarembok|PlatformAPI")
     FString DispatchRequest(const FString& RequestJson);
