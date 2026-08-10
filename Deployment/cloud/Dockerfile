@@ -8,7 +8,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY Runtime/requirements.txt /app/Runtime/requirements.txt
-RUN pip install --no-cache-dir -r /app/Runtime/requirements.txt
+RUN pip install --no-cache-dir -r /app/Runtime/requirements.txt \
+    && rm -rf /root/.cache
 
 COPY Deployment/cloud/server.py /app/server.py
 
@@ -21,6 +22,6 @@ EXPOSE 9000
 VOLUME ["/data"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD python -c "import socket; s=socket.create_connection(('127.0.0.1',9000),2); s.close()"
+  CMD python -c "import asyncio,os,websockets; asyncio.run(websockets.connect('ws://127.0.0.1:'+os.getenv('SAREMBOK_PORT','9000'),open_timeout=2).__aenter__())"
 
 CMD ["python", "/app/server.py"]
