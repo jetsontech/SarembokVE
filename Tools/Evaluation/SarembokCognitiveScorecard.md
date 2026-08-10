@@ -1,6 +1,6 @@
 # Sarembok Cognitive Reliability Scorecard
 
-**Generated**: 2026-08-10T16:24:47Z  
+**Generated**: 2026-08-10T16:38:20Z  
 **Platform**: Sarembok_VE v1.9.0-observability  
 
 ---

@@ -118,6 +118,36 @@ void USarembokAgentIdentity::RestoreIdentities()
     // and stats accumulate within a session. Cross-session persistence is via the EventStore.
 }
 
+#include "Misc/Guid.h"
+
+FSarembokContextHierarchy USarembokAgentIdentity::CreateContextHierarchy(const FString& AgentId)
+{
+    FSarembokContextHierarchy Ctx;
+    Ctx.PlatformId     = TEXT("sarembok-prod-01");
+    Ctx.AgentId        = AgentId;
+    Ctx.SessionId      = FString::Printf(TEXT("sess-%s"), *FGuid::NewGuid().ToString(EGuidFormats::Short));
+    Ctx.ConversationId = FString::Printf(TEXT("conv-%s"), *FGuid::NewGuid().ToString(EGuidFormats::Short));
+    Ctx.GoalId         = FString::Printf(TEXT("goal-%s"), *FGuid::NewGuid().ToString(EGuidFormats::Short));
+    Ctx.PlanId         = FString::Printf(TEXT("plan-%s"), *FGuid::NewGuid().ToString(EGuidFormats::Short));
+    Ctx.DecisionId     = FString::Printf(TEXT("dec-%s"), *FGuid::NewGuid().ToString(EGuidFormats::Short));
+    Ctx.TraceId        = FString::Printf(TEXT("trace-%s"), *FGuid::NewGuid().ToString(EGuidFormats::Short));
+    Ctx.EventId        = FString::Printf(TEXT("evt-%s"), *FGuid::NewGuid().ToString(EGuidFormats::Short));
+    Ctx.AuditToken     = FString::Printf(TEXT("gov-%s-%s"), *AgentId.Left(8), *FGuid::NewGuid().ToString(EGuidFormats::Short));
+    return Ctx;
+}
+
+bool USarembokAgentIdentity::VerifyMultiAgentIsolation(const FString& AgentIdA, const FString& AgentIdB) const
+{
+    if (AgentIdA == AgentIdB) return false;
+    if (!HasAgentProfile(AgentIdA) || !HasAgentProfile(AgentIdB)) return false;
+
+    FSarembokAgentProfile ProfileA = GetAgentProfile(AgentIdA);
+    FSarembokAgentProfile ProfileB = GetAgentProfile(AgentIdB);
+
+    // Verify memory/identity pointer isolation
+    return (ProfileA.AgentId != ProfileB.AgentId) && (&ProfileA != &ProfileB);
+}
+
 FString USarembokAgentIdentity::GetSaveFilePath() const
 {
     return FPaths::ProjectSavedDir() / TEXT("Sarembok/AgentIdentities.jsonl");

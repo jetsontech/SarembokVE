@@ -48,6 +48,23 @@ struct FSarembokAgentProfile
     UPROPERTY() TMap<FString, FString>         PersistentConfiguration;
 };
 
+USTRUCT(BlueprintType)
+struct FSarembokContextHierarchy
+{
+    GENERATED_BODY()
+
+    UPROPERTY() FString PlatformId;
+    UPROPERTY() FString AgentId;
+    UPROPERTY() FString SessionId;
+    UPROPERTY() FString ConversationId;
+    UPROPERTY() FString GoalId;
+    UPROPERTY() FString PlanId;
+    UPROPERTY() FString DecisionId;
+    UPROPERTY() FString TraceId;
+    UPROPERTY() FString EventId;
+    UPROPERTY() FString AuditToken;
+};
+
 UCLASS()
 class SAREMBOKCORE_API USarembokAgentIdentity : public UGameInstanceSubsystem
 {
@@ -71,6 +88,12 @@ public:
 
     UFUNCTION(BlueprintCallable, Category="Sarembok|Platform")
     TArray<FString> GetAllAgentIds() const;
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok|Platform")
+    FSarembokContextHierarchy CreateContextHierarchy(const FString& AgentId);
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok|Platform")
+    bool VerifyMultiAgentIsolation(const FString& AgentIdA, const FString& AgentIdB) const;
 
     UFUNCTION(BlueprintCallable, Category="Sarembok|Platform")
     void PersistIdentities();

@@ -598,6 +598,41 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         return true;
     }
 
+    if (LastCommand.StartsWith(TEXT("TriggerHardeningTest"), ESearchCase::IgnoreCase))
+    {
+        AActor* HardCtrl = nullptr;
+        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
+        {
+            if (It->GetClass()->GetName().Contains(TEXT("SarembokHardeningDemoController")))
+            {
+                HardCtrl = *It;
+                break;
+            }
+        }
+
+        if (!HardCtrl)
+        {
+            UClass* HardClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokCore.SarembokHardeningDemoController"));
+            if (HardClass)
+            {
+                FActorSpawnParameters SpawnParams;
+                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+                HardCtrl = RuntimeWorld->SpawnActor<AActor>(HardClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+            }
+        }
+
+        if (HardCtrl)
+        {
+            UFunction* Func = HardCtrl->FindFunction(*LastCommand);
+            if (Func)
+            {
+                HardCtrl->ProcessEvent(Func, nullptr);
+                return true;
+            }
+        }
+        return true;
+    }
+
     // Platform API (JSON-RPC methods routed to USarembokPlatformAPI)
     static const TArray<FString> PlatformAPIMethods = {
         TEXT("CreateAgent"), TEXT("QueryAgentState"), TEXT("InjectPerception"),
