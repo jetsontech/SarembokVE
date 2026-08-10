@@ -1,0 +1,11 @@
+# pyrefly.toml
+# Sarembok_VE — Pyrefly type-checker configuration
+
+[pyrefly]
+# Exclude Pyrefly's own virtual in-memory buffers from error reporting.
+# These buffers (e.g. __pyrefly_virtual__/inmemory/*.py) are created
+# internally by the language server when analysing code fragments and
+# are not real project files. Their parse errors are false positives.
+exclude = [
+  "__pyrefly_virtual__/**",
+]

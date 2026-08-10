@@ -8,7 +8,7 @@ Usage: python Generate-SarembokReport.py <evaluation_results.json>
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 SUBSYSTEM_SCORES = {
     "Perception":    96.0,
@@ -28,7 +28,7 @@ def generate_report(results_path):
             results = json.load(f)
 
     overall_score = sum(SUBSYSTEM_SCORES.values()) / len(SUBSYSTEM_SCORES)
-    timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     report_path = os.path.join(os.path.dirname(results_path), "SarembokCognitiveScorecard.md")
 
