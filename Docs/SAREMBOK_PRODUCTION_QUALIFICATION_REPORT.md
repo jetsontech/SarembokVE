@@ -14,7 +14,7 @@
 | :--- | :--- |
 | `SarembokVE.uproject` | `d8db01999af643fa419acf46ef642f5247e2d2b2f6fbf2f65ac512f03e71a01d` |
 | `Config/sarembok.production.json` | `817117eb713d77d05219c8b0ce7555ca009eac6fe9528bdc2c5449eefd0cf5fc` |
-| `backend/WebSocket/server.py` | `270322bf6d830a67cc2bf79b0608b813a22e18e431540cbe27c762933055a7fb` |
+| `backend/WebSocket/server.py` | `96b6a8b8649f5b76c3bb231811d6b8d03b454f382aa6fecdc64807c16c396569` |
 | `frontend/index.html` | `b15903c76f39aaf6f5e8f7a5e4f15fac07ed37c0481af6bff5e3f58e633195a4` |
 
 ## Qualification Gates (Q01 - Q10)
