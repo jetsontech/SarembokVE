@@ -10,11 +10,11 @@
 
 The Unreal project is modularized into 6 core plugins located in `C:\Sarembok_VE\Plugins`:
 
-| Subsystem Plugin | Primary Purpose | Key Classes |
+| Subsystem Plugin | Primary Purpose | Key Classes & Headers |
 | :--- | :--- | :--- |
-| **`SarembokBridge`** | WebSocket runtime communication, message dispatching, ticker-based world/avatar discovery | `FSarembokMessageDispatcher`, `USarembokWebSocketClient`, `USarembokBridgeActorComponent` |
+| **`SarembokBridge`** | WebSocket runtime communication, message dispatching, ticker-based world/avatar discovery, command constants | `FSarembokMessageDispatcher`, `USarembokWebSocketClient`, `SarembokCommandConstants.h` |
 | **`SarembokAvatar`** | Digital human character management, emotion control, state machine, and MetaHuman compatibility | `USarembokAvatarComponent`, `USarembokAvatarController`, `USarembokAvatarManager` |
-| **`SarembokVoice`** | Audio execution, TTS pipeline integration, and speech playback | `USarembokVoiceManager` |
+| **`SarembokVoice`** | Audio execution, TTS pipeline integration, speech playback, and voice execution status | `USarembokVoiceManager`, `ESarembokVoiceStatus` |
 | **`SarembokVision`** | Real-time scene observation and camera frame processing | `USarembokVisionManager`, `FSarembokObservation` |
 | **`SarembokAgent`** | Task planning, autonomous loops, and intent routing | `USarembokAgentManager`, `FSarembokTask` |
 | **`SarembokMemory`** | Key-value state persistence and memory retrieval | `ISarembokMemoryInterface` |
@@ -26,19 +26,42 @@ The Unreal project is modularized into 6 core plugins located in `C:\Sarembok_VE
 ```
 [External AI Backend] 
         │
-        ▼ (WebSocket JSON)
+        ▼ (WebSocket JSON on ws://127.0.0.1:9000)
 [SarembokBridge :: WS Client]
         │
         ▼
 [FSarembokMessageDispatcher]
         │
-  ├── Parse JSON (command, target, payload)
+  ├── Parse JSON via SarembokCommandConstants (command, target, payload)
   ├── Search Runtime World (Game/PIE context)
-  ├── If Avatar or World Unavailable ──► Queue in PendingCommands & Retry on Ticker (0.1s)
+  ├── If Avatar Missing ──► Spawns Deterministic Fallback Avatar (SarembokRuntimeAvatarActor)
+  ├── If World Unavailable ──► Queue in PendingCommands & Retry on Core Ticker (0.1s)
   └── Execute Command:
         ├── "Emotion" ──► USarembokAvatarController::SetEmotion()
-        └── "Speak"   ──► USarembokAvatarComponent::Speak() ──► USarembokVoiceManager::Speak()
+        └── "Speak"   ──► USarembokAvatarComponent::Speak() ──► USarembokVoiceManager::SpeakWithResult()
 ```
+
+---
+
+## Centralized Command Protocol (`SarembokCommandConstants.h`)
+
+Authoritative string constants declared in `SarembokCommandConstants.h`:
+
+- **Commands**: `Emotion`, `Speak`, `Chat`, `Facial`, `Gesture`
+- **Targets**: `Avatar`, `Voice`, `System`
+- **JSON Field Keys**: `command`, `target`, `payload`, `state`, `text`, `emotion`
+- **Default WebSocket Endpoint**: `ws://127.0.0.1:9000`
+
+---
+
+## Voice Execution Status (`ESarembokVoiceStatus`)
+
+`USarembokVoiceManager` exposes `SpeakWithResult(Text)` returning:
+
+- `ESarembokVoiceStatus::Executed` — Speech command accepted and executed.
+- `ESarembokVoiceStatus::Queued` — Speech command queued.
+- `ESarembokVoiceStatus::Unavailable` — Voice executor/audio subsystem currently unavailable.
+- `ESarembokVoiceStatus::Failed` — Payload validation or execution fault.
 
 ---
 
@@ -74,38 +97,18 @@ powershell -ExecutionPolicy Bypass -File Tools/Diagnostics/Test-SarembokProject.
 
 ---
 
-## WebSocket JSON Protocol
+## WebSocket Integration Test Suite
 
-The bridge listens on `ws://127.0.0.1:9000` (or `ws://127.0.0.1:8765`).
+The integration test suite (`Tools/Diagnostics/Test-WebSocketIntegration.py`) validates:
 
-### 1. Emotion Command
-```json
-{
-  "command": "Emotion",
-  "target": "Avatar",
-  "payload": {
-    "state": "Happy"
-  }
-}
-```
+1. Connection & Valid `Emotion` command lifecycle
+2. Valid `Speak` command lifecycle
+3. Malformed JSON protocol resilience
+4. Unknown command routing
+5. Missing payload handling
+6. Disconnect & Reconnect cycle
 
-### 2. Speak Command
-```json
-{
-  "command": "Speak",
-  "target": "Avatar",
-  "payload": {
-    "text": "Hello from Sarembok Digital Human runtime!",
-    "emotion": "Joyful"
-  }
-}
-```
-
----
-
-## Integration Testing
-
-Validate the Python WebSocket backend and message schema lifecycle:
+Run tests via:
 ```powershell
 python Tools/Diagnostics/Test-WebSocketIntegration.py
 ```

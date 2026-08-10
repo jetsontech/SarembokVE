@@ -1,4 +1,5 @@
 #include "SarembokMessageDispatcher.h"
+#include "SarembokCommandConstants.h"
 
 #include "Dom/JsonObject.h"
 #include "Engine/Engine.h"
@@ -63,25 +64,27 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
 
 bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
 {
+    if (IsEngineExitRequested() || !GEngine)
+    {
+        return true;
+    }
+
     UWorld* RuntimeWorld = nullptr;
 
-    if (GEngine)
+    for (const FWorldContext& Context : GEngine->GetWorldContexts())
     {
-        for (const FWorldContext& Context : GEngine->GetWorldContexts())
+        UWorld* CandidateWorld = Context.World();
+
+        if (!CandidateWorld || CandidateWorld->IsUnreachable())
         {
-            UWorld* CandidateWorld = Context.World();
+            continue;
+        }
 
-            if (!CandidateWorld)
-            {
-                continue;
-            }
-
-            if (Context.WorldType == EWorldType::Game ||
-                Context.WorldType == EWorldType::PIE)
-            {
-                RuntimeWorld = CandidateWorld;
-                break;
-            }
+        if (Context.WorldType == EWorldType::Game ||
+            Context.WorldType == EWorldType::PIE)
+        {
+            RuntimeWorld = CandidateWorld;
+            break;
         }
     }
 
@@ -119,7 +122,34 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         }
     }
 
-    if (LastCommand.Equals(TEXT("Emotion"), ESearchCase::IgnoreCase))
+    // Deterministic Fallback: Spawn avatar actor in world if components are missing
+    if (!AvatarComponent || !AvatarController)
+    {
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.Name = FName(TEXT("SarembokRuntimeAvatarActor"));
+        SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+        AActor* FallbackActor = RuntimeWorld->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+        if (FallbackActor)
+        {
+            if (!AvatarComponent)
+            {
+                AvatarComponent = NewObject<USarembokAvatarComponent>(FallbackActor, TEXT("SarembokAvatarComponent"));
+                AvatarComponent->RegisterComponent();
+            }
+            if (!AvatarController)
+            {
+                AvatarController = NewObject<USarembokAvatarController>(FallbackActor, TEXT("SarembokAvatarController"));
+                AvatarController->RegisterComponent();
+            }
+            UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Deterministic Fallback Avatar Created in Runtime World"));
+        }
+    }
+
+    TWeakObjectPtr<USarembokAvatarComponent> WeakAvatarComponent(AvatarComponent);
+    TWeakObjectPtr<USarembokAvatarController> WeakAvatarController(AvatarController);
+
+    if (LastCommand.Equals(SarembokCommandConstants::Emotion, ESearchCase::IgnoreCase))
     {
         FString Emotion;
 
@@ -132,18 +162,18 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         {
             const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
 
-            if (JsonObject->TryGetObjectField(TEXT("payload"), PayloadObject) &&
+            if (JsonObject->TryGetObjectField(SarembokCommandConstants::KeyPayload, PayloadObject) &&
                 PayloadObject &&
                 PayloadObject->IsValid())
             {
                 (*PayloadObject)->TryGetStringField(
-                    TEXT("state"),
+                    SarembokCommandConstants::KeyState,
                     Emotion
                 );
             }
         }
 
-        if (!AvatarController)
+        if (!WeakAvatarController.IsValid())
         {
             UE_LOG(
                 LogTemp,
@@ -165,7 +195,7 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
             return true;
         }
 
-        AvatarController->SetEmotion(Emotion);
+        WeakAvatarController->SetEmotion(Emotion);
 
         UE_LOG(
             LogTemp,
@@ -177,7 +207,7 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         return true;
     }
 
-    if (LastCommand.Equals(TEXT("Speak"), ESearchCase::IgnoreCase))
+    if (LastCommand.Equals(SarembokCommandConstants::Speak, ESearchCase::IgnoreCase))
     {
         FString Text;
         FString Emotion;
@@ -191,23 +221,23 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         {
             const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
 
-            if (JsonObject->TryGetObjectField(TEXT("payload"), PayloadObject) &&
+            if (JsonObject->TryGetObjectField(SarembokCommandConstants::KeyPayload, PayloadObject) &&
                 PayloadObject &&
                 PayloadObject->IsValid())
             {
                 (*PayloadObject)->TryGetStringField(
-                    TEXT("text"),
+                    SarembokCommandConstants::KeyText,
                     Text
                 );
 
                 (*PayloadObject)->TryGetStringField(
-                    TEXT("emotion"),
+                    SarembokCommandConstants::KeyEmotion,
                     Emotion
                 );
             }
         }
 
-        if (!AvatarComponent)
+        if (!WeakAvatarComponent.IsValid())
         {
             UE_LOG(
                 LogTemp,
@@ -229,12 +259,12 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
             return true;
         }
 
-        if (AvatarController && !Emotion.IsEmpty())
+        if (WeakAvatarController.IsValid() && !Emotion.IsEmpty())
         {
-            AvatarController->SetEmotion(Emotion);
+            WeakAvatarController->SetEmotion(Emotion);
         }
 
-        AvatarComponent->Speak(Text);
+        WeakAvatarComponent->Speak(Text);
 
         UE_LOG(
             LogTemp,
@@ -325,18 +355,18 @@ void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
     }
 
     JsonObject->TryGetStringField(
-        TEXT("command"),
+        SarembokCommandConstants::KeyCommand,
         LastCommand
     );
 
     JsonObject->TryGetStringField(
-        TEXT("target"),
+        SarembokCommandConstants::KeyTarget,
         LastTarget
     );
 
     const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
 
-    if (JsonObject->TryGetObjectField(TEXT("payload"), PayloadObject) &&
+    if (JsonObject->TryGetObjectField(SarembokCommandConstants::KeyPayload, PayloadObject) &&
         PayloadObject &&
         PayloadObject->IsValid())
     {

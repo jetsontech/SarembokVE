@@ -1,11 +1,12 @@
 #include "SarembokWebSocketClient.h"
+#include "SarembokCommandConstants.h"
 
 #include "Modules/ModuleManager.h"
 #include "WebSocketsModule.h"
 
 FSarembokWebSocketClient::FSarembokWebSocketClient()
 {
-    ServerURL = TEXT("ws://127.0.0.1:8765");
+    ServerURL = SarembokCommandConstants::DefaultWebSocketURL;
     Dispatcher = MakeShared<FSarembokMessageDispatcher>();
 
     UE_LOG(

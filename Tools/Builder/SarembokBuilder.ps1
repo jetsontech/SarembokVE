@@ -91,7 +91,7 @@ switch ($Action) {
         Write-Host "Executing build: Target=$Target | Platform=$Platform | Config=$Configuration" -ForegroundColor Yellow
         Write-Host "Using Build.bat: $BuildBat`n" -ForegroundColor Gray
 
-        & $BuildBat $Target $Platform $Configuration "$UProjectPath"
+        & $BuildBat $Target $Platform $Configuration "$UProjectPath" -NoLiveCoding
         Write-Host "`nBuild completed successfully!" -ForegroundColor Green
     }
 }

@@ -114,9 +114,18 @@ foreach ($PluginName in $RequiredPlugins) {
 
 # 5. Duplicate Code & Source Integrity Audit
 Write-Host "`n[5/7] Source Code Integrity & Duplicate Check..." -ForegroundColor Cyan
+$IgnoredDirs = @("Intermediate", "Binaries", ".vs", "Saved", "DerivedDataCache")
 $SourceFiles = Get-ChildItem -Path "$ProjectRoot\Plugins", "$ProjectRoot\Source" -Recurse -File | Where-Object {
-    $_.FullName -notmatch '(\\Intermediate\\|\\Binaries\\|\\\.vs\\|\\Saved\\|\\DerivedDataCache\\)' -and
-    ($_.Extension -eq ".cpp" -or $_.Extension -eq ".h")
+    $File = $_
+    $PathParts = $File.FullName.Split([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    $IsIgnored = $false
+    foreach ($Dir in $IgnoredDirs) {
+        if ($PathParts -contains $Dir) {
+            $IsIgnored = $true
+            break
+        }
+    }
+    (-not $IsIgnored) -and ($File.Extension -eq ".cpp" -or $File.Extension -eq ".h")
 }
 
 $FilenameGroups = $SourceFiles | Group-Object Name | Where-Object { $_.Count -gt 1 }
