@@ -6,6 +6,20 @@ public class SarembokVE : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });
+		PublicDependencyModuleNames.AddRange(
+			new string[]
+			{
+				"Core",
+				"CoreUObject",
+				"Engine",
+				"InputCore",
+				"SarembokBridge",
+				"SarembokAvatar",
+				"SarembokVoice",
+				"SarembokVision",
+				"SarembokAgent",
+				"SarembokMemory"
+			}
+		);
 	}
 }

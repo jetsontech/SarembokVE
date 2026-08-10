@@ -16,7 +16,7 @@
     {
       "Name": "SarembokBridge",
       "Type": "Runtime",
-      "LoadingPhase": "Default"
+      "LoadingPhase": "PreDefault"
     }
   ]
 }
