@@ -17,26 +17,31 @@ An advanced Unreal Engine 5.8 digital human orchestration architecture and AI ru
 * **Build Tools:** Visual Studio 2022 / .NET 10 x64 SDK / UBT
 * **Backend:** Python 3.10+ (WebSockets / FastAPI)
 
-## Quick Start & Commands
+## Quick Start & Verification Commands
 
-### Project Diagnostics
+### 1. Standalone Health Diagnostics
 ```powershell
 powershell -ExecutionPolicy Bypass -File Tools/Diagnostics/Test-SarembokProject.ps1
 ```
 
-### Build SarembokVEEditor Target
+### 2. Build SarembokVEEditor Target
 ```powershell
 powershell -ExecutionPolicy Bypass -File Tools/Builder/SarembokBuilder.ps1 -Action Build
 ```
 
-### Run WebSocket Integration Tests
+### 3. Run WebSocket Integration Tests
 ```powershell
 python Tools/Diagnostics/Test-WebSocketIntegration.py
 ```
 
+### 4. Run End-to-End Real Runtime Acceptance Test
+```powershell
+python Tools/Diagnostics/Test-SarembokRuntimeEndToEnd.py
+```
+
 ## Documentation
 
-Full runtime architecture, WebSocket JSON command schemas, and building guidelines are documented in:
+Full runtime architecture, WebSocket JSON command schemas, hardware-adaptive rendering baselines, and building guidelines are documented in:
 - [SarembokVE_Runtime.md](file:///C:/Sarembok_VE/Docs/SarembokVE_Runtime.md)
 
 ## License

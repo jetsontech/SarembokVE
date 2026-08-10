@@ -30,3 +30,5 @@ __pycache__/
 *.sarembok-backup
 dxdiag.txt
 Sarembok-dxdiag.txt
+*.db
+*.sm6-crash-backup

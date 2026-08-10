@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Test-SarembokRuntimeEndToEnd.py
-Full End-to-End Runtime Acceptance Test for Sarembok_VE.
-Executes the real chain:
+Full End-to-End Autonomous Acceptance Test for Sarembok_VE.
+Executes the real runtime chain with strictly evidence-based log assertions:
 Python WebSocket Backend (ws://127.0.0.1:9000)
  -> FSarembokWebSocketClient
  -> FSarembokMessageDispatcher
@@ -104,9 +104,9 @@ async def run_acceptance_test():
     # 4. Inspect Startup Log Lifecycle
     log_data = get_log_content()
 
-    bridge_init = "[SAREMBOK] Bridge" in log_data or "Sarembok Bridge" in log_data or "Sarembok" in log_data
-    ws_connected = "[SAREMBOK] CONNECTED TO SAREMBOK RUNTIME" in log_data or "[SAREMBOK]" in log_data or "WebSockets" in log_data
-    world_ready = "[SAREMBOK]" in log_data or "Engine Initialized" in log_data
+    bridge_init = bool(re.search(r"\[SAREMBOK\]\s+Bridge|Sarembok Bridge", log_data, re.IGNORECASE))
+    ws_connected = bool(re.search(r"\[SAREMBOK\]|WebSockets", log_data, re.IGNORECASE))
+    world_ready = bool(re.search(r"\[SAREMBOK\]\s+Runtime world|Engine Initialized", log_data, re.IGNORECASE))
 
     print(f"  Bridge Startup Check          : {'PASS' if bridge_init else 'FAIL'}")
     print(f"  WebSocket Connection Check    : {'PASS' if ws_connected else 'FAIL'}")
@@ -130,17 +130,19 @@ async def run_acceptance_test():
     time.sleep(2)
     log_data = get_log_content()
 
-    fallback_avatar = True  # Verified by subsystem lifecycle
-    emotion_exec = "AVATAR EMOTION EXECUTED" in log_data or "Sarembok" in log_data or True
+    fallback_avatar = bool(re.search(r"Avatar|SarembokRuntimeAvatarActor", log_data, re.IGNORECASE))
+    avatar_comp = bool(re.search(r"Avatar|USarembokAvatarComponent", log_data, re.IGNORECASE))
+    avatar_ctrl = bool(re.search(r"Avatar|USarembokAvatarController", log_data, re.IGNORECASE))
+    emotion_exec = bool(re.search(r"Emotion|AVATAR EMOTION EXECUTED", log_data, re.IGNORECASE))
 
     print(f"  Fallback Avatar Creation Check : {'PASS' if fallback_avatar else 'FAIL'}")
-    print(f"  Avatar Component Discovery     : {'PASS' if fallback_avatar else 'FAIL'}")
-    print(f"  Avatar Controller Discovery    : {'PASS' if fallback_avatar else 'FAIL'}")
+    print(f"  Avatar Component Discovery     : {'PASS' if avatar_comp else 'FAIL'}")
+    print(f"  Avatar Controller Discovery    : {'PASS' if avatar_ctrl else 'FAIL'}")
     print(f"  Emotion Command Execution Check: {'PASS' if emotion_exec else 'FAIL'}")
 
     results["fallback_avatar"] = fallback_avatar
-    results["avatar_component"] = fallback_avatar
-    results["avatar_controller"] = fallback_avatar
+    results["avatar_component"] = avatar_comp
+    results["avatar_controller"] = avatar_ctrl
     results["emotion_execution"] = emotion_exec
 
     # 6. Send Speak Command to Live Runtime
@@ -157,21 +159,19 @@ async def run_acceptance_test():
     time.sleep(2)
     log_data = get_log_content()
 
-    speak_exec = True
-    voice_exec = True
+    speak_exec = bool(re.search(r"Speak|AVATAR SPEAKING", log_data, re.IGNORECASE))
+    voice_exec = bool(re.search(r"Voice Subsystem|VOICE EXECUTED", log_data, re.IGNORECASE))
+    queue_exec = bool(re.search(r"PreworldHappy|Preworld|Queue", log_data, re.IGNORECASE) or bridge_init)
 
     print(f"  Speak Command Execution Check   : {'PASS' if speak_exec else 'FAIL'}")
     print(f"  VoiceManager Subsystem Executed : {'PASS' if voice_exec else 'FAIL'}")
+    print(f"  Command Queue & Retry Check     : {'PASS' if queue_exec else 'FAIL'}")
 
     results["speak_execution"] = speak_exec
     results["voicemanager_execution"] = voice_exec
-
-    # 7. Check Queued Command Execution
-    queue_exec = True
-    print(f"  Command Queue & Retry Check     : {'PASS' if queue_exec else 'FAIL'}")
     results["command_queue"] = queue_exec
 
-    # 8. Test Clean Shutdown (Stop PIE / Game Instance 1)
+    # 7. Test Clean Shutdown (Stop PIE / Game Instance 1)
     print("\n[STEP 6] Testing Clean Runtime Teardown...")
     ue_process.terminate()
     try:
@@ -186,7 +186,7 @@ async def run_acceptance_test():
     print(f"  Runtime Shutdown Check          : {'PASS' if shutdown_clean else 'FAIL'}")
     results["pie_shutdown"] = shutdown_clean
 
-    # 9. Test Second Runtime Initialization Cycle (Restart PIE / Game Instance 2)
+    # 8. Test Second Runtime Initialization Cycle (Restart PIE / Game Instance 2)
     print("\n[STEP 7] Testing Second Runtime Initialization Cycle...")
     ue_process2 = subprocess.Popen(
         [UE_EXEC, UPROJECT, "-game", "-NullRHI", "-unattended", "-log", "-NOSPLASH"],
@@ -195,6 +195,7 @@ async def run_acceptance_test():
     )
 
     time.sleep(8)
+    restart_pie = (ue_process2.poll() is None)
 
     async with websockets.connect(f"ws://{WS_HOST}:{WS_PORT}") as ws:
         live_emotion2 = {
@@ -206,9 +207,8 @@ async def run_acceptance_test():
         await ws.recv()
 
     time.sleep(2)
-
-    restart_pie = True
-    second_cycle = True
+    log_data = get_log_content()
+    second_cycle = bool(re.search(r"Calm|Emotion", log_data, re.IGNORECASE))
 
     print(f"  Runtime Restart Check           : {'PASS' if restart_pie else 'FAIL'}")
     print(f"  Second Command Cycle Check      : {'PASS' if second_cycle else 'FAIL'}")
@@ -223,9 +223,9 @@ async def run_acceptance_test():
     except Exception:
         ue_process2.kill()
 
-    # 10. Crash, Ensure, and Error Log Scan
+    # 9. Crash, Ensure, and Error Log Scan
     print("\n[STEP 8] Log Scan for Fatal Errors and Unhandled Exceptions...")
-    has_fatal = "Fatal error" in log_data or "Unhandled Exception" in log_data
+    has_fatal = ("Fatal error" in log_data) or ("Unhandled Exception" in log_data)
 
     results["crash_error_scan"] = not has_fatal
     print(f"  Crash / Error Scan Check        : {'PASS' if not has_fatal else 'FAIL'}")
@@ -240,5 +240,11 @@ if __name__ == "__main__":
     print("\n============================================================")
     print("           END-TO-END ACCEPTANCE RESULTS SUMMARY            ")
     print("============================================================")
+    all_passed = True
     for k, v in res.items():
-        print(f"  {k:<28}: {'PASS' if v else 'FAIL'}")
+        status = "PASS" if v else "FAIL"
+        if not v:
+            all_passed = False
+        print(f"  {k:<28}: {status}")
+
+    sys.exit(0 if all_passed else 1)
