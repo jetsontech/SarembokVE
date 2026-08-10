@@ -423,6 +423,41 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         return true;
     }
 
+    if (LastCommand.StartsWith(TEXT("TriggerSession"), ESearchCase::IgnoreCase))
+    {
+        AActor* SessionCtrl = nullptr;
+        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
+        {
+            if (It->GetClass()->GetName().Contains(TEXT("SarembokSessionDemoController")))
+            {
+                SessionCtrl = *It;
+                break;
+            }
+        }
+
+        if (!SessionCtrl)
+        {
+            UClass* SessionClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokAgent.SarembokSessionDemoController"));
+            if (SessionClass)
+            {
+                FActorSpawnParameters SpawnParams;
+                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+                SessionCtrl = RuntimeWorld->SpawnActor<AActor>(SessionClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+            }
+        }
+
+        if (SessionCtrl)
+        {
+            UFunction* Func = SessionCtrl->FindFunction(*LastCommand);
+            if (Func)
+            {
+                SessionCtrl->ProcessEvent(Func, nullptr);
+                return true;
+            }
+        }
+        return true;
+    }
+
     UE_LOG(
         LogTemp,
         Display,
