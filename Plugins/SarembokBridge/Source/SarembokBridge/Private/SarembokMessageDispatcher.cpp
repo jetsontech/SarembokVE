@@ -1,5 +1,4 @@
 #include "SarembokMessageDispatcher.h"
-#include "SarembokCommandConstants.h"
 
 #include "Dom/JsonObject.h"
 #include "Engine/Engine.h"
@@ -34,20 +33,10 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
 {
     ParseCommand(Message);
 
-    // v1.2: Create execution trace
-    FString TraceId = ExtractTraceId(Message);
-    FSarembokExecutionTrace Trace;
-    Trace.TraceId = TraceId.IsEmpty() ? LastId : TraceId;
-    Trace.StartTime = FDateTime::UtcNow();
-    Trace.AddEvent(TEXT("BRIDGE"), TEXT("ROUTED"), LastId, LastCommand);
-
-    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK][BRIDGE] ROUTED Protocol=%s"), *LastProtocol);
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("[SAREMBOK][BRIDGE] ROUTED | Protocol=%s | Id=%s | Command=%s | Target=%s | Payload=%s"),
-        *LastProtocol,
-        *LastId,
+        TEXT("[SAREMBOK] COMMAND ROUTED | Command=%s | Target=%s | Payload=%s"),
         *LastCommand,
         *LastTarget,
         *LastPayload
@@ -62,64 +51,37 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
     {
         PendingCommands.Add(Message);
 
-        Trace.AddEvent(TEXT("BRIDGE"), TEXT("QUEUED"), LastId);
-
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("[SAREMBOK][BRIDGE] QUEUED | Id=%s | Command=%s | Pending=%d"),
-            *LastId,
+            TEXT("[SAREMBOK] COMMAND QUEUED | Command=%s | Pending=%d | Waiting for game world/avatar"),
             *LastCommand,
             PendingCommands.Num()
         );
     }
-    else
-    {
-        Trace.AddEvent(TEXT("BRIDGE"), TEXT("EXECUTED"), LastId, LastCommand);
-    }
-
-    // Complete and store trace
-    Trace.Complete();
-
-    UE_LOG(
-        LogTemp,
-        Display,
-        TEXT("[SAREMBOK][BRIDGE] TRACE_COMPLETE | TraceId=%s | Events=%d"),
-        *Trace.TraceId,
-        Trace.Events.Num()
-    );
-
-    // FIFO eviction
-    if (ExecutionTraces.Num() >= MaxTraces)
-    {
-        ExecutionTraces.RemoveAt(0);
-    }
-    ExecutionTraces.Add(Trace);
 }
 
 bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
 {
-    if (IsEngineExitRequested() || !GEngine)
-    {
-        return true;
-    }
-
     UWorld* RuntimeWorld = nullptr;
 
-    for (const FWorldContext& Context : GEngine->GetWorldContexts())
+    if (GEngine)
     {
-        UWorld* CandidateWorld = Context.World();
-
-        if (!CandidateWorld || CandidateWorld->IsUnreachable())
+        for (const FWorldContext& Context : GEngine->GetWorldContexts())
         {
-            continue;
-        }
+            UWorld* CandidateWorld = Context.World();
 
-        if (Context.WorldType == EWorldType::Game ||
-            Context.WorldType == EWorldType::PIE)
-        {
-            RuntimeWorld = CandidateWorld;
-            break;
+            if (!CandidateWorld)
+            {
+                continue;
+            }
+
+            if (Context.WorldType == EWorldType::Game ||
+                Context.WorldType == EWorldType::PIE)
+            {
+                RuntimeWorld = CandidateWorld;
+                break;
+            }
         }
     }
 
@@ -128,7 +90,7 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("[SAREMBOK][BRIDGE] WAITING | No runtime game world available")
+            TEXT("[SAREMBOK] COMMAND WAITING | No runtime game world available")
         );
 
         return false;
@@ -157,34 +119,7 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         }
     }
 
-    // Deterministic Fallback: Spawn avatar actor in world if components are missing
-    if (!AvatarComponent || !AvatarController)
-    {
-        FActorSpawnParameters SpawnParams;
-        SpawnParams.Name = FName(TEXT("SarembokRuntimeAvatarActor"));
-        SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-        AActor* FallbackActor = RuntimeWorld->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-        if (FallbackActor)
-        {
-            if (!AvatarComponent)
-            {
-                AvatarComponent = NewObject<USarembokAvatarComponent>(FallbackActor, TEXT("SarembokAvatarComponent"));
-                AvatarComponent->RegisterComponent();
-            }
-            if (!AvatarController)
-            {
-                AvatarController = NewObject<USarembokAvatarController>(FallbackActor, TEXT("SarembokAvatarController"));
-                AvatarController->RegisterComponent();
-            }
-            UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Deterministic Fallback Avatar Created in Runtime World"));
-        }
-    }
-
-    TWeakObjectPtr<USarembokAvatarComponent> WeakAvatarComponent(AvatarComponent);
-    TWeakObjectPtr<USarembokAvatarController> WeakAvatarController(AvatarController);
-
-    if (LastCommand.Equals(SarembokCommandConstants::Emotion, ESearchCase::IgnoreCase))
+    if (LastCommand.Equals(TEXT("Emotion"), ESearchCase::IgnoreCase))
     {
         FString Emotion;
 
@@ -197,23 +132,23 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         {
             const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
 
-            if (JsonObject->TryGetObjectField(SarembokCommandConstants::KeyPayload, PayloadObject) &&
+            if (JsonObject->TryGetObjectField(TEXT("payload"), PayloadObject) &&
                 PayloadObject &&
                 PayloadObject->IsValid())
             {
                 (*PayloadObject)->TryGetStringField(
-                    SarembokCommandConstants::KeyState,
+                    TEXT("state"),
                     Emotion
                 );
             }
         }
 
-        if (!WeakAvatarController.IsValid())
+        if (!AvatarController)
         {
             UE_LOG(
                 LogTemp,
                 Display,
-                TEXT("[SAREMBOK][AVATAR] Emotion command waiting for AvatarController")
+                TEXT("[SAREMBOK] Emotion command waiting for AvatarController")
             );
 
             return false;
@@ -224,26 +159,25 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
             UE_LOG(
                 LogTemp,
                 Warning,
-                TEXT("[SAREMBOK][AVATAR] Emotion command missing state payload")
+                TEXT("[SAREMBOK] Emotion command missing state payload")
             );
 
             return true;
         }
 
-        WeakAvatarController->SetEmotion(Emotion);
+        AvatarController->SetEmotion(Emotion);
 
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("[SAREMBOK][AVATAR] EMOTION_EXECUTED | Id=%s | Emotion=%s"),
-            *LastId,
+            TEXT("[SAREMBOK] AVATAR EMOTION EXECUTED | %s"),
             *Emotion
         );
 
         return true;
     }
 
-    if (LastCommand.Equals(SarembokCommandConstants::Speak, ESearchCase::IgnoreCase))
+    if (LastCommand.Equals(TEXT("Speak"), ESearchCase::IgnoreCase))
     {
         FString Text;
         FString Emotion;
@@ -257,28 +191,28 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         {
             const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
 
-            if (JsonObject->TryGetObjectField(SarembokCommandConstants::KeyPayload, PayloadObject) &&
+            if (JsonObject->TryGetObjectField(TEXT("payload"), PayloadObject) &&
                 PayloadObject &&
                 PayloadObject->IsValid())
             {
                 (*PayloadObject)->TryGetStringField(
-                    SarembokCommandConstants::KeyText,
+                    TEXT("text"),
                     Text
                 );
 
                 (*PayloadObject)->TryGetStringField(
-                    SarembokCommandConstants::KeyEmotion,
+                    TEXT("emotion"),
                     Emotion
                 );
             }
         }
 
-        if (!WeakAvatarComponent.IsValid())
+        if (!AvatarComponent)
         {
             UE_LOG(
                 LogTemp,
                 Display,
-                TEXT("[SAREMBOK][VOICE] Speak command waiting for AvatarComponent")
+                TEXT("[SAREMBOK] Speak command waiting for AvatarComponent")
             );
 
             return false;
@@ -289,448 +223,33 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
             UE_LOG(
                 LogTemp,
                 Warning,
-                TEXT("[SAREMBOK][VOICE] Speak command missing text payload")
+                TEXT("[SAREMBOK] Speak command missing text payload")
             );
 
             return true;
         }
 
-        if (WeakAvatarController.IsValid() && !Emotion.IsEmpty())
+        if (AvatarController && !Emotion.IsEmpty())
         {
-            WeakAvatarController->SetEmotion(Emotion);
+            AvatarController->SetEmotion(Emotion);
         }
 
-        WeakAvatarComponent->Speak(Text);
+        AvatarComponent->Speak(Text);
 
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("[SAREMBOK][VOICE] EXECUTED | Id=%s | Text=%s"),
-            *LastId,
+            TEXT("[SAREMBOK] AVATAR SPEECH EXECUTED | %s"),
             *Text
         );
 
         return true;
     }
 
-    if (LastCommand.Equals(TEXT("StartDemo"), ESearchCase::IgnoreCase) || LastCommand.Equals(TEXT("DemoGoal"), ESearchCase::IgnoreCase))
-    {
-        AActor* DemoCtrl = nullptr;
-        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
-        {
-            if (It->GetClass()->GetName().Contains(TEXT("SarembokDemoController")))
-            {
-                DemoCtrl = *It;
-                break;
-            }
-        }
-
-        if (!DemoCtrl)
-        {
-            UClass* DemoClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokAgent.SarembokDemoController"));
-            if (DemoClass)
-            {
-                FActorSpawnParameters SpawnParams;
-                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-                DemoCtrl = RuntimeWorld->SpawnActor<AActor>(DemoClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-            }
-        }
-
-        if (DemoCtrl)
-        {
-            UFunction* Func = DemoCtrl->FindFunction(FName(TEXT("StartAutonomousDemo")));
-            if (Func)
-            {
-                DemoCtrl->ProcessEvent(Func, nullptr);
-                return true;
-            }
-        }
-        return true;
-    }
-
-    if (LastCommand.Equals(TEXT("InjectFailure"), ESearchCase::IgnoreCase))
-    {
-        AActor* DemoCtrl = nullptr;
-        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
-        {
-            if (It->GetClass()->GetName().Contains(TEXT("SarembokDemoController")))
-            {
-                DemoCtrl = *It;
-                break;
-            }
-        }
-
-        if (!DemoCtrl)
-        {
-            UClass* DemoClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokAgent.SarembokDemoController"));
-            if (DemoClass)
-            {
-                FActorSpawnParameters SpawnParams;
-                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-                DemoCtrl = RuntimeWorld->SpawnActor<AActor>(DemoClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-            }
-        }
-
-        if (DemoCtrl)
-        {
-            UFunction* Func = DemoCtrl->FindFunction(FName(TEXT("InjectDemoFailure")));
-            if (Func)
-            {
-                DemoCtrl->ProcessEvent(Func, nullptr);
-                return true;
-            }
-        }
-        return true;
-    }
-
-    if (LastCommand.StartsWith(TEXT("TriggerScenario"), ESearchCase::IgnoreCase))
-    {
-        AActor* SocialCtrl = nullptr;
-        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
-        {
-            if (It->GetClass()->GetName().Contains(TEXT("SarembokSocialDemoController")))
-            {
-                SocialCtrl = *It;
-                break;
-            }
-        }
-
-        if (!SocialCtrl)
-        {
-            UClass* SocialClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokAgent.SarembokSocialDemoController"));
-            if (SocialClass)
-            {
-                FActorSpawnParameters SpawnParams;
-                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-                SocialCtrl = RuntimeWorld->SpawnActor<AActor>(SocialClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-            }
-        }
-
-        if (SocialCtrl)
-        {
-            UFunction* Func = SocialCtrl->FindFunction(*LastCommand);
-            if (Func)
-            {
-                struct FScenarioParams
-                {
-                    FString Question = TEXT("Where is the AI workstation located?");
-                };
-                FScenarioParams Params;
-                SocialCtrl->ProcessEvent(Func, &Params);
-                return true;
-            }
-        }
-        return true;
-    }
-
-    if (LastCommand.StartsWith(TEXT("TriggerSession"), ESearchCase::IgnoreCase))
-    {
-        AActor* SessionCtrl = nullptr;
-        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
-        {
-            if (It->GetClass()->GetName().Contains(TEXT("SarembokSessionDemoController")))
-            {
-                SessionCtrl = *It;
-                break;
-            }
-        }
-
-        if (!SessionCtrl)
-        {
-            UClass* SessionClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokAgent.SarembokSessionDemoController"));
-            if (SessionClass)
-            {
-                FActorSpawnParameters SpawnParams;
-                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-                SessionCtrl = RuntimeWorld->SpawnActor<AActor>(SessionClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-            }
-        }
-
-        if (SessionCtrl)
-        {
-            UFunction* Func = SessionCtrl->FindFunction(*LastCommand);
-            if (Func)
-            {
-                SessionCtrl->ProcessEvent(Func, nullptr);
-                return true;
-            }
-        }
-        return true;
-    }
-
-    if (LastCommand.StartsWith(TEXT("TriggerCognitiveTest"), ESearchCase::IgnoreCase))
-    {
-        AActor* CogCtrl = nullptr;
-        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
-        {
-            if (It->GetClass()->GetName().Contains(TEXT("SarembokCognitiveDemoController")))
-            {
-                CogCtrl = *It;
-                break;
-            }
-        }
-
-        if (!CogCtrl)
-        {
-            UClass* CogClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokAgent.SarembokCognitiveDemoController"));
-            if (CogClass)
-            {
-                FActorSpawnParameters SpawnParams;
-                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-                CogCtrl = RuntimeWorld->SpawnActor<AActor>(CogClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-            }
-        }
-
-        if (CogCtrl)
-        {
-            UFunction* Func = CogCtrl->FindFunction(*LastCommand);
-            if (Func)
-            {
-                CogCtrl->ProcessEvent(Func, nullptr);
-                return true;
-            }
-        }
-        return true;
-    }
-
-    if (LastCommand.StartsWith(TEXT("TriggerRealtimeTest"), ESearchCase::IgnoreCase))
-    {
-        AActor* RealtimeCtrl = nullptr;
-        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
-        {
-            if (It->GetClass()->GetName().Contains(TEXT("SarembokRealtimeDemoController")))
-            {
-                RealtimeCtrl = *It;
-                break;
-            }
-        }
-
-        if (!RealtimeCtrl)
-        {
-            UClass* RealtimeClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokAgent.SarembokRealtimeDemoController"));
-            if (RealtimeClass)
-            {
-                FActorSpawnParameters SpawnParams;
-                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-                RealtimeCtrl = RuntimeWorld->SpawnActor<AActor>(RealtimeClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-            }
-        }
-
-        if (RealtimeCtrl)
-        {
-            UFunction* Func = RealtimeCtrl->FindFunction(*LastCommand);
-            if (Func)
-            {
-                RealtimeCtrl->ProcessEvent(Func, nullptr);
-                return true;
-            }
-        }
-        return true;
-    }
-
-    if (LastCommand.StartsWith(TEXT("TriggerObservabilityTest"), ESearchCase::IgnoreCase))
-    {
-        AActor* ObsCtrl = nullptr;
-        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
-        {
-            if (It->GetClass()->GetName().Contains(TEXT("SarembokObservabilityDemoController")))
-            {
-                ObsCtrl = *It;
-                break;
-            }
-        }
-
-        if (!ObsCtrl)
-        {
-            UClass* ObsClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokAgent.SarembokObservabilityDemoController"));
-            if (ObsClass)
-            {
-                FActorSpawnParameters SpawnParams;
-                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-                ObsCtrl = RuntimeWorld->SpawnActor<AActor>(ObsClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-            }
-        }
-
-        if (ObsCtrl)
-        {
-            UFunction* Func = ObsCtrl->FindFunction(*LastCommand);
-            if (Func)
-            {
-                ObsCtrl->ProcessEvent(Func, nullptr);
-                return true;
-            }
-        }
-        return true;
-    }
-
-    if (LastCommand.StartsWith(TEXT("TriggerPlatformTest"), ESearchCase::IgnoreCase))
-    {
-        AActor* PlatCtrl = nullptr;
-        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
-        {
-            if (It->GetClass()->GetName().Contains(TEXT("SarembokPlatformDemoController")))
-            {
-                PlatCtrl = *It;
-                break;
-            }
-        }
-
-        if (!PlatCtrl)
-        {
-            UClass* PlatClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokCore.SarembokPlatformDemoController"));
-            if (PlatClass)
-            {
-                FActorSpawnParameters SpawnParams;
-                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-                PlatCtrl = RuntimeWorld->SpawnActor<AActor>(PlatClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-            }
-        }
-
-        if (PlatCtrl)
-        {
-            UFunction* Func = PlatCtrl->FindFunction(*LastCommand);
-            if (Func)
-            {
-                PlatCtrl->ProcessEvent(Func, nullptr);
-                return true;
-            }
-        }
-        return true;
-    }
-
-    if (LastCommand.StartsWith(TEXT("TriggerHardeningTest"), ESearchCase::IgnoreCase))
-    {
-        AActor* HardCtrl = nullptr;
-        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
-        {
-            if (It->GetClass()->GetName().Contains(TEXT("SarembokHardeningDemoController")))
-            {
-                HardCtrl = *It;
-                break;
-            }
-        }
-
-        if (!HardCtrl)
-        {
-            UClass* HardClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokCore.SarembokHardeningDemoController"));
-            if (HardClass)
-            {
-                FActorSpawnParameters SpawnParams;
-                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-                HardCtrl = RuntimeWorld->SpawnActor<AActor>(HardClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-            }
-        }
-
-        if (HardCtrl)
-        {
-            UFunction* Func = HardCtrl->FindFunction(*LastCommand);
-            if (Func)
-            {
-                HardCtrl->ProcessEvent(Func, nullptr);
-                return true;
-            }
-        }
-        return true;
-    }
-
-    if (LastCommand.StartsWith(TEXT("TriggerMultiAgentTest"), ESearchCase::IgnoreCase))
-    {
-        AActor* MultiCtrl = nullptr;
-        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
-        {
-            if (It->GetClass()->GetName().Contains(TEXT("SarembokMultiAgentDemoController")))
-            {
-                MultiCtrl = *It;
-                break;
-            }
-        }
-
-        if (!MultiCtrl)
-        {
-            UClass* MultiClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokCore.SarembokMultiAgentDemoController"));
-            if (MultiClass)
-            {
-                FActorSpawnParameters SpawnParams;
-                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-                MultiCtrl = RuntimeWorld->SpawnActor<AActor>(MultiClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-            }
-        }
-
-        if (MultiCtrl)
-        {
-            UFunction* Func = MultiCtrl->FindFunction(*LastCommand);
-            if (Func)
-            {
-                MultiCtrl->ProcessEvent(Func, nullptr);
-                return true;
-            }
-        }
-        return true;
-    }
-
-    if (LastCommand.StartsWith(TEXT("TriggerV3Test"), ESearchCase::IgnoreCase))
-    {
-        AActor* V3Ctrl = nullptr;
-        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
-        {
-            if (It->GetClass()->GetName().Contains(TEXT("SarembokV3DemoController")))
-            {
-                V3Ctrl = *It;
-                break;
-            }
-        }
-
-        if (!V3Ctrl)
-        {
-            UClass* V3Class = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokCore.SarembokV3DemoController"));
-            if (V3Class)
-            {
-                FActorSpawnParameters SpawnParams;
-                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-                V3Ctrl = RuntimeWorld->SpawnActor<AActor>(V3Class, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-            }
-        }
-
-        if (V3Ctrl)
-        {
-            UFunction* Func = V3Ctrl->FindFunction(*LastCommand);
-            if (Func)
-            {
-                V3Ctrl->ProcessEvent(Func, nullptr);
-                return true;
-            }
-        }
-        return true;
-    }
-
-    // Platform API (JSON-RPC methods routed to USarembokPlatformAPI)
-    static const TArray<FString> PlatformAPIMethods = {
-        TEXT("CreateAgent"), TEXT("QueryAgentState"), TEXT("InjectPerception"),
-        TEXT("EvaluateDecision"), TEXT("GetCognitiveScorecard")
-    };
-    bool bIsPlatformAPIMethod = PlatformAPIMethods.ContainsByPredicate([&](const FString& M){ return LastCommand.StartsWith(M); });
-
-    if (bIsPlatformAPIMethod)
-    {
-        if (UGameInstance* GI = RuntimeWorld ? RuntimeWorld->GetGameInstance() : nullptr)
-        {
-            if (UObject* APIOBJ = GI->GetSubsystemBase(FindObject<UClass>(nullptr, TEXT("/Script/SarembokBridge.SarembokPlatformAPI"))))
-            {
-                UFunction* Func = APIOBJ->FindFunction(*LastCommand);
-                if (Func)
-                {
-                    APIOBJ->ProcessEvent(Func, nullptr);
-                    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK][PLATFORM_API] Dispatched | Method=%s"), *LastCommand);
-                }
-            }
-        }
-        return true;
-    }
-
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("[SAREMBOK][BRIDGE] Command received with no explicit executor: %s"),
+        TEXT("[SAREMBOK] Command received with no Avatar executor: %s"),
         *LastCommand
     );
 
@@ -750,7 +269,7 @@ bool FSarembokMessageDispatcher::ProcessQueuedCommands(float DeltaTime)
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("[SAREMBOK][BRIDGE] COMMAND QUEUE CHECK | Pending=%d"),
+        TEXT("[SAREMBOK] COMMAND QUEUE CHECK | Pending=%d"),
         CommandsToProcess.Num()
     );
 
@@ -774,7 +293,7 @@ bool FSarembokMessageDispatcher::ProcessQueuedCommands(float DeltaTime)
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("[SAREMBOK][BRIDGE] COMMAND QUEUE WAITING | Pending=%d"),
+            TEXT("[SAREMBOK] COMMAND QUEUE WAITING | Pending=%d"),
             PendingCommands.Num()
         );
     }
@@ -784,12 +303,12 @@ bool FSarembokMessageDispatcher::ProcessQueuedCommands(float DeltaTime)
 
 void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
 {
-    LastProtocol.Empty();
-    LastId.Empty();
-    LastTimestamp.Empty();
     LastCommand.Empty();
     LastTarget.Empty();
     LastPayload.Empty();
+    LastProtocol.Empty();
+    LastId.Empty();
+    LastTimestamp.Empty();
 
     TSharedPtr<FJsonObject> JsonObject;
 
@@ -802,39 +321,40 @@ void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
         UE_LOG(
             LogTemp,
             Error,
-            TEXT("[SAREMBOK][BRIDGE] Invalid command JSON")
+            TEXT("[SAREMBOK] Invalid command JSON")
         );
 
         return;
     }
 
-    JsonObject->TryGetStringField(TEXT("protocol"), LastProtocol);
-    JsonObject->TryGetStringField(TEXT("id"), LastId);
-    JsonObject->TryGetStringField(TEXT("timestamp"), LastTimestamp);
-
-    if (LastProtocol.IsEmpty())
-    {
-        LastProtocol = TEXT("legacy.v0");
-    }
-
-    if (LastId.IsEmpty())
-    {
-        LastId = TEXT("cmd-legacy");
-    }
-
     JsonObject->TryGetStringField(
-        SarembokCommandConstants::KeyCommand,
+        TEXT("command"),
         LastCommand
     );
 
     JsonObject->TryGetStringField(
-        SarembokCommandConstants::KeyTarget,
+        TEXT("target"),
         LastTarget
+    );
+
+    JsonObject->TryGetStringField(
+        TEXT("protocol"),
+        LastProtocol
+    );
+
+    JsonObject->TryGetStringField(
+        TEXT("id"),
+        LastId
+    );
+
+    JsonObject->TryGetStringField(
+        TEXT("timestamp"),
+        LastTimestamp
     );
 
     const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
 
-    if (JsonObject->TryGetObjectField(SarembokCommandConstants::KeyPayload, PayloadObject) &&
+    if (JsonObject->TryGetObjectField(TEXT("payload"), PayloadObject) &&
         PayloadObject &&
         PayloadObject->IsValid())
     {
@@ -854,7 +374,7 @@ void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
         UE_LOG(
             LogTemp,
             Warning,
-            TEXT("[SAREMBOK][BRIDGE] Command received without command field")
+            TEXT("[SAREMBOK] Command received without command field")
         );
     }
 }
@@ -874,30 +394,6 @@ FString FSarembokMessageDispatcher::GetLastCorrelationId() const
     return LastId;
 }
 
-FString FSarembokMessageDispatcher::ExtractTraceId(const FString& Message) const
-{
-    TSharedPtr<FJsonObject> JsonObject;
-    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Message);
-
-    if (!FJsonSerializer::Deserialize(Reader, JsonObject) || !JsonObject.IsValid())
-    {
-        return TEXT("");
-    }
-
-    const TSharedPtr<FJsonObject>* ContextObject = nullptr;
-    if (JsonObject->TryGetObjectField(TEXT("context"), ContextObject) &&
-        ContextObject && ContextObject->IsValid())
-    {
-        FString TraceId;
-        if ((*ContextObject)->TryGetStringField(TEXT("trace"), TraceId))
-        {
-            return TraceId;
-        }
-    }
-
-    return TEXT("");
-}
-
 const TArray<FSarembokExecutionTrace>& FSarembokMessageDispatcher::GetTraces() const
 {
     return ExecutionTraces;
@@ -905,11 +401,26 @@ const TArray<FSarembokExecutionTrace>& FSarembokMessageDispatcher::GetTraces() c
 
 TArray<FSarembokExecutionTrace> FSarembokMessageDispatcher::GetRecentTraces(int32 Count) const
 {
-    TArray<FSarembokExecutionTrace> Result;
-    int32 StartIdx = FMath::Max(0, ExecutionTraces.Num() - Count);
-    for (int32 i = StartIdx; i < ExecutionTraces.Num(); ++i)
+    TArray<FSarembokExecutionTrace> Recent;
+    const int32 Start = FMath::Max(0, ExecutionTraces.Num() - Count);
+    for (int32 i = Start; i < ExecutionTraces.Num(); ++i)
     {
-        Result.Add(ExecutionTraces[i]);
+        Recent.Add(ExecutionTraces[i]);
     }
-    return Result;
+    return Recent;
+}
+
+FString FSarembokMessageDispatcher::ExtractTraceId(const FString& Message) const
+{
+    TSharedPtr<FJsonObject> JsonObject;
+    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Message);
+    if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
+    {
+        FString TraceId;
+        if (JsonObject->TryGetStringField(TEXT("traceId"), TraceId))
+        {
+            return TraceId;
+        }
+    }
+    return FGuid::NewGuid().ToString();
 }
