@@ -110,6 +110,32 @@ struct FSarembokWorldDelta
     int32 MovedCount = 0;
 };
 
+// ---- v1.5 Social Perception Event Abstraction ----
+
+USTRUCT(BlueprintType)
+struct FSarembokSocialPerceptionEvent
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sarembok Vision")
+    FString Who = TEXT("User"); // User, Avatar, OtherCharacter
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sarembok Vision")
+    FString What = TEXT("Character"); // Object, Equipment, Environment
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sarembok Vision")
+    FVector WherePosition = FVector::ZeroVector;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sarembok Vision")
+    float WhereDistance = 0.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sarembok Vision")
+    bool bInFOV = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sarembok Vision")
+    FString SignalType = TEXT("USER_PRESENT"); // USER_APPROACHED, USER_LEAVING, USER_LOOKING, USER_PRESENT
+};
+
 // ---- Vision Manager ----
 
 UCLASS()

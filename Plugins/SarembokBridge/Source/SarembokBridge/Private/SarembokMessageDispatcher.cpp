@@ -383,6 +383,46 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         return true;
     }
 
+    if (LastCommand.StartsWith(TEXT("TriggerScenario"), ESearchCase::IgnoreCase))
+    {
+        AActor* SocialCtrl = nullptr;
+        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
+        {
+            if (It->GetClass()->GetName().Contains(TEXT("SarembokSocialDemoController")))
+            {
+                SocialCtrl = *It;
+                break;
+            }
+        }
+
+        if (!SocialCtrl)
+        {
+            UClass* SocialClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokAgent.SarembokSocialDemoController"));
+            if (SocialClass)
+            {
+                FActorSpawnParameters SpawnParams;
+                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+                SocialCtrl = RuntimeWorld->SpawnActor<AActor>(SocialClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+            }
+        }
+
+        if (SocialCtrl)
+        {
+            UFunction* Func = SocialCtrl->FindFunction(*LastCommand);
+            if (Func)
+            {
+                struct FScenarioParams
+                {
+                    FString Question = TEXT("Where is the AI workstation located?");
+                };
+                FScenarioParams Params;
+                SocialCtrl->ProcessEvent(Func, &Params);
+                return true;
+            }
+        }
+        return true;
+    }
+
     UE_LOG(
         LogTemp,
         Display,

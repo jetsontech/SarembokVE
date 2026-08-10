@@ -197,6 +197,14 @@ FSarembokWorldState USarembokVisionManager::GetWorldState()
                     TEXT("[SAREMBOK][VISION] USER_APPROACHED Distance=%.1f"),
                     ActorState.DistanceFromAvatar
                 );
+
+                UE_LOG(
+                    LogTemp,
+                    Display,
+                    TEXT("[SAREMBOK][PERCEIVE] SOCIAL_SIGNAL Signal=USER_APPROACHED Subject=%s Dist=%.1f"),
+                    *ActorState.ActorName,
+                    ActorState.DistanceFromAvatar
+                );
             }
         }
 
