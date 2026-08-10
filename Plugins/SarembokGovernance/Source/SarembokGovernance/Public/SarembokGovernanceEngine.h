@@ -43,6 +43,39 @@ struct FSarembokGovernanceDecision
     UPROPERTY() FString           Timestamp;
 };
 
+UENUM(BlueprintType)
+enum class EAgentRoleType : uint8
+{
+    Observer       UMETA(DisplayName="Observer"),
+    Conversational UMETA(DisplayName="Conversational"),
+    Navigator      UMETA(DisplayName="Navigator"),
+    Researcher     UMETA(DisplayName="Researcher"),
+    Admin          UMETA(DisplayName="Admin")
+};
+
+USTRUCT(BlueprintType)
+struct FSarembokAgentRole
+{
+    GENERATED_BODY()
+
+    UPROPERTY() EAgentRoleType RoleType;
+    UPROPERTY() FString        RoleName;
+    UPROPERTY() TArray<FString> AllowedCapabilities;
+};
+
+USTRUCT(BlueprintType)
+struct FSarembokAgentQuota
+{
+    GENERATED_BODY()
+
+    UPROPERTY() int32 MaxConcurrentTasks;
+    UPROPERTY() int32 MaxDelegations;
+    UPROPERTY() int32 MaxMemoryWrites;
+    UPROPERTY() int32 MaxQueriesPerMinute;
+    UPROPERTY() int32 MaxWorldActions;
+    UPROPERTY() int32 MaxExecutionTimeMs;
+};
+
 UCLASS()
 class SAREMBOKGOVERNANCE_API USarembokGovernanceEngine : public UGameInstanceSubsystem
 {
@@ -55,6 +88,15 @@ public:
     FSarembokGovernanceDecision EvaluateActionRequest(const FSarembokGovernanceRequest& Request);
 
     UFUNCTION(BlueprintCallable, Category="Sarembok|Governance")
+    void RegisterAgentRole(const FString& AgentId, EAgentRoleType RoleType);
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok|Governance")
+    void SetAgentQuota(const FString& AgentId, const FSarembokAgentQuota& Quota);
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok|Governance")
+    bool CheckQuotaCompliance(const FString& AgentId, int32 ActionCost = 1) const;
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok|Governance")
     TArray<FSarembokGovernanceDecision> GetAuditTrail(int32 MaxRecords = 100) const;
 
     UFUNCTION(BlueprintCallable, Category="Sarembok|Governance")
@@ -65,6 +107,8 @@ public:
 
 private:
     TArray<FSarembokGovernanceDecision> AuditTrail;
+    TMap<FString, FSarembokAgentRole> AgentRoles;
+    TMap<FString, FSarembokAgentQuota> AgentQuotas;
     int32 TotalDenials        = 0;
     int32 TotalAuthorizations = 0;
 

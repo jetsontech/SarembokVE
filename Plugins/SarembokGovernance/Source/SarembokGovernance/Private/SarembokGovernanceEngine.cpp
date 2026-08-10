@@ -79,6 +79,37 @@ TArray<FSarembokGovernanceDecision> USarembokGovernanceEngine::GetAuditTrail(int
     return TArray<FSarembokGovernanceDecision>(AuditTrail.GetData() + StartIdx, AuditTrail.Num() - StartIdx);
 }
 
+void USarembokGovernanceEngine::RegisterAgentRole(const FString& AgentId, EAgentRoleType RoleType)
+{
+    FSarembokAgentRole Role;
+    Role.RoleType = RoleType;
+    switch (RoleType)
+    {
+        case EAgentRoleType::Observer:       Role.RoleName = TEXT("Observer");       Role.AllowedCapabilities = { TEXT("Observe"), TEXT("Retrieve") }; break;
+        case EAgentRoleType::Conversational: Role.RoleName = TEXT("Conversational"); Role.AllowedCapabilities = { TEXT("Speak"), TEXT("Emote"), TEXT("Observe"), TEXT("Retrieve") }; break;
+        case EAgentRoleType::Navigator:      Role.RoleName = TEXT("Navigator");      Role.AllowedCapabilities = { TEXT("Observe"), TEXT("Navigate"), TEXT("Interact") }; break;
+        case EAgentRoleType::Researcher:     Role.RoleName = TEXT("Researcher");     Role.AllowedCapabilities = { TEXT("Observe"), TEXT("Query"), TEXT("Retrieve"), TEXT("Remember") }; break;
+        case EAgentRoleType::Admin:          Role.RoleName = TEXT("Admin");          Role.AllowedCapabilities = { TEXT("*") }; break;
+    }
+    AgentRoles.Add(AgentId, Role);
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK][GOVERNANCE] Registered role '%s' for agent '%s'"), *Role.RoleName, *AgentId);
+}
+
+void USarembokGovernanceEngine::SetAgentQuota(const FString& AgentId, const FSarembokAgentQuota& Quota)
+{
+    AgentQuotas.Add(AgentId, Quota);
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK][GOVERNANCE] Set resource quota for agent '%s' | MaxTasks=%d"), *AgentId, Quota.MaxConcurrentTasks);
+}
+
+bool USarembokGovernanceEngine::CheckQuotaCompliance(const FString& AgentId, int32 ActionCost) const
+{
+    if (const FSarembokAgentQuota* Q = AgentQuotas.Find(AgentId))
+    {
+        return ActionCost <= Q->MaxWorldActions;
+    }
+    return true; // Default compliant
+}
+
 FString USarembokGovernanceEngine::GenerateAuditToken(const FSarembokGovernanceRequest& Request) const
 {
     return FString::Printf(TEXT("gov-%s-%s-%s"),

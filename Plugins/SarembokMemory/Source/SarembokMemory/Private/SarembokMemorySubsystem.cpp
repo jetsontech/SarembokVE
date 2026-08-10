@@ -40,6 +40,32 @@ void USarembokMemorySubsystem::StoreMemory(const FString& Key, const FString& Va
     );
 }
 
+void USarembokMemorySubsystem::StoreScopedMemory(const FString& AgentId, EMemoryScope Scope, const FString& Key, const FString& Value)
+{
+    FScopeLock Lock(&MemoryLock);
+    FString ScopedKey = FString::Printf(TEXT("%s::%d::%s"), *AgentId, (int32)Scope, *Key);
+    MemoryStore.FindOrAdd(ScopedKey) = Value;
+
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] SCOPED MEMORY STORED | Agent=%s | Scope=%d | Key=%s | Value=%s"),
+        *AgentId, (int32)Scope, *Key, *Value);
+}
+
+FString USarembokMemorySubsystem::RecallScopedMemory(const FString& AgentId, EMemoryScope Scope, const FString& Key) const
+{
+    FString ScopedKey = FString::Printf(TEXT("%s::%d::%s"), *AgentId, (int32)Scope, *Key);
+    if (const FString* Found = MemoryStore.Find(ScopedKey))
+    {
+        return *Found;
+    }
+    // Fall back to global scope if not found in private scope
+    FString GlobalKey = FString::Printf(TEXT("global::%d::%s"), (int32)EMemoryScope::Global, *Key);
+    if (const FString* GlobalFound = MemoryStore.Find(GlobalKey))
+    {
+        return *GlobalFound;
+    }
+    return TEXT("");
+}
+
 FString USarembokMemorySubsystem::RecallMemory(const FString& Key)
 {
     FScopeLock Lock(&MemoryLock);

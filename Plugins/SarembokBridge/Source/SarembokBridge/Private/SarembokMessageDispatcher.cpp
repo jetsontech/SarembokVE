@@ -633,6 +633,41 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         return true;
     }
 
+    if (LastCommand.StartsWith(TEXT("TriggerMultiAgentTest"), ESearchCase::IgnoreCase))
+    {
+        AActor* MultiCtrl = nullptr;
+        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
+        {
+            if (It->GetClass()->GetName().Contains(TEXT("SarembokMultiAgentDemoController")))
+            {
+                MultiCtrl = *It;
+                break;
+            }
+        }
+
+        if (!MultiCtrl)
+        {
+            UClass* MultiClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokCore.SarembokMultiAgentDemoController"));
+            if (MultiClass)
+            {
+                FActorSpawnParameters SpawnParams;
+                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+                MultiCtrl = RuntimeWorld->SpawnActor<AActor>(MultiClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+            }
+        }
+
+        if (MultiCtrl)
+        {
+            UFunction* Func = MultiCtrl->FindFunction(*LastCommand);
+            if (Func)
+            {
+                MultiCtrl->ProcessEvent(Func, nullptr);
+                return true;
+            }
+        }
+        return true;
+    }
+
     // Platform API (JSON-RPC methods routed to USarembokPlatformAPI)
     static const TArray<FString> PlatformAPIMethods = {
         TEXT("CreateAgent"), TEXT("QueryAgentState"), TEXT("InjectPerception"),

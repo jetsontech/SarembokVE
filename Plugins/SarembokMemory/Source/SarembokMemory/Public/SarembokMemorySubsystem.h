@@ -6,6 +6,15 @@
 #include "SarembokEpisode.h"
 #include "SarembokMemorySubsystem.generated.h"
 
+UENUM(BlueprintType)
+enum class EMemoryScope : uint8
+{
+    Private UMETA(DisplayName="Private"),
+    Team    UMETA(DisplayName="Team"),
+    Session UMETA(DisplayName="Session"),
+    Global  UMETA(DisplayName="Global")
+};
+
 UCLASS()
 class SAREMBOKMEMORY_API USarembokMemorySubsystem : public UGameInstanceSubsystem, public ISarembokMemoryInterface
 {
@@ -20,6 +29,12 @@ public:
 
     virtual void StoreMemory(const FString& Key, const FString& Value) override;
     virtual FString RecallMemory(const FString& Key) override;
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok Memory")
+    void StoreScopedMemory(const FString& AgentId, EMemoryScope Scope, const FString& Key, const FString& Value);
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok Memory")
+    FString RecallScopedMemory(const FString& AgentId, EMemoryScope Scope, const FString& Key) const;
 
     UFUNCTION(BlueprintCallable, Category="Sarembok Memory")
     void ClearMemory();
