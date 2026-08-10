@@ -528,6 +528,41 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         return true;
     }
 
+    if (LastCommand.StartsWith(TEXT("TriggerObservabilityTest"), ESearchCase::IgnoreCase))
+    {
+        AActor* ObsCtrl = nullptr;
+        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
+        {
+            if (It->GetClass()->GetName().Contains(TEXT("SarembokObservabilityDemoController")))
+            {
+                ObsCtrl = *It;
+                break;
+            }
+        }
+
+        if (!ObsCtrl)
+        {
+            UClass* ObsClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokAgent.SarembokObservabilityDemoController"));
+            if (ObsClass)
+            {
+                FActorSpawnParameters SpawnParams;
+                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+                ObsCtrl = RuntimeWorld->SpawnActor<AActor>(ObsClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+            }
+        }
+
+        if (ObsCtrl)
+        {
+            UFunction* Func = ObsCtrl->FindFunction(*LastCommand);
+            if (Func)
+            {
+                ObsCtrl->ProcessEvent(Func, nullptr);
+                return true;
+            }
+        }
+        return true;
+    }
+
     UE_LOG(
         LogTemp,
         Display,

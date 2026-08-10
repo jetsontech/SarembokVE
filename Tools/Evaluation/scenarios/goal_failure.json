@@ -1,0 +1,13 @@
+{
+    "simulated_decision":  {
+                               "outcome":  "REPLANNED",
+                               "memory_hit":  false,
+                               "confidence":  0.79,
+                               "policy_result":  "ALLOW",
+                               "selected_action":  "Replan"
+                           },
+    "name":  "Goal Failure Recovery Scenario",
+    "expected_constraints":  {
+                                 "outcome":  "REPLANNED"
+                             }
+}

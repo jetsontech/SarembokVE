@@ -1,0 +1,13 @@
+{
+    "simulated_decision":  {
+                               "outcome":  "CONTRADICTION_DETECTED",
+                               "memory_hit":  true,
+                               "confidence":  0.88,
+                               "policy_result":  "ALLOW",
+                               "selected_action":  "AcknowledgeContradiction"
+                           },
+    "name":  "Contradiction Scenario",
+    "expected_constraints":  {
+                                 "outcome":  "CONTRADICTION_DETECTED"
+                             }
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "scenario": "greeting.json",
+    "result": "PASS",
+    "score": 1.0,
+    "name": "Greeting Scenario"
+  },
+  {
+    "scenario": "returning_user.json",
+    "result": "PASS",
+    "score": 1.0,
+    "name": "Returning User Scenario"
+  },
+  {
+    "scenario": "contradiction.json",
+    "result": "PASS",
+    "score": 1.0,
+    "name": "Contradiction Scenario"
+  },
+  {
+    "scenario": "goal_failure.json",
+    "result": "PASS",
+    "score": 1.0,
+    "name": "Goal Failure Recovery Scenario"
+  },
+  {
+    "scenario": "llm_timeout.json",
+    "result": "PASS",
+    "score": 1.0,
+    "name": "LLM Timeout Fallback Scenario"
+  },
+  {
+    "scenario": "policy_denial.json",
+    "result": "PASS",
+    "score": 1.0,
+    "name": "Policy Denial Scenario"
+  }
+]

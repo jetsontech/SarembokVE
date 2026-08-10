@@ -1,0 +1,14 @@
+{
+    "simulated_decision":  {
+                               "outcome":  "DENIED",
+                               "memory_hit":  false,
+                               "confidence":  0.95,
+                               "policy_result":  "DENY",
+                               "selected_action":  ""
+                           },
+    "name":  "Policy Denial Scenario",
+    "expected_constraints":  {
+                                 "outcome":  "DENIED",
+                                 "policy_result":  "DENY"
+                             }
+}

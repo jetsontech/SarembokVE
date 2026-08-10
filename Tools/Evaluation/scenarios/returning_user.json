@@ -1,0 +1,16 @@
+{
+    "simulated_decision":  {
+                               "outcome":  "SUCCESS",
+                               "memory_hit":  true,
+                               "confidence":  0.91,
+                               "policy_result":  "ALLOW",
+                               "selected_action":  "SpeakGreeting"
+                           },
+    "name":  "Returning User Scenario",
+    "expected_constraints":  {
+                                 "outcome":  "SUCCESS",
+                                 "memory_hit":  true,
+                                 "policy_result":  "ALLOW",
+                                 "min_confidence":  0.8
+                             }
+}

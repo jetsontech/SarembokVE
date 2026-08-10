@@ -1,0 +1,13 @@
+{
+    "simulated_decision":  {
+                               "outcome":  "FALLBACK_DETERMINISTIC",
+                               "memory_hit":  false,
+                               "confidence":  1,
+                               "policy_result":  "ALLOW",
+                               "selected_action":  "DeterministicFallback"
+                           },
+    "name":  "LLM Timeout Fallback Scenario",
+    "expected_constraints":  {
+                                 "outcome":  "FALLBACK_DETERMINISTIC"
+                             }
+}
