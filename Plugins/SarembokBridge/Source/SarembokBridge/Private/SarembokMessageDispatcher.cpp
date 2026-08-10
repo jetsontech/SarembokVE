@@ -458,6 +458,41 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         return true;
     }
 
+    if (LastCommand.StartsWith(TEXT("TriggerCognitiveTest"), ESearchCase::IgnoreCase))
+    {
+        AActor* CogCtrl = nullptr;
+        for (TActorIterator<AActor> It(RuntimeWorld); It; ++It)
+        {
+            if (It->GetClass()->GetName().Contains(TEXT("SarembokCognitiveDemoController")))
+            {
+                CogCtrl = *It;
+                break;
+            }
+        }
+
+        if (!CogCtrl)
+        {
+            UClass* CogClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Script/SarembokAgent.SarembokCognitiveDemoController"));
+            if (CogClass)
+            {
+                FActorSpawnParameters SpawnParams;
+                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+                CogCtrl = RuntimeWorld->SpawnActor<AActor>(CogClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+            }
+        }
+
+        if (CogCtrl)
+        {
+            UFunction* Func = CogCtrl->FindFunction(*LastCommand);
+            if (Func)
+            {
+                CogCtrl->ProcessEvent(Func, nullptr);
+                return true;
+            }
+        }
+        return true;
+    }
+
     UE_LOG(
         LogTemp,
         Display,

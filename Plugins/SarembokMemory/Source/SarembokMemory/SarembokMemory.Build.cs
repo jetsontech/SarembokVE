@@ -14,7 +14,9 @@ public class SarembokMemory : ModuleRules
         {
             "Core",
             "CoreUObject",
-            "Engine"
+            "Engine",
+            "Json",
+            "JsonUtilities"
         });
     }
 }

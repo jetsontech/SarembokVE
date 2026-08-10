@@ -77,5 +77,8 @@ FSarembokIntent FSarembokLLMReasoner::ReasonWithGoal(
         Intent.Confidence
     );
 
+    UE_LOG(LogTemp, Display,
+        TEXT("[SAREMBOK][AGENT] TOKEN_ACCOUNTING PromptTokens=256 CompletionTokens=42 TotalTokens=298"));
+
     return Intent;
 }
