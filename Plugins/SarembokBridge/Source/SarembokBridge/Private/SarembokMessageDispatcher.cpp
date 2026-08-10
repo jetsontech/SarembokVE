@@ -12,7 +12,10 @@
 FSarembokMessageDispatcher::FSarembokMessageDispatcher()
 {
     QueueTickerHandle = FTSTicker::GetCoreTicker().AddTicker(
-        FTickerDelegate::CreateRaw(this, &FSarembokMessageDispatcher::ProcessQueuedCommands),
+        FTickerDelegate::CreateRaw(
+            this,
+            &FSarembokMessageDispatcher::ProcessQueuedCommands
+        ),
         0.1f
     );
 }
@@ -66,20 +69,30 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
     {
         for (const FWorldContext& Context : GEngine->GetWorldContexts())
         {
+            UWorld* CandidateWorld = Context.World();
+
+            if (!CandidateWorld)
+            {
+                continue;
+            }
+
             if (Context.WorldType == EWorldType::Game ||
                 Context.WorldType == EWorldType::PIE)
             {
-                RuntimeWorld = Context.World();
-                if (RuntimeWorld)
-                {
-                    break;
-                }
+                RuntimeWorld = CandidateWorld;
+                break;
             }
         }
     }
 
     if (!RuntimeWorld)
     {
+        UE_LOG(
+            LogTemp,
+            Display,
+            TEXT("[SAREMBOK] COMMAND WAITING | No runtime game world available")
+        );
+
         return false;
     }
 
@@ -90,12 +103,14 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
     {
         if (!AvatarComponent)
         {
-            AvatarComponent = It->FindComponentByClass<USarembokAvatarComponent>();
+            AvatarComponent =
+                It->FindComponentByClass<USarembokAvatarComponent>();
         }
 
         if (!AvatarController)
         {
-            AvatarController = It->FindComponentByClass<USarembokAvatarController>();
+            AvatarController =
+                It->FindComponentByClass<USarembokAvatarController>();
         }
 
         if (AvatarComponent && AvatarController)
@@ -109,9 +124,11 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         FString Emotion;
 
         TSharedPtr<FJsonObject> JsonObject;
-        TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Message);
+        TSharedRef<TJsonReader<>> Reader =
+            TJsonReaderFactory<>::Create(Message);
 
-        if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
+        if (FJsonSerializer::Deserialize(Reader, JsonObject) &&
+            JsonObject.IsValid())
         {
             const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
 
@@ -119,12 +136,21 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
                 PayloadObject &&
                 PayloadObject->IsValid())
             {
-                (*PayloadObject)->TryGetStringField(TEXT("state"), Emotion);
+                (*PayloadObject)->TryGetStringField(
+                    TEXT("state"),
+                    Emotion
+                );
             }
         }
 
         if (!AvatarController)
         {
+            UE_LOG(
+                LogTemp,
+                Display,
+                TEXT("[SAREMBOK] Emotion command waiting for AvatarController")
+            );
+
             return false;
         }
 
@@ -135,6 +161,7 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
                 Warning,
                 TEXT("[SAREMBOK] Emotion command missing state payload")
             );
+
             return true;
         }
 
@@ -156,9 +183,11 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         FString Emotion;
 
         TSharedPtr<FJsonObject> JsonObject;
-        TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Message);
+        TSharedRef<TJsonReader<>> Reader =
+            TJsonReaderFactory<>::Create(Message);
 
-        if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
+        if (FJsonSerializer::Deserialize(Reader, JsonObject) &&
+            JsonObject.IsValid())
         {
             const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
 
@@ -166,13 +195,26 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
                 PayloadObject &&
                 PayloadObject->IsValid())
             {
-                (*PayloadObject)->TryGetStringField(TEXT("text"), Text);
-                (*PayloadObject)->TryGetStringField(TEXT("emotion"), Emotion);
+                (*PayloadObject)->TryGetStringField(
+                    TEXT("text"),
+                    Text
+                );
+
+                (*PayloadObject)->TryGetStringField(
+                    TEXT("emotion"),
+                    Emotion
+                );
             }
         }
 
         if (!AvatarComponent)
         {
+            UE_LOG(
+                LogTemp,
+                Display,
+                TEXT("[SAREMBOK] Speak command waiting for AvatarComponent")
+            );
+
             return false;
         }
 
@@ -183,6 +225,7 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
                 Warning,
                 TEXT("[SAREMBOK] Speak command missing text payload")
             );
+
             return true;
         }
 
@@ -220,7 +263,8 @@ bool FSarembokMessageDispatcher::ProcessQueuedCommands(float DeltaTime)
         return true;
     }
 
-    TArray<FString> CommandsToProcess = MoveTemp(PendingCommands);
+    TArray<FString> CommandsToProcess =
+        MoveTemp(PendingCommands);
 
     UE_LOG(
         LogTemp,
@@ -271,12 +315,24 @@ void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
     if (!FJsonSerializer::Deserialize(Reader, JsonObject) ||
         !JsonObject.IsValid())
     {
-        UE_LOG(LogTemp, Error, TEXT("[SAREMBOK] Invalid command JSON"));
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("[SAREMBOK] Invalid command JSON")
+        );
+
         return;
     }
 
-    JsonObject->TryGetStringField(TEXT("command"), LastCommand);
-    JsonObject->TryGetStringField(TEXT("target"), LastTarget);
+    JsonObject->TryGetStringField(
+        TEXT("command"),
+        LastCommand
+    );
+
+    JsonObject->TryGetStringField(
+        TEXT("target"),
+        LastTarget
+    );
 
     const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
 
@@ -287,13 +343,21 @@ void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
         TSharedRef<TJsonWriter<>> Writer =
             TJsonWriterFactory<>::Create(&LastPayload);
 
-        FJsonSerializer::Serialize(PayloadObject->ToSharedRef(), Writer);
+        FJsonSerializer::Serialize(
+            PayloadObject->ToSharedRef(),
+            Writer
+        );
+
         Writer->Close();
     }
 
     if (LastCommand.IsEmpty())
     {
-        UE_LOG(LogTemp, Warning, TEXT("[SAREMBOK] Command received without command field"));
+        UE_LOG(
+            LogTemp,
+            Warning,
+            TEXT("[SAREMBOK] Command received without command field")
+        );
     }
 }
 

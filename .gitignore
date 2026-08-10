@@ -23,3 +23,10 @@ DerivedDataCache/
 
 # Virtual Environment
 venv/
+__pycache__/
+*.backup*
+*.before-*
+*.pre-*
+*.sarembok-backup
+dxdiag.txt
+Sarembok-dxdiag.txt

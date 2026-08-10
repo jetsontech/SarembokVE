@@ -16,5 +16,11 @@ public class SarembokAvatar : ModuleRules
             "CoreUObject",
             "Engine"
         });
+
+        PrivateDependencyModuleNames.AddRange(
+        new string[]
+        {
+            "SarembokVoice"
+        });
     }
 }

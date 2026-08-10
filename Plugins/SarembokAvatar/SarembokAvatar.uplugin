@@ -9,6 +9,13 @@
     "CanContainContent": true,
     "EnabledByDefault": true,
 
+    "Plugins":
+    [
+        {
+            "Name": "SarembokVoice",
+            "Enabled": true
+        }
+    ],
     "Modules":
     [
         {

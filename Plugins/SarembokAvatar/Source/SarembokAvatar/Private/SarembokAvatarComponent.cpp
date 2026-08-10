@@ -5,6 +5,9 @@
 
 #include "SarembokAvatarComponent.h"
 #include "SarembokAvatarManager.h"
+#include "SarembokVoiceManager.h"
+#include "Engine/GameInstance.h"
+#include "Engine/World.h"
 
 
 USarembokAvatarComponent::USarembokAvatarComponent()
@@ -42,7 +45,7 @@ void USarembokAvatarComponent::InitializeAvatar()
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("Sarembok Avatar Component Initialized: %s"),
+            TEXT("[SAREMBOK] Avatar Component Initialized | Identity=%s"),
             *Identity
         );
     }
@@ -59,15 +62,26 @@ void USarembokAvatarComponent::Speak(
         AvatarManager->SynchronizeVoice(
             Text
         );
-
-
-        UE_LOG(
-            LogTemp,
-            Display,
-            TEXT("Avatar Speaking: %s"),
-            *Text
-        );
     }
+
+    if (UWorld* World = GetWorld())
+    {
+        if (UGameInstance* GI = World->GetGameInstance())
+        {
+            if (USarembokVoiceManager* VoiceMgr = GI->GetSubsystem<USarembokVoiceManager>())
+            {
+                VoiceMgr->Speak(Text);
+            }
+        }
+    }
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("[SAREMBOK] AVATAR SPEAKING | Identity=%s | Text=%s"),
+        *Identity,
+        *Text
+    );
 }
 
 

@@ -1,20 +1,44 @@
-# Sarembok_VE
+# Sarembok_VE — Digital Human & Virtual Environment Platform
 
-An advanced Unreal Engine virtual engine and digital human orchestration architecture (`Sarembok_VE`).
+An advanced Unreal Engine 5.8 digital human orchestration architecture and AI runtime platform (`Sarembok_VE`).
 
-## Project Structure
+## Subsystem Plugins
 
-* `Source/` - C++ source files, game modules, and core engine implementations.
-* `Plugins/` - Modular subsystem plugins (Bridge, Avatar, Voice, Vision, Memory, AI).
-* `Content/` - Blueprints, materials, animations, and assets.
-* `Tools/` - Custom build scripts and developer utilities.
-* `Docs/` - Architecture diagrams, technical documentation, and setup guides.
+- **`SarembokBridge`**: Real-time WebSocket connection, message dispatcher, command routing, and world lookup.
+- **`SarembokAvatar`**: Digital human character manager, emotion controller, and MetaHuman compatibility.
+- **`SarembokVoice`**: Audio execution, TTS pipeline integration, and speech playback.
+- **`SarembokVision`**: Real-time scene observation and perception.
+- **`SarembokAgent`**: Task planning, intent routing, and autonomous loops.
+- **`SarembokMemory`**: Key-value state persistence and memory retrieval.
 
 ## Requirements
 
-* **Unreal Engine:** 5.x
-* **Build Tools:** Visual Studio 2022 / JetBrains Rider
+* **Unreal Engine:** 5.8
+* **Build Tools:** Visual Studio 2022 / .NET 10 x64 SDK / UBT
+* **Backend:** Python 3.10+ (WebSockets / FastAPI)
+
+## Quick Start & Commands
+
+### Project Diagnostics
+```powershell
+powershell -ExecutionPolicy Bypass -File Tools/Diagnostics/Test-SarembokProject.ps1
+```
+
+### Build SarembokVEEditor Target
+```powershell
+powershell -ExecutionPolicy Bypass -File Tools/Builder/SarembokBuilder.ps1 -Action Build
+```
+
+### Run WebSocket Integration Tests
+```powershell
+python Tools/Diagnostics/Test-WebSocketIntegration.py
+```
+
+## Documentation
+
+Full runtime architecture, WebSocket JSON command schemas, and building guidelines are documented in:
+- [SarembokVE_Runtime.md](file:///C:/Sarembok_VE/Docs/SarembokVE_Runtime.md)
 
 ## License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the MIT License.
