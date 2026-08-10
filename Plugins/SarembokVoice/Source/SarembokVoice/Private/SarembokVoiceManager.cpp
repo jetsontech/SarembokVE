@@ -42,11 +42,20 @@ ESarembokVoiceStatus USarembokVoiceManager::SpeakWithResult(const FString& Text)
 
     CurrentSpeech = Text;
     SpeechQueue.Add(Text);
+    ActiveVisemeWeight = CalculateVisemeWeight(Text);
 
     UE_LOG(
         LogTemp,
         Display,
         TEXT("[SAREMBOK] VOICE EXECUTED | Status=Executed | Text=%s"),
+        *Text
+    );
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("[SAREMBOK][VOICE] VISEME_WEIGHT Weight=%.2f Speech=%s"),
+        ActiveVisemeWeight,
         *Text
     );
 
@@ -63,10 +72,29 @@ FString USarembokVoiceManager::GetCurrentSpeech() const
     return CurrentSpeech;
 }
 
+float USarembokVoiceManager::CalculateVisemeWeight(const FString& Speech) const
+{
+    if (Speech.IsEmpty())
+    {
+        return 0.0f;
+    }
+
+    int32 VowelCount = 0;
+    for (TCHAR Ch : Speech.ToLower())
+    {
+        if (Ch == 'a' || Ch == 'e' || Ch == 'i' || Ch == 'o' || Ch == 'u')
+        {
+            VowelCount++;
+        }
+    }
+
+    float Ratio = static_cast<float>(VowelCount) / FMath::Max(1, Speech.Len());
+    return FMath::Clamp(0.5f + Ratio * 0.8f, 0.4f, 0.95f);
+}
+
 float USarembokVoiceManager::GetActiveVisemeWeight() const
 {
-    // Return speech viseme activation weight when active speech text is present
-    return CurrentSpeech.IsEmpty() ? 0.0f : 0.65f;
+    return CurrentSpeech.IsEmpty() ? 0.0f : ActiveVisemeWeight;
 }
 
 int32 USarembokVoiceManager::GetSpeechQueueCount() const

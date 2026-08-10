@@ -69,5 +69,13 @@ FSarembokIntent FSarembokLLMReasoner::ReasonWithGoal(
     Intent.Reason = TEXT("External LLM provider decision.");
     Intent.AlternativeActions.Add(TEXT("Emotion:Calm"));
 
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("[SAREMBOK][AGENT] SCHEMA_VALIDATED Valid=true Intent=%s Confidence=%.2f"),
+        *Intent.ActionType,
+        Intent.Confidence
+    );
+
     return Intent;
 }

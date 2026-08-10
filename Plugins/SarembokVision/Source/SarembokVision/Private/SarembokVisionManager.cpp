@@ -178,6 +178,28 @@ FSarembokWorldState USarembokVisionManager::GetWorldState()
 
         CurrentWorldState.Actors.Add(ActorState);
 
+        UE_LOG(
+            LogTemp,
+            Display,
+            TEXT("[SAREMBOK][VISION] SPATIAL_RELATIONSHIP Actor=%s Type=%s Dist=%.1f"),
+            *ActorState.ActorName,
+            *ActorState.ActorType,
+            ActorState.DistanceFromAvatar
+        );
+
+        if (ActorState.ActorType == TEXT("Character") || ActorState.ActorType == TEXT("Pawn"))
+        {
+            if (ActorState.DistanceFromAvatar > 0.0f && ActorState.DistanceFromAvatar < 300.0f)
+            {
+                UE_LOG(
+                    LogTemp,
+                    Display,
+                    TEXT("[SAREMBOK][VISION] USER_APPROACHED Distance=%.1f"),
+                    ActorState.DistanceFromAvatar
+                );
+            }
+        }
+
         if (CurrentWorldState.Actors.Num() >= 50)
         {
             break;

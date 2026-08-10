@@ -57,6 +57,7 @@ public:
     USarembokAvatarController();
 
     virtual void BeginPlay() override;
+    virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
     UFUNCTION(BlueprintCallable, Category="Sarembok Avatar")
     void SetEmotion(const FString& Emotion);
@@ -78,6 +79,8 @@ private:
     void ApplyFacialPose(const FSarembokFacialPose& Pose);
 
     FString CurrentEmotion;
+    FSarembokFacialPose CurrentPose;
+    FSarembokFacialPose TargetPose;
 
     UPROPERTY()
     TWeakObjectPtr<USkeletalMeshComponent> CachedFaceMesh;

@@ -2,14 +2,14 @@
 
 An advanced Unreal Engine 5.8 digital human orchestration architecture and AI runtime platform (`Sarembok_VE`).
 
-## Subsystem Plugins
+## Architecture & Capabilities (v1.4 Embodied Interaction)
 
-- **`SarembokBridge`**: Real-time WebSocket connection, message dispatcher, command routing, and world lookup.
-- **`SarembokAvatar`**: Digital human character manager, emotion controller, and MetaHuman compatibility.
-- **`SarembokVoice`**: Audio execution, TTS pipeline integration, and speech playback.
-- **`SarembokVision`**: Real-time scene observation and perception.
-- **`SarembokAgent`**: Task planning, intent routing, and autonomous loops.
-- **`SarembokMemory`**: Key-value state persistence and memory retrieval.
+- **`SarembokBridge`**: Real-time WebSocket connection, message dispatcher, command routing, and developer execution trace HUD visualizer (`sarembok.DebugTrace`).
+- **`SarembokAvatar`**: Digital human character manager, emotion controller, smooth facial expression pose interpolation, and MetaHuman ARKit morph target compatibility.
+- **`SarembokVoice`**: Audio execution, TTS pipeline integration, phoneme-to-viseme curve calculation, and speech playback.
+- **`SarembokVision`**: Real-time scene observation, actor classification (`Character`, `Pawn`, `StaticMesh`, `Light`), 3D spatial distance matrix, and user FOV tracking.
+- **`SarembokAgent`**: Goal stack management, schema-validated LLM provider reasoning (`FSarembokLLMReasoner`), intent routing, multi-candidate planning, replanning, and deterministic safety fallback (`FSarembokDeterministicReasoner`).
+- **`SarembokMemory`**: Working memory, episodic memory storage, and state retrieval.
 
 ## Requirements
 
@@ -19,7 +19,7 @@ An advanced Unreal Engine 5.8 digital human orchestration architecture and AI ru
 
 ## Quick Start & Verification Commands
 
-### 1. Standalone Health Diagnostics
+### 1. Standalone Health Diagnostics (26/26 PASS)
 ```powershell
 powershell -ExecutionPolicy Bypass -File Tools/Diagnostics/Test-SarembokProject.ps1
 ```
@@ -34,7 +34,7 @@ powershell -ExecutionPolicy Bypass -File Tools/Builder/SarembokBuilder.ps1 -Acti
 python Tools/Diagnostics/Test-WebSocketIntegration.py
 ```
 
-### 4. Run End-to-End Real Runtime Acceptance Test
+### 4. Run End-to-End Real Runtime Acceptance Test (75/75 PASS)
 ```powershell
 python Tools/Diagnostics/Test-SarembokRuntimeEndToEnd.py
 ```

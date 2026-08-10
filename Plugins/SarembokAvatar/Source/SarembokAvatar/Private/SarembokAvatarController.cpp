@@ -1,9 +1,12 @@
 #include "SarembokAvatarController.h"
 #include "GameFramework/Actor.h"
+#include "Engine/GameInstance.h"
+#include "Engine/World.h"
+#include "UObject/UnrealType.h"
 
 USarembokAvatarController::USarembokAvatarController()
 {
-    PrimaryComponentTick.bCanEverTick = false;
+    PrimaryComponentTick.bCanEverTick = true;
     CurrentEmotion = TEXT("Neutral");
 }
 
@@ -19,14 +22,57 @@ void USarembokAvatarController::BeginPlay()
             CachedFaceMesh = MeshComp;
         }
     }
+
+    if (UWorld* World = GetWorld())
+    {
+        if (UGameInstance* GI = World->GetGameInstance())
+        {
+            UClass* SubClass = UClass::TryFindTypeSlow<UClass>(TEXT("SarembokRuntimeSubsystem"));
+            if (SubClass)
+            {
+                if (USubsystem* Sub = GI->GetSubsystemBase(SubClass))
+                {
+                    if (FMulticastDelegateProperty* Prop = CastField<FMulticastDelegateProperty>(SubClass->FindPropertyByName(FName(TEXT("OnEmotionSet")))))
+                    {
+                        const FMulticastScriptDelegate* EventDel = Prop->GetMulticastDelegate(Prop->ContainerPtrToValuePtr<void>(Sub));
+                        if (EventDel)
+                        {
+                            FScriptDelegate Delegate;
+                            Delegate.BindUFunction(this, FName(TEXT("SetEmotion")));
+                            const_cast<FMulticastScriptDelegate*>(EventDel)->AddUnique(Delegate);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+void USarembokAvatarController::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+    Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+    const float InterpSpeed = 8.0f;
+    CurrentPose.BrowInnerUp   = FMath::FInterpTo(CurrentPose.BrowInnerUp,   TargetPose.BrowInnerUp,   DeltaTime, InterpSpeed);
+    CurrentPose.BrowDownLeft  = FMath::FInterpTo(CurrentPose.BrowDownLeft,  TargetPose.BrowDownLeft,  DeltaTime, InterpSpeed);
+    CurrentPose.BrowDownRight = FMath::FInterpTo(CurrentPose.BrowDownRight, TargetPose.BrowDownRight, DeltaTime, InterpSpeed);
+    CurrentPose.EyeWideLeft   = FMath::FInterpTo(CurrentPose.EyeWideLeft,   TargetPose.EyeWideLeft,   DeltaTime, InterpSpeed);
+    CurrentPose.EyeWideRight  = FMath::FInterpTo(CurrentPose.EyeWideRight,  TargetPose.EyeWideRight,  DeltaTime, InterpSpeed);
+    CurrentPose.EyeSquintLeft = FMath::FInterpTo(CurrentPose.EyeSquintLeft, TargetPose.EyeSquintLeft, DeltaTime, InterpSpeed);
+    CurrentPose.EyeSquintRight= FMath::FInterpTo(CurrentPose.EyeSquintRight,TargetPose.EyeSquintRight,DeltaTime, InterpSpeed);
+    CurrentPose.MouthSmileLeft= FMath::FInterpTo(CurrentPose.MouthSmileLeft,TargetPose.MouthSmileLeft,DeltaTime, InterpSpeed);
+    CurrentPose.MouthSmileRight=FMath::FInterpTo(CurrentPose.MouthSmileRight,TargetPose.MouthSmileRight,DeltaTime,InterpSpeed);
+    CurrentPose.MouthFrownLeft= FMath::FInterpTo(CurrentPose.MouthFrownLeft,TargetPose.MouthFrownLeft,DeltaTime, InterpSpeed);
+    CurrentPose.MouthFrownRight=FMath::FInterpTo(CurrentPose.MouthFrownRight,TargetPose.MouthFrownRight,DeltaTime,InterpSpeed);
+    CurrentPose.JawOpen       = FMath::FInterpTo(CurrentPose.JawOpen,       TargetPose.JawOpen,       DeltaTime, InterpSpeed);
+
+    ApplyFacialPose(CurrentPose);
 }
 
 void USarembokAvatarController::SetEmotion(const FString& Emotion)
 {
     CurrentEmotion = Emotion;
-
-    FSarembokFacialPose Pose = GetPoseForEmotion(Emotion);
-    ApplyFacialPose(Pose);
+    TargetPose = GetPoseForEmotion(Emotion);
 
     UE_LOG(
         LogTemp,
@@ -112,5 +158,5 @@ FString USarembokAvatarController::GetCurrentEmotion() const
 
 FSarembokFacialPose USarembokAvatarController::GetCurrentFacialPose() const
 {
-    return GetPoseForEmotion(CurrentEmotion);
+    return CurrentPose;
 }

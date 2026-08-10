@@ -42,8 +42,10 @@ public:
     int32 GetSpeechQueueCount() const;
 
 private:
+    float CalculateVisemeWeight(const FString& Speech) const;
 
     FString CurrentSpeech;
+    float ActiveVisemeWeight = 0.0f;
     bool bVoiceAvailable = true;
     TArray<FString> SpeechQueue;
 };
