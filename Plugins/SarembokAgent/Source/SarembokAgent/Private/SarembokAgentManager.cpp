@@ -3,30 +3,54 @@
 void USarembokAgentManager::Initialize(FSubsystemCollectionBase& Collection)
 {
     Super::Initialize(Collection);
-    CurrentState = TEXT("READY");
 
-    UE_LOG(LogTemp, Log, TEXT("Sarembok Agent Runtime Initialized"));
+    CurrentState = TEXT("Idle");
+    ActiveTask = FSarembokTask();
+
+    UE_LOG(LogTemp, Display, TEXT("Sarembok Agent Runtime Initialized"));
 }
 
 void USarembokAgentManager::Deinitialize()
 {
-    CurrentState = TEXT("OFFLINE");
+    CurrentState = TEXT("Shutdown");
     Super::Deinitialize();
 }
 
 FString USarembokAgentManager::SubmitTask(const FSarembokTask& Task)
 {
-    CurrentState = FString::Printf(TEXT("EXECUTING:%s"), *Task.Intent);
+    ActiveTask = Task;
+    CurrentState = TEXT("Executing");
 
-    UE_LOG(LogTemp, Log,
-        TEXT("Sarembok Task [%s] Payload [%s]"),
-        *Task.Intent,
-        *Task.Payload);
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("[SAREMBOK] AGENT TASK SUBMITTED | TaskId=%s | Intent=%s"),
+        *Task.TaskId,
+        *Task.Intent
+    );
 
-    return CurrentState;
+    return ActiveTask.TaskId;
 }
 
 FString USarembokAgentManager::GetAgentState() const
 {
     return CurrentState;
+}
+
+FSarembokTask USarembokAgentManager::GetActiveTask() const
+{
+    return ActiveTask;
+}
+
+void USarembokAgentManager::CancelCurrentTask()
+{
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("[SAREMBOK] AGENT TASK CANCELLED | TaskId=%s"),
+        *ActiveTask.TaskId
+    );
+
+    ActiveTask = FSarembokTask();
+    CurrentState = TEXT("Idle");
 }

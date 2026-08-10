@@ -9,13 +9,13 @@ struct FSarembokTask
 {
     GENERATED_BODY()
 
-    UPROPERTY(BlueprintReadWrite)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sarembok Agent")
     FString TaskId;
 
-    UPROPERTY(BlueprintReadWrite)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sarembok Agent")
     FString Intent;
 
-    UPROPERTY(BlueprintReadWrite)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sarembok Agent")
     FString Payload;
 };
 
@@ -25,15 +25,24 @@ class SAREMBOKAGENT_API USarembokAgentManager : public UGameInstanceSubsystem
     GENERATED_BODY()
 
 public:
+
     virtual void Initialize(FSubsystemCollectionBase& Collection) override;
     virtual void Deinitialize() override;
 
     UFUNCTION(BlueprintCallable, Category="Sarembok Agent")
     FString SubmitTask(const FSarembokTask& Task);
 
-    UFUNCTION(BlueprintCallable, Category="Sarembok Agent")
+    UFUNCTION(BlueprintPure, Category="Sarembok Agent")
     FString GetAgentState() const;
 
+    UFUNCTION(BlueprintPure, Category="Sarembok Agent")
+    FSarembokTask GetActiveTask() const;
+
+    UFUNCTION(BlueprintCallable, Category="Sarembok Agent")
+    void CancelCurrentTask();
+
 private:
+
     FString CurrentState;
+    FSarembokTask ActiveTask;
 };
