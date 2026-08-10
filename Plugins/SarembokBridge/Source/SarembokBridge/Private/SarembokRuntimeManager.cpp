@@ -1,4 +1,5 @@
 #include "SarembokRuntimeManager.h"
+#include "SarembokBridgeService.h"
 
 void USarembokRuntimeManager::InitializeRuntime()
 {
@@ -6,6 +7,14 @@ void USarembokRuntimeManager::InitializeRuntime()
     {
         return;
     }
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("Sarembok Runtime Manager Initializing")
+    );
+
+    FSarembokBridgeService::Get().Initialize();
 
     bInitialized = true;
 
@@ -22,6 +31,14 @@ void USarembokRuntimeManager::ShutdownRuntime()
     {
         return;
     }
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("Sarembok Runtime Manager Shutting Down")
+    );
+
+    FSarembokBridgeService::Get().Shutdown();
 
     bInitialized = false;
 

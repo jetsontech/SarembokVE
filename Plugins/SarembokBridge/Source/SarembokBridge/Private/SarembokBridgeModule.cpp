@@ -29,7 +29,9 @@ void FSarembokBridgeModule::ShutdownModule()
     if (GSarembokRuntimeManager)
     {
         GSarembokRuntimeManager->ShutdownRuntime();
-        GSarembokRuntimeManager->RemoveFromRoot();
+
+        // Do NOT call RemoveFromRoot() here.
+        // During UE shutdown the UObject array may already be tearing down.
         GSarembokRuntimeManager = nullptr;
     }
 
