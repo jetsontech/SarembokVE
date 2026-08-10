@@ -1,14 +1,28 @@
 {
-"events":
-[
-"CHAT",
-"VOICE_START",
-"VOICE_END",
-"VISION_FRAME",
-"FACE_COMMAND",
-"GESTURE_COMMAND"
-],
-
-"runtime":
-"ws://127.0.0.1:9000"
+  "protocol": "sarembok.v1",
+  "runtime": "ws://127.0.0.1:9000",
+  "command_schema": {
+    "protocol": "sarembok.v1",
+    "id": "cmd-000001",
+    "timestamp": "ISO-8601",
+    "command": "Emotion|Speak|Observe|Task|Memory",
+    "target": "Avatar|Voice|Vision|Agent|Memory",
+    "payload": {},
+    "context": {
+      "agent": "default",
+      "task": "task_name"
+    }
+  },
+  "response_schema": {
+    "protocol": "sarembok.v1",
+    "id": "cmd-000001",
+    "type": "command_result",
+    "status": "completed|failed|queued",
+    "command": "CommandName",
+    "target": "TargetSubsystem",
+    "result": {
+      "status": "executed",
+      "duration_ms": 0
+    }
+  }
 }

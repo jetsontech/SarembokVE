@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
 Test-SarembokRuntimeEndToEnd.py
-Full End-to-End Rigorous Acceptance Test for Sarembok_VE.
+Full End-to-End Rigorous Acceptance Test for Sarembok_VE v1.1.0 (sarembok.v1 Protocol).
 Executes the real runtime chain with evidence-based log assertions across distinct cycles:
 Python WebSocket Backend (ws://127.0.0.1:9000)
- -> FSarembokWebSocketClient
- -> FSarembokMessageDispatcher
+ -> FSarembokMessageDispatcher (sarembok.v1 Protocol)
  -> Runtime UWorld & SarembokRuntimeAvatarActor Fallback
  -> USarembokAvatarComponent & USarembokAvatarController
  -> USarembokVoiceManager
@@ -34,7 +33,6 @@ def get_log_content(log_filename="SarembokVE.log"):
     log_path = os.path.join(PROJECT_ROOT, "Saved", "Logs", log_filename)
     if os.path.exists(log_path):
         try:
-            # Use PowerShell Get-Content to bypass Windows file locks while UE is running
             cmd = f'powershell -Command "Get-Content -Path \'{log_path}\' -Raw -ErrorAction SilentlyContinue"'
             res = subprocess.check_output(cmd, shell=True, text=True, errors="ignore")
             return res
@@ -82,13 +80,17 @@ async def run_acceptance_test():
             results["backend_port"] = False
             return results
 
-        # 2. Test Pre-Initialization Command Queuing
+        # 2. Test Pre-Initialization Command Queuing with sarembok.v1 Protocol
         import websockets
-        print("\n[STEP 2] Sending Early Command (Testing Command Queueing prior to PIE/Game World)...")
+        print("\n[STEP 2] Sending Early sarembok.v1 Command (Testing Command Queueing prior to PIE/Game World)...")
         early_cmd = {
+            "protocol": "sarembok.v1",
+            "id": "cmd-early",
+            "timestamp": "2026-08-09T23:39:00Z",
             "command": "Emotion",
             "target": "Avatar",
-            "payload": {"state": "PreworldHappy"}
+            "payload": {"state": "PreworldHappy"},
+            "context": {"agent": "default", "task": "early_init"}
         }
         async with websockets.connect(f"ws://{WS_HOST}:{WS_PORT}") as ws:
             await ws.send(json.dumps(early_cmd))
@@ -111,7 +113,7 @@ async def run_acceptance_test():
         print(f"  Unreal Process Start Check     : {'PASS' if ue1_started else 'FAIL'}")
 
         print("  [INFO] Waiting for Unreal Engine runtime startup and WebSocket connection...")
-        time.sleep(12)  # Give UE time to boot and connect to WebSocket
+        time.sleep(12)
 
         ue1_alive = (ue_process.poll() is None)
         results["unreal_process_alive"] = ue1_alive
@@ -132,13 +134,17 @@ async def run_acceptance_test():
         results["sarembok_ws_connects"] = ws_connects
         results["runtime_world_available"] = world_ready
 
-        # 5. Send Live Emotion Command to Cycle 1
-        print("\n[STEP 4] Testing Live Emotion Command Routing...")
+        # 5. Send Live Emotion Command (sarembok.v1) to Cycle 1
+        print("\n[STEP 4] Testing Live Emotion Command Routing (sarembok.v1)...")
         async with websockets.connect(f"ws://{WS_HOST}:{WS_PORT}") as ws:
             live_emotion = {
+                "protocol": "sarembok.v1",
+                "id": "cmd-000001",
+                "timestamp": "2026-08-09T23:39:01Z",
                 "command": "Emotion",
                 "target": "Avatar",
-                "payload": {"state": "Happy"}
+                "payload": {"state": "Happy"},
+                "context": {"agent": "default", "task": "emotion_test"}
             }
             await ws.send(json.dumps(live_emotion))
             await ws.recv()
@@ -149,7 +155,7 @@ async def run_acceptance_test():
         fallback_avatar = "[SAREMBOK] Deterministic Fallback Avatar Created in Runtime World" in log_cycle1
         avatar_comp = "[SAREMBOK] Avatar Component Initialized" in log_cycle1
         avatar_ctrl = fallback_avatar
-        emotion_exec = "[SAREMBOK] AVATAR EMOTION EXECUTED | Happy" in log_cycle1
+        emotion_exec = ("[SAREMBOK][AVATAR] EMOTION_EXECUTED | Id=cmd-000001 | Emotion=Happy" in log_cycle1) or ("[SAREMBOK] AVATAR EMOTION EXECUTED | Happy" in log_cycle1)
 
         print(f"  Fallback Avatar Creation Check: {'PASS' if fallback_avatar else 'FAIL'}")
         print(f"  Avatar Component Discovery    : {'PASS' if avatar_comp else 'FAIL'}")
@@ -161,13 +167,17 @@ async def run_acceptance_test():
         results["avatar_controller_discovered"] = avatar_ctrl
         results["emotion_command_executed"] = emotion_exec
 
-        # 6. Send Live Speak Command to Cycle 1
-        print("\n[STEP 5] Testing Live Speak & Voice Subsystem Execution...")
+        # 6. Send Live Speak Command (sarembok.v1) to Cycle 1
+        print("\n[STEP 5] Testing Live Speak & Voice Subsystem Execution (sarembok.v1)...")
         async with websockets.connect(f"ws://{WS_HOST}:{WS_PORT}") as ws:
             live_speak = {
+                "protocol": "sarembok.v1",
+                "id": "cmd-000002",
+                "timestamp": "2026-08-09T23:39:02Z",
                 "command": "Speak",
                 "target": "Avatar",
-                "payload": {"text": "Hello from Sarembok runtime", "emotion": "Joyful"}
+                "payload": {"text": "Hello from Sarembok runtime", "emotion": "Joyful"},
+                "context": {"agent": "default", "task": "speak_test"}
             }
             await ws.send(json.dumps(live_speak))
             await ws.recv()
@@ -175,9 +185,9 @@ async def run_acceptance_test():
         time.sleep(3)
         log_cycle1 = get_log_content("Cycle1.log")
 
-        speak_exec = "[SAREMBOK] AVATAR SPEECH EXECUTED | Hello from Sarembok runtime" in log_cycle1
+        speak_exec = ("[SAREMBOK][VOICE] EXECUTED | Id=cmd-000002" in log_cycle1) or ("[SAREMBOK] AVATAR SPEECH EXECUTED | Hello from Sarembok runtime" in log_cycle1)
         voice_exec = "[SAREMBOK] VOICE EXECUTED | Status=Executed" in log_cycle1
-        queue_exec = "[SAREMBOK] AVATAR EMOTION EXECUTED | PreworldHappy" in log_cycle1
+        queue_exec = ("[SAREMBOK][AVATAR] EMOTION_EXECUTED | Id=cmd-early" in log_cycle1) or ("[SAREMBOK] AVATAR EMOTION EXECUTED | PreworldHappy" in log_cycle1)
 
         print(f"  Speak Command Execution Check  : {'PASS' if speak_exec else 'FAIL'}")
         print(f"  VoiceManager Subsystem Executed: {'PASS' if voice_exec else 'FAIL'}")
@@ -218,16 +228,20 @@ async def run_acceptance_test():
 
         async with websockets.connect(f"ws://{WS_HOST}:{WS_PORT}") as ws:
             live_emotion2 = {
+                "protocol": "sarembok.v1",
+                "id": "cmd-000003",
+                "timestamp": "2026-08-09T23:39:03Z",
                 "command": "Emotion",
                 "target": "Avatar",
-                "payload": {"state": "Calm"}
+                "payload": {"state": "Calm"},
+                "context": {"agent": "default", "task": "restart_test"}
             }
             await ws.send(json.dumps(live_emotion2))
             await ws.recv()
 
         time.sleep(3)
         log_cycle2 = get_log_content("Cycle2.log")
-        second_emotion_exec = "[SAREMBOK] AVATAR EMOTION EXECUTED | Calm" in log_cycle2
+        second_emotion_exec = ("[SAREMBOK][AVATAR] EMOTION_EXECUTED | Id=cmd-000003" in log_cycle2) or ("[SAREMBOK] AVATAR EMOTION EXECUTED | Calm" in log_cycle2)
         print(f"  Second Command Cycle Check     : {'PASS' if second_emotion_exec else 'FAIL'}")
         results["second_emotion_executes"] = second_emotion_exec
 

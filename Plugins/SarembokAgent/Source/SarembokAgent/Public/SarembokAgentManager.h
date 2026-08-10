@@ -32,6 +32,9 @@ public:
     UFUNCTION(BlueprintCallable, Category="Sarembok Agent")
     FString SubmitTask(const FSarembokTask& Task);
 
+    UFUNCTION(BlueprintCallable, Category="Sarembok Agent")
+    bool RunAutonomousLoop(FString& OutGeneratedCommand);
+
     UFUNCTION(BlueprintPure, Category="Sarembok Agent")
     FString GetAgentState() const;
 
@@ -45,4 +48,5 @@ private:
 
     FString CurrentState;
     FSarembokTask ActiveTask;
+    int32 LoopCounter = 0;
 };

@@ -37,7 +37,9 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("[SAREMBOK] COMMAND ROUTED | Command=%s | Target=%s | Payload=%s"),
+        TEXT("[SAREMBOK][BRIDGE] ROUTED | Protocol=%s | Id=%s | Command=%s | Target=%s | Payload=%s"),
+        *LastProtocol,
+        *LastId,
         *LastCommand,
         *LastTarget,
         *LastPayload
@@ -55,7 +57,8 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("[SAREMBOK] COMMAND QUEUED | Command=%s | Pending=%d | Waiting for game world/avatar"),
+            TEXT("[SAREMBOK][BRIDGE] QUEUED | Id=%s | Command=%s | Pending=%d"),
+            *LastId,
             *LastCommand,
             PendingCommands.Num()
         );
@@ -93,7 +96,7 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("[SAREMBOK] COMMAND WAITING | No runtime game world available")
+            TEXT("[SAREMBOK][BRIDGE] WAITING | No runtime game world available")
         );
 
         return false;
@@ -178,7 +181,7 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
             UE_LOG(
                 LogTemp,
                 Display,
-                TEXT("[SAREMBOK] Emotion command waiting for AvatarController")
+                TEXT("[SAREMBOK][AVATAR] Emotion command waiting for AvatarController")
             );
 
             return false;
@@ -189,7 +192,7 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
             UE_LOG(
                 LogTemp,
                 Warning,
-                TEXT("[SAREMBOK] Emotion command missing state payload")
+                TEXT("[SAREMBOK][AVATAR] Emotion command missing state payload")
             );
 
             return true;
@@ -200,7 +203,8 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("[SAREMBOK] AVATAR EMOTION EXECUTED | %s"),
+            TEXT("[SAREMBOK][AVATAR] EMOTION_EXECUTED | Id=%s | Emotion=%s"),
+            *LastId,
             *Emotion
         );
 
@@ -242,7 +246,7 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
             UE_LOG(
                 LogTemp,
                 Display,
-                TEXT("[SAREMBOK] Speak command waiting for AvatarComponent")
+                TEXT("[SAREMBOK][VOICE] Speak command waiting for AvatarComponent")
             );
 
             return false;
@@ -253,7 +257,7 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
             UE_LOG(
                 LogTemp,
                 Warning,
-                TEXT("[SAREMBOK] Speak command missing text payload")
+                TEXT("[SAREMBOK][VOICE] Speak command missing text payload")
             );
 
             return true;
@@ -269,7 +273,8 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("[SAREMBOK] AVATAR SPEECH EXECUTED | %s"),
+            TEXT("[SAREMBOK][VOICE] EXECUTED | Id=%s | Text=%s"),
+            *LastId,
             *Text
         );
 
@@ -279,7 +284,7 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("[SAREMBOK] Command received with no Avatar executor: %s"),
+        TEXT("[SAREMBOK][BRIDGE] Command received with no explicit executor: %s"),
         *LastCommand
     );
 
@@ -299,7 +304,7 @@ bool FSarembokMessageDispatcher::ProcessQueuedCommands(float DeltaTime)
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("[SAREMBOK] COMMAND QUEUE CHECK | Pending=%d"),
+        TEXT("[SAREMBOK][BRIDGE] COMMAND QUEUE CHECK | Pending=%d"),
         CommandsToProcess.Num()
     );
 
@@ -323,7 +328,7 @@ bool FSarembokMessageDispatcher::ProcessQueuedCommands(float DeltaTime)
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("[SAREMBOK] COMMAND QUEUE WAITING | Pending=%d"),
+            TEXT("[SAREMBOK][BRIDGE] COMMAND QUEUE WAITING | Pending=%d"),
             PendingCommands.Num()
         );
     }
@@ -333,6 +338,9 @@ bool FSarembokMessageDispatcher::ProcessQueuedCommands(float DeltaTime)
 
 void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
 {
+    LastProtocol.Empty();
+    LastId.Empty();
+    LastTimestamp.Empty();
     LastCommand.Empty();
     LastTarget.Empty();
     LastPayload.Empty();
@@ -348,10 +356,24 @@ void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
         UE_LOG(
             LogTemp,
             Error,
-            TEXT("[SAREMBOK] Invalid command JSON")
+            TEXT("[SAREMBOK][BRIDGE] Invalid command JSON")
         );
 
         return;
+    }
+
+    JsonObject->TryGetStringField(TEXT("protocol"), LastProtocol);
+    JsonObject->TryGetStringField(TEXT("id"), LastId);
+    JsonObject->TryGetStringField(TEXT("timestamp"), LastTimestamp);
+
+    if (LastProtocol.IsEmpty())
+    {
+        LastProtocol = TEXT("legacy.v0");
+    }
+
+    if (LastId.IsEmpty())
+    {
+        LastId = TEXT("cmd-legacy");
     }
 
     JsonObject->TryGetStringField(
@@ -386,7 +408,7 @@ void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
         UE_LOG(
             LogTemp,
             Warning,
-            TEXT("[SAREMBOK] Command received without command field")
+            TEXT("[SAREMBOK][BRIDGE] Command received without command field")
         );
     }
 }
@@ -394,4 +416,14 @@ void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
 FString FSarembokMessageDispatcher::GetLastCommand() const
 {
     return LastCommand;
+}
+
+FString FSarembokMessageDispatcher::GetLastProtocol() const
+{
+    return LastProtocol;
+}
+
+FString FSarembokMessageDispatcher::GetLastCorrelationId() const
+{
+    return LastId;
 }
