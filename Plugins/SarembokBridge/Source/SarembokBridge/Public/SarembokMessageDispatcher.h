@@ -16,8 +16,13 @@ public:
 private:
 
     void ParseCommand(const FString& Message);
+    bool ExecuteCommand(const FString& Message);
+    bool ProcessQueuedCommands(float DeltaTime);
 
     FString LastCommand;
     FString LastTarget;
     FString LastPayload;
+
+    TArray<FString> PendingCommands;
+    FDelegateHandle QueueTickerHandle;
 };
