@@ -17,36 +17,50 @@ void FSarembokBridgeService::Initialize()
         return;
     }
 
+    Dispatcher = MakeShared<FSarembokMessageDispatcher>();
     WebSocketClient = MakeShared<FSarembokWebSocketClient>();
-    WebSocketClient->Connect();
 
+    WebSocketClient->OnMessageReceived().AddRaw(
+        this,
+        &FSarembokBridgeService::HandleWebSocketMessage
+    );
+
+    WebSocketClient->Connect();
     bReady = true;
 
-    UE_LOG(LogTemp, Display, TEXT("Sarembok Bridge Service Ready"));
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Bridge Service Ready"));
 }
 
 void FSarembokBridgeService::Shutdown()
 {
     if (WebSocketClient.IsValid())
     {
+        WebSocketClient->OnMessageReceived().RemoveAll(this);
         WebSocketClient->Disconnect();
         WebSocketClient.Reset();
     }
 
+    Dispatcher.Reset();
     bReady = false;
 }
 
 void FSarembokBridgeService::SendMessage(const FSarembokMessage& Message)
 {
-    if (!WebSocketClient.IsValid())
+    if (WebSocketClient.IsValid())
     {
-        return;
+        WebSocketClient->SendMessage(Message.Data);
     }
-
-    WebSocketClient->SendMessage(Message.Data);
 }
 
 void FSarembokBridgeService::ReceiveMessage(const FSarembokMessage& Message)
 {
     FSarembokMessageRouter::Get().Dispatch(Message);
+}
+
+void FSarembokBridgeService::HandleWebSocketMessage(const FString& Message)
+{
+    if (Dispatcher.IsValid())
+    {
+        Dispatcher->DispatchMessage(Message);
+    }
 }
