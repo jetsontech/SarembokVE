@@ -3,12 +3,12 @@
 #include "CoreMinimal.h"
 #include "SarembokMessage.h"
 #include "SarembokWebSocketClient.h"
+#include "SarembokMessageDispatcher.h"
 #include "SarembokMessageRouter.h"
 
 class SAREMBOKBRIDGE_API FSarembokBridgeService
 {
 public:
-
     static FSarembokBridgeService& Get();
 
     void Initialize();
@@ -20,10 +20,11 @@ public:
     bool IsReady() const { return bReady; }
 
 private:
-
     FSarembokBridgeService();
 
-    TSharedPtr<FSarembokWebSocketClient> WebSocketClient;
+    void HandleWebSocketMessage(const FString& Message);
 
+    TSharedPtr<FSarembokWebSocketClient> WebSocketClient;
+    TSharedPtr<FSarembokMessageDispatcher> Dispatcher;
     bool bReady = false;
 };
