@@ -5,17 +5,28 @@ services:
       dockerfile: Deployment/cloud/Dockerfile
     container_name: sarembok-runtime
     restart: unless-stopped
+    init: true
     environment:
       SAREMBOK_PORT: "9000"
       SAREMBOK_DB_PATH: /data/sarembok_cloud.db
+      SAREMBOK_AUTH_TOKEN: ${SAREMBOK_AUTH_TOKEN:-}
+      SAREMBOK_MAX_CONNECTIONS: ${SAREMBOK_MAX_CONNECTIONS:-100}
+      SAREMBOK_MAX_REQUEST_BYTES: ${SAREMBOK_MAX_REQUEST_BYTES:-1048576}
+      SAREMBOK_LOG_LEVEL: ${SAREMBOK_LOG_LEVEL:-INFO}
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
     volumes:
       - sarembok-data:/data
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
 
 volumes:
   sarembok-data:
