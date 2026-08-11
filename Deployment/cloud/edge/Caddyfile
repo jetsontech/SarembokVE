@@ -1,0 +1,15 @@
+# Sarembok_VE public edge.
+#
+# Local/default deployment:
+#   SAREMBOK_SITE_ADDRESS=:8080
+#
+# Production:
+#   SAREMBOK_SITE_ADDRESS=sarembok.ai
+#
+# When a real DNS name is supplied, Caddy obtains and renews TLS
+# certificates automatically. WebSocket upgrade handling is automatic.
+{$SAREMBOK_SITE_ADDRESS} {
+    encode gzip
+
+    reverse_proxy sarembok-runtime:9000
+}
