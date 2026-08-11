@@ -8,8 +8,12 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$false)]
-    [ValidateSet("Build", "Clean", "Diagnose", "Generate", "Production")]
+    [ValidateSet("Build", "Clean", "Diagnose", "Generate", "Production", "DeployCloud")]
     [string]$Action = "Build",
+
+    [Parameter(Mandatory=$false)]
+    [ValidateSet("Cloud", "Local")]
+    [string]$Deploy,
 
     [Parameter(Mandatory=$false)]
     [string]$Target = "SarembokVEEditor",
@@ -29,7 +33,9 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = "C:\Sarembok_VE"
 $UProjectPath = "$ProjectRoot\SarembokVE.uproject"
 
-if ($Production) {
+if ($Deploy -eq "Cloud") {
+    $Action = "DeployCloud"
+} elseif ($Production) {
     $Action = "Production"
 }
 
@@ -50,6 +56,15 @@ function Get-UEBuildBat {
 }
 
 switch ($Action) {
+    "DeployCloud" {
+        $CloudScript = "$ProjectRoot\Sarembok.ps1"
+        if (Test-Path $CloudScript) {
+            & powershell -ExecutionPolicy Bypass -File $CloudScript -Deploy Cloud
+        } else {
+            throw "Cloud deployer script not found at $CloudScript"
+        }
+    }
+
     "Diagnose" {
         $DiagScript = "$ProjectRoot\Tools\Diagnostics\Test-SarembokProject.ps1"
         if (Test-Path $DiagScript) {

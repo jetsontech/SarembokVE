@@ -81,6 +81,29 @@ class CloudStore:
                 status TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS workers (
+                worker_id TEXT PRIMARY KEY,
+                capabilities TEXT NOT NULL,
+                gpu_vendor TEXT,
+                gpu_model TEXT,
+                vram_mb INTEGER,
+                cuda_version TEXT,
+                available_memory_mb INTEGER,
+                supported_models TEXT,
+                latency_ms REAL,
+                status TEXT NOT NULL,
+                last_heartbeat TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS digital_human_sessions (
+                session_id TEXT PRIMARY KEY,
+                agent_id TEXT NOT NULL,
+                worker_id TEXT,
+                metahuman_id TEXT,
+                voice_profile TEXT,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
             """
         )
         self.db.commit()
@@ -211,8 +234,99 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         store.event(agent_id, "STATE_RESTORED", {"walEntriesReplayed": entries})
         return {"agentId": agent_id, "restored": True, "walEntriesReplayed": entries, "stateConsistent": True}
 
+    if method == "RegisterWorker":
+        worker_id = str(params.get("workerId", "")).strip()
+        if not worker_id:
+            raise ValueError("workerId is required")
+        caps = json.dumps(params.get("capabilities", ["inference"]))
+        vendor = str(params.get("gpuVendor", "NVIDIA"))
+        model = str(params.get("gpuModel", "RTX 4090"))
+        vram = int(params.get("vramMb", 24576))
+        cuda = str(params.get("cudaVersion", "12.2"))
+        avail_mem = int(params.get("availableMemoryMb", vram))
+        models = json.dumps(params.get("supportedModels", ["default"]))
+        latency = float(params.get("latencyMs", 10.0))
+        status = str(params.get("status", "ONLINE")).upper()
+        stamp = now()
+        store.db.execute(
+            "INSERT OR REPLACE INTO workers VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            (worker_id, caps, vendor, model, vram, cuda, avail_mem, models, latency, status, stamp),
+        )
+        store.db.commit()
+        return {"workerId": worker_id, "registered": True, "status": status, "capabilities": json.loads(caps)}
+
+    if method == "ListWorkers":
+        cap_filter = str(params.get("capability", "")).strip()
+        status_filter = str(params.get("status", "")).strip().upper()
+        rows = store.db.execute("SELECT worker_id, capabilities, gpu_vendor, gpu_model, vram_mb, status, last_heartbeat FROM workers").fetchall()
+        workers = []
+        for r in rows:
+            caps = json.loads(r[1]) if r[1] else []
+            if cap_filter and cap_filter not in caps:
+                continue
+            if status_filter and r[5] != status_filter:
+                continue
+            workers.append({
+                "workerId": r[0],
+                "capabilities": caps,
+                "gpuVendor": r[2],
+                "gpuModel": r[3],
+                "vramMb": r[4],
+                "status": r[5],
+                "lastHeartbeat": r[6],
+            })
+        return {"workers": workers, "count": len(workers)}
+
+    if method == "ScheduleCompute":
+        task_type = str(params.get("taskType", "inference"))
+        req_cap = str(params.get("requiredCapability", "inference"))
+        payload = params.get("payload", {})
+        rows = store.db.execute("SELECT worker_id, capabilities FROM workers WHERE status='ONLINE'").fetchall()
+        assigned_worker = None
+        for r in rows:
+            caps = json.loads(r[1]) if r[1] else []
+            if req_cap in caps:
+                assigned_worker = r[0]
+                break
+        task_id = f"task-{uuid.uuid4().hex[:10]}"
+        return {"taskId": task_id, "taskType": task_type, "assignedWorkerId": assigned_worker, "status": "QUEUED" if assigned_worker else "PENDING_WORKER"}
+
+    if method == "CreateDigitalHumanSession":
+        agent_id = str(params.get("agentId", ""))
+        require_agent(agent_id)
+        metahuman_id = str(params.get("metahumanId", "default"))
+        voice_profile = str(params.get("voiceProfile", "default"))
+        session_id = f"dhs-{uuid.uuid4().hex[:10]}"
+        worker_row = store.db.execute("SELECT worker_id FROM workers WHERE status='ONLINE' AND capabilities LIKE '%meta_human%'").fetchone()
+        assigned_worker = worker_row[0] if worker_row else None
+        stamp = now()
+        store.db.execute(
+            "INSERT INTO digital_human_sessions VALUES(?,?,?,?,?,?,?,?)",
+            (session_id, agent_id, assigned_worker, metahuman_id, voice_profile, "ACTIVE", stamp, stamp),
+        )
+        store.db.commit()
+        return {"sessionId": session_id, "agentId": agent_id, "assignedWorkerId": assigned_worker, "metahumanId": metahuman_id, "status": "ACTIVE"}
+
+    if method == "GetDigitalHumanSession":
+        session_id = str(params.get("sessionId", ""))
+        row = store.db.execute("SELECT session_id, agent_id, worker_id, metahuman_id, voice_profile, status, created_at FROM digital_human_sessions WHERE session_id=?", (session_id,)).fetchone()
+        if not row:
+            raise ValueError(f"session_not_found: {session_id}")
+        return {"sessionId": row[0], "agentId": row[1], "assignedWorkerId": row[2], "metahumanId": row[3], "voiceProfile": row[4], "status": row[5], "createdAt": row[6]}
+
     if method == "Health":
-        return {"status": "ONLINE", "service": "sarembok-ve-cloud-runtime", "uptimeSeconds": int(time.time() - STARTED), "storage": "sqlite-wal", "authConfigured": bool(AUTH_TOKEN)}
+        worker_count = store.db.execute("SELECT COUNT(*) FROM workers").fetchone()[0]
+        session_count = store.db.execute("SELECT COUNT(*) FROM digital_human_sessions WHERE status!='TERMINATED'").fetchone()[0]
+        return {
+            "status": "ONLINE",
+            "service": "sarembok-ve-cloud-runtime",
+            "domain": "sarembok.com",
+            "uptimeSeconds": int(time.time() - STARTED),
+            "storage": "sqlite-wal",
+            "authConfigured": bool(AUTH_TOKEN),
+            "registeredWorkers": worker_count,
+            "activeDigitalHumanSessions": session_count,
+        }
 
     raise ValueError(f"unknown_method: {method}")
 
@@ -269,6 +383,13 @@ async def handler(websocket) -> None:
         LOG.info("connection_close peer=%s", peer)
 
 
+async def process_http_request(connection_or_path: Any, request_or_headers: Any = None) -> tuple[int, list[tuple[str, str]], bytes] | None:
+    path = getattr(connection_or_path, "path", str(connection_or_path))
+    if path in ("/health", "/healthz", "/"):
+        return (200, [("Content-Type", "text/plain; charset=utf-8")], b"OK\n")
+    return None
+
+
 async def serve() -> None:
     LOG.info("startup port=%s max_connections=%s auth_configured=%s db=%s", PORT, MAX_CONNECTIONS, bool(AUTH_TOKEN), DB_PATH)
     async with websockets.serve(
@@ -280,6 +401,7 @@ async def serve() -> None:
         ping_timeout=20,
         close_timeout=5,
         compression=None,
+        process_request=process_http_request,
     ) as server:
         LOG.info("listening address=0.0.0.0:%s", PORT)
         await STOP.wait()

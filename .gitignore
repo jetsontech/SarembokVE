@@ -32,3 +32,9 @@ dxdiag.txt
 Sarembok-dxdiag.txt
 *.db
 *.sm6-crash-backup
+
+# Environment & Secrets
+.env
+.env.*
+secrets/
+credentials/
