@@ -44,6 +44,27 @@ The runtime provides:
 
 Authentication remains optional for local compatibility testing. A production deployment must provide `SAREMBOK_AUTH_TOKEN` through a secret mechanism and place TLS/WSS termination in front of the runtime before exposing it to the Internet.
 
+## Production edge
+
+`compose.production.yaml` adds a Caddy reverse-proxy edge. The production overlay removes the runtime's host port, requires `SAREMBOK_AUTH_TOKEN`, and publishes only ports 80/443 from the edge.
+
+Set the deployment values outside Git:
+
+```powershell
+$env:SAREMBOK_AUTH_TOKEN = "<long-random-secret>"
+$env:SAREMBOK_SITE_ADDRESS = "sarembok.ai"
+```
+
+Then, on a Linux VM with DNS already pointing at that VM:
+
+```powershell
+docker compose -f Deployment/cloud/compose.yaml -f Deployment/cloud/compose.production.yaml up -d
+```
+
+Caddy automatically obtains and renews certificates when `SAREMBOK_SITE_ADDRESS` is a real public DNS name. WebSocket upgrades are handled by the reverse proxy.
+
+Do not commit the token or a `.env` file containing production secrets.
+
 ## Deployment boundary
 
 ```text
@@ -51,7 +72,9 @@ Internet
    |
 HTTPS / WSS
    |
-TLS termination + authentication
+Caddy TLS edge :443
+   |
+Authenticated WebSocket
    |
 Sarembok_VE Cloud Runtime :9000
    |
