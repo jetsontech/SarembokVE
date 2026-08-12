@@ -104,6 +104,16 @@ class CloudStore:
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS tasks (
+                task_id TEXT PRIMARY KEY,
+                task_type TEXT NOT NULL,
+                required_capability TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                assigned_worker_id TEXT,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
             """
         )
         self.db.commit()
@@ -137,6 +147,117 @@ STARTED = time.time()
 DB_LOCK = asyncio.Lock()
 CONNECTIONS = asyncio.Semaphore(MAX_CONNECTIONS)
 STOP = asyncio.Event()
+
+
+
+WORKER_HEARTBEAT_TIMEOUT_SECONDS = int(
+    os.getenv("SAREMBOK_WORKER_HEARTBEAT_TIMEOUT", "90")
+)
+
+def heartbeat_is_fresh(timestamp: str) -> bool:
+    if not timestamp:
+        return False
+
+    try:
+        dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+
+        if dt.tzinfo is None:
+            dt = dt.replace(timezone.utc)
+
+        age = (
+            datetime.now(timezone.utc) - dt
+        ).total_seconds()
+
+        return age <= WORKER_HEARTBEAT_TIMEOUT_SECONDS
+
+    except Exception:
+        return False
+
+
+def ensure_scheduler_schema() -> None:
+    columns = {
+        row[1]
+        for row in store.db.execute(
+            "PRAGMA table_info(workers)"
+        ).fetchall()
+    }
+
+    if "active_tasks" not in columns:
+        store.db.execute(
+            """
+            ALTER TABLE workers
+            ADD COLUMN active_tasks INTEGER NOT NULL DEFAULT 0
+            """
+        )
+        store.db.commit()
+
+
+def select_worker(required_capability: str) -> str | None:
+    ensure_scheduler_schema()
+
+    rows = store.db.execute(
+        """
+        SELECT
+            worker_id,
+            capabilities,
+            active_tasks,
+            latency_ms,
+            available_memory_mb
+        FROM workers
+        WHERE status='ONLINE'
+        """
+    ).fetchall()
+
+    candidates = []
+
+    for row in rows:
+        worker_id = row[0]
+        raw_caps = row[1]
+        active_tasks = int(row[2] or 0)
+        latency_ms = float(row[3] or 999999)
+        available_memory_mb = int(row[4] or 0)
+
+        try:
+            caps = json.loads(raw_caps) if raw_caps else []
+        except Exception:
+            caps = []
+
+        if required_capability not in caps:
+            continue
+
+        heartbeat = store.db.execute(
+            """
+            SELECT last_heartbeat
+            FROM workers
+            WHERE worker_id=?
+            """,
+            (worker_id,),
+        ).fetchone()
+
+        if not heartbeat:
+            continue
+
+        if not heartbeat_is_fresh(heartbeat[0]):
+            continue
+
+        # Lower active workload wins.
+        # Then lower latency.
+        # Then higher available memory.
+        candidates.append(
+            (
+                active_tasks,
+                latency_ms,
+                -available_memory_mb,
+                worker_id,
+            )
+        )
+
+    if not candidates:
+        return None
+
+    candidates.sort()
+
+    return candidates[0][3]
 
 
 def require_agent(agent_id: str) -> None:
@@ -248,10 +369,53 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         latency = float(params.get("latencyMs", 10.0))
         status = str(params.get("status", "ONLINE")).upper()
         stamp = now()
+        ensure_scheduler_schema()
+
+        existing = store.db.execute(
+            """
+            SELECT active_tasks
+            FROM workers
+            WHERE worker_id=?
+            """,
+            (worker_id,),
+        ).fetchone()
+
+        active_tasks = int(existing[0]) if existing else 0
+
         store.db.execute(
-            "INSERT OR REPLACE INTO workers VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-            (worker_id, caps, vendor, model, vram, cuda, avail_mem, models, latency, status, stamp),
+            """
+            INSERT OR REPLACE INTO workers(
+                worker_id,
+                capabilities,
+                gpu_vendor,
+                gpu_model,
+                vram_mb,
+                cuda_version,
+                available_memory_mb,
+                supported_models,
+                latency_ms,
+                status,
+                last_heartbeat,
+                active_tasks
+            )
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                worker_id,
+                caps,
+                vendor,
+                model,
+                vram,
+                cuda,
+                avail_mem,
+                models,
+                latency,
+                status,
+                stamp,
+                active_tasks,
+            ),
         )
+
         store.db.commit()
         return {"workerId": worker_id, "registered": True, "status": status, "capabilities": json.loads(caps)}
 
@@ -277,19 +441,279 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             })
         return {"workers": workers, "count": len(workers)}
 
+    if method == "Heartbeat":
+        worker_id = str(params.get("workerId", "")).strip()
+
+        if not worker_id:
+            raise ValueError("workerId is required")
+
+        ensure_scheduler_schema()
+
+        stamp = now()
+
+        row = store.db.execute(
+            """
+            SELECT worker_id
+            FROM workers
+            WHERE worker_id=?
+            """,
+            (worker_id,),
+        ).fetchone()
+
+        if not row:
+            raise ValueError(
+                f"worker_not_found: {worker_id}"
+            )
+
+        store.db.execute(
+            """
+            UPDATE workers
+            SET
+                last_heartbeat=?,
+                status='ONLINE'
+            WHERE worker_id=?
+            """,
+            (stamp, worker_id),
+        )
+
+        store.db.commit()
+
+        return {
+            "workerId": worker_id,
+            "status": "ONLINE",
+            "lastHeartbeat": stamp,
+        }
+
     if method == "ScheduleCompute":
-        task_type = str(params.get("taskType", "inference"))
-        req_cap = str(params.get("requiredCapability", "inference"))
-        payload = params.get("payload", {})
-        rows = store.db.execute("SELECT worker_id, capabilities FROM workers WHERE status='ONLINE'").fetchall()
-        assigned_worker = None
-        for r in rows:
-            caps = json.loads(r[1]) if r[1] else []
-            if req_cap in caps:
-                assigned_worker = r[0]
-                break
+        task = params.get("task", {})
+
+        if not isinstance(task, dict):
+            task = {}
+
+        task_type = str(
+            params.get("taskType")
+            or task.get("type")
+            or "inference"
+        ).strip()
+
+        req_cap = str(
+            params.get("requiredCapability")
+            or task.get("requiredCapability")
+            or "compute"
+        ).strip()
+
+        payload = params.get("payload")
+
+        if payload is None:
+            payload = task
+
+        assigned_worker = select_worker(
+            required_capability=req_cap,
+        )
+
         task_id = f"task-{uuid.uuid4().hex[:10]}"
-        return {"taskId": task_id, "taskType": task_type, "assignedWorkerId": assigned_worker, "status": "QUEUED" if assigned_worker else "PENDING_WORKER"}
+
+        status = (
+            "QUEUED"
+            if assigned_worker
+            else "PENDING_WORKER"
+        )
+
+        stamp = now()
+
+        store.db.execute(
+            """
+            INSERT INTO tasks(
+                task_id,
+                task_type,
+                required_capability,
+                payload,
+                assigned_worker_id,
+                status,
+                created_at,
+                updated_at
+            )
+            VALUES(?,?,?,?,?,?,?,?)
+            """,
+            (
+                task_id,
+                task_type,
+                req_cap,
+                json.dumps(payload),
+                assigned_worker,
+                status,
+                stamp,
+                stamp,
+            ),
+        )
+
+        store.db.commit()
+
+        return {
+            "taskId": task_id,
+            "taskType": task_type,
+            "requiredCapability": req_cap,
+            "assignedWorkerId": assigned_worker,
+            "status": status,
+        }
+
+    if method == "ClaimTask":
+        ensure_scheduler_schema()
+
+        task_id = str(params.get("taskId", "")).strip()
+        worker_id = str(params.get("workerId", "")).strip()
+
+        if not task_id:
+            raise ValueError("taskId is required")
+
+        if not worker_id:
+            raise ValueError("workerId is required")
+
+        row = store.db.execute(
+            """
+            SELECT assigned_worker_id, status
+            FROM tasks
+            WHERE task_id=?
+            """,
+            (task_id,),
+        ).fetchone()
+
+        if not row:
+            raise ValueError(
+                f"task_not_found: {task_id}"
+            )
+
+        if row[0] != worker_id:
+            raise ValueError("worker_mismatch")
+
+        if row[1] != "QUEUED":
+            raise ValueError(
+                f"task_not_queued: {row[1]}"
+            )
+
+        worker = store.db.execute(
+            """
+            SELECT status, last_heartbeat
+            FROM workers
+            WHERE worker_id=?
+            """,
+            (worker_id,),
+        ).fetchone()
+
+        if not worker:
+            raise ValueError(
+                f"worker_not_found: {worker_id}"
+            )
+
+        if worker[0] != "ONLINE":
+            raise ValueError("worker_not_online")
+
+        if not heartbeat_is_fresh(worker[1]):
+            raise ValueError("worker_heartbeat_stale")
+
+        stamp = now()
+
+        store.db.execute(
+            """
+            UPDATE tasks
+            SET
+                status='RUNNING',
+                updated_at=?
+            WHERE task_id=?
+              AND assigned_worker_id=?
+              AND status='QUEUED'
+            """,
+            (stamp, task_id, worker_id),
+        )
+
+        if store.db.execute("SELECT changes()").fetchone()[0] != 1:
+            raise ValueError("task_claim_conflict")
+
+        store.db.execute(
+            """
+            UPDATE workers
+            SET active_tasks=active_tasks+1
+            WHERE worker_id=?
+            """,
+            (worker_id,),
+        )
+
+        store.db.commit()
+
+        return {
+            "taskId": task_id,
+            "workerId": worker_id,
+            "status": "RUNNING",
+        }
+
+    if method == "CompleteTask":
+        ensure_scheduler_schema()
+
+        task_id = str(params.get("taskId", "")).strip()
+        worker_id = str(params.get("workerId", "")).strip()
+
+        if not task_id:
+            raise ValueError("taskId is required")
+
+        if not worker_id:
+            raise ValueError("workerId is required")
+
+        row = store.db.execute(
+            """
+            SELECT assigned_worker_id, status
+            FROM tasks
+            WHERE task_id=?
+            """,
+            (task_id,),
+        ).fetchone()
+
+        if not row:
+            raise ValueError(
+                f"task_not_found: {task_id}"
+            )
+
+        if row[0] != worker_id:
+            raise ValueError("worker_mismatch")
+
+        if row[1] != "RUNNING":
+            raise ValueError(
+                f"task_not_running: {row[1]}"
+            )
+
+        stamp = now()
+
+        store.db.execute(
+            """
+            UPDATE tasks
+            SET
+                status='COMPLETED',
+                updated_at=?
+            WHERE task_id=?
+              AND assigned_worker_id=?
+              AND status='RUNNING'
+            """,
+            (stamp, task_id, worker_id),
+        )
+
+        if store.db.execute("SELECT changes()").fetchone()[0] != 1:
+            raise ValueError("task_completion_conflict")
+
+        store.db.execute(
+            """
+            UPDATE workers
+            SET active_tasks=MAX(active_tasks-1,0)
+            WHERE worker_id=?
+            """,
+            (worker_id,),
+        )
+
+        store.db.commit()
+
+        return {
+            "taskId": task_id,
+            "workerId": worker_id,
+            "status": "COMPLETED",
+        }
 
     if method == "CreateDigitalHumanSession":
         agent_id = str(params.get("agentId", ""))
@@ -297,8 +721,9 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         metahuman_id = str(params.get("metahumanId", "default"))
         voice_profile = str(params.get("voiceProfile", "default"))
         session_id = f"dhs-{uuid.uuid4().hex[:10]}"
-        worker_row = store.db.execute("SELECT worker_id FROM workers WHERE status='ONLINE' AND capabilities LIKE '%meta_human%'").fetchone()
-        assigned_worker = worker_row[0] if worker_row else None
+        assigned_worker = select_worker(
+            required_capability="meta_human",
+        )
         stamp = now()
         store.db.execute(
             "INSERT INTO digital_human_sessions VALUES(?,?,?,?,?,?,?,?)",

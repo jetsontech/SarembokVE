@@ -1,28 +1,21 @@
 # Sarembok_VE public edge.
-#
-# Local/default deployment:
-#   SAREMBOK_SITE_ADDRESS=:8080
-#
-# Production:
-#   SAREMBOK_SITE_ADDRESS=sarembok.com
-#
-# When a real DNS name is supplied, Caddy obtains and renews TLS
-# certificates automatically. WebSocket upgrade handling is automatic.
+
 {$SAREMBOK_SITE_ADDRESS} {
     encode gzip
 
-    # Edge liveness check for load balancers
+    # Public landing endpoint.
+    handle / {
+        respond "Sarembok VE Cloud Runtime — ONLINE" 200
+    }
+
+    # Public edge liveness endpoint.
     handle /health {
         respond "OK" 200
     }
 
-    # Internal proxy to Sarembok Cloud Runtime
+    # Sarembok Cloud Runtime.
+    # Caddy automatically supports WebSocket upgrades.
     handle {
-        reverse_proxy sarembok-runtime:9000 {
-            header_up Host {host}
-            header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
-        }
+        reverse_proxy sarembok-runtime:9000
     }
 }
