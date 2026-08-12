@@ -118,6 +118,12 @@ class CloudStore:
         )
         self.db.commit()
 
+        # Ensure schema migrations for existing databases
+        columns = [row[1] for row in self.db.execute("PRAGMA table_info(tasks)").fetchall()]
+        if columns and "required_capability" not in columns:
+            self.db.execute("ALTER TABLE tasks ADD COLUMN required_capability TEXT NOT NULL DEFAULT 'compute'")
+            self.db.commit()
+
     def create_agent(self, agent_id: str, display_name: str) -> dict[str, Any]:
         stamp = now()
         self.db.execute(
@@ -134,8 +140,11 @@ class CloudStore:
         status = "QUEUED" if assigned_worker_id else "PENDING_WORKER"
         payload_json = json.dumps(payload or {})
         self.db.execute(
-            "INSERT INTO tasks VALUES(?,?,?,?,?,?,?)",
-            (task_id, task_type, assigned_worker_id, status, payload_json, stamp, stamp),
+            """
+            INSERT INTO tasks(task_id, task_type, required_capability, payload, assigned_worker_id, status, created_at, updated_at)
+            VALUES(?,?,?,?,?,?,?,?)
+            """,
+            (task_id, task_type, "compute", payload_json, assigned_worker_id, status, stamp, stamp),
         )
         self.db.commit()
         self.event(None, "TASK_CREATED", {"taskId": task_id, "taskType": task_type, "status": status})
@@ -865,7 +874,6 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         store.db.execute("UPDATE workers SET status=?, last_heartbeat=? WHERE worker_id=?", (status, stamp, worker_id))
         store.db.commit()
         return {"workerId": worker_id, "status": status, "lastHeartbeat": stamp}
->>>>>>> Stashed changes
 
     if method == "CreateDigitalHumanSession":
         agent_id = str(params.get("agentId", ""))
