@@ -12,6 +12,8 @@ RUN pip install --no-cache-dir -r /app/Runtime/requirements.txt \
     && rm -rf /root/.cache
 
 COPY Deployment/cloud/server.py /app/server.py
+COPY Deployment/cloud/scheduler_v3.py /app/scheduler_v3.py
+COPY Deployment/cloud/server_v3.py /app/server_v3.py
 
 RUN useradd --create-home --uid 10001 sarembok \
     && mkdir -p /data \
@@ -24,4 +26,4 @@ VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD python -c "import os,socket; s=socket.create_connection(('127.0.0.1',int(os.getenv('SAREMBOK_PORT','9000'))),2); s.close()"
 
-CMD ["python", "/app/server.py"]
+CMD ["python", "/app/server_v3.py"]
