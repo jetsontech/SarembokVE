@@ -27,3 +27,5 @@ jobs:
         env:
           PYTHONPATH: .
         run: python scheduler_v3_test.py
+      - name: Build production runtime image
+        run: docker build -f Deployment/cloud/Dockerfile -t sarembok-cloud-runtime:test .
