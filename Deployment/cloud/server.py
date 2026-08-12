@@ -107,8 +107,8 @@ class CloudStore:
             CREATE TABLE IF NOT EXISTS tasks (
                 task_id TEXT PRIMARY KEY,
                 task_type TEXT NOT NULL,
-                required_capability TEXT NOT NULL,
-                payload TEXT NOT NULL,
+                required_capability TEXT NOT NULL DEFAULT 'compute',
+                payload TEXT NOT NULL DEFAULT '{}',
                 assigned_worker_id TEXT,
                 status TEXT NOT NULL,
                 created_at TEXT NOT NULL,
@@ -127,6 +127,19 @@ class CloudStore:
         self.db.commit()
         self.event(agent_id, "AGENT_CREATED", {"displayName": display_name})
         return {"agentId": agent_id, "displayName": display_name, "status": "created"}
+
+    def create_task(self, task_type: str, assigned_worker_id: str | None = None, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        task_id = f"task-{uuid.uuid4().hex[:10]}"
+        stamp = now()
+        status = "QUEUED" if assigned_worker_id else "PENDING_WORKER"
+        payload_json = json.dumps(payload or {})
+        self.db.execute(
+            "INSERT INTO tasks VALUES(?,?,?,?,?,?,?)",
+            (task_id, task_type, assigned_worker_id, status, payload_json, stamp, stamp),
+        )
+        self.db.commit()
+        self.event(None, "TASK_CREATED", {"taskId": task_id, "taskType": task_type, "status": status})
+        return {"taskId": task_id, "taskType": task_type, "assignedWorkerId": assigned_worker_id, "status": status, "payload": payload or {}, "createdAt": stamp}
 
     def agent_exists(self, agent_id: str) -> bool:
         return self.db.execute("SELECT 1 FROM agents WHERE agent_id=?", (agent_id,)).fetchone() is not None
@@ -715,6 +728,145 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "status": "COMPLETED",
         }
 
+    if method == "RuntimeInfo":
+        worker_count = store.db.execute("SELECT COUNT(*) FROM workers").fetchone()[0]
+        session_count = store.db.execute("SELECT COUNT(*) FROM digital_human_sessions WHERE status!='TERMINATED'").fetchone()[0]
+        agent_count = store.db.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
+        task_count = store.db.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
+        event_count = store.db.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+        return {
+            "status": "ONLINE",
+            "service": "sarembok-ve-cloud-runtime",
+            "domain": "sarembok.com",
+            "version": "1.3.0-production",
+            "uptimeSeconds": int(time.time() - STARTED),
+            "storage": "sqlite-wal",
+            "authConfigured": bool(AUTH_TOKEN),
+            "registeredWorkers": worker_count,
+            "activeDigitalHumanSessions": session_count,
+            "activeAgents": agent_count,
+            "totalTasks": task_count,
+            "totalEvents": event_count,
+        }
+
+    if method == "ListAgents":
+        rows = store.db.execute("SELECT agent_id, display_name, status, created_at, updated_at FROM agents ORDER BY created_at DESC").fetchall()
+        agents = [{"agentId": r[0], "displayName": r[1], "status": r[2], "createdAt": r[3], "updatedAt": r[4]} for r in rows]
+        return {"agents": agents, "count": len(agents)}
+
+    if method == "GetAgent":
+        agent_id = str(params.get("agentId", ""))
+        require_agent(agent_id)
+        row = store.db.execute("SELECT agent_id, display_name, status, created_at, updated_at FROM agents WHERE agent_id=?", (agent_id,)).fetchone()
+        return {"agentId": row[0], "displayName": row[1], "status": row[2], "createdAt": row[3], "updatedAt": row[4]}
+
+    if method == "ListTasks":
+        status_filter = str(params.get("status", "")).strip().upper()
+        if status_filter:
+            rows = store.db.execute("SELECT task_id, task_type, assigned_worker_id, status, payload, created_at FROM tasks WHERE status=? ORDER BY created_at DESC LIMIT 100", (status_filter,)).fetchall()
+        else:
+            rows = store.db.execute("SELECT task_id, task_type, assigned_worker_id, status, payload, created_at FROM tasks ORDER BY created_at DESC LIMIT 100").fetchall()
+        tasks = []
+        for r in rows:
+            try:
+                payload = json.loads(r[4]) if r[4] else {}
+            except Exception:
+                payload = {}
+            tasks.append({
+                "taskId": r[0],
+                "taskType": r[1],
+                "assignedWorkerId": r[2],
+                "status": r[3],
+                "payload": payload,
+                "createdAt": r[5],
+            })
+        return {"tasks": tasks, "count": len(tasks)}
+
+    if method == "GetTask":
+        task_id = str(params.get("taskId", ""))
+        row = store.db.execute("SELECT task_id, task_type, assigned_worker_id, status, payload, created_at, updated_at FROM tasks WHERE task_id=?", (task_id,)).fetchone()
+        if not row:
+            raise ValueError(f"task_not_found: {task_id}")
+        try:
+            payload = json.loads(row[4]) if row[4] else {}
+        except Exception:
+            payload = {}
+        return {"taskId": row[0], "taskType": row[1], "assignedWorkerId": row[2], "status": row[3], "payload": payload, "createdAt": row[5], "updatedAt": row[6]}
+
+    if method == "CreateTask":
+        task_type = str(params.get("taskType", "general_compute"))
+        assigned_worker = params.get("assignedWorkerId")
+        payload = params.get("payload", {})
+        return store.create_task(task_type, str(assigned_worker) if assigned_worker else None, payload if isinstance(payload, dict) else {})
+
+    if method == "CancelTask":
+        task_id = str(params.get("taskId", ""))
+        row = store.db.execute("SELECT task_id FROM tasks WHERE task_id=?", (task_id,)).fetchone()
+        if not row:
+            raise ValueError(f"task_not_found: {task_id}")
+        stamp = now()
+        store.db.execute("UPDATE tasks SET status='CANCELLED', updated_at=? WHERE task_id=?", (stamp, task_id))
+        store.db.commit()
+        store.event(None, "TASK_CANCELLED", {"taskId": task_id})
+        return {"taskId": task_id, "status": "CANCELLED", "updatedAt": stamp}
+
+    if method == "ListDigitalHumanSessions":
+        status_filter = str(params.get("status", "")).strip().upper()
+        if status_filter:
+            rows = store.db.execute("SELECT session_id, agent_id, worker_id, metahuman_id, voice_profile, status, created_at FROM digital_human_sessions WHERE status=? ORDER BY created_at DESC LIMIT 100", (status_filter,)).fetchall()
+        else:
+            rows = store.db.execute("SELECT session_id, agent_id, worker_id, metahuman_id, voice_profile, status, created_at FROM digital_human_sessions ORDER BY created_at DESC LIMIT 100").fetchall()
+        sessions = [{
+            "sessionId": r[0],
+            "agentId": r[1],
+            "assignedWorkerId": r[2],
+            "metahumanId": r[3],
+            "voiceProfile": r[4],
+            "status": r[5],
+            "createdAt": r[6],
+        } for r in rows]
+        return {"sessions": sessions, "count": len(sessions)}
+
+    if method in ("GetEvents", "ListEvents"):
+        agent_id = str(params.get("agentId", ""))
+        event_type = str(params.get("eventType", "")).strip()
+        limit = min(200, max(1, int(params.get("limit", 100))))
+        
+        query = "SELECT agent_id, event_type, created_at, payload FROM events WHERE 1=1"
+        query_params = []
+        if agent_id:
+            query += " AND agent_id=?"
+            query_params.append(agent_id)
+        if event_type:
+            query += " AND event_type=?"
+            query_params.append(event_type)
+        query += " ORDER BY id DESC LIMIT ?"
+        query_params.append(limit)
+        
+        rows = store.db.execute(query, query_params).fetchall()
+        events = []
+        for r in reversed(rows):
+            try:
+                payload = json.loads(r[3])
+            except Exception:
+                payload = r[3]
+            events.append({"agentId": r[0], "type": r[1], "timestamp": r[2], "payload": payload})
+        return {"agentId": agent_id or None, "events": events, "count": len(events)}
+
+    if method == "Heartbeat":
+        worker_id = str(params.get("workerId", "")).strip()
+        if not worker_id:
+            raise ValueError("workerId is required")
+        status = str(params.get("status", "ONLINE")).upper()
+        stamp = now()
+        row = store.db.execute("SELECT worker_id FROM workers WHERE worker_id=?", (worker_id,)).fetchone()
+        if not row:
+            raise ValueError(f"worker_not_found: {worker_id}")
+        store.db.execute("UPDATE workers SET status=?, last_heartbeat=? WHERE worker_id=?", (status, stamp, worker_id))
+        store.db.commit()
+        return {"workerId": worker_id, "status": status, "lastHeartbeat": stamp}
+>>>>>>> Stashed changes
+
     if method == "CreateDigitalHumanSession":
         agent_id = str(params.get("agentId", ""))
         require_agent(agent_id)
@@ -808,10 +960,44 @@ async def handler(websocket) -> None:
         LOG.info("connection_close peer=%s", peer)
 
 
-async def process_http_request(connection_or_path: Any, request_or_headers: Any = None) -> tuple[int, list[tuple[str, str]], bytes] | None:
-    path = getattr(connection_or_path, "path", str(connection_or_path))
-    if path in ("/health", "/healthz", "/"):
+async def process_http_request(connection: Any, request: Any) -> Any:
+    # If the request is a WebSocket upgrade attempt, return None to continue handshake
+    headers = getattr(request, "headers", {})
+    upgrade = headers.get("Upgrade", "") if hasattr(headers, "get") else ""
+    if upgrade.lower() == "websocket":
+        return None
+
+    path = getattr(request, "path", None) or getattr(connection, "path", "/")
+    if path in ("/health", "/healthz"):
+        if hasattr(connection, "respond"):
+            return connection.respond(200, "OK\n")
         return (200, [("Content-Type", "text/plain; charset=utf-8")], b"OK\n")
+    if path in ("/", "/index.html"):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        candidates = [
+            os.path.join(base_dir, "..", "..", "frontend", "index.html"),
+            os.path.join(base_dir, "frontend", "index.html"),
+            "/app/frontend/index.html",
+            "frontend/index.html",
+        ]
+        html_str = None
+        for cand in candidates:
+            if os.path.exists(cand):
+                try:
+                    with open(cand, "r", encoding="utf-8") as f:
+                        html_str = f.read()
+                    break
+                except Exception as exc:
+                    LOG.error("Failed to read frontend index.html: %s", exc)
+        if not html_str:
+            html_str = "<!DOCTYPE html><html><body><h1>Sarembok VE Cloud Runtime</h1><p>Status: ONLINE</p></body></html>\n"
+        
+        if hasattr(connection, "respond"):
+            resp = connection.respond(200, html_str)
+            resp.headers["Content-Type"] = "text/html; charset=utf-8"
+            resp.headers["Cache-Control"] = "no-cache"
+            return resp
+        return (200, [("Content-Type", "text/html; charset=utf-8")], html_str.encode("utf-8"))
     return None
 
 

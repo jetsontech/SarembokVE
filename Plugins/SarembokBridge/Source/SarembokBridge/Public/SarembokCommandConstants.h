@@ -31,4 +31,5 @@ namespace SarembokCommandConstants
 
     // Default Connection Parameters
     static const FString DefaultWebSocketURL = TEXT("ws://127.0.0.1:9000");
+    static const FString ProductionWebSocketURL = TEXT("wss://sarembok.com");
 }

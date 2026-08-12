@@ -3,291 +3,1213 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sarembok VE Production Edition — Operator Console</title>
+    <title>Sarembok VE — Autonomous Digital Human & AI Cloud Platform</title>
+    <meta name="description" content="Sarembok VE is an autonomous digital human and AI runtime platform with real-time WebSocket control plane and Unreal Engine 5.8 integration.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
     <style>
         :root {
-            --bg-main: #0d0d0f;
-            --bg-panel: #16161a;
-            --text-main: #ffffff;
-            --text-sys: #aaaaaa;
-            --text-user: #00ffcc;
-            --text-model: #ff007f;
+            --bg-base: #0a0c10;
+            --bg-surface: #12151f;
+            --bg-card: #181c2b;
+            --bg-card-hover: #1f253a;
+            --border-color: #262c42;
+            --border-focus: #00ffcc;
+            
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            
             --cyan: #00ffcc;
-            --pink: #ff007f;
-            --yellow: #ffb300;
-            --green: #00ff66;
-            --red: #ff3366;
+            --cyan-glow: rgba(0, 255, 204, 0.25);
+            --magenta: #ff007f;
+            --magenta-glow: rgba(255, 0, 127, 0.25);
+            --amber: #ffb300;
+            --emerald: #00ff66;
+            --rose: #ff3366;
+            --blue: #3b82f6;
+            
+            --radius-sm: 6px;
+            --radius-md: 12px;
+            --radius-lg: 18px;
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
         body {
-            background-color: var(--bg-main);
-            color: var(--text-main);
-            font-family: 'Courier New', Courier, monospace;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-
-        .operator-grid {
-            display: grid;
-            grid-template-columns: 320px 1fr;
-            gap: 20px;
-            width: 1200px;
-            max-width: 100%;
-        }
-
-        .telemetry-card {
-            background-color: var(--bg-panel);
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px solid #22222e;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 15% 20%, rgba(0, 255, 204, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(255, 0, 127, 0.05) 0%, transparent 40%);
         }
 
-        .telemetry-title {
-            font-size: 16px;
-            font-weight: bold;
-            color: var(--cyan);
-            border-bottom: 1px solid #22222e;
-            padding-bottom: 8px;
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-base); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* Typography & Utilities */
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .text-cyan { color: var(--cyan); }
+        .text-magenta { color: var(--magenta); }
+        .text-amber { color: var(--amber); }
+        .text-emerald { color: var(--emerald); }
+        .text-rose { color: var(--rose); }
+
+        /* Header & Navigation Bar */
+        header {
+            background: rgba(18, 21, 31, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 0 24px;
         }
 
-        .metric-row {
+        .nav-container {
+            max-width: 1440px;
+            margin: 0 auto;
+            height: 70px;
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            font-size: 13px;
+            gap: 20px;
         }
 
-        .status-dot {
-            height: 8px;
-            width: 8px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 6px;
-            background-color: var(--green);
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: inherit;
         }
 
-        .terminal-container {
-            background-color: var(--bg-panel);
-            border-radius: 16px;
-            padding: 24px;
-            border: 1px solid #22222e;
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-sm);
+            background: linear-gradient(135deg, var(--cyan), var(--magenta));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 18px;
+            color: #000;
+            box-shadow: 0 0 16px var(--cyan-glow);
+        }
+
+        .brand-text {
             display: flex;
             flex-direction: column;
-            gap: 15px;
         }
 
-        h2 {
-            text-align: center;
-            margin: 0;
-            font-size: 20px;
-            letter-spacing: 1px;
-            color: var(--cyan);
+        .brand-title {
+            font-weight: 800;
+            font-size: 18px;
+            letter-spacing: 0.5px;
+            background: linear-gradient(90deg, #fff, var(--cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .top-controls {
+        .brand-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-tabs {
             display: flex;
-            justify-content: center;
-            gap: 15px;
+            gap: 4px;
+            background: rgba(10, 12, 16, 0.6);
+            padding: 4px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+
+        .nav-tab {
+            padding: 8px 14px;
+            border-radius: var(--radius-sm);
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .nav-tab:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .nav-tab.active {
+            background: var(--cyan);
+            color: #000;
+            box-shadow: 0 0 12px var(--cyan-glow);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: rgba(0, 255, 102, 0.1);
+            border: 1px solid rgba(0, 255, 102, 0.3);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--emerald);
+        }
+
+        .status-pulse {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--emerald);
+            box-shadow: 0 0 8px var(--emerald);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
+        .btn {
+            padding: 9px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .btn-cyan {
+            background: var(--cyan);
+            color: #000;
+        }
+        .btn-cyan:hover {
+            background: #26ffdf;
+            box-shadow: 0 0 16px var(--cyan-glow);
         }
 
         .btn-outline {
             background: transparent;
-            border: 2px solid;
-            border-radius: 30px;
-            padding: 8px 16px;
-            color: inherit;
-            font-family: inherit;
-            font-weight: bold;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
         }
-        
-        .btn-outline.cyan { border-color: var(--cyan); color: var(--cyan); }
-        .btn-outline.cyan:hover { background: rgba(0, 255, 204, 0.1); }
-        .btn-outline.pink { border-color: var(--pink); color: var(--pink); }
-        .btn-outline.pink:hover { background: rgba(255, 0, 127, 0.1); }
-
-        .input-group {
-            display: flex;
-            gap: 10px;
-        }
-
-        input[type="text"] {
-            flex: 1;
-            background: #0d0d0f;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 12px;
-            color: #fff;
-            font-family: inherit;
-            outline: none;
-        }
-
-        input[type="text"]:focus {
+        .btn-outline:hover {
             border-color: var(--cyan);
+            color: var(--cyan);
+            background: rgba(0, 255, 204, 0.05);
         }
 
-        .btn-solid {
-            border: none;
-            border-radius: 8px;
-            padding: 0 16px;
-            font-family: inherit;
-            font-weight: bold;
-            cursor: pointer;
-            color: #000;
+        /* Main Container */
+        main {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 24px;
+            flex: 1;
+            width: 100%;
         }
 
-        .btn-solid.send { background-color: var(--cyan); }
-        .btn-solid.clear { background-color: var(--yellow); }
-        .btn-solid.stop { background-color: var(--red); color: #fff; }
+        .view-section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
 
-        .terminal-output {
-            background: #0d0d0f;
-            border-radius: 8px;
-            padding: 16px;
-            height: 380px;
-            overflow-y: auto;
+        .view-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Landing Page / Overview View */
+        .hero {
+            padding: 60px 0 40px;
+            text-align: center;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hero-tag {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            background: rgba(255, 0, 127, 0.1);
+            border: 1px solid rgba(255, 0, 127, 0.3);
+            color: var(--magenta);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+        }
+
+        .hero-title {
+            font-size: 48px;
+            font-weight: 800;
+            line-height: 1.15;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #ffffff 40%, var(--cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-desc {
+            font-size: 18px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+
+        .hero-actions {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 50px;
+        }
+
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            border-color: var(--cyan);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-icon {
+            font-size: 28px;
+            margin-bottom: 16px;
+            display: inline-block;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        .card-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Control Plane Dashboard Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 20px;
             display: flex;
             flex-direction: column;
             gap: 8px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: #fff;
+        }
+
+        .stat-sub {
+            font-size: 12px;
+            color: var(--emerald);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .dashboard-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-layout { grid-template-columns: 1fr; }
+        }
+
+        /* Tables & Data Lists */
+        .table-container {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
             font-size: 13px;
         }
 
-        .log-sys { color: var(--text-sys); }
-        .log-user { color: var(--text-user); font-weight: bold; }
-        .log-model { color: var(--text-model); font-weight: bold; }
+        th {
+            background: rgba(10, 12, 16, 0.4);
+            padding: 12px 20px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            padding: 14px 20px;
+            border-bottom: 1px solid rgba(38, 44, 66, 0.5);
+            color: var(--text-secondary);
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+            color: #fff;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .tag-online { background: rgba(0, 255, 102, 0.15); color: var(--emerald); }
+        .tag-busy { background: rgba(255, 179, 0, 0.15); color: var(--amber); }
+        .tag-queued { background: rgba(59, 130, 246, 0.15); color: var(--blue); }
+        .tag-error { background: rgba(255, 51, 102, 0.15); color: var(--rose); }
+
+        /* JSON & Log Viewer */
+        .terminal-box {
+            background: #07090d;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            height: 380px;
+            overflow-y: auto;
+            color: #d1d5db;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            line-height: 1.5;
+            word-break: break-all;
+        }
+
+        .log-time { color: var(--text-muted); }
+        .log-method { color: var(--cyan); font-weight: 600; }
+        .log-data { color: #a7f3d0; }
+
+        /* Modals & Forms */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            width: 480px;
+            max-width: 90%;
+            padding: 28px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .modal-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .form-input {
+            width: 100%;
+            background: #0a0c10;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        .form-input:focus {
+            border-color: var(--cyan);
+            box-shadow: 0 0 8px var(--cyan-glow);
+        }
+
+        .code-snippet {
+            background: #080a0e;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 14px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--cyan);
+            overflow-x: auto;
+            white-space: pre;
+            margin-top: 12px;
+        }
     </style>
 </head>
 <body>
 
-    <div class="operator-grid">
-        <!-- Telemetry Sidebar -->
-        <div class="telemetry-card">
-            <div class="telemetry-title">ACTIVE AGENT RUNTIMES</div>
-            <div class="metric-row"><span><span class="status-dot"></span>sarembok-prime</span><span style="color:var(--green)">ONLINE</span></div>
-            <div class="metric-row"><span><span class="status-dot"></span>sarembok-guide</span><span style="color:var(--green)">ONLINE</span></div>
-            <div class="metric-row"><span><span class="status-dot"></span>sarembok-researcher</span><span style="color:var(--green)">ONLINE</span></div>
+    <!-- Header Navigation -->
+    <header>
+        <div class="nav-container">
+            <a href="#" class="brand">
+                <div class="brand-icon">S</div>
+                <div class="brand-text">
+                    <span class="brand-title">Sarembok VE</span>
+                    <span class="brand-sub">AUTONOMOUS DIGITAL HUMAN RUNTIME</span>
+                </div>
+            </a>
 
-            <div class="telemetry-title" style="margin-top:10px;">COGNITIVE SCORECARD</div>
-            <div class="metric-row"><span>Overall Reliability</span><span style="color:var(--cyan);font-weight:bold;">94.5%</span></div>
-            <div class="metric-row"><span>Perception</span><span>96%</span></div>
-            <div class="metric-row"><span>Memory</span><span>91%</span></div>
-            <div class="metric-row"><span>Reasoning</span><span>94%</span></div>
-            <div class="metric-row"><span>Planning</span><span>93%</span></div>
-            <div class="metric-row"><span>Policy & Governance</span><span>99%</span></div>
-            <div class="metric-row"><span>Embodied Execution</span><span>97%</span></div>
+            <nav class="nav-tabs">
+                <button class="nav-tab active" onclick="switchTab('overview')">🌐 Overview</button>
+                <button class="nav-tab" onclick="switchTab('dashboard')">📊 Dashboard</button>
+                <button class="nav-tab" onclick="switchTab('workers')">⚡ Workers</button>
+                <button class="nav-tab" onclick="switchTab('agents')">🤖 Agents</button>
+                <button class="nav-tab" onclick="switchTab('tasks')">📋 Tasks</button>
+                <button class="nav-tab" onclick="switchTab('sessions')">🎭 Digital Humans</button>
+                <button class="nav-tab" onclick="switchTab('events')">📜 Audit Log</button>
+                <button class="nav-tab" onclick="switchTab('unreal')">🔌 Unreal Hub</button>
+            </nav>
 
-            <div class="telemetry-title" style="margin-top:10px;">GOVERNANCE & LATENCY</div>
-            <div class="metric-row"><span>Last Decision</span><span style="color:var(--green);font-weight:bold;">ALLOW</span></div>
-            <div class="metric-row"><span>P50 Response Latency</span><span>420ms</span></div>
-            <div class="metric-row"><span>P95 Response Latency</span><span>910ms</span></div>
-            <div class="metric-row"><span>System Health</span><span style="color:var(--green);">HEALTHY</span></div>
+            <div class="header-actions">
+                <div class="status-badge" id="runtime-status-pill">
+                    <span class="status-pulse"></span>
+                    <span id="runtime-status-text">ONLINE</span>
+                </div>
+                <button class="btn btn-outline" onclick="openAuthModal()">🔑 Auth Key</button>
+            </div>
         </div>
+    </header>
 
-        <!-- Main Operator Console Terminal -->
-        <div class="terminal-container">
-            <h2>Sarembok VE Production Operator Console</h2>
-            
-            <div class="top-controls">
-                <button class="btn-outline cyan" id="btn-audio">🎙 Audio Stream</button>
-                <button class="btn-outline pink" id="btn-snap">👁️ Snap Screen</button>
+    <!-- Main Content Body -->
+    <main>
+        
+        <!-- SECTION 1: OVERVIEW / LANDING PAGE -->
+        <section id="view-overview" class="view-section active">
+            <div class="hero">
+                <div class="hero-tag">PRODUCTION DEPLOYMENT PLATFORM</div>
+                <h1 class="hero-title">Autonomous Digital Human & Embodied AI Runtime</h1>
+                <p class="hero-desc">
+                    Sarembok VE bridges high-performance cloud intelligence with in-engine Unreal Engine 5.8 digital humans, enabling real-time voice, vision, memory, and cognitive task execution.
+                </p>
+                <div class="hero-actions">
+                    <button class="btn btn-cyan" onclick="switchTab('dashboard')">Launch Operator Control Plane</button>
+                    <button class="btn btn-outline" onclick="switchTab('unreal')">Connect Unreal Client</button>
+                </div>
             </div>
 
-            <div class="input-group">
-                <input type="text" id="chat-input" placeholder="Type operator command..." autocomplete="off">
-                <button class="btn-solid send" id="btn-send">Send</button>
-                <button class="btn-solid clear" id="btn-clear">Clear</button>
-                <button class="btn-solid stop" id="btn-stop">Stop</button>
+            <div class="feature-grid">
+                <div class="card">
+                    <div class="card-icon">🎭</div>
+                    <h3 class="card-title">Embodied Digital Humans</h3>
+                    <p class="card-desc">
+                        MetaHuman ARKit morph target integration with synchronized neural voice profiles and spatial viseme calculation.
+                    </p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">⚡</div>
+                    <h3 class="card-title">Distributed GPU Workers</h3>
+                    <p class="card-desc">
+                        Dynamic compute scheduling across GPU worker nodes for low-latency LLM reasoning and real-time avatar rendering.
+                    </p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">🧠</div>
+                    <h3 class="card-title">Multi-Tier Memory & State</h3>
+                    <p class="card-desc">
+                        Working context memory, episodic action history, semantic facts, and automated cognitive scorecard evaluation.
+                    </p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">🔌</div>
+                    <h3 class="card-title">Unreal Engine 5.8 Bridge</h3>
+                    <p class="card-desc">
+                        Secure bidirectional JSON-RPC WebSocket protocol (`sarembok.v1`) connecting Unreal Engine to the Sarembok cloud.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: OPERATOR DASHBOARD -->
+        <section id="view-dashboard" class="view-section">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-label">Runtime Status</span>
+                    <span class="stat-value text-emerald" id="dash-status">ONLINE</span>
+                    <span class="stat-sub">Storage: SQLite-WAL</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Registered Workers</span>
+                    <span class="stat-value" id="dash-workers">0</span>
+                    <span class="stat-sub">GPU Compute Nodes</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Active DH Sessions</span>
+                    <span class="stat-value text-cyan" id="dash-sessions">0</span>
+                    <span class="stat-sub">In-Engine Avatars</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Active Agents</span>
+                    <span class="stat-value text-magenta" id="dash-agents">0</span>
+                    <span class="stat-sub">Cognitive Reasoners</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">System Uptime</span>
+                    <span class="stat-value mono" id="dash-uptime">0s</span>
+                    <span class="stat-sub">Continuous Operation</span>
+                </div>
             </div>
 
-            <div class="terminal-output" id="terminal-output">
-                <div class="log-sys">[SYSTEM] Sarembok VE Production Edition Operator Console loaded.</div>
-                <div class="log-sys">[SYSTEM] WebSocket live telemetry linked. Scorecard=94.5% (PASS).</div>
+            <div class="dashboard-layout">
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3 class="table-title">Live Operational Telemetry & Scorecard</h3>
+                        <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="refreshDashboard()">Refresh</button>
+                    </div>
+                    <table style="padding:10px;">
+                        <tbody>
+                            <tr><td>Overall Cognitive Reliability</td><td><strong class="text-cyan" id="sc-overall">not configured</strong></td></tr>
+                            <tr><td>Perception Accuracy</td><td id="sc-perception">not configured</td></tr>
+                            <tr><td>Memory Retention</td><td id="sc-memory">not configured</td></tr>
+                            <tr><td>Reasoning & Planning</td><td id="sc-reasoning">not configured</td></tr>
+                            <tr><td>Governance & Policy Enforcement</td><td id="sc-governance">not configured</td></tr>
+                            <tr><td>WebSocket Protocol Transport</td><td><span class="tag tag-online">WSS / JSON-RPC 2.0</span></td></tr>
+                            <tr><td>Authentication Enforcement</td><td id="dash-auth-status"><span class="tag tag-busy">Configured</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3 class="table-title">Recent Event Stream</h3>
+                    </div>
+                    <div class="terminal-box" id="dashboard-log">
+                        <div class="log-entry"><span class="log-time">[SYSTEM]</span> Telemetry linked to sarembok-runtime container.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: WORKERS VIEW -->
+        <section id="view-workers" class="view-section">
+            <div class="table-container">
+                <div class="table-header">
+                    <h3 class="table-title">GPU Compute Workers</h3>
+                    <button class="btn btn-cyan" onclick="openRegisterWorkerModal()">+ Register Worker</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Worker ID</th>
+                            <th>GPU Model</th>
+                            <th>VRAM</th>
+                            <th>Capabilities</th>
+                            <th>Status</th>
+                            <th>Last Heartbeat</th>
+                        </tr>
+                    </thead>
+                    <tbody id="workers-tbody">
+                        <tr><td colspan="6" style="text-align:center;">Loading worker nodes...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECTION 4: AGENTS VIEW -->
+        <section id="view-agents" class="view-section">
+            <div class="table-container">
+                <div class="table-header">
+                    <h3 class="table-title">Autonomous Agents</h3>
+                    <button class="btn btn-cyan" onclick="openCreateAgentModal()">+ Create Agent</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Agent ID</th>
+                            <th>Display Name</th>
+                            <th>Status</th>
+                            <th>Created At</th>
+                        </tr>
+                    </thead>
+                    <tbody id="agents-tbody">
+                        <tr><td colspan="4" style="text-align:center;">Loading agents...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECTION 5: TASKS VIEW -->
+        <section id="view-tasks" class="view-section">
+            <div class="table-container">
+                <div class="table-header">
+                    <h3 class="table-title">Task & Compute Queue</h3>
+                    <button class="btn btn-cyan" onclick="openCreateTaskModal()">+ Schedule Task</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Task ID</th>
+                            <th>Type</th>
+                            <th>Assigned Worker</th>
+                            <th>Status</th>
+                            <th>Created At</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasks-tbody">
+                        <tr><td colspan="6" style="text-align:center;">Loading tasks...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECTION 6: DIGITAL HUMANS VIEW -->
+        <section id="view-sessions" class="view-section">
+            <div class="table-container">
+                <div class="table-header">
+                    <h3 class="table-title">Digital Human Sessions</h3>
+                    <button class="btn btn-cyan" onclick="openCreateSessionModal()">+ Create Session</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Session ID</th>
+                            <th>Agent ID</th>
+                            <th>Metahuman ID</th>
+                            <th>Voice Profile</th>
+                            <th>Assigned Worker</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessions-tbody">
+                        <tr><td colspan="6" style="text-align:center;">Loading digital human sessions...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECTION 7: AUDIT LOG VIEW -->
+        <section id="view-events" class="view-section">
+            <div class="table-container">
+                <div class="table-header">
+                    <h3 class="table-title">System Event Audit Trail</h3>
+                    <button class="btn btn-outline" onclick="fetchEvents()">Refresh Events</button>
+                </div>
+                <div class="terminal-box" id="events-log" style="height:550px;">
+                    <div class="log-entry">Loading events...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 8: UNREAL ENGINE HUB -->
+        <section id="view-unreal" class="view-section">
+            <div class="card" style="margin-bottom:24px;">
+                <h3 class="card-title">Unreal Engine 5.8 Production Integration</h3>
+                <p class="card-desc">
+                    Connect your Sarembok VE Unreal project to the production cloud endpoint. Copy the initialization configuration below into your project's C++ or Blueprint settings.
+                </p>
+                <div class="code-snippet" id="unreal-snippet">
+// SarembokBridge Production WebSocket Connection (Unreal Engine 5.8)
+FSarembokWebSocketClient Client;
+FString ProductionWSS = TEXT("wss://sarembok.com/ws");
+Client.Connect(ProductionWSS, TEXT("<YOUR_SAREMBOK_AUTH_TOKEN>"));
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Authentication Modal -->
+    <div class="modal-overlay" id="modal-auth">
+        <div class="modal">
+            <h3 class="modal-title">Authentication Secret Token</h3>
+            <p class="modal-desc">Enter the SAREMBOK_AUTH_TOKEN configured on the cloud runtime to authorize control plane operations.</p>
+            <div class="form-group">
+                <label class="form-label">AUTH TOKEN</label>
+                <input type="password" class="form-input" id="auth-token-input" placeholder="Paste secret token here...">
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px;">
+                <button class="btn btn-outline" onclick="closeAuthModal()">Cancel</button>
+                <button class="btn btn-cyan" onclick="saveAuthToken()">Save Token</button>
             </div>
         </div>
     </div>
 
-    <video id="hidden-video" style="display:none;" autoplay></video>
-    <canvas id="hidden-canvas" style="display:none;"></canvas>
+    <!-- Modals for Worker, Agent, Task, Session -->
+    <div class="modal-overlay" id="modal-worker">
+        <div class="modal">
+            <h3 class="modal-title">Register Compute Worker</h3>
+            <div class="form-group">
+                <label class="form-label">Worker ID</label>
+                <input type="text" class="form-input" id="w-id" value="gpu-worker-custom-01">
+            </div>
+            <div class="form-group">
+                <label class="form-label">GPU Model</label>
+                <input type="text" class="form-input" id="w-model" value="NVIDIA RTX 4090">
+            </div>
+            <div class="form-group">
+                <label class="form-label">VRAM (MB)</label>
+                <input type="number" class="form-input" id="w-vram" value="24576">
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:12px;">
+                <button class="btn btn-outline" onclick="closeModal('modal-worker')">Cancel</button>
+                <button class="btn btn-cyan" onclick="submitRegisterWorker()">Register</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-agent">
+        <div class="modal">
+            <h3 class="modal-title">Create Autonomous Agent</h3>
+            <div class="form-group">
+                <label class="form-label">Agent ID</label>
+                <input type="text" class="form-input" id="a-id" placeholder="e.g. sarembok-agent-01">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Display Name</label>
+                <input type="text" class="form-input" id="a-name" placeholder="e.g. Sarembok Guide">
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:12px;">
+                <button class="btn btn-outline" onclick="closeModal('modal-agent')">Cancel</button>
+                <button class="btn btn-cyan" onclick="submitCreateAgent()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-task">
+        <div class="modal">
+            <h3 class="modal-title">Schedule Compute Task</h3>
+            <div class="form-group">
+                <label class="form-label">Task Type</label>
+                <input type="text" class="form-input" id="t-type" value="meta_human_rendering">
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:12px;">
+                <button class="btn btn-outline" onclick="closeModal('modal-task')">Cancel</button>
+                <button class="btn btn-cyan" onclick="submitCreateTask()">Schedule</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-session">
+        <div class="modal">
+            <h3 class="modal-title">Create Digital Human Session</h3>
+            <div class="form-group">
+                <label class="form-label">Agent ID</label>
+                <input type="text" class="form-input" id="s-agent" value="sarembok-prime">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Metahuman ID</label>
+                <input type="text" class="form-input" id="s-mh" value="ada_v1">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Voice Profile</label>
+                <input type="text" class="form-input" id="s-voice" value="en_us_female_1">
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:12px;">
+                <button class="btn btn-outline" onclick="closeModal('modal-session')">Cancel</button>
+                <button class="btn btn-cyan" onclick="submitCreateSession()">Start Session</button>
+            </div>
+        </div>
+    </div>
 
     <script>
-        const terminal = document.getElementById('terminal-output');
-        const inputField = document.getElementById('chat-input');
-        
         let ws;
-        let audioCtx;
-        let nextPlayTime = 0;
-        let screenStream = null;
+        let rpcReqId = 1;
+        const pendingRPC = new Map();
 
-        function appendLog(role, message, cssClass) {
-            const div = document.createElement('div');
-            div.className = cssClass;
-            div.textContent = role ? `${role}: ${message}` : message;
-            terminal.appendChild(div);
-            terminal.scrollTop = terminal.scrollHeight;
+        function getAuthToken() {
+            return sessionStorage.getItem('SAREMBOK_AUTH_TOKEN') || '';
         }
 
-        function initAudioEngine() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-            }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+        function openAuthModal() {
+            document.getElementById('auth-token-input').value = getAuthToken();
+            document.getElementById('modal-auth').classList.add('active');
+        }
+
+        function closeAuthModal() {
+            document.getElementById('modal-auth').classList.remove('active');
+        }
+
+        function saveAuthToken() {
+            const token = document.getElementById('auth-token-input').value.trim();
+            sessionStorage.setItem('SAREMBOK_AUTH_TOKEN', token);
+            closeAuthModal();
+            refreshDashboard();
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            
+            const btn = Array.from(document.querySelectorAll('.nav-tab')).find(b => b.getAttribute('onclick').includes(tabId));
+            if (btn) btn.classList.add('active');
+            
+            const view = document.getElementById('view-' + tabId);
+            if (view) view.classList.add('active');
+
+            if (tabId === 'dashboard') refreshDashboard();
+            if (tabId === 'workers') fetchWorkers();
+            if (tabId === 'agents') fetchAgents();
+            if (tabId === 'tasks') fetchTasks();
+            if (tabId === 'sessions') fetchSessions();
+            if (tabId === 'events') fetchEvents();
         }
 
         function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${window.location.host}/ws/live`);
+            const host = window.location.host;
+            const url = `${protocol}//${host}`;
+
+            ws = new WebSocket(url);
 
             ws.onopen = () => {
-                appendLog('SYSTEM', 'Live Operator Telemetry Stream Linked.', 'log-sys');
+                document.getElementById('runtime-status-text').textContent = "ONLINE";
+                document.getElementById('dash-status').textContent = "ONLINE";
+                refreshDashboard();
             };
 
-            ws.onmessage = async (event) => {
-                const data = JSON.parse(event.data);
-                if (data.text) {
-                    appendLog('MODEL', data.text, 'log-model');
-                }
+            ws.onmessage = (event) => {
+                try {
+                    const resp = JSON.parse(event.data);
+                    if (resp.id && pendingRPC.has(resp.id)) {
+                        const { resolve, reject } = pendingRPC.get(resp.id);
+                        pendingRPC.delete(resp.id);
+                        if (resp.error) reject(resp.error);
+                        else resolve(resp.result);
+                    }
+                } catch(e) {}
             };
 
             ws.onclose = () => {
-                appendLog('SYSTEM', 'Connection dropped. Auto-reconnecting in 2s...', 'log-sys');
+                document.getElementById('runtime-status-text').textContent = "DISCONNECTED";
+                document.getElementById('dash-status').textContent = "RECONNECTING";
                 setTimeout(connectWebSocket, 2000);
-            };
-
-            ws.onerror = (error) => {
-                console.error("WebSocket Fault:", error);
             };
         }
 
-        document.getElementById('btn-send').addEventListener('click', () => {
-            initAudioEngine();
-            const text = inputField.value.trim();
-            if (text && ws && ws.readyState === WebSocket.OPEN) {
-                appendLog('USER', text, 'log-user');
-                ws.send(JSON.stringify({ type: "text", text: text }));
-                inputField.value = '';
-            }
-        });
+        function sendRPC(method, params = {}) {
+            return new Promise((resolve, reject) => {
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    return reject({ message: "WebSocket disconnected" });
+                }
+                const id = "rpc-" + (rpcReqId++);
+                const token = getAuthToken();
+                if (token) params.authToken = token;
 
-        inputField.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') document.getElementById('btn-send').click();
-        });
+                pendingRPC.set(id, { resolve, reject });
+                ws.send(JSON.stringify({ jsonrpc: "2.0", id: id, method: method, params: params }));
+            });
+        }
 
-        document.getElementById('btn-clear').addEventListener('click', () => {
-            terminal.innerHTML = '<div class="log-sys">[SYSTEM] Output cleared.</div>';
-        });
+        async function refreshDashboard() {
+            try {
+                const info = await sendRPC("RuntimeInfo");
+                document.getElementById('dash-workers').textContent = info.registeredWorkers || 0;
+                document.getElementById('dash-sessions').textContent = info.activeDigitalHumanSessions || 0;
+                document.getElementById('dash-agents').textContent = info.activeAgents || 0;
+                document.getElementById('dash-uptime').textContent = (info.uptimeSeconds || 0) + 's';
+                document.getElementById('dash-auth-status').innerHTML = info.authConfigured ? '<span class="tag tag-online">Active</span>' : '<span class="tag tag-busy">Disabled</span>';
+                
+                try {
+                    const agentRes = await sendRPC("ListAgents");
+                    if (agentRes.agents && agentRes.agents.length > 0) {
+                        const sc = await sendRPC("GetCognitiveScorecard", { agentId: agentRes.agents[0].agentId });
+                        document.getElementById('sc-overall').textContent = (sc.overallReliability ? (sc.overallReliability * 100).toFixed(1) + '%' : 'unavailable');
+                        document.getElementById('sc-perception').textContent = (sc.perception ? (sc.perception * 100).toFixed(0) + '%' : 'unavailable');
+                        document.getElementById('sc-memory').textContent = (sc.memory ? (sc.memory * 100).toFixed(0) + '%' : 'unavailable');
+                        document.getElementById('sc-reasoning').textContent = (sc.reasoning ? (sc.reasoning * 100).toFixed(0) + '%' : 'unavailable');
+                        document.getElementById('sc-governance').textContent = (sc.policy ? (sc.policy * 100).toFixed(0) + '%' : 'unavailable');
+                    } else {
+                        document.getElementById('sc-overall').textContent = "not configured";
+                        document.getElementById('sc-perception').textContent = "not configured";
+                        document.getElementById('sc-memory').textContent = "not configured";
+                        document.getElementById('sc-reasoning').textContent = "not configured";
+                        document.getElementById('sc-governance').textContent = "not configured";
+                    }
+                } catch(e) {
+                    document.getElementById('sc-overall').textContent = "not configured";
+                    document.getElementById('sc-perception').textContent = "not configured";
+                    document.getElementById('sc-memory').textContent = "not configured";
+                    document.getElementById('sc-reasoning').textContent = "not configured";
+                    document.getElementById('sc-governance').textContent = "not configured";
+                }
+            } catch(e) {}
+        }
+
+        async function fetchWorkers() {
+            try {
+                const res = await sendRPC("ListWorkers");
+                const tbody = document.getElementById('workers-tbody');
+                if (!res.workers || res.workers.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No GPU workers registered yet.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = res.workers.map(w => `
+                    <tr>
+                        <td class="mono">${w.workerId}</td>
+                        <td>${w.gpuModel || 'NVIDIA'}</td>
+                        <td>${w.vramMb || 0} MB</td>
+                        <td><span class="tag tag-queued">${(w.capabilities||[]).join(', ')}</span></td>
+                        <td><span class="tag tag-online">${w.status}</span></td>
+                        <td class="mono">${w.lastHeartbeat ? w.lastHeartbeat.split('T')[1].split('.')[0] : 'N/A'}</td>
+                    </tr>
+                `).join('');
+            } catch(e) {}
+        }
+
+        async function fetchAgents() {
+            try {
+                const res = await sendRPC("ListAgents");
+                const tbody = document.getElementById('agents-tbody');
+                if (!res.agents || res.agents.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No autonomous agents created yet.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = res.agents.map(a => `
+                    <tr>
+                        <td class="mono">${a.agentId}</td>
+                        <td><strong>${a.displayName}</strong></td>
+                        <td><span class="tag tag-online">${a.status}</span></td>
+                        <td class="mono">${a.createdAt.split('T')[0]}</td>
+                    </tr>
+                `).join('');
+            } catch(e) {}
+        }
+
+        async function fetchTasks() {
+            try {
+                const res = await sendRPC("ListTasks");
+                const tbody = document.getElementById('tasks-tbody');
+                if (!res.tasks || res.tasks.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No compute tasks scheduled yet.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = res.tasks.map(t => `
+                    <tr>
+                        <td class="mono">${t.taskId}</td>
+                        <td>${t.taskType}</td>
+                        <td class="mono">${t.assignedWorkerId || 'Unassigned'}</td>
+                        <td><span class="tag ${t.status==='CANCELLED'?'tag-error':'tag-queued'}">${t.status}</span></td>
+                        <td class="mono">${t.createdAt.split('T')[1].split('.')[0]}</td>
+                        <td><button class="btn btn-outline" style="padding:2px 8px; font-size:11px;" onclick="cancelTask('${t.taskId}')">Cancel</button></td>
+                    </tr>
+                `).join('');
+            } catch(e) {}
+        }
+
+        async function fetchSessions() {
+            try {
+                const res = await sendRPC("ListDigitalHumanSessions");
+                const tbody = document.getElementById('sessions-tbody');
+                if (!res.sessions || res.sessions.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No active digital human sessions.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = res.sessions.map(s => `
+                    <tr>
+                        <td class="mono">${s.sessionId}</td>
+                        <td class="mono">${s.agentId}</td>
+                        <td>${s.metahumanId}</td>
+                        <td>${s.voiceProfile}</td>
+                        <td class="mono">${s.assignedWorkerId || 'None'}</td>
+                        <td><span class="tag tag-online">${s.status}</span></td>
+                    </tr>
+                `).join('');
+            } catch(e) {}
+        }
+
+        async function fetchEvents() {
+            try {
+                const res = await sendRPC("ListEvents", { limit: 50 });
+                const log = document.getElementById('events-log');
+                if (!res.events || res.events.length === 0) {
+                    log.innerHTML = '<div class="log-entry">No events recorded.</div>';
+                    return;
+                }
+                log.innerHTML = res.events.map(ev => `
+                    <div class="log-entry">
+                        <span class="log-time">[${ev.timestamp.split('T')[1].split('.')[0]}]</span>
+                        <span class="log-method">${ev.type}</span>
+                        ${ev.agentId ? `<span class="text-magenta">agent=${ev.agentId}</span>`: ''}
+                        <span class="log-data">${JSON.stringify(ev.payload)}</span>
+                    </div>
+                `).join('');
+            } catch(e) {}
+        }
+
+        async function cancelTask(taskId) {
+            try {
+                await sendRPC("CancelTask", { taskId });
+                fetchTasks();
+            } catch(e) { alert("Failed to cancel task: " + (e.message||e)); }
+        }
+
+        function openRegisterWorkerModal() { document.getElementById('modal-worker').classList.add('active'); }
+        async function submitRegisterWorker() {
+            const id = document.getElementById('w-id').value;
+            const model = document.getElementById('w-model').value;
+            const vram = parseInt(document.getElementById('w-vram').value);
+            try {
+                await sendRPC("RegisterWorker", { workerId: id, gpuModel: model, vramMb: vram, capabilities: ["inference", "meta_human"] });
+                closeModal('modal-worker');
+                fetchWorkers();
+            } catch(e) { alert("Error registering worker: " + (e.message||e)); }
+        }
+
+        function openCreateAgentModal() { document.getElementById('modal-agent').classList.add('active'); }
+        async function submitCreateAgent() {
+            const id = document.getElementById('a-id').value;
+            const name = document.getElementById('a-name').value;
+            try {
+                await sendRPC("CreateAgent", { agentId: id, displayName: name });
+                closeModal('modal-agent');
+                fetchAgents();
+            } catch(e) { alert("Error creating agent: " + (e.message||e)); }
+        }
+
+        function openCreateTaskModal() { document.getElementById('modal-task').classList.add('active'); }
+        async function submitCreateTask() {
+            const type = document.getElementById('t-type').value;
+            try {
+                await sendRPC("CreateTask", { taskType: type });
+                closeModal('modal-task');
+                fetchTasks();
+            } catch(e) { alert("Error creating task: " + (e.message||e)); }
+        }
+
+        function openCreateSessionModal() { document.getElementById('modal-session').classList.add('active'); }
+        async function submitCreateSession() {
+            const agentId = document.getElementById('s-agent').value;
+            const metahumanId = document.getElementById('s-mh').value;
+            const voiceProfile = document.getElementById('s-voice').value;
+            try {
+                await sendRPC("CreateDigitalHumanSession", { agentId, metahumanId, voiceProfile });
+                closeModal('modal-session');
+                fetchSessions();
+            } catch(e) { alert("Error starting session: " + (e.message||e)); }
+        }
 
         window.onload = connectWebSocket;
     </script>

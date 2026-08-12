@@ -13,10 +13,15 @@ public:
     ~FSarembokWebSocketClient();
 
     void Connect();
+    void Connect(const FString& InURL, const FString& InAuthToken = TEXT(""));
 
     void Disconnect();
 
+    void SetServerURL(const FString& InURL);
+    void SetAuthToken(const FString& InAuthToken);
+
     void SendMessage(const FString& Message);
+    void SendRPC(const FString& Method, const FString& ParamsJson = TEXT("{}"), int32 RequestId = 1);
 
 private:
 
@@ -36,4 +41,6 @@ private:
     TSharedPtr<FSarembokMessageDispatcher> Dispatcher;
 
     FString ServerURL;
+    FString AuthToken;
+    bool bAutoReconnect;
 };

@@ -133,6 +133,16 @@ async def main() -> None:
 
         # Digital Human Session Routing
         ("CreateDigitalHumanSession", {"agentId": AGENT_ID, "metahumanId": "ada_v1", "voiceProfile": "en_us_female_1", **base_params}),
+
+        # Control Plane Extensions
+        ("RuntimeInfo", {**base_params}),
+        ("ListAgents", {**base_params}),
+        ("GetAgent", {"agentId": AGENT_ID, **base_params}),
+        ("ListTasks", {**base_params}),
+        ("CreateTask", {"taskType": "meta_human_rendering", **base_params}),
+        ("ListDigitalHumanSessions", {**base_params}),
+        ("ListEvents", {"agentId": AGENT_ID, "limit": 10, **base_params}),
+        ("Heartbeat", {"workerId": WORKER_ID, "status": "ONLINE", **base_params}),
     ]
 
     try:

@@ -3,9 +3,10 @@
 {$SAREMBOK_SITE_ADDRESS} {
     encode gzip
 
-    # Public landing endpoint.
-    handle / {
-        respond "Sarembok VE Cloud Runtime — ONLINE" 200
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
     }
 
     # Public edge liveness endpoint.
@@ -13,8 +14,7 @@
         respond "OK" 200
     }
 
-    # Sarembok Cloud Runtime.
-    # Caddy automatically supports WebSocket upgrades.
+    # Sarembok Cloud Runtime (handles web app & WebSocket upgrade).
     handle {
         reverse_proxy sarembok-runtime:9000
     }

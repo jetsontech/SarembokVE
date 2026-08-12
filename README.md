@@ -1,54 +1,102 @@
-# Sarembok_VE — Digital Human & Virtual Environment Platform
+# Sarembok VE — Autonomous Digital Human & AI Cloud Platform
 
-An advanced Unreal Engine 5.8 digital human orchestration architecture and AI runtime platform (`Sarembok_VE`).
+> **Production Deployment & Operating System for Embodied Digital Humans in Unreal Engine 5.8**
 
-## Architecture & Capabilities (v1.4 Embodied Interaction)
+`https://sarembok.com`
 
-- **`SarembokBridge`**: Real-time WebSocket connection, message dispatcher, command routing, and developer execution trace HUD visualizer (`sarembok.DebugTrace`).
-- **`SarembokAvatar`**: Digital human character manager, emotion controller, smooth facial expression pose interpolation, and MetaHuman ARKit morph target compatibility.
-- **`SarembokVoice`**: Audio execution, TTS pipeline integration, phoneme-to-viseme curve calculation, and speech playback.
-- **`SarembokVision`**: Real-time scene observation, actor classification (`Character`, `Pawn`, `StaticMesh`, `Light`), 3D spatial distance matrix, and user FOV tracking.
-- **`SarembokAgent`**: Goal stack management, schema-validated LLM provider reasoning (`FSarembokLLMReasoner`), intent routing, multi-candidate planning, replanning, and deterministic safety fallback (`FSarembokDeterministicReasoner`).
-- **`SarembokMemory`**: Working memory, episodic memory storage, and state retrieval.
+---
 
-## Requirements
+## Overview
 
-- **Unreal Engine:** 5.8
-- **Build Tools:** Visual Studio 2022 / .NET 10 x64 SDK / UBT
-- **Backend:** Python 3.10+ (WebSockets / FastAPI)
+**Sarembok VE** is a production-grade cloud platform and runtime orchestrator that bridges AI reasoning and digital human avatars in **Unreal Engine 5.8**.
 
-## Quick Start & Verification Commands
+The platform provides:
+* **Public Web Experience & Operator Control Plane**: High-aesthetic modern landing page and authenticated control dashboard for managing Workers, Agents, Tasks, Digital Human Sessions, and Event Audit Logs.
+* **Cloud Runtime Engine (`sarembok-runtime`)**: Async Python process hosting SQLite WAL storage, worker heartbeats, compute task scheduler, and JSON-RPC 2.0 API gateway.
+* **Edge Proxy (`sarembok-edge`)**: Caddy web server providing automated TLS, HTTP static file delivery, and WebSocket upgrade proxying.
+* **Unreal Engine 5.8 Plugins (`SarembokBridge`)**: In-engine C++ modules enabling high-performance bidirectional WebSocket connectivity (`sarembok.v1` protocol).
 
-### 1. Standalone Health Diagnostics (26/26 PASS)
+---
 
-```powershell
-powershell -ExecutionPolicy Bypass -File Tools/Diagnostics/Test-SarembokProject.ps1
+## Quick Start (Production Deployment)
+
+### 1. Configure Environment Variables
+```bash
+export SAREMBOK_PUBLIC_HOST="sarembok.com"
+export SAREMBOK_AUTH_TOKEN="your-secure-secret-token"
 ```
 
-### 2. Build SarembokVEEditor Target
-
-```powershell
-powershell -ExecutionPolicy Bypass -File Tools/Builder/SarembokBuilder.ps1 -Action Build
+### 2. Deploy with Docker Compose
+```bash
+docker compose -f Deployment/cloud/compose.yaml -f Deployment/cloud/compose.production.yaml up -d --build
 ```
 
-### 3. Run WebSocket Integration Tests
-
-```powershell
-python Tools/Diagnostics/Test-WebSocketIntegration.py
+### 3. Verify System Health
+```bash
+python Deployment/cloud/smoke_test.py ws://127.0.0.1:9000
 ```
 
-### 4. Run End-to-End Real Runtime Acceptance Test (75/75 PASS)
+---
 
-```powershell
-python Tools/Diagnostics/Test-SarembokRuntimeEndToEnd.py
+## System Architecture
+
+```text
+                               PUBLIC INTERNET
+                                      |
+                                      v
+                             https://sarembok.com
+                                      |
+                                      v
+                             +----------------+
+                             |     CADDY      |
+                             |  TLS / Edge    |
+                             +-------+--------+
+                                     |
+              +----------------------+----------------------+
+              |                                             |
+              v                                             v
+       Web Application                               WebSocket Proxy
+   (Landing Page / Control Plane)                     (sarembok.v1)
+              |                                             |
+              +----------------------+----------------------+
+                                     |
+                                     v
+                           sarembok-runtime:9000
+                                     |
+                                     v
+                            CloudStore / SQLite
+                                     |
+                +--------------------+--------------------+
+                |                    |                    |
+                v                    v                    v
+          GPU Workers           AI Reasoners       Digital Humans
+                |
+                v
+      Unreal Engine 5.8 Client
 ```
+
+---
 
 ## Documentation
 
-Full runtime architecture, WebSocket JSON command schemas, hardware-adaptive rendering baselines, and building guidelines are documented in:
+Detailed documentation is available in the [`Docs/`](Docs/) directory:
 
-- [SarembokVE_Runtime.md](Docs/SarembokVE_Runtime.md)
+* 🏗️ [**Architecture Guide**](Docs/ARCHITECTURE.md) — System topology, layers, and data flow.
+* 🚀 [**Deployment Guide**](Docs/DEPLOYMENT.md) — Docker Compose, VPS provisioning, and environment config.
+* 📡 [**API Specification**](Docs/API.md) — 25+ JSON-RPC 2.0 control plane & runtime methods.
+* ⚡ [**WebSocket Protocol**](Docs/WEBSOCKET.md) — Real-time bidirectional transport schema (`sarembok.v1`).
+* 🎮 [**Unreal Engine Integration**](Docs/UNREAL_INTEGRATION.md) — C++ setup, `SarembokBridge` plugin, and PIE setup.
+* 🛠️ [**Operations & Maintenance**](Docs/OPERATIONS.md) — Backup, restore, log monitoring, and worker heartbeats.
+* 🔒 [**Security Guide**](Docs/SECURITY.md) — Authentication token protection, connection limits, and privilege isolation.
+* 🩺 [**Troubleshooting**](Docs/TROUBLESHOOTING.md) — Diagnostic scripts, common fixes, and log inspection.
 
-## License
+---
 
-Distributed under the MIT License.
+## Verification & Qualification
+
+To execute the complete 30-step production qualification suite:
+```powershell
+python Tools/Diagnostics/Test-SarembokProductionAcceptance.py ws://127.0.0.1:9000
+```
+
+`PRODUCTION ACCEPTANCE: PASSED`
