@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sqlite3
 import tempfile
 
@@ -36,6 +35,9 @@ def main():
         """)
         db.commit()
         scheduler = SchedulerV3(Store(db))
+
+        # Simulate a V2 database where active_tasks is created by the V2 migration.
+        assert "active_tasks" in {r[1] for r in db.execute("PRAGMA table_info(workers)")}
 
         a = rpc(scheduler, "RegisterWorkerV3", {"workerId":"v3-a","capabilities":["compute"],"maxConcurrentTasks":2,"availableMemoryMb":16000})
         assert a["status"] == "ONLINE"
