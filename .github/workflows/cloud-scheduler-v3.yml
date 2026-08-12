@@ -1,0 +1,29 @@
+name: Sarembok Cloud Scheduler V3
+
+on:
+  push:
+    branches:
+      - cloud-scheduler-v3-production
+      - cloud-runtime/bootstrap
+  pull_request:
+    paths:
+      - 'Deployment/cloud/**'
+      - '.github/workflows/cloud-scheduler-v3.yml'
+
+jobs:
+  scheduler-v3:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install runtime dependencies
+        run: python -m pip install -r Runtime/requirements.txt
+      - name: Compile cloud runtime
+        run: python -m compileall -q Deployment/cloud
+      - name: Run Scheduler V3 regression suite
+        working-directory: Deployment/cloud
+        env:
+          PYTHONPATH: .
+        run: python scheduler_v3_test.py
