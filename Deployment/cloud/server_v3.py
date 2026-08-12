@@ -8,6 +8,9 @@ import server as runtime
 from scheduler_v3 import NOT_HANDLED, SchedulerV3
 
 LOG = logging.getLogger("sarembok.cloud.v3")
+
+# V2 introduced active_tasks lazily. V3 needs it before its first worker query.
+runtime.ensure_scheduler_schema()
 SCHEDULER = SchedulerV3(runtime.store)
 
 
