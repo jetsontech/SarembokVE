@@ -3,8 +3,10 @@
 
 **Date**: 2026-08-13  
 **Repository**: `C:\Sarembok_VE`  
+**Date**: 2026-08-13  
+**Repository**: `C:\Sarembok_VE`  
 **GitHub**: `https://github.com/jetsontech/Sarembok_VE`  
-**Active Branches**: `main` & `feature/autonomous-worker-lifecycle` (HEAD Commit: `a0f2953`)  
+**Active Branches**: `main` & `feature/autonomous-worker-lifecycle` (HEAD Commit: `178902d`)  
 **Production VPS**: `ubuntu@15.204.173.205`  
 **Public Endpoints**:
 - HTTPS Control Plane: `https://sarembok.com/`
@@ -17,18 +19,19 @@
 
 ### Verified Baseline & Gap Identification
 1. **Cloud Runtime & JSON-RPC Contract**: 100% verified locally and in staging containers. 12/12 core production JSON-RPC facets pass all type contracts, schema validations, and state transitions.
-2. **Autonomous GPU Worker & Scheduler V3**: Fully operational `Deployment/cloud/worker_client.py` with NVIDIA GPU discovery (RTX 4090 / 24,576 MB VRAM / CUDA), 15s heartbeats, deterministic arithmetic execution, and `FailTask` retryable error recovery.
+2. **Autonomous GPU Worker & Scheduler V3**: Fully operational `Deployment/cloud/worker_client.py` with NVIDIA GPU discovery (RTX 4090 / 24,576 MB VRAM / CUDA), 15s heartbeats, deterministic arithmetic execution, autonomous task claiming/completion loop, and `FailTask` retryable error recovery.
 3. **Digital Human Session Lifecycle**: Complete state machine (`CREATED` ➔ `ACTIVE` ➔ `IDLE` ➔ `CLOSED`) with SQLite persistence and event journaling.
 4. **Public Web UI Discrepancy & Root Cause**:
    - **Empirical Observation on Live `https://sarembok.com/`**:
      ```text
      HTTP Status: 200 OK
      Content-Type: text/plain; charset=utf-8
-     Body (34 bytes): Sarembok VE Cloud Runtime — ONLINE
+     Body (36 bytes): Sarembok VE Cloud Runtime — ONLINE
+     /index.html: HTTP 426 Upgrade Required (missing HTTP route in old build)
      ```
-   - **Root Cause**: The running container on the VPS (`sarembok-runtime`) was built prior to commit `8a85f00`. In earlier versions, static file candidate resolution failed within the container and `connection.respond` did not cleanly overwrite `Content-Type: text/plain`.
-   - **Resolution**: Fixed in `Deployment/cloud/server.py`, updated `Deployment/cloud/Dockerfile` to package `frontend/`, and verified in local production containers serving the 48,240-byte control plane application (`text/html; charset=utf-8`).
-   - **Deployment Status**: Committed to `main` and `feature/autonomous-worker-lifecycle` (commit `a0f2953`), ready for `docker compose up -d --build` on the VPS.
+   - **Root Cause of Failed Rebuild on VPS**: During previous deployment attempt, `docker compose` aborted because `SAREMBOK_AUTH_TOKEN` was not exported in the shell environment prior to running Compose.
+   - **Resolution**: Fixed in `Deployment/cloud/server.py`, updated `Deployment/cloud/Dockerfile` to package `frontend/`, verified in local production containers serving the 48,240-byte control plane application (`text/html; charset=utf-8`), and verified autonomous worker loop.
+   - **Deployment Status**: Committed to `main` and `feature/autonomous-worker-lifecycle` (commit `178902d`), ready for `docker compose up -d --build` on the VPS with exported `SAREMBOK_AUTH_TOKEN`.
 
 ---
 
@@ -102,11 +105,11 @@ The single-page web control plane (`frontend/index.html`) provides live, authent
 
 ## 4. Master Test Suite Validation Scorecard
 
-Executed via `Tools/Diagnostics/Test-SarembokMasterSuite.py` with 33 comprehensive assertions across 8 core subsystems:
+Executed via `Tools/Diagnostics/Test-SarembokMasterSuite.py` with 34 comprehensive assertions across 8 core subsystems:
 
 ```text
 ======================================================================
- SAREMBOK VE MASTER REGRESSION TEST SUITE (33/33 ASSERTIONS)
+ SAREMBOK VE MASTER REGRESSION TEST SUITE (34/34 ASSERTIONS)
 ======================================================================
   HTTP                : PASS (3/3)
     - Health Endpoint Probe (/health): Status=200
@@ -120,9 +123,10 @@ Executed via `Tools/Diagnostics/Test-SarembokMasterSuite.py` with 33 comprehensi
     - Health, ListWorkers, CreateAgent, QueryAgentState, QueryWorldModel,
       GetCognitiveScorecard, GetEvents, GetMetrics, CreateDigitalHumanSession,
       GetDigitalHumanSession, ScheduleCompute, GetAuditTrail
-  WORKER              : PASS (2/2)
+  WORKER              : PASS (3/3)
     - RTX 4090 / 24GB VRAM Registration
     - Periodic Heartbeat Verification
+    - Autonomous Background Daemon Task Claim & Execution
   SCHEDULER           : PASS (4/4)
     - Task Scheduling & Worker Assignment (QUEUED)
     - Worker Task Claim (RUNNING)
@@ -142,7 +146,7 @@ Executed via `Tools/Diagnostics/Test-SarembokMasterSuite.py` with 33 comprehensi
     - Event Journaling & Audit Trail Integrity
     - Cognitive Scorecard Metrics in SQLite WAL
 ----------------------------------------------------------------------
-  TOTAL RESULTS: 33/33 PASSED | 0 FAILED -> ALL TESTS PASSED
+  TOTAL RESULTS: 34/34 PASSED | 0 FAILED -> ALL TESTS PASSED
 ======================================================================
 ```
 
@@ -150,7 +154,7 @@ Executed via `Tools/Diagnostics/Test-SarembokMasterSuite.py` with 33 comprehensi
 
 ## 5. Deployment Guide (VPS: `ubuntu@15.204.173.205`)
 
-To apply the latest verified build (`commit a0f2953`) to the production VPS:
+To apply the verified release (`commit 178902d`) to the production VPS:
 
 ```bash
 # 1. SSH into the production VPS
@@ -160,21 +164,30 @@ ssh ubuntu@15.204.173.205
 cd ~/Sarembok_VE
 git pull origin main
 
-# 3. Rebuild and start the runtime container in production mode
+# 3. Securely load SAREMBOK_AUTH_TOKEN into shell environment (prevents compose interpolation failure)
+export SAREMBOK_AUTH_TOKEN="$(sudo cat /etc/sarembok/auth_token)"
+test -n "$SAREMBOK_AUTH_TOKEN" && echo "AUTH TOKEN LOADED" || exit 1
+
+# 4. Rebuild and start the runtime container in production mode
 docker compose \
   -f Deployment/cloud/compose.yaml \
   -f Deployment/cloud/compose.production.yaml \
-  up -d --build sarembok-runtime
+  build --no-cache sarembok-runtime
 
-# 4. Verify container health status
+docker compose \
+  -f Deployment/cloud/compose.yaml \
+  -f Deployment/cloud/compose.production.yaml \
+  up -d --force-recreate sarembok-runtime
+
+# 5. Verify container health status
 docker compose \
   -f Deployment/cloud/compose.yaml \
   -f Deployment/cloud/compose.production.yaml \
   ps
 # Expected: sarembok-runtime Up (healthy), sarembok-edge Up
 
-# 5. Verify UI inside the container
-docker exec sarembok-runtime sh -c "wc -c /app/frontend/index.html"
+# 6. Verify UI and worker client inside the container
+docker exec sarembok-runtime sh -c "wc -c /app/frontend/index.html && ls -l /app/worker_client.py"
 # Expected: 48240 /app/frontend/index.html
 ```
 
