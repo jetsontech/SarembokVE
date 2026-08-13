@@ -86,13 +86,31 @@ async def test_http_endpoints(http_url: str) -> bool:
             body = resp.read().decode("utf-8", errors="ignore")
             content_type = resp.headers.get("Content-Type", "")
             is_html = "text/html" in content_type
+            has_len = len(body) > 1000
+            has_html_tag = "<html" in body.lower()
             has_brand = "Sarembok VE" in body and "Autonomous Digital Human" in body
-            ok = resp.status == 200 and is_html and has_brand
+            not_fallback = body.strip() != "Sarembok VE Cloud Runtime — ONLINE" and len(body) > 100
+            ok = resp.status == 200 and is_html and has_len and has_html_tag and has_brand and not_fallback
             record_result("HTTP", "Web UI Application Serving (/)", ok, f"Length={len(body)} Content-Type={content_type}")
             if not ok:
                 all_ok = False
     except Exception as exc:
         record_result("HTTP", "Web UI Application Serving (/)", False, f"Exception: {exc}")
+        all_ok = False
+
+    # 3. /index.html Web UI serving
+    try:
+        idx_url = http_url.rstrip("/") + "/index.html"
+        req = urllib.request.Request(idx_url, headers={"User-Agent": "SarembokMasterSuite/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            body = resp.read().decode("utf-8", errors="ignore")
+            content_type = resp.headers.get("Content-Type", "")
+            ok = resp.status == 200 and "text/html" in content_type and len(body) > 1000
+            record_result("HTTP", "Web UI Direct Index Serving (/index.html)", ok, f"Length={len(body)} Content-Type={content_type}")
+            if not ok:
+                all_ok = False
+    except Exception as exc:
+        record_result("HTTP", "Web UI Direct Index Serving (/index.html)", False, f"Exception: {exc}")
         all_ok = False
 
     return all_ok
