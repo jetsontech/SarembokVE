@@ -173,27 +173,53 @@ STOP = asyncio.Event()
 
 
 WORKER_HEARTBEAT_TIMEOUT_SECONDS = int(
-    os.getenv("SAREMBOK_WORKER_HEARTBEAT_TIMEOUT", "90")
+    os.getenv("SAREMBOK_WORKER_HEARTBEAT_TIMEOUT_SECONDS")
+    or os.getenv("SAREMBOK_WORKER_HEARTBEAT_TIMEOUT")
+    or "60"
 )
+WORKER_OFFLINE_TIMEOUT_SECONDS = int(
+    os.getenv("SAREMBOK_WORKER_OFFLINE_TIMEOUT_SECONDS", "180")
+)
+WORKER_LIFECYCLE_INTERVAL_SECONDS = int(
+    os.getenv("SAREMBOK_WORKER_LIFECYCLE_INTERVAL_SECONDS", "15")
+)
+MONITOR_TASK: asyncio.Task | None = None
 
-def heartbeat_is_fresh(timestamp: str) -> bool:
+
+def validate_worker_lifecycle_config(
+    heartbeat_timeout: int = WORKER_HEARTBEAT_TIMEOUT_SECONDS,
+    offline_timeout: int = WORKER_OFFLINE_TIMEOUT_SECONDS,
+    interval: int = WORKER_LIFECYCLE_INTERVAL_SECONDS,
+) -> None:
+    if heartbeat_timeout <= 0:
+        raise ValueError("SAREMBOK_WORKER_HEARTBEAT_TIMEOUT_SECONDS must be > 0")
+    if offline_timeout <= heartbeat_timeout:
+        raise ValueError("SAREMBOK_WORKER_OFFLINE_TIMEOUT_SECONDS must be > SAREMBOK_WORKER_HEARTBEAT_TIMEOUT_SECONDS")
+    if interval <= 0:
+        raise ValueError("SAREMBOK_WORKER_LIFECYCLE_INTERVAL_SECONDS must be > 0")
+
+
+validate_worker_lifecycle_config()
+
+
+def get_heartbeat_age_seconds(timestamp: str, ref_time: datetime | None = None) -> float | None:
     if not timestamp:
-        return False
-
+        return None
     try:
         dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-
         if dt.tzinfo is None:
             dt = dt.replace(timezone.utc)
-
-        age = (
-            datetime.now(timezone.utc) - dt
-        ).total_seconds()
-
-        return age <= WORKER_HEARTBEAT_TIMEOUT_SECONDS
-
+        now_dt = ref_time or datetime.now(timezone.utc)
+        return (now_dt - dt).total_seconds()
     except Exception:
+        return None
+
+
+def heartbeat_is_fresh(timestamp: str, max_age_seconds: float = WORKER_HEARTBEAT_TIMEOUT_SECONDS, ref_time: datetime | None = None) -> bool:
+    age = get_heartbeat_age_seconds(timestamp, ref_time)
+    if age is None:
         return False
+    return age <= max_age_seconds
 
 
 def ensure_scheduler_schema() -> None:
@@ -214,8 +240,92 @@ def ensure_scheduler_schema() -> None:
         store.db.commit()
 
 
+def evaluate_worker_liveness(now_dt: datetime | None = None) -> dict[str, int]:
+    """Evaluates liveness for all registered workers and persists state transitions safely.
+
+    ONLINE:  0 <= age <= WORKER_HEARTBEAT_TIMEOUT_SECONDS
+    STALE:   WORKER_HEARTBEAT_TIMEOUT_SECONDS < age <= WORKER_OFFLINE_TIMEOUT_SECONDS
+    OFFLINE: age > WORKER_OFFLINE_TIMEOUT_SECONDS (or missing/invalid timestamp)
+    """
+    ensure_scheduler_schema()
+    ref_time = now_dt or datetime.now(timezone.utc)
+
+    rows = store.db.execute(
+        "SELECT worker_id, status, last_heartbeat FROM workers"
+    ).fetchall()
+
+    counts = {"online": 0, "stale": 0, "offline": 0, "transitions": 0}
+
+    for row in rows:
+        worker_id = row[0]
+        prev_status = str(row[1]).upper()
+        hb_stamp = row[2]
+
+        age = get_heartbeat_age_seconds(hb_stamp, ref_time)
+
+        if age is not None and age >= 0:
+            if age <= WORKER_HEARTBEAT_TIMEOUT_SECONDS:
+                new_status = "ONLINE"
+            elif age <= WORKER_OFFLINE_TIMEOUT_SECONDS:
+                new_status = "STALE"
+            else:
+                new_status = "OFFLINE"
+        else:
+            new_status = "OFFLINE"
+
+        if new_status != prev_status:
+            cursor = store.db.execute(
+                """
+                UPDATE workers
+                SET status=?
+                WHERE worker_id=? AND last_heartbeat=? AND status=?
+                """,
+                (new_status, worker_id, hb_stamp, prev_status),
+            )
+            if cursor.rowcount > 0:
+                store.db.commit()
+                LOG.info(
+                    "worker status transition worker_id=%s %s->%s",
+                    worker_id,
+                    prev_status,
+                    new_status,
+                )
+                eval_stamp = ref_time.isoformat()
+                event_payload = {
+                    "workerId": worker_id,
+                    "previousStatus": prev_status,
+                    "status": new_status,
+                    "lastHeartbeat": hb_stamp,
+                    "evaluatedAt": eval_stamp,
+                }
+                store.event(None, "WORKER_STATUS_CHANGED", event_payload)
+                counts["transitions"] += 1
+                counts[new_status.lower()] += 1
+            else:
+                counts[prev_status.lower()] += 1
+        else:
+            counts[new_status.lower()] += 1
+
+    return counts
+
+
+def get_worker_status_counts() -> dict[str, int]:
+    evaluate_worker_liveness()
+    worker_count = store.db.execute("SELECT COUNT(*) FROM workers").fetchone()[0]
+    online_count = store.db.execute("SELECT COUNT(*) FROM workers WHERE status='ONLINE'").fetchone()[0]
+    stale_count = store.db.execute("SELECT COUNT(*) FROM workers WHERE status='STALE'").fetchone()[0]
+    offline_count = store.db.execute("SELECT COUNT(*) FROM workers WHERE status='OFFLINE'").fetchone()[0]
+    return {
+        "registeredWorkers": worker_count,
+        "onlineWorkers": online_count,
+        "staleWorkers": stale_count,
+        "offlineWorkers": offline_count,
+    }
+
+
 def select_worker(required_capability: str) -> str | None:
     ensure_scheduler_schema()
+    evaluate_worker_liveness()
 
     rows = store.db.execute(
         """
@@ -224,7 +334,8 @@ def select_worker(required_capability: str) -> str | None:
             capabilities,
             active_tasks,
             latency_ms,
-            available_memory_mb
+            available_memory_mb,
+            last_heartbeat
         FROM workers
         WHERE status='ONLINE'
         """
@@ -238,6 +349,7 @@ def select_worker(required_capability: str) -> str | None:
         active_tasks = int(row[2] or 0)
         latency_ms = float(row[3] or 999999)
         available_memory_mb = int(row[4] or 0)
+        hb_stamp = row[5]
 
         try:
             caps = json.loads(raw_caps) if raw_caps else []
@@ -247,19 +359,7 @@ def select_worker(required_capability: str) -> str | None:
         if required_capability not in caps:
             continue
 
-        heartbeat = store.db.execute(
-            """
-            SELECT last_heartbeat
-            FROM workers
-            WHERE worker_id=?
-            """,
-            (worker_id,),
-        ).fetchone()
-
-        if not heartbeat:
-            continue
-
-        if not heartbeat_is_fresh(heartbeat[0]):
+        if not heartbeat_is_fresh(hb_stamp, WORKER_HEARTBEAT_TIMEOUT_SECONDS):
             continue
 
         # Lower active workload wins.
@@ -280,6 +380,31 @@ def select_worker(required_capability: str) -> str | None:
     candidates.sort()
 
     return candidates[0][3]
+
+
+def assign_pending_tasks() -> int:
+    """Finds all tasks in PENDING_WORKER status and assigns them to eligible ONLINE workers."""
+    rows = store.db.execute(
+        "SELECT task_id, required_capability FROM tasks WHERE status='PENDING_WORKER' ORDER BY created_at ASC"
+    ).fetchall()
+    assigned_count = 0
+    stamp = now()
+    for row in rows:
+        task_id = row[0]
+        req_cap = row[1] or "compute"
+        worker_id = select_worker(required_capability=req_cap)
+        if worker_id:
+            store.db.execute(
+                "UPDATE tasks SET assigned_worker_id=?, status='QUEUED', updated_at=? WHERE task_id=? AND status='PENDING_WORKER'",
+                (worker_id, stamp, task_id),
+            )
+            if store.db.execute("SELECT changes()").fetchone()[0] == 1:
+                assigned_count += 1
+                LOG.info("assigned pending task %s to worker %s", task_id, worker_id)
+                store.event(None, "TASK_ASSIGNED", {"taskId": task_id, "workerId": worker_id, "status": "QUEUED"})
+    if assigned_count > 0:
+        store.db.commit()
+    return assigned_count
 
 
 def require_agent(agent_id: str) -> None:
@@ -442,6 +567,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         return {"workerId": worker_id, "registered": True, "status": status, "capabilities": json.loads(caps)}
 
     if method == "ListWorkers":
+        evaluate_worker_liveness()
         cap_filter = str(params.get("capability", "")).strip()
         status_filter = str(params.get("status", "")).strip().upper()
         rows = store.db.execute("SELECT worker_id, capabilities, gpu_vendor, gpu_model, vram_mb, status, last_heartbeat FROM workers").fetchall()
@@ -475,7 +601,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
 
         row = store.db.execute(
             """
-            SELECT worker_id
+            SELECT worker_id, status, last_heartbeat
             FROM workers
             WHERE worker_id=?
             """,
@@ -486,6 +612,8 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(
                 f"worker_not_found: {worker_id}"
             )
+
+        prev_status = str(row[1]).upper()
 
         store.db.execute(
             """
@@ -499,6 +627,24 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         )
 
         store.db.commit()
+
+        if prev_status != "ONLINE":
+            LOG.info(
+                "worker status transition worker_id=%s %s->ONLINE",
+                worker_id,
+                prev_status,
+            )
+            store.event(
+                None,
+                "WORKER_STATUS_CHANGED",
+                {
+                    "workerId": worker_id,
+                    "previousStatus": prev_status,
+                    "status": "ONLINE",
+                    "lastHeartbeat": stamp,
+                    "evaluatedAt": stamp,
+                },
+            )
 
         return {
             "workerId": worker_id,
@@ -593,7 +739,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
 
         row = store.db.execute(
             """
-            SELECT assigned_worker_id, status
+            SELECT assigned_worker_id, status, required_capability
             FROM tasks
             WHERE task_id=?
             """,
@@ -605,17 +751,19 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
                 f"task_not_found: {task_id}"
             )
 
-        if row[0] != worker_id:
+        assigned_worker, task_status, req_cap = row[0], row[1], row[2] or "compute"
+
+        if assigned_worker and assigned_worker != worker_id:
             raise ValueError("worker_mismatch")
 
-        if row[1] != "QUEUED":
+        if task_status not in ("QUEUED", "PENDING_WORKER"):
             raise ValueError(
-                f"task_not_queued: {row[1]}"
+                f"task_not_claimable: {task_status}"
             )
 
         worker = store.db.execute(
             """
-            SELECT status, last_heartbeat
+            SELECT status, last_heartbeat, capabilities
             FROM workers
             WHERE worker_id=?
             """,
@@ -633,6 +781,14 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         if not heartbeat_is_fresh(worker[1]):
             raise ValueError("worker_heartbeat_stale")
 
+        try:
+            caps = json.loads(worker[2]) if worker[2] else []
+        except Exception:
+            caps = []
+
+        if req_cap not in caps:
+            raise ValueError(f"worker_missing_capability: {req_cap}")
+
         stamp = now()
 
         store.db.execute(
@@ -640,12 +796,12 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             UPDATE tasks
             SET
                 status='RUNNING',
+                assigned_worker_id=?,
                 updated_at=?
             WHERE task_id=?
-              AND assigned_worker_id=?
-              AND status='QUEUED'
+              AND status IN ('QUEUED', 'PENDING_WORKER')
             """,
-            (stamp, task_id, worker_id),
+            (worker_id, stamp, task_id),
         )
 
         if store.db.execute("SELECT changes()").fetchone()[0] != 1:
@@ -737,8 +893,52 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "status": "COMPLETED",
         }
 
+    if method == "FailTask":
+        ensure_scheduler_schema()
+        task_id = str(params.get("taskId", "")).strip()
+        worker_id = str(params.get("workerId", "")).strip()
+        error_msg = str(params.get("error", "execution_failed"))
+        retryable = bool(params.get("retryable", False))
+
+        if not task_id:
+            raise ValueError("taskId is required")
+        if not worker_id:
+            raise ValueError("workerId is required")
+
+        row = store.db.execute(
+            "SELECT assigned_worker_id, status FROM tasks WHERE task_id=?",
+            (task_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError(f"task_not_found: {task_id}")
+        if row[0] != worker_id:
+            raise ValueError("worker_mismatch")
+
+        new_status = "PENDING_WORKER" if retryable else "FAILED"
+        stamp = now()
+        store.db.execute(
+            """
+            UPDATE tasks
+            SET status=?, assigned_worker_id=?, updated_at=?
+            WHERE task_id=? AND assigned_worker_id=?
+            """,
+            (new_status, None if retryable else worker_id, stamp, task_id, worker_id),
+        )
+        store.db.execute(
+            "UPDATE workers SET active_tasks=MAX(active_tasks-1,0) WHERE worker_id=?",
+            (worker_id,),
+        )
+        store.db.commit()
+        store.event(None, "TASK_FAILED", {"taskId": task_id, "workerId": worker_id, "error": error_msg, "retryable": retryable, "status": new_status})
+        return {
+            "taskId": task_id,
+            "workerId": worker_id,
+            "status": new_status,
+            "error": error_msg,
+        }
+
     if method == "RuntimeInfo":
-        worker_count = store.db.execute("SELECT COUNT(*) FROM workers").fetchone()[0]
+        worker_stats = get_worker_status_counts()
         session_count = store.db.execute("SELECT COUNT(*) FROM digital_human_sessions WHERE status!='TERMINATED'").fetchone()[0]
         agent_count = store.db.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
         task_count = store.db.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
@@ -751,7 +951,10 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "uptimeSeconds": int(time.time() - STARTED),
             "storage": "sqlite-wal",
             "authConfigured": bool(AUTH_TOKEN),
-            "registeredWorkers": worker_count,
+            "registeredWorkers": worker_stats["registeredWorkers"],
+            "onlineWorkers": worker_stats["onlineWorkers"],
+            "staleWorkers": worker_stats["staleWorkers"],
+            "offlineWorkers": worker_stats["offlineWorkers"],
             "activeDigitalHumanSessions": session_count,
             "activeAgents": agent_count,
             "totalTasks": task_count,
@@ -862,19 +1065,6 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             events.append({"agentId": r[0], "type": r[1], "timestamp": r[2], "payload": payload})
         return {"agentId": agent_id or None, "events": events, "count": len(events)}
 
-    if method == "Heartbeat":
-        worker_id = str(params.get("workerId", "")).strip()
-        if not worker_id:
-            raise ValueError("workerId is required")
-        status = str(params.get("status", "ONLINE")).upper()
-        stamp = now()
-        row = store.db.execute("SELECT worker_id FROM workers WHERE worker_id=?", (worker_id,)).fetchone()
-        if not row:
-            raise ValueError(f"worker_not_found: {worker_id}")
-        store.db.execute("UPDATE workers SET status=?, last_heartbeat=? WHERE worker_id=?", (status, stamp, worker_id))
-        store.db.commit()
-        return {"workerId": worker_id, "status": status, "lastHeartbeat": stamp}
-
     if method == "CreateDigitalHumanSession":
         agent_id = str(params.get("agentId", ""))
         require_agent(agent_id)
@@ -899,8 +1089,49 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"session_not_found: {session_id}")
         return {"sessionId": row[0], "agentId": row[1], "assignedWorkerId": row[2], "metahumanId": row[3], "voiceProfile": row[4], "status": row[5], "createdAt": row[6]}
 
+    if method == "CloseDigitalHumanSession":
+        session_id = str(params.get("sessionId", "")).strip()
+        if not session_id:
+            raise ValueError("sessionId is required")
+        row = store.db.execute(
+            "SELECT session_id, agent_id, status FROM digital_human_sessions WHERE session_id=?",
+            (session_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError(f"session_not_found: {session_id}")
+        stamp = now()
+        store.db.execute(
+            "UPDATE digital_human_sessions SET status='CLOSED', updated_at=? WHERE session_id=?",
+            (stamp, session_id),
+        )
+        store.db.commit()
+        store.event(row[1], "DIGITAL_HUMAN_SESSION_CLOSED", {"sessionId": session_id})
+        return {"sessionId": session_id, "status": "CLOSED", "updatedAt": stamp}
+
+    if method == "UpdateDigitalHumanSession":
+        session_id = str(params.get("sessionId", "")).strip()
+        status_val = str(params.get("status", "")).strip().upper()
+        if not session_id:
+            raise ValueError("sessionId is required")
+        if not status_val:
+            raise ValueError("status is required")
+        row = store.db.execute(
+            "SELECT session_id, agent_id, status FROM digital_human_sessions WHERE session_id=?",
+            (session_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError(f"session_not_found: {session_id}")
+        stamp = now()
+        store.db.execute(
+            "UPDATE digital_human_sessions SET status=?, updated_at=? WHERE session_id=?",
+            (status_val, stamp, session_id),
+        )
+        store.db.commit()
+        store.event(row[1], "DIGITAL_HUMAN_SESSION_UPDATED", {"sessionId": session_id, "status": status_val})
+        return {"sessionId": session_id, "status": status_val, "updatedAt": stamp}
+
     if method == "Health":
-        worker_count = store.db.execute("SELECT COUNT(*) FROM workers").fetchone()[0]
+        worker_stats = get_worker_status_counts()
         session_count = store.db.execute("SELECT COUNT(*) FROM digital_human_sessions WHERE status!='TERMINATED'").fetchone()[0]
         return {
             "status": "ONLINE",
@@ -909,7 +1140,10 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "uptimeSeconds": int(time.time() - STARTED),
             "storage": "sqlite-wal",
             "authConfigured": bool(AUTH_TOKEN),
-            "registeredWorkers": worker_count,
+            "registeredWorkers": worker_stats["registeredWorkers"],
+            "onlineWorkers": worker_stats["onlineWorkers"],
+            "staleWorkers": worker_stats["staleWorkers"],
+            "offlineWorkers": worker_stats["offlineWorkers"],
             "activeDigitalHumanSessions": session_count,
         }
 
@@ -983,8 +1217,10 @@ async def process_http_request(connection: Any, request: Any) -> Any:
     if path in ("/", "/index.html"):
         base_dir = os.path.dirname(os.path.abspath(__file__))
         candidates = [
-            os.path.join(base_dir, "..", "..", "frontend", "index.html"),
             os.path.join(base_dir, "frontend", "index.html"),
+            os.path.join(base_dir, "..", "frontend", "index.html"),
+            os.path.join(base_dir, "..", "..", "frontend", "index.html"),
+            os.path.abspath(os.path.join(os.getcwd(), "frontend", "index.html")),
             "/app/frontend/index.html",
             "frontend/index.html",
         ]
@@ -1002,6 +1238,10 @@ async def process_http_request(connection: Any, request: Any) -> Any:
         
         if hasattr(connection, "respond"):
             resp = connection.respond(200, html_str)
+            try:
+                del resp.headers["Content-Type"]
+            except Exception:
+                pass
             resp.headers["Content-Type"] = "text/html; charset=utf-8"
             resp.headers["Cache-Control"] = "no-cache"
             return resp
@@ -1009,24 +1249,53 @@ async def process_http_request(connection: Any, request: Any) -> Any:
     return None
 
 
+async def worker_lifecycle_loop() -> None:
+    LOG.info("worker lifecycle monitor started interval=%ss", WORKER_LIFECYCLE_INTERVAL_SECONDS)
+    try:
+        while not STOP.is_set():
+            try:
+                async with DB_LOCK:
+                    evaluate_worker_liveness()
+            except Exception as exc:
+                LOG.error("error in worker lifecycle loop: %s", exc)
+
+            try:
+                await asyncio.sleep(WORKER_LIFECYCLE_INTERVAL_SECONDS)
+            except asyncio.CancelledError:
+                break
+    finally:
+        LOG.info("worker lifecycle monitor stopped")
+
+
 async def serve() -> None:
+    global MONITOR_TASK
     LOG.info("startup port=%s max_connections=%s auth_configured=%s db=%s", PORT, MAX_CONNECTIONS, bool(AUTH_TOKEN), DB_PATH)
-    async with websockets.serve(
-        lambda ws: CONNECTIONS_guard(ws),
-        "0.0.0.0",
-        PORT,
-        max_size=MAX_REQUEST_BYTES,
-        ping_interval=20,
-        ping_timeout=20,
-        close_timeout=5,
-        compression=None,
-        process_request=process_http_request,
-    ) as server:
-        LOG.info("listening address=0.0.0.0:%s", PORT)
-        await STOP.wait()
-        LOG.info("shutdown_requested")
-        server.close()
-        await server.wait_closed()
+    ensure_scheduler_schema()
+    MONITOR_TASK = asyncio.create_task(worker_lifecycle_loop())
+    try:
+        async with websockets.serve(
+            lambda ws: CONNECTIONS_guard(ws),
+            "0.0.0.0",
+            PORT,
+            max_size=MAX_REQUEST_BYTES,
+            ping_interval=20,
+            ping_timeout=20,
+            close_timeout=5,
+            compression=None,
+            process_request=process_http_request,
+        ) as server:
+            LOG.info("listening address=0.0.0.0:%s", PORT)
+            await STOP.wait()
+            LOG.info("shutdown_requested")
+            server.close()
+            await server.wait_closed()
+    finally:
+        if MONITOR_TASK:
+            MONITOR_TASK.cancel()
+            try:
+                await MONITOR_TASK
+            except asyncio.CancelledError:
+                pass
 
 
 async def CONNECTIONS_guard(websocket) -> None:

@@ -20,7 +20,7 @@ from typing import Any
 
 import websockets
 
-RAW_ARG = sys.argv[1] if len(sys.argv) > 1 else os.getenv("SAREMBOK_WS_URL", "ws://127.0.0.1:9000")
+RAW_ARG = sys.argv[1] if len(sys.argv) > 1 else os.getenv("SAREMBOK_WS_URL", "https://sarembok.com")
 if RAW_ARG.startswith("https://"):
     HTTP_URL = RAW_ARG
     WS_URL = RAW_ARG.replace("https://", "wss://")
@@ -129,6 +129,7 @@ async def main() -> None:
             **base_params,
         }),
         ("ListWorkers", {"capability": "meta_human", **base_params}),
+        ("ListWorkersStatusFilter", {"status": "ONLINE", **base_params}),
         ("ScheduleCompute", {"taskType": "meta_human_rendering", "requiredCapability": "meta_human", **base_params}),
 
         # Digital Human Session Routing
@@ -150,7 +151,8 @@ async def main() -> None:
             for index, (method, params) in enumerate(tests, 1):
                 total += 1
                 req_id = f"smoke-{index}"
-                request = {"jsonrpc": "2.0", "id": req_id, "method": method, "params": params}
+                rpc_method = "ListWorkers" if method == "ListWorkersStatusFilter" else method
+                request = {"jsonrpc": "2.0", "id": req_id, "method": rpc_method, "params": params}
                 await ws.send(json.dumps(request))
                 raw_resp = await asyncio.wait_for(ws.recv(), timeout=5)
                 response = json.loads(raw_resp)

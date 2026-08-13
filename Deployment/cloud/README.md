@@ -64,10 +64,25 @@ GPU worker nodes register dynamically with the runtime using the `RegisterWorker
 - Health checks for container liveness.
 - Continuous WebSocket ping/pong liveness.
 
-## Smoke Testing
+## Smoke & Master Testing
 
-To test the deployment:
+To run the full 32-test master regression suite:
+
+```powershell
+python Tools/Diagnostics/Test-SarembokMasterSuite.py --target http://127.0.0.1:9000 --auth-token $env:SAREMBOK_AUTH_TOKEN
+```
+
+To run the production cloud smoke test:
 
 ```powershell
 python Deployment/cloud/smoke_test.py ws://127.0.0.1:9000
 ```
+
+## Running Autonomous GPU Worker Daemon
+
+To attach a compute worker node to the cloud runtime:
+
+```powershell
+python Deployment/cloud/worker_client.py --ws-url ws://127.0.0.1:9000 --auth-token $env:SAREMBOK_AUTH_TOKEN
+```
+
