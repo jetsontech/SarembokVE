@@ -32,6 +32,10 @@ from typing import Any
 
 import websockets
 
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
 PASS_TAG = "\033[92m[PASS]\033[0m"
 FAIL_TAG = "\033[91m[FAIL]\033[0m"
 INFO_TAG = "\033[94m[INFO]\033[0m"
@@ -291,6 +295,41 @@ async def test_worker_and_task_execution(ws_url: str, auth_token: str) -> bool:
             record_result("RECOVERY", "Recovered Task Execution & Completion", retry_ok, f"taskId={f_id} status={retry_comp.get('result', {}).get('status')}")
             if not retry_ok:
                 all_ok = False
+
+            # 8. Live Autonomous Daemon Execution Test
+            # Spawn real background SarembokWorker instance and verify autonomous claim & execution
+            from Deployment.cloud.worker_client import SarembokWorker
+            auto_worker_id = f"auto-daemon-{uuid.uuid4().hex[:6]}"
+            auto_worker = SarembokWorker(ws_url, auth_token=auth_token, worker_id=auto_worker_id, poll_interval=1)
+            auto_worker_task = asyncio.create_task(auto_worker.run())
+            try:
+                await asyncio.sleep(1.5)
+                daemon_task_res = await send_rpc(
+                    ws,
+                    "ScheduleCompute",
+                    {
+                        "taskType": "arithmetic",
+                        "requiredCapability": "compute",
+                        "assignedWorkerId": auto_worker_id,
+                        "payload": {"operation": "multiply", "a": 8, "b": 9},
+                    },
+                    auth_token=auth_token,
+                )
+                d_tid = daemon_task_res.get("result", {}).get("taskId")
+                daemon_completed = False
+                for _ in range(8):
+                    await asyncio.sleep(1.0)
+                    t_check = await send_rpc(ws, "GetTask", {"taskId": d_tid}, auth_token=auth_token)
+                    if t_check.get("result", {}).get("status") == "COMPLETED":
+                        daemon_completed = True
+                        break
+                record_result("WORKER", "Autonomous Background Daemon Execution", daemon_completed, f"taskId={d_tid} completed={daemon_completed}")
+                if not daemon_completed:
+                    all_ok = False
+            finally:
+                auto_worker.stop()
+                await asyncio.sleep(0.3)
+                auto_worker_task.cancel()
 
     except Exception as exc:
         record_result("WORKER", "Worker & Task Lifecycle", False, f"Exception: {exc}")

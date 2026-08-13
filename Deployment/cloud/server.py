@@ -675,8 +675,11 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         if payload is None:
             payload = task
 
-        assigned_worker = select_worker(
-            required_capability=req_cap,
+        explicit_worker = str(params.get("assignedWorkerId", "") or "").strip()
+        assigned_worker = (
+            explicit_worker
+            if explicit_worker
+            else select_worker(required_capability=req_cap)
         )
 
         task_id = f"task-{uuid.uuid4().hex[:10]}"

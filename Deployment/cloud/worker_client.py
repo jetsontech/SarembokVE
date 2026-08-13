@@ -102,6 +102,10 @@ class SarembokWorker:
         self.req_counter = 0
         self.pending_rpcs: dict[str, asyncio.Future[Any]] = {}
 
+    def stop(self) -> None:
+        """Signals the worker daemon to stop all loops gracefully."""
+        self.stop_event.set()
+
     def _rpc_request(self, method: str, params: dict[str, Any] | None = None) -> tuple[str, str]:
         self.req_counter += 1
         req_id = f"w-req-{self.req_counter}"
