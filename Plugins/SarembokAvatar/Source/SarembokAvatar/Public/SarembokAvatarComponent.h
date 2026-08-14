@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "SarembokCommandRouter.h"
 #include "SarembokAvatarComponent.generated.h"
 
 class USarembokAvatarManager;
@@ -80,12 +79,10 @@ protected:
     TObjectPtr<USarembokAvatarManager> AvatarManager;
 
 private:
-    void HandleCommand(const FSarembokCommand& Command);
     void SetMorph(FName Name, float Value);
     void ResetEmotionMorphs();
     void EnsureSpeechChannel();
 
-    FDelegateHandle CommandHandle;
     FName SpeechChannel = TEXT("SarembokAvatar");
     float SpeechTime = 0.0f;
     TObjectPtr<UTextToSpeechEngineSubsystem> SpeechSubsystem;
