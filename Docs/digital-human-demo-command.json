@@ -1,0 +1,16 @@
+{
+  "protocol": "sarembok.v1",
+  "id": "demo-greeting-001",
+  "timestamp": "2026-08-14T00:00:00Z",
+  "command": "Speak",
+  "target": "Avatar",
+  "payload": {
+    "text": "Hello. I am the Sarembok digital human.",
+    "emotion": "Joyful"
+  },
+  "context": {
+    "agent": "demo-agent",
+    "trace": "demo-trace-001",
+    "reason": "Demo greeting"
+  }
+}
