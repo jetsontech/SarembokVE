@@ -7,7 +7,8 @@
 
 USarembokAvatarComponent::USarembokAvatarComponent()
 {
-    PrimaryComponentTick.bCanEverTick = false;
+    PrimaryComponentTick.bCanEverTick = true;
+    PrimaryComponentTick.bStartWithTickEnabled = false;
     AvatarManager = nullptr;
     SpeechSubsystem = nullptr;
 }
@@ -34,6 +35,7 @@ void USarembokAvatarComponent::BeginPlay()
         }
     }
 
+    SetComponentTickEnabled(false);
     UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Avatar runtime active: %s"), *Identity);
 }
 
@@ -144,12 +146,18 @@ void USarembokAvatarComponent::EnsureSpeechChannel()
         SpeechSubsystem->ActivateChannel(SpeechChannel);
     }
 
-    SpeechSubsystem->SetRateOnChannel(SpeechChannel, SpeechRate);
-    SpeechSubsystem->SetVolumeOnChannel(SpeechChannel, SpeechVolume);
+    SpeechSubsystem->SetRateOnChannel(SpeechChannel, FMath::Clamp(SpeechRate, 0.0f, 1.0f));
+    SpeechSubsystem->SetVolumeOnChannel(SpeechChannel, FMath::Clamp(SpeechVolume, 0.0f, 1.0f));
 }
 
 void USarembokAvatarComponent::Speak(const FString& Text, const FString& Emotion)
 {
+    if (Text.TrimStartAndEnd().IsEmpty())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[SAREMBOK] Speak ignored: empty text"));
+        return;
+    }
+
     if (!Emotion.IsEmpty())
     {
         ApplyEmotion(Emotion);
@@ -157,12 +165,15 @@ void USarembokAvatarComponent::Speak(const FString& Text, const FString& Emotion
 
     EnsureSpeechChannel();
 
-    if (SpeechSubsystem)
+    if (SpeechSubsystem && SpeechSubsystem->IsChannelActive(SpeechChannel))
     {
         SpeechSubsystem->SpeakOnChannel(SpeechChannel, Text);
-        PrimaryComponentTick.bCanEverTick = true;
         SetComponentTickEnabled(true);
         SpeechTime = 0.0f;
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[SAREMBOK] Speech channel unavailable; facial command still accepted"));
     }
 
     if (AvatarManager)
@@ -171,7 +182,7 @@ void USarembokAvatarComponent::Speak(const FString& Text, const FString& Emotion
     }
 
     OnSpeak.Broadcast(Text, Emotion);
-    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Avatar speaking: %s"), *Text);
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Avatar speaking: %s | Emotion=%s"), *Text, *Emotion);
 }
 
 void USarembokAvatarComponent::StopSpeaking()
