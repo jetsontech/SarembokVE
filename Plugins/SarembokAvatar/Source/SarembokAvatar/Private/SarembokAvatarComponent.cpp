@@ -1,12 +1,8 @@
 #include "SarembokAvatarComponent.h"
 #include "SarembokAvatarManager.h"
-#include "SarembokCommandBus.h"
 
 #include "Components/SkeletalMeshComponent.h"
-#include "Dom/JsonObject.h"
 #include "Engine/Engine.h"
-#include "Serialization/JsonReader.h"
-#include "Serialization/JsonSerializer.h"
 #include "TextToSpeechEngineSubsystem.h"
 
 USarembokAvatarComponent::USarembokAvatarComponent()
@@ -38,17 +34,11 @@ void USarembokAvatarComponent::BeginPlay()
         }
     }
 
-    CommandHandle = FSarembokCommandBus::Get().OnCommand.AddUObject(
-        this,
-        &USarembokAvatarComponent::HandleCommand
-    );
-
-    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Avatar command listener active: %s"), *Identity);
+    UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Avatar runtime active: %s"), *Identity);
 }
 
 void USarembokAvatarComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    FSarembokCommandBus::Get().OnCommand.Remove(CommandHandle);
     StopSpeaking();
 
     if (AvatarManager)
@@ -71,51 +61,6 @@ void USarembokAvatarComponent::InitializeAvatar()
 void USarembokAvatarComponent::SetIdentity(FString AvatarID)
 {
     Identity = MoveTemp(AvatarID);
-}
-
-void USarembokAvatarComponent::HandleCommand(const FSarembokCommand& Command)
-{
-    if (!Command.Target.IsEmpty() && !Command.Target.Equals(TEXT("Avatar"), ESearchCase::IgnoreCase))
-    {
-        return;
-    }
-
-    if (Command.Command.Equals(TEXT("Emotion"), ESearchCase::IgnoreCase))
-    {
-        FString State;
-        TSharedPtr<FJsonObject> Payload;
-        TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Command.Payload);
-
-        if (FJsonSerializer::Deserialize(Reader, Payload) && Payload.IsValid())
-        {
-            Payload->TryGetStringField(TEXT("state"), State);
-        }
-
-        if (!State.IsEmpty())
-        {
-            ApplyEmotion(State);
-        }
-        return;
-    }
-
-    if (Command.Command.Equals(TEXT("Speak"), ESearchCase::IgnoreCase))
-    {
-        FString Text;
-        FString Emotion;
-        TSharedPtr<FJsonObject> Payload;
-        TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Command.Payload);
-
-        if (FJsonSerializer::Deserialize(Reader, Payload) && Payload.IsValid())
-        {
-            Payload->TryGetStringField(TEXT("text"), Text);
-            Payload->TryGetStringField(TEXT("emotion"), Emotion);
-        }
-
-        if (!Text.IsEmpty())
-        {
-            Speak(Text, Emotion);
-        }
-    }
 }
 
 void USarembokAvatarComponent::SetMorph(FName Name, float Value)
@@ -145,7 +90,7 @@ void USarembokAvatarComponent::ApplyEmotion(const FString& State)
 
     const FString Normalized = State.ToLower();
 
-    if (Normalized == TEXT("friendly") || Normalized == TEXT("happy") || Normalized == TEXT("joy"))
+    if (Normalized == TEXT("friendly") || Normalized == TEXT("happy") || Normalized == TEXT("joy") || Normalized == TEXT("joyful"))
     {
         SetMorph(SmileLeftMorph, EmotionStrength);
         SetMorph(SmileRightMorph, EmotionStrength);
