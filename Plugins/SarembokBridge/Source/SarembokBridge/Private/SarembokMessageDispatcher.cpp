@@ -34,7 +34,6 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
 {
     ParseCommand(Message);
 
-    // v1.2: Create execution trace
     FString TraceId = ExtractTraceId(Message);
     FSarembokExecutionTrace Trace;
     Trace.TraceId = TraceId.IsEmpty() ? LastId : TraceId;
@@ -60,9 +59,7 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
     if (!ExecuteCommand(Message))
     {
         PendingCommands.Add(Message);
-
         Trace.AddEvent(TEXT("BRIDGE"), TEXT("QUEUED"), LastId);
-
         UE_LOG(
             LogTemp,
             Display,
@@ -77,7 +74,6 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
         Trace.AddEvent(TEXT("BRIDGE"), TEXT("EXECUTED"), LastId, LastCommand);
     }
 
-    // Complete and store trace
     Trace.Complete();
 
     UE_LOG(
@@ -88,7 +84,6 @@ void FSarembokMessageDispatcher::DispatchMessage(const FString& Message)
         Trace.Events.Num()
     );
 
-    // FIFO eviction
     if (ExecutionTraces.Num() >= MaxTraces)
     {
         ExecutionTraces.RemoveAt(0);
@@ -108,14 +103,12 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
     for (const FWorldContext& Context : GEngine->GetWorldContexts())
     {
         UWorld* CandidateWorld = Context.World();
-
         if (!CandidateWorld || CandidateWorld->IsUnreachable())
         {
             continue;
         }
 
-        if (Context.WorldType == EWorldType::Game ||
-            Context.WorldType == EWorldType::PIE)
+        if (Context.WorldType == EWorldType::Game || Context.WorldType == EWorldType::PIE)
         {
             RuntimeWorld = CandidateWorld;
             break;
@@ -124,12 +117,7 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
 
     if (!RuntimeWorld)
     {
-        UE_LOG(
-            LogTemp,
-            Display,
-            TEXT("[SAREMBOK][BRIDGE] WAITING | No runtime game world available")
-        );
-
+        UE_LOG(LogTemp, Display, TEXT("[SAREMBOK][BRIDGE] WAITING | No runtime game world available"));
         return false;
     }
 
@@ -140,30 +128,29 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
     {
         if (!AvatarComponent)
         {
-            AvatarComponent =
-                It->FindComponentByClass<USarembokAvatarComponent>();
+            AvatarComponent = It->FindComponentByClass<USarembokAvatarComponent>();
         }
-
         if (!AvatarController)
         {
-            AvatarController =
-                It->FindComponentByClass<USarembokAvatarController>();
+            AvatarController = It->FindComponentByClass<USarembokAvatarController>();
         }
-
         if (AvatarComponent && AvatarController)
         {
             break;
         }
     }
 
-    // Deterministic Fallback: Spawn avatar actor in world if components are missing
+    // Create only a control-plane fallback. It guarantees command routing can be
+    // exercised, but it intentionally does not pretend to be a renderable human.
     if (!AvatarComponent || !AvatarController)
     {
         FActorSpawnParameters SpawnParams;
         SpawnParams.Name = FName(TEXT("SarembokRuntimeAvatarActor"));
         SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-        AActor* FallbackActor = RuntimeWorld->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+        AActor* FallbackActor = RuntimeWorld->SpawnActor<AActor>(
+            AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+
         if (FallbackActor)
         {
             if (!AvatarComponent)
@@ -176,7 +163,7 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
                 AvatarController = NewObject<USarembokAvatarController>(FallbackActor, TEXT("SarembokAvatarController"));
                 AvatarController->RegisterComponent();
             }
-            UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Deterministic Fallback Avatar Created in Runtime World"));
+            UE_LOG(LogTemp, Display, TEXT("[SAREMBOK] Control-plane fallback avatar created; no visual mesh supplied"));
         }
     }
 
@@ -186,50 +173,36 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
     if (LastCommand.Equals(SarembokCommandConstants::Emotion, ESearchCase::IgnoreCase))
     {
         FString Emotion;
-
         TSharedPtr<FJsonObject> JsonObject;
-        TSharedRef<TJsonReader<>> Reader =
-            TJsonReaderFactory<>::Create(Message);
+        TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Message);
 
-        if (FJsonSerializer::Deserialize(Reader, JsonObject) &&
-            JsonObject.IsValid())
+        if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
         {
             const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
-
             if (JsonObject->TryGetObjectField(SarembokCommandConstants::KeyPayload, PayloadObject) &&
-                PayloadObject &&
-                PayloadObject->IsValid())
+                PayloadObject && PayloadObject->IsValid())
             {
-                (*PayloadObject)->TryGetStringField(
-                    SarembokCommandConstants::KeyState,
-                    Emotion
-                );
+                (*PayloadObject)->TryGetStringField(SarembokCommandConstants::KeyState, Emotion);
             }
         }
 
         if (!WeakAvatarController.IsValid())
         {
-            UE_LOG(
-                LogTemp,
-                Display,
-                TEXT("[SAREMBOK][AVATAR] Emotion command waiting for AvatarController")
-            );
-
+            UE_LOG(LogTemp, Display, TEXT("[SAREMBOK][AVATAR] Emotion command waiting for AvatarController"));
             return false;
         }
 
         if (Emotion.IsEmpty())
         {
-            UE_LOG(
-                LogTemp,
-                Warning,
-                TEXT("[SAREMBOK][AVATAR] Emotion command missing state payload")
-            );
-
+            UE_LOG(LogTemp, Warning, TEXT("[SAREMBOK][AVATAR] Emotion command missing state payload"));
             return true;
         }
 
         WeakAvatarController->SetEmotion(Emotion);
+        if (WeakAvatarComponent.IsValid())
+        {
+            WeakAvatarComponent->ApplyEmotion(Emotion);
+        }
 
         UE_LOG(
             LogTemp,
@@ -238,7 +211,6 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
             *LastId,
             *Emotion
         );
-
         return true;
     }
 
@@ -246,69 +218,44 @@ bool FSarembokMessageDispatcher::ExecuteCommand(const FString& Message)
     {
         FString Text;
         FString Emotion;
-
         TSharedPtr<FJsonObject> JsonObject;
-        TSharedRef<TJsonReader<>> Reader =
-            TJsonReaderFactory<>::Create(Message);
+        TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Message);
 
-        if (FJsonSerializer::Deserialize(Reader, JsonObject) &&
-            JsonObject.IsValid())
+        if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
         {
             const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
-
             if (JsonObject->TryGetObjectField(SarembokCommandConstants::KeyPayload, PayloadObject) &&
-                PayloadObject &&
-                PayloadObject->IsValid())
+                PayloadObject && PayloadObject->IsValid())
             {
-                (*PayloadObject)->TryGetStringField(
-                    SarembokCommandConstants::KeyText,
-                    Text
-                );
-
-                (*PayloadObject)->TryGetStringField(
-                    SarembokCommandConstants::KeyEmotion,
-                    Emotion
-                );
+                (*PayloadObject)->TryGetStringField(SarembokCommandConstants::KeyText, Text);
+                (*PayloadObject)->TryGetStringField(SarembokCommandConstants::KeyEmotion, Emotion);
             }
         }
 
         if (!WeakAvatarComponent.IsValid())
         {
-            UE_LOG(
-                LogTemp,
-                Display,
-                TEXT("[SAREMBOK][VOICE] Speak command waiting for AvatarComponent")
-            );
-
+            UE_LOG(LogTemp, Display, TEXT("[SAREMBOK][VOICE] Speak command waiting for AvatarComponent"));
             return false;
         }
 
-        if (Text.IsEmpty())
+        if (Text.TrimStartAndEnd().IsEmpty())
         {
-            UE_LOG(
-                LogTemp,
-                Warning,
-                TEXT("[SAREMBOK][VOICE] Speak command missing text payload")
-            );
-
+            UE_LOG(LogTemp, Warning, TEXT("[SAREMBOK][VOICE] Speak command missing text payload"));
             return true;
         }
 
-        if (WeakAvatarController.IsValid() && !Emotion.IsEmpty())
-        {
-            WeakAvatarController->SetEmotion(Emotion);
-        }
-
-        WeakAvatarComponent->Speak(Text);
+        // One canonical Speak command now carries both speech and emotion.
+        // This prevents the dispatcher/controller paths from drifting apart.
+        WeakAvatarComponent->Speak(Text, Emotion);
 
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("[SAREMBOK][VOICE] EXECUTED | Id=%s | Text=%s"),
+            TEXT("[SAREMBOK][VOICE] EXECUTED | Id=%s | Emotion=%s | Text=%s"),
             *LastId,
+            *Emotion,
             *Text
         );
-
         return true;
     }
 
@@ -329,8 +276,7 @@ bool FSarembokMessageDispatcher::ProcessQueuedCommands(float DeltaTime)
         return true;
     }
 
-    TArray<FString> CommandsToProcess =
-        MoveTemp(PendingCommands);
+    TArray<FString> CommandsToProcess = MoveTemp(PendingCommands);
 
     UE_LOG(
         LogTemp,
@@ -342,12 +288,10 @@ bool FSarembokMessageDispatcher::ProcessQueuedCommands(float DeltaTime)
     for (const FString& Message : CommandsToProcess)
     {
         ParseCommand(Message);
-
         if (LastCommand.IsEmpty())
         {
             continue;
         }
-
         if (!ExecuteCommand(Message))
         {
             PendingCommands.Add(Message);
@@ -377,19 +321,11 @@ void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
     LastPayload.Empty();
 
     TSharedPtr<FJsonObject> JsonObject;
+    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Message);
 
-    TSharedRef<TJsonReader<>> Reader =
-        TJsonReaderFactory<>::Create(Message);
-
-    if (!FJsonSerializer::Deserialize(Reader, JsonObject) ||
-        !JsonObject.IsValid())
+    if (!FJsonSerializer::Deserialize(Reader, JsonObject) || !JsonObject.IsValid())
     {
-        UE_LOG(
-            LogTemp,
-            Error,
-            TEXT("[SAREMBOK][BRIDGE] Invalid command JSON")
-        );
-
+        UE_LOG(LogTemp, Error, TEXT("[SAREMBOK][BRIDGE] Invalid command JSON"));
         return;
     }
 
@@ -397,50 +333,24 @@ void FSarembokMessageDispatcher::ParseCommand(const FString& Message)
     JsonObject->TryGetStringField(TEXT("id"), LastId);
     JsonObject->TryGetStringField(TEXT("timestamp"), LastTimestamp);
 
-    if (LastProtocol.IsEmpty())
-    {
-        LastProtocol = TEXT("legacy.v0");
-    }
+    if (LastProtocol.IsEmpty()) LastProtocol = TEXT("legacy.v0");
+    if (LastId.IsEmpty()) LastId = TEXT("cmd-legacy");
 
-    if (LastId.IsEmpty())
-    {
-        LastId = TEXT("cmd-legacy");
-    }
-
-    JsonObject->TryGetStringField(
-        SarembokCommandConstants::KeyCommand,
-        LastCommand
-    );
-
-    JsonObject->TryGetStringField(
-        SarembokCommandConstants::KeyTarget,
-        LastTarget
-    );
+    JsonObject->TryGetStringField(SarembokCommandConstants::KeyCommand, LastCommand);
+    JsonObject->TryGetStringField(SarembokCommandConstants::KeyTarget, LastTarget);
 
     const TSharedPtr<FJsonObject>* PayloadObject = nullptr;
-
     if (JsonObject->TryGetObjectField(SarembokCommandConstants::KeyPayload, PayloadObject) &&
-        PayloadObject &&
-        PayloadObject->IsValid())
+        PayloadObject && PayloadObject->IsValid())
     {
-        TSharedRef<TJsonWriter<>> Writer =
-            TJsonWriterFactory<>::Create(&LastPayload);
-
-        FJsonSerializer::Serialize(
-            PayloadObject->ToSharedRef(),
-            Writer
-        );
-
+        TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&LastPayload);
+        FJsonSerializer::Serialize(PayloadObject->ToSharedRef(), Writer);
         Writer->Close();
     }
 
     if (LastCommand.IsEmpty())
     {
-        UE_LOG(
-            LogTemp,
-            Warning,
-            TEXT("[SAREMBOK][BRIDGE] Command received without command field")
-        );
+        UE_LOG(LogTemp, Warning, TEXT("[SAREMBOK][BRIDGE] Command received without command field"));
     }
 }
 
