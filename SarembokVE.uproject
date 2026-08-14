@@ -16,6 +16,7 @@
     { "Name": "SarembokVoice", "Enabled": true },
     { "Name": "SarembokVision", "Enabled": true },
     { "Name": "SarembokAgent", "Enabled": true },
-    { "Name": "SarembokMemory", "Enabled": true }
+    { "Name": "SarembokMemory", "Enabled": true },
+    { "Name": "TextToSpeech", "Enabled": true }
   ]
 }
