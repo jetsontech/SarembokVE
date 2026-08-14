@@ -2,25 +2,21 @@ using UnrealBuildTool;
 
 public class SarembokAvatar : ModuleRules
 {
-    public SarembokAvatar(ReadOnlyTargetRules Target)
-        : base(Target)
+    public SarembokAvatar(ReadOnlyTargetRules Target) : base(Target)
     {
-        PCHUsage =
-        PCHUsageMode.UseExplicitOrSharedPCHs;
-
+        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
         PublicDependencyModuleNames.AddRange(
-        new string[]
-        {
-            "Core",
-            "CoreUObject",
-            "Engine"
-        });
-
-        PrivateDependencyModuleNames.AddRange(
-        new string[]
-        {
-            "SarembokVoice"
-        });
+            new string[]
+            {
+                "Core",
+                "CoreUObject",
+                "Engine",
+                "SarembokBridge",
+                "Json",
+                "JsonUtilities",
+                "TextToSpeech"
+            }
+        );
     }
 }
