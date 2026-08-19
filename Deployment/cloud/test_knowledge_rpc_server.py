@@ -1,7 +1,9 @@
 import importlib
 import os
+import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 
 class KnowledgeRPCBridgeTests(unittest.TestCase):
@@ -10,6 +12,9 @@ class KnowledgeRPCBridgeTests(unittest.TestCase):
         cls.temp_dir = tempfile.TemporaryDirectory()
         cls.db_path = os.path.join(cls.temp_dir.name, "knowledge.db")
         os.environ["SAREMBOK_DB_PATH"] = cls.db_path
+        cloud_dir = str(Path(__file__).resolve().parent)
+        if cloud_dir not in sys.path:
+            sys.path.insert(0, cloud_dir)
         cls.bridge = importlib.import_module("knowledge_rpc_server")
 
     @classmethod
