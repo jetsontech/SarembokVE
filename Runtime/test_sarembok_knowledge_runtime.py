@@ -23,9 +23,18 @@ class PersistentKnowledgeRuntimeTests(unittest.TestCase):
             runtime.publish(self.event("e2", LifecycleState.VERIFYING, LifecycleState.TRUSTED))
 
             restarted = PersistentKnowledgeRuntime(db)
-            report = restarted.recover()
 
-            self.assertEqual(report.status, "recovered")
+            self.assertEqual(restarted.last_recovery_report.status, "recovered")
+            self.assertEqual(restarted.get_state("k1").state, LifecycleState.TRUSTED)
+
+    def test_restart_continues_event_sequence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = Path(directory) / "knowledge.db"
+            first = PersistentKnowledgeRuntime(db)
+            first.publish(self.event("e1", LifecycleState.DISCOVERED, LifecycleState.VERIFYING))
+            restarted = PersistentKnowledgeRuntime(db)
+            entry = restarted.publish(self.event("e2", LifecycleState.VERIFYING, LifecycleState.TRUSTED))
+            self.assertEqual(entry.sequence, 2)
             self.assertEqual(restarted.get_state("k1").state, LifecycleState.TRUSTED)
 
     def test_publish_persists_before_runtime_state_is_advanced(self):
