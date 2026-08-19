@@ -29,13 +29,23 @@ class KnowledgePersistenceAdapter:
             raise TypeError("backend_does_not_implement_knowledge_persistence_contract")
         self.backend = backend
         self.event_log = KnowledgeEventLog()
+        self._hydrate_event_log()
+
+    def _hydrate_event_log(self) -> None:
+        entries = sorted(self.backend.load_events(), key=lambda entry: entry.sequence)
+        expected = 1
+        for entry in entries:
+            if entry.sequence != expected:
+                raise ValueError("persisted_event_log_sequence_gap")
+            self.event_log._entries.append(entry)
+            self.event_log._event_ids.add(entry.event.event_id)
+            expected += 1
 
     def append(self, event: KnowledgeLifecycleEvent) -> EventLogEntry:
         entry = self.event_log.append(event)
         try:
             self.backend.append_event(entry)
         except Exception:
-            # Keep the in-memory log consistent with a failed persistence operation.
             self.event_log._entries.pop()
             self.event_log._event_ids.discard(event.event_id)
             raise
