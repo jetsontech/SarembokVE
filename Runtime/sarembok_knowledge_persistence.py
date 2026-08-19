@@ -10,7 +10,7 @@ from sarembok_knowledge_state_snapshot import KnowledgeStateSnapshot
 
 @runtime_checkable
 class KnowledgePersistenceBackend(Protocol):
-    """Minimal backend contract; SQLite/WAL can implement this without changing core logic."""
+    """Stable storage contract for events and snapshots."""
 
     def append_event(self, entry: EventLogEntry) -> None: ...
 
@@ -20,15 +20,9 @@ class KnowledgePersistenceBackend(Protocol):
 
     def load_snapshots(self) -> Iterable[KnowledgeStateSnapshot]: ...
 
-    def create_knowledge(self, knowledge_id: str, title: str, initial_state: str) -> dict: ...
-
-    def get_knowledge(self, knowledge_id: str) -> dict | None: ...
-
-    def list_knowledge(self) -> Iterable[dict]: ...
-
 
 class KnowledgePersistenceAdapter:
-    """Coordinates lifecycle events, entity metadata, and snapshot semantics with a backend."""
+    """Coordinates lifecycle events, optional entity metadata, and snapshots."""
 
     def __init__(self, backend: KnowledgePersistenceBackend):
         if not isinstance(backend, KnowledgePersistenceBackend):
@@ -60,15 +54,24 @@ class KnowledgePersistenceAdapter:
     def create_knowledge(self, knowledge_id: str, title: str, initial_state: str = "discovered") -> dict:
         if not knowledge_id or not title:
             raise ValueError("knowledge_id_and_title_required")
-        return self.backend.create_knowledge(knowledge_id, title, initial_state)
+        method = getattr(self.backend, "create_knowledge", None)
+        if method is None:
+            raise TypeError("backend_does_not_support_knowledge_entities")
+        return method(knowledge_id, title, initial_state)
 
     def get_knowledge(self, knowledge_id: str) -> dict | None:
         if not knowledge_id:
             raise ValueError("knowledge_id_required")
-        return self.backend.get_knowledge(knowledge_id)
+        method = getattr(self.backend, "get_knowledge", None)
+        if method is None:
+            raise TypeError("backend_does_not_support_knowledge_entities")
+        return method(knowledge_id)
 
     def list_knowledge(self) -> list[dict]:
-        return list(self.backend.list_knowledge())
+        method = getattr(self.backend, "list_knowledge", None)
+        if method is None:
+            raise TypeError("backend_does_not_support_knowledge_entities")
+        return list(method())
 
     def load_events(self, after_sequence: int = 0) -> list[EventLogEntry]:
         if after_sequence < 0:
