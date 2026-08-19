@@ -16,9 +16,7 @@ class KnowledgeRuntimeAPITests(unittest.TestCase):
         self.tempdir.cleanup()
 
     def test_create_and_query_knowledge(self):
-        created = self.api.dispatch({"CreateKnowledge": "CreateKnowledge"}["CreateKnowledge"], {
-            "knowledgeId": "k1", "title": "First fact"
-        })
+        created = self.api.dispatch("CreateKnowledge", {"knowledgeId": "k1", "title": "First fact"})
         self.assertEqual(created["state"], "discovered")
         item = self.api.dispatch("GetKnowledge", {"knowledgeId": "k1"})
         self.assertEqual(item["state"], "discovered")
