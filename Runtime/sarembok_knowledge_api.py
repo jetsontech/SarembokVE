@@ -4,6 +4,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from sarembok_knowledge_event_bus import KnowledgeLifecycleEvent
 from sarembok_knowledge_lifecycle import LifecycleState, KnowledgeLifecycleOrchestrator
 from sarembok_knowledge_runtime import PersistentKnowledgeRuntime
 
@@ -35,12 +36,8 @@ class KnowledgeRuntimeAPI:
             raise ValueError(f"knowledge_not_found:{knowledge_id}")
         state = self.runtime.get_state(knowledge_id)
         entity["state"] = state.state.value if state else entity["initialState"]
-        if state:
-            entity["lastEventId"] = state.last_event_id
-            entity["lastSequence"] = state.last_sequence
-        else:
-            entity["lastEventId"] = None
-            entity["lastSequence"] = 0
+        entity["lastEventId"] = state.last_event_id if state else None
+        entity["lastSequence"] = state.last_sequence if state else 0
         return entity
 
     def list_knowledge(self) -> list[dict[str, Any]]:
@@ -57,10 +54,7 @@ class KnowledgeRuntimeAPI:
         except ValueError as exc:
             raise ValueError(f"invalid_target_state:{target_state}") from exc
         transition = self.lifecycle.transition(knowledge_id, current_state, target, reason)
-        event = self.runtime.publish(
-            __import__("sarembok_knowledge_event_bus", fromlist=["KnowledgeLifecycleEvent"])
-            .KnowledgeLifecycleEvent(f"evt_{uuid.uuid4().hex}", transition)
-        )
+        event = self.runtime.publish(KnowledgeLifecycleEvent(f"evt_{uuid.uuid4().hex}", transition))
         state = self.runtime.get_state(knowledge_id)
         return {
             "knowledgeId": knowledge_id,
