@@ -3,8 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sarembok_knowledge_bus import KnowledgeLifecycleEventBus
-from sarembok_knowledge_event_bus import KnowledgeLifecycleEvent
+from sarembok_knowledge_event_bus import KnowledgeLifecycleEventBus, KnowledgeLifecycleEvent
 from sarembok_knowledge_persistence import KnowledgePersistenceAdapter
 from sarembok_knowledge_recovery import KnowledgeRecoveryManager, RecoveryReport
 from sarembok_knowledge_sqlite import SQLiteKnowledgePersistenceBackend
@@ -23,6 +22,7 @@ class PersistentKnowledgeRuntime:
         self.recovery = KnowledgeRecoveryManager(self.snapshots)
         self.events = KnowledgeLifecycleEventBus()
         self.last_recovery_report: RecoveryReport | None = None
+        self.recover()
 
     def recover(self) -> RecoveryReport:
         reducer, report = self.recovery.recover(
@@ -40,7 +40,8 @@ class PersistentKnowledgeRuntime:
         return entry
 
     def checkpoint(self):
-        sequence = self.persistence.event_log.last_sequence()
+        events = self.persistence.load_events()
+        sequence = events[-1].sequence if events else 0
         snapshot = self.snapshots.create(self.reducer, sequence)
         self.persistence.save_snapshot(snapshot)
         return snapshot
