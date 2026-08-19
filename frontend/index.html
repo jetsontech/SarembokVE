@@ -563,6 +563,217 @@
             white-space: pre;
             margin-top: 12px;
         }
+
+        /* ============================================================
+           Sarembok VE — Mobile Navigation / Viewport Fix
+           ============================================================ */
+
+        @media (max-width: 768px) {
+            html,
+            body {
+                width: 100%;
+                max-width: 100%;
+                min-width: 0;
+                margin: 0;
+                overflow-x: hidden;
+            }
+
+            .nav-container {
+                width: 100%;
+                max-width: 100%;
+                min-width: 0;
+                margin: 0;
+                padding: 8px 10px;
+                overflow: hidden;
+            }
+
+            .nav-tabs {
+                display: flex;
+                width: 100%;
+                max-width: 100%;
+                min-width: 0;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                overflow-y: hidden;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior-x: contain;
+                overscroll-behavior-y: none;
+                touch-action: pan-x;
+                scrollbar-width: none;
+            }
+
+            .nav-tabs::-webkit-scrollbar {
+                display: none;
+            }
+
+            .nav-tab {
+                flex: 0 0 auto;
+                white-space: nowrap;
+                min-width: max-content;
+                padding: 8px 11px;
+                font-size: 12px;
+            }
+
+            .header-actions {
+                width: 100%;
+                max-width: 100%;
+                min-width: 0;
+                flex-wrap: wrap;
+            }
+
+            .dashboard-layout {
+                grid-template-columns: 1fr !important;
+            }
+
+            .table-container {
+                width: 100%;
+                max-width: 100%;
+                min-width: 0;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .nav-container {
+                padding-left: 6px;
+                padding-right: 6px;
+            }
+
+            .nav-tab {
+                padding: 7px 9px;
+                font-size: 11px;
+            }
+        }
+
+
+        /* ============================================================
+           Sarembok VE — Final Mobile Header Spacing
+           ============================================================ */
+
+        @media (max-width: 768px) {
+            .nav-container {
+                width: 100%;
+                max-width: 100%;
+                padding: 16px 12px 14px !important;
+                overflow: visible !important;
+            }
+
+            /* Give the brand/header row enough vertical room. */
+            .nav-container > * {
+                min-height: 0;
+            }
+
+            /* Prevent the Sarembok title/descriptor from being clipped. */
+            .nav-container a,
+            .nav-container h1,
+            .nav-container h2,
+            .nav-container h3,
+            .nav-container p,
+            .nav-container span {
+                max-width: 100%;
+            }
+
+            .nav-tabs {
+                margin-top: 12px !important;
+                padding-top: 4px !important;
+                padding-bottom: 8px !important;
+                min-height: 46px;
+            }
+
+            .nav-tab {
+                min-height: 36px;
+                line-height: 1.25;
+            }
+
+            .header-actions {
+                margin-top: 10px !important;
+                padding-bottom: 4px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .nav-container {
+                padding: 18px 10px 16px !important;
+            }
+
+            .nav-tabs {
+                margin-top: 14px !important;
+                padding-top: 5px !important;
+                padding-bottom: 10px !important;
+                min-height: 48px;
+            }
+
+            .nav-tab {
+                min-height: 38px;
+                padding: 8px 10px !important;
+            }
+
+            .header-actions {
+                margin-top: 12px !important;
+            }
+        }
+
+
+        /* ============================================================
+           Sarembok VE — Extra Mobile Header Breathing Room
+           ============================================================ */
+
+        @media (max-width: 768px) {
+            .nav-container {
+                padding-top: calc(32px + env(safe-area-inset-top)) !important;
+                padding-bottom: 20px !important;
+            }
+
+            .nav-tabs {
+                margin-top: 20px !important;
+                padding-top: 8px !important;
+                padding-bottom: 12px !important;
+                min-height: 52px;
+            }
+
+            .header-actions {
+                margin-top: 16px !important;
+                padding-bottom: 8px !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .nav-container {
+                padding-top: calc(38px + env(safe-area-inset-top)) !important;
+                padding-bottom: 22px !important;
+            }
+
+            .nav-tabs {
+                margin-top: 22px !important;
+                padding-top: 8px !important;
+                padding-bottom: 14px !important;
+                min-height: 56px;
+            }
+
+            .header-actions {
+                margin-top: 18px !important;
+                padding-bottom: 10px !important;
+            }
+        }
+
+
+        /* ============================================================
+           Sarembok VE — Mobile Top Clearance
+           ============================================================ */
+
+        @media (max-width: 768px) {
+            .nav-container {
+                padding-top: 70px !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .nav-container {
+                padding-top: 85px !important;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -931,287 +1142,795 @@ Client.Connect(ProductionWSS, TEXT("<YOUR_SAREMBOK_AUTH_TOKEN>"));
     </div>
 
     <script>
-        let ws;
+        let ws = null;
         let rpcReqId = 1;
         const pendingRPC = new Map();
 
+        const RPC_TIMEOUT_MS = 10000;
+        const RECONNECT_DELAY_MS = 2000;
+
+        let reconnectTimer = null;
+        let connecting = false;
+        let authenticated = false;
+
         function getAuthToken() {
-            return sessionStorage.getItem('SAREMBOK_AUTH_TOKEN') || '';
+            return sessionStorage.getItem("SAREMBOK_AUTH_TOKEN") || "";
+        }
+
+        function setRuntimeStatus(status, dashStatus = status) {
+            const runtime = document.getElementById("runtime-status-text");
+            const dash = document.getElementById("dash-status");
+
+            if (runtime) runtime.textContent = status;
+            if (dash) dash.textContent = dashStatus;
         }
 
         function openAuthModal() {
-            document.getElementById('auth-token-input').value = getAuthToken();
-            document.getElementById('modal-auth').classList.add('active');
+            const input = document.getElementById("auth-token-input");
+            if (input) input.value = getAuthToken();
+
+            const modal = document.getElementById("modal-auth");
+            if (modal) modal.classList.add("active");
         }
 
         function closeAuthModal() {
-            document.getElementById('modal-auth').classList.remove('active');
+            const modal = document.getElementById("modal-auth");
+            if (modal) modal.classList.remove("active");
         }
 
-        function saveAuthToken() {
-            const token = document.getElementById('auth-token-input').value.trim();
-            sessionStorage.setItem('SAREMBOK_AUTH_TOKEN', token);
+        async function saveAuthToken() {
+            const input = document.getElementById("auth-token-input");
+            const token = input ? input.value.trim() : "";
+
+            if (!token) {
+                alert("Please enter the SAREMBOK authentication token.");
+                return;
+            }
+
+            sessionStorage.setItem("SAREMBOK_AUTH_TOKEN", token);
+            authenticated = false;
+
             closeAuthModal();
-            refreshDashboard();
+
+            setRuntimeStatus("AUTHENTICATING", "AUTHENTICATING");
+
+            try {
+                await authenticateFrontend();
+
+                // Authentication succeeded. Update frontend authorization state
+                // before any authenticated views/RPC operations are triggered.
+                authenticated = true;
+
+                setRuntimeStatus("ONLINE", "ONLINE");
+
+                await refreshDashboard();
+
+                if (document.getElementById("view-workers")?.classList.contains("active")) {
+                    await fetchWorkers();
+                }
+            } catch (e) {
+                console.error("[SAREMBOK] Authentication failed:", e);
+
+                authenticated = false;
+                setRuntimeStatus("AUTH FAILED", "AUTH FAILED");
+
+                alert(
+                    "Sarembok authentication failed.\n\n" +
+                    (e.message || e)
+                );
+
+                openAuthModal();
+            }
         }
 
         function closeModal(id) {
-            document.getElementById(id).classList.remove('active');
+            const modal = document.getElementById(id);
+            if (modal) modal.classList.remove("active");
         }
 
         function switchTab(tabId) {
-            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-            
-            const btn = Array.from(document.querySelectorAll('.nav-tab')).find(b => b.getAttribute('onclick').includes(tabId));
-            if (btn) btn.classList.add('active');
-            
-            const view = document.getElementById('view-' + tabId);
-            if (view) view.classList.add('active');
+            document.querySelectorAll(".nav-tab").forEach(t => {
+                t.classList.remove("active");
+            });
 
-            if (tabId === 'dashboard') refreshDashboard();
-            if (tabId === 'workers') fetchWorkers();
-            if (tabId === 'agents') fetchAgents();
-            if (tabId === 'tasks') fetchTasks();
-            if (tabId === 'sessions') fetchSessions();
-            if (tabId === 'events') fetchEvents();
+            document.querySelectorAll(".view").forEach(v => {
+                v.classList.remove("active");
+            });
+
+            const tab = document.querySelector(`[data-tab="${tabId}"]`);
+            if (tab) tab.classList.add("active");
+
+            const view = document.getElementById(`view-${tabId}`);
+            if (view) view.classList.add("active");
+
+            if (!authenticated) {
+                setRuntimeStatus("AUTH REQUIRED", "AUTH REQUIRED");
+                return;
+            }
+
+            if (tabId === "dashboard") refreshDashboard();
+            if (tabId === "workers") fetchWorkers();
+            if (tabId === "agents") fetchAgents();
+            if (tabId === "tasks") fetchTasks();
+            if (tabId === "sessions") fetchSessions();
+            if (tabId === "events") fetchEvents();
+        }
+
+        function rejectPendingRPCs(error) {
+            for (const [id, pending] of pendingRPC.entries()) {
+                clearTimeout(pending.timer);
+                pending.reject(error);
+            }
+
+            pendingRPC.clear();
+        }
+
+        function scheduleReconnect() {
+            if (reconnectTimer || connecting) return;
+
+            reconnectTimer = setTimeout(() => {
+                reconnectTimer = null;
+                connectWebSocket();
+            }, RECONNECT_DELAY_MS);
         }
 
         function connectWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const host = window.location.host;
-            const url = `${protocol}//${host}`;
+            if (connecting) return;
 
-            ws = new WebSocket(url);
+            if (ws && (
+                ws.readyState === WebSocket.OPEN ||
+                ws.readyState === WebSocket.CONNECTING
+            )) {
+                return;
+            }
 
-            ws.onopen = () => {
-                document.getElementById('runtime-status-text').textContent = "ONLINE";
-                document.getElementById('dash-status').textContent = "ONLINE";
-                refreshDashboard();
+            connecting = true;
+            authenticated = false;
+
+            setRuntimeStatus("CONNECTING", "CONNECTING");
+
+            const protocol =
+                window.location.protocol === "https:" ? "wss:" : "ws:";
+
+            const url = `${protocol}//${window.location.host}`;
+
+            console.log("[SAREMBOK] Connecting:", url);
+
+            try {
+                ws = new WebSocket(url);
+            } catch (e) {
+                connecting = false;
+                console.error("[SAREMBOK] WebSocket creation failed:", e);
+                setRuntimeStatus("CONNECTION FAILED", "CONNECTION FAILED");
+                scheduleReconnect();
+                return;
+            }
+
+            ws.onopen = async () => {
+                connecting = false;
+
+                console.log("[SAREMBOK] WebSocket connected.");
+
+                setRuntimeStatus("CONNECTED", "AUTHENTICATING");
+
+                try {
+                    await authenticateFrontend();
+
+                    authenticated = true;
+
+                    setRuntimeStatus("ONLINE", "ONLINE");
+
+                    await refreshDashboard();
+
+                } catch (e) {
+                    authenticated = false;
+
+                    console.error(
+                        "[SAREMBOK] Authentication/RPC initialization failed:",
+                        e
+                    );
+
+                    setRuntimeStatus("AUTH REQUIRED", "AUTH REQUIRED");
+
+                    if (
+                        String(e.message || e).includes("authentication_required")
+                    ) {
+                        openAuthModal();
+                    }
+                }
             };
 
             ws.onmessage = (event) => {
+                let resp;
+
                 try {
-                    const resp = JSON.parse(event.data);
-                    if (resp.id && pendingRPC.has(resp.id)) {
-                        const { resolve, reject } = pendingRPC.get(resp.id);
-                        pendingRPC.delete(resp.id);
-                        if (resp.error) reject(resp.error);
-                        else resolve(resp.result);
-                    }
-                } catch(e) {}
+                    resp = JSON.parse(event.data);
+                } catch (e) {
+                    console.error(
+                        "[SAREMBOK] Invalid WebSocket JSON:",
+                        event.data
+                    );
+                    return;
+                }
+
+                if (!resp.id) {
+                    console.warn("[SAREMBOK] RPC response without ID:", resp);
+                    return;
+                }
+
+                const pending = pendingRPC.get(resp.id);
+
+                if (!pending) {
+                    console.warn(
+                        "[SAREMBOK] Response for unknown RPC:",
+                        resp.id
+                    );
+                    return;
+                }
+
+                pendingRPC.delete(resp.id);
+                clearTimeout(pending.timer);
+
+                if (resp.error) {
+                    const error = new Error(
+                        resp.error.message || "RPC request failed"
+                    );
+
+                    error.code = resp.error.code;
+                    error.data = resp.error.data;
+
+                    pending.reject(error);
+                } else {
+                    pending.resolve(resp.result);
+                }
             };
 
-            ws.onclose = () => {
-                document.getElementById('runtime-status-text').textContent = "DISCONNECTED";
-                document.getElementById('dash-status').textContent = "RECONNECTING";
-                setTimeout(connectWebSocket, 2000);
+            ws.onerror = (event) => {
+                console.error("[SAREMBOK] WebSocket error:", event);
+            };
+
+            ws.onclose = (event) => {
+                connecting = false;
+                authenticated = false;
+
+                console.warn(
+                    "[SAREMBOK] WebSocket closed:",
+                    event.code,
+                    event.reason || ""
+                );
+
+                rejectPendingRPCs(
+                    new Error(
+                        `WebSocket disconnected (code ${event.code})`
+                    )
+                );
+
+                setRuntimeStatus("DISCONNECTED", "RECONNECTING");
+
+                scheduleReconnect();
             };
         }
 
         function sendRPC(method, params = {}) {
             return new Promise((resolve, reject) => {
                 if (!ws || ws.readyState !== WebSocket.OPEN) {
-                    return reject({ message: "WebSocket disconnected" });
+                    reject(new Error("WebSocket disconnected"));
+                    return;
                 }
-                const id = "rpc-" + (rpcReqId++);
-                const token = getAuthToken();
-                if (token) params.authToken = token;
 
-                pendingRPC.set(id, { resolve, reject });
-                ws.send(JSON.stringify({ jsonrpc: "2.0", id: id, method: method, params: params }));
+                const id = "rpc-" + (rpcReqId++);
+
+                const requestParams = {
+                    ...(params || {})
+                };
+
+                const token = getAuthToken();
+
+                if (token) {
+                    requestParams.authToken = token;
+                }
+
+                const timer = setTimeout(() => {
+                    if (!pendingRPC.has(id)) return;
+
+                    pendingRPC.delete(id);
+
+                    reject(
+                        new Error(
+                            `RPC timeout: ${method} did not respond within ${RPC_TIMEOUT_MS / 1000}s`
+                        )
+                    );
+                }, RPC_TIMEOUT_MS);
+
+                pendingRPC.set(id, {
+                    resolve,
+                    reject,
+                    timer
+                });
+
+                const request = {
+                    jsonrpc: "2.0",
+                    id,
+                    method,
+                    params: requestParams
+                };
+
+                console.log("[SAREMBOK RPC]", method, request);
+
+                try {
+                    ws.send(JSON.stringify(request));
+                } catch (e) {
+                    clearTimeout(timer);
+                    pendingRPC.delete(id);
+                    reject(e);
+                }
             });
+        }
+
+        async function authenticateFrontend() {
+            const token = getAuthToken();
+
+            if (!token) {
+                throw new Error(
+                    "authentication_required: no SAREMBOK_AUTH_TOKEN is stored in this browser session"
+                );
+            }
+
+            const info = await sendRPC("RuntimeInfo");
+
+            if (!info || info.status !== "ONLINE") {
+                throw new Error("Runtime is not ONLINE");
+            }
+
+            console.log("[SAREMBOK] Authentication verified.");
+
+            return info;
+        }
+
+        function showLoadError(elementId, message) {
+            const element = document.getElementById(elementId);
+
+            if (!element) return;
+
+            element.innerHTML =
+                `<tr><td colspan="10" style="text-align:center;">` +
+                `⚠ ${message}` +
+                `</td></tr>`;
         }
 
         async function refreshDashboard() {
             try {
                 const info = await sendRPC("RuntimeInfo");
-                document.getElementById('dash-workers').textContent = info.registeredWorkers || 0;
-                document.getElementById('dash-sessions').textContent = info.activeDigitalHumanSessions || 0;
-                document.getElementById('dash-agents').textContent = info.activeAgents || 0;
-                document.getElementById('dash-uptime').textContent = (info.uptimeSeconds || 0) + 's';
-                document.getElementById('dash-auth-status').innerHTML = info.authConfigured ? '<span class="tag tag-online">Active</span>' : '<span class="tag tag-busy">Disabled</span>';
-                
+
+                document.getElementById("dash-workers").textContent =
+                    info.registeredWorkers || 0;
+
+                document.getElementById("dash-sessions").textContent =
+                    info.activeDigitalHumanSessions || 0;
+
+                document.getElementById("dash-agents").textContent =
+                    info.activeAgents || 0;
+
+                document.getElementById("dash-uptime").textContent =
+                    (info.uptimeSeconds || 0) + "s";
+
+                document.getElementById("dash-auth-status").innerHTML =
+                    info.authConfigured
+                        ? '<span class="tag tag-online">Active</span>'
+                        : '<span class="tag tag-busy">Disabled</span>';
+
                 try {
                     const agentRes = await sendRPC("ListAgents");
-                    if (agentRes.agents && agentRes.agents.length > 0) {
-                        const sc = await sendRPC("GetCognitiveScorecard", { agentId: agentRes.agents[0].agentId });
-                        document.getElementById('sc-overall').textContent = (sc.overallReliability ? (sc.overallReliability * 100).toFixed(1) + '%' : 'unavailable');
-                        document.getElementById('sc-perception').textContent = (sc.perception ? (sc.perception * 100).toFixed(0) + '%' : 'unavailable');
-                        document.getElementById('sc-memory').textContent = (sc.memory ? (sc.memory * 100).toFixed(0) + '%' : 'unavailable');
-                        document.getElementById('sc-reasoning').textContent = (sc.reasoning ? (sc.reasoning * 100).toFixed(0) + '%' : 'unavailable');
-                        document.getElementById('sc-governance').textContent = (sc.policy ? (sc.policy * 100).toFixed(0) + '%' : 'unavailable');
+
+                    if (
+                        agentRes.agents &&
+                        agentRes.agents.length > 0
+                    ) {
+                        const sc = await sendRPC(
+                            "GetCognitiveScorecard",
+                            {
+                                agentId:
+                                    agentRes.agents[0].agentId
+                            }
+                        );
+
+                        document.getElementById("sc-overall").textContent =
+                            sc.overallReliability
+                                ? (sc.overallReliability * 100).toFixed(1) + "%"
+                                : "unavailable";
+
+                        document.getElementById("sc-perception").textContent =
+                            sc.perception
+                                ? (sc.perception * 100).toFixed(0) + "%"
+                                : "unavailable";
+
+                        document.getElementById("sc-memory").textContent =
+                            sc.memory
+                                ? (sc.memory * 100).toFixed(0) + "%"
+                                : "unavailable";
+
+                        document.getElementById("sc-reasoning").textContent =
+                            sc.reasoning
+                                ? (sc.reasoning * 100).toFixed(0) + "%"
+                                : "unavailable";
+
+                        document.getElementById("sc-governance").textContent =
+                            sc.policy
+                                ? (sc.policy * 100).toFixed(0) + "%"
+                                : "unavailable";
                     } else {
-                        document.getElementById('sc-overall').textContent = "not configured";
-                        document.getElementById('sc-perception').textContent = "not configured";
-                        document.getElementById('sc-memory').textContent = "not configured";
-                        document.getElementById('sc-reasoning').textContent = "not configured";
-                        document.getElementById('sc-governance').textContent = "not configured";
+                        setScorecardUnavailable("not configured");
                     }
-                } catch(e) {
-                    document.getElementById('sc-overall').textContent = "not configured";
-                    document.getElementById('sc-perception').textContent = "not configured";
-                    document.getElementById('sc-memory').textContent = "not configured";
-                    document.getElementById('sc-reasoning').textContent = "not configured";
-                    document.getElementById('sc-governance').textContent = "not configured";
+
+                } catch (e) {
+                    console.error(
+                        "[SAREMBOK] Scorecard error:",
+                        e
+                    );
+
+                    setScorecardUnavailable("unavailable");
                 }
-            } catch(e) {}
+
+            } catch (e) {
+                console.error(
+                    "[SAREMBOK] Dashboard error:",
+                    e
+                );
+
+                setRuntimeStatus("RPC ERROR", "RPC ERROR");
+                throw e;
+            }
+        }
+
+        function setScorecardUnavailable(value) {
+            [
+                "sc-overall",
+                "sc-perception",
+                "sc-memory",
+                "sc-reasoning",
+                "sc-governance"
+            ].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = value;
+            });
         }
 
         async function fetchWorkers() {
             try {
                 const res = await sendRPC("ListWorkers");
-                const tbody = document.getElementById('workers-tbody');
+                const tbody = document.getElementById("workers-tbody");
+
                 if (!res.workers || res.workers.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No GPU workers registered yet.</td></tr>';
+                    tbody.innerHTML =
+                        '<tr><td colspan="6" style="text-align:center;">No GPU workers registered yet.</td></tr>';
                     return;
                 }
+
                 tbody.innerHTML = res.workers.map(w => `
                     <tr>
                         <td class="mono">${w.workerId}</td>
-                        <td>${w.gpuModel || 'NVIDIA'}</td>
+                        <td>${w.gpuModel || "NVIDIA"}</td>
                         <td>${w.vramMb || 0} MB</td>
-                        <td><span class="tag tag-queued">${(w.capabilities||[]).join(', ')}</span></td>
-                        <td><span class="tag tag-online">${w.status}</span></td>
-                        <td class="mono">${w.lastHeartbeat ? w.lastHeartbeat.split('T')[1].split('.')[0] : 'N/A'}</td>
+                        <td><span class="tag tag-queued">${(w.capabilities || []).join(", ")}</span></td>
+                        <td><span class="tag ${w.status === "ONLINE" ? "tag-online" : "tag-queued"}">${w.status}</span></td>
+                        <td class="mono">${w.lastHeartbeat ? w.lastHeartbeat.split("T")[1].split(".")[0] : "N/A"}</td>
                     </tr>
-                `).join('');
-            } catch(e) {}
+                `).join("");
+
+            } catch (e) {
+                console.error("[SAREMBOK] Workers error:", e);
+                showLoadError("workers-tbody", e.message || String(e));
+            }
         }
 
         async function fetchAgents() {
             try {
                 const res = await sendRPC("ListAgents");
-                const tbody = document.getElementById('agents-tbody');
+                const tbody = document.getElementById("agents-tbody");
+
                 if (!res.agents || res.agents.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No autonomous agents created yet.</td></tr>';
+                    tbody.innerHTML =
+                        '<tr><td colspan="4" style="text-align:center;">No autonomous agents created yet.</td></tr>';
                     return;
                 }
+
                 tbody.innerHTML = res.agents.map(a => `
                     <tr>
                         <td class="mono">${a.agentId}</td>
                         <td><strong>${a.displayName}</strong></td>
                         <td><span class="tag tag-online">${a.status}</span></td>
-                        <td class="mono">${a.createdAt.split('T')[0]}</td>
+                        <td class="mono">${a.createdAt.split("T")[0]}</td>
                     </tr>
-                `).join('');
-            } catch(e) {}
+                `).join("");
+
+            } catch (e) {
+                console.error("[SAREMBOK] Agents error:", e);
+                showLoadError("agents-tbody", e.message || String(e));
+            }
         }
 
         async function fetchTasks() {
             try {
                 const res = await sendRPC("ListTasks");
-                const tbody = document.getElementById('tasks-tbody');
+                const tbody = document.getElementById("tasks-tbody");
+
                 if (!res.tasks || res.tasks.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No compute tasks scheduled yet.</td></tr>';
+                    tbody.innerHTML =
+                        '<tr><td colspan="6" style="text-align:center;">No compute tasks scheduled yet.</td></tr>';
                     return;
                 }
+
                 tbody.innerHTML = res.tasks.map(t => `
                     <tr>
                         <td class="mono">${t.taskId}</td>
                         <td>${t.taskType}</td>
-                        <td class="mono">${t.assignedWorkerId || 'Unassigned'}</td>
-                        <td><span class="tag ${t.status==='CANCELLED'?'tag-error':'tag-queued'}">${t.status}</span></td>
-                        <td class="mono">${t.createdAt.split('T')[1].split('.')[0]}</td>
-                        <td><button class="btn btn-outline" style="padding:2px 8px; font-size:11px;" onclick="cancelTask('${t.taskId}')">Cancel</button></td>
+                        <td class="mono">${t.assignedWorkerId || "Unassigned"}</td>
+                        <td><span class="tag ${t.status === "CANCELLED" ? "tag-error" : "tag-queued"}">${t.status}</span></td>
+                        <td class="mono">${t.createdAt.split("T")[1].split(".")[0]}</td>
+                        <td>
+                            <button
+                                class="btn btn-outline"
+                                style="padding:2px 8px; font-size:11px;"
+                                onclick="cancelTask('${t.taskId}')">
+                                Cancel
+                            </button>
+                        </td>
                     </tr>
-                `).join('');
-            } catch(e) {}
+                `).join("");
+
+            } catch (e) {
+                console.error("[SAREMBOK] Tasks error:", e);
+                showLoadError("tasks-tbody", e.message || String(e));
+            }
         }
 
         async function fetchSessions() {
             try {
                 const res = await sendRPC("ListDigitalHumanSessions");
-                const tbody = document.getElementById('sessions-tbody');
+                const tbody = document.getElementById("sessions-tbody");
+
                 if (!res.sessions || res.sessions.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No active digital human sessions.</td></tr>';
+                    tbody.innerHTML =
+                        '<tr><td colspan="6" style="text-align:center;">No active digital human sessions.</td></tr>';
                     return;
                 }
+
                 tbody.innerHTML = res.sessions.map(s => `
                     <tr>
                         <td class="mono">${s.sessionId}</td>
                         <td class="mono">${s.agentId}</td>
                         <td>${s.metahumanId}</td>
                         <td>${s.voiceProfile}</td>
-                        <td class="mono">${s.assignedWorkerId || 'None'}</td>
+                        <td class="mono">${s.assignedWorkerId || "None"}</td>
                         <td><span class="tag tag-online">${s.status}</span></td>
                     </tr>
-                `).join('');
-            } catch(e) {}
+                `).join("");
+
+            } catch (e) {
+                console.error("[SAREMBOK] Sessions error:", e);
+                showLoadError("sessions-tbody", e.message || String(e));
+            }
         }
 
         async function fetchEvents() {
             try {
-                const res = await sendRPC("ListEvents", { limit: 50 });
-                const log = document.getElementById('events-log');
+                const res = await sendRPC(
+                    "ListEvents",
+                    { limit: 50 }
+                );
+
+                const log = document.getElementById("events-log");
+
                 if (!res.events || res.events.length === 0) {
-                    log.innerHTML = '<div class="log-entry">No events recorded.</div>';
+                    log.innerHTML =
+                        '<div class="log-entry">No events recorded.</div>';
                     return;
                 }
+
                 log.innerHTML = res.events.map(ev => `
                     <div class="log-entry">
-                        <span class="log-time">[${ev.timestamp.split('T')[1].split('.')[0]}]</span>
+                        <span class="log-time">[${ev.timestamp.split("T")[1].split(".")[0]}]</span>
                         <span class="log-method">${ev.type}</span>
-                        ${ev.agentId ? `<span class="text-magenta">agent=${ev.agentId}</span>`: ''}
+                        ${ev.agentId ? `<span class="text-magenta">agent=${ev.agentId}</span>` : ""}
                         <span class="log-data">${JSON.stringify(ev.payload)}</span>
                     </div>
-                `).join('');
-            } catch(e) {}
+                `).join("");
+
+            } catch (e) {
+                console.error("[SAREMBOK] Events error:", e);
+
+                const log = document.getElementById("events-log");
+
+                if (log) {
+                    log.innerHTML =
+                        `<div class="log-entry">⚠ ${e.message || e}</div>`;
+                }
+            }
         }
 
         async function cancelTask(taskId) {
             try {
                 await sendRPC("CancelTask", { taskId });
-                fetchTasks();
-            } catch(e) { alert("Failed to cancel task: " + (e.message||e)); }
+                await fetchTasks();
+            } catch (e) {
+                console.error("[SAREMBOK] Cancel task error:", e);
+                alert(
+                    "Failed to cancel task:\n\n" +
+                    (e.message || e)
+                );
+            }
         }
 
-        function openRegisterWorkerModal() { document.getElementById('modal-worker').classList.add('active'); }
+        function openRegisterWorkerModal() {
+            document.getElementById("modal-worker").classList.add("active");
+        }
+
         async function submitRegisterWorker() {
-            const id = document.getElementById('w-id').value;
-            const model = document.getElementById('w-model').value;
-            const vram = parseInt(document.getElementById('w-vram').value);
+            const id = document.getElementById("w-id").value.trim();
+            const model = document.getElementById("w-model").value.trim();
+            const vram = parseInt(
+                document.getElementById("w-vram").value,
+                10
+            );
+
             try {
-                await sendRPC("RegisterWorker", { workerId: id, gpuModel: model, vramMb: vram, capabilities: ["inference", "meta_human"] });
-                closeModal('modal-worker');
-                fetchWorkers();
-            } catch(e) { alert("Error registering worker: " + (e.message||e)); }
+                await sendRPC(
+                    "RegisterWorker",
+                    {
+                        workerId: id,
+                        gpuModel: model,
+                        vramMb: vram,
+                        capabilities: [
+                            "inference",
+                            "meta_human"
+                        ]
+                    }
+                );
+
+                closeModal("modal-worker");
+                await fetchWorkers();
+
+            } catch (e) {
+                console.error(
+                    "[SAREMBOK] Register worker error:",
+                    e
+                );
+
+                alert(
+                    "Error registering worker:\n\n" +
+                    (e.message || e)
+                );
+            }
         }
 
-        function openCreateAgentModal() { document.getElementById('modal-agent').classList.add('active'); }
+        function openCreateAgentModal() {
+            document.getElementById("modal-agent").classList.add("active");
+        }
+
         async function submitCreateAgent() {
-            const id = document.getElementById('a-id').value;
-            const name = document.getElementById('a-name').value;
+            const id =
+                document.getElementById("a-id").value.trim();
+
+            const name =
+                document.getElementById("a-name").value.trim();
+
             try {
-                await sendRPC("CreateAgent", { agentId: id, displayName: name });
-                closeModal('modal-agent');
-                fetchAgents();
-            } catch(e) { alert("Error creating agent: " + (e.message||e)); }
+                await sendRPC(
+                    "CreateAgent",
+                    {
+                        agentId: id,
+                        displayName: name
+                    }
+                );
+
+                closeModal("modal-agent");
+                await fetchAgents();
+
+            } catch (e) {
+                console.error(
+                    "[SAREMBOK] Create agent error:",
+                    e
+                );
+
+                alert(
+                    "Error creating agent:\n\n" +
+                    (e.message || e)
+                );
+            }
         }
 
-        function openCreateTaskModal() { document.getElementById('modal-task').classList.add('active'); }
+        function openCreateTaskModal() {
+            document.getElementById("modal-task").classList.add("active");
+        }
+
         async function submitCreateTask() {
-            const type = document.getElementById('t-type').value;
+            const type =
+                document.getElementById("t-type").value;
+
             try {
-                await sendRPC("CreateTask", { taskType: type });
-                closeModal('modal-task');
-                fetchTasks();
-            } catch(e) { alert("Error creating task: " + (e.message||e)); }
+                await sendRPC(
+                    "CreateTask",
+                    {
+                        taskType: type
+                    }
+                );
+
+                closeModal("modal-task");
+                await fetchTasks();
+
+            } catch (e) {
+                console.error(
+                    "[SAREMBOK] Create task error:",
+                    e
+                );
+
+                alert(
+                    "Error creating task:\n\n" +
+                    (e.message || e)
+                );
+            }
         }
 
-        function openCreateSessionModal() { document.getElementById('modal-session').classList.add('active'); }
+        function openCreateSessionModal() {
+            document.getElementById("modal-session").classList.add("active");
+        }
+
         async function submitCreateSession() {
-            const agentId = document.getElementById('s-agent').value;
-            const metahumanId = document.getElementById('s-mh').value;
-            const voiceProfile = document.getElementById('s-voice').value;
+            const agentId =
+                document.getElementById("s-agent").value.trim();
+
+            const metahumanId =
+                document.getElementById("s-mh").value.trim();
+
+            const voiceProfile =
+                document.getElementById("s-voice").value.trim();
+
             try {
-                await sendRPC("CreateDigitalHumanSession", { agentId, metahumanId, voiceProfile });
-                closeModal('modal-session');
-                fetchSessions();
-            } catch(e) { alert("Error starting session: " + (e.message||e)); }
+                await sendRPC(
+                    "CreateDigitalHumanSession",
+                    {
+                        agentId,
+                        metahumanId,
+                        voiceProfile
+                    }
+                );
+
+                closeModal("modal-session");
+                await fetchSessions();
+
+            } catch (e) {
+                console.error(
+                    "[SAREMBOK] Create session error:",
+                    e
+                );
+
+                alert(
+                    "Error starting session:\n\n" +
+                    (e.message || e)
+                );
+            }
         }
 
-        window.onload = connectWebSocket;
+        window.addEventListener("error", event => {
+            console.error(
+                "[SAREMBOK] JavaScript error:",
+                event.error || event.message
+            );
+        });
+
+        window.addEventListener("unhandledrejection", event => {
+            console.error(
+                "[SAREMBOK] Unhandled promise rejection:",
+                event.reason
+            );
+        });
+
+        window.addEventListener("load", () => {
+            console.log("[SAREMBOK] Frontend loaded.");
+            connectWebSocket();
+        });
+
+
     </script>
 </body>
 </html>
