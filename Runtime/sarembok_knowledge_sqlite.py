@@ -34,6 +34,12 @@ class SQLiteKnowledgePersistenceBackend:
         with self._connect() as connection:
             connection.executescript(
                 """
+                CREATE TABLE IF NOT EXISTS knowledge_entities (
+                    knowledge_id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    initial_state TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
                 CREATE TABLE IF NOT EXISTS knowledge_events (
                     sequence INTEGER PRIMARY KEY,
                     event_id TEXT NOT NULL UNIQUE,
@@ -49,6 +55,41 @@ class SQLiteKnowledgePersistenceBackend:
                 );
                 """
             )
+
+    def create_knowledge(self, knowledge_id: str, title: str, initial_state: str) -> dict:
+        try:
+            state = LifecycleState(initial_state).value
+        except ValueError as exc:
+            raise ValueError(f"invalid_initial_state:{initial_state}") from exc
+        with self._connect() as connection:
+            try:
+                connection.execute(
+                    "INSERT INTO knowledge_entities(knowledge_id,title,initial_state) VALUES(?,?,?)",
+                    (knowledge_id, title, state),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise ValueError(f"knowledge_already_exists:{knowledge_id}") from exc
+        return {"knowledgeId": knowledge_id, "title": title, "state": state}
+
+    def get_knowledge(self, knowledge_id: str) -> dict | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT knowledge_id,title,initial_state,created_at FROM knowledge_entities WHERE knowledge_id=?",
+                (knowledge_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {"knowledgeId": row[0], "title": row[1], "initialState": row[2], "createdAt": row[3]}
+
+    def list_knowledge(self) -> Iterable[dict]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT knowledge_id,title,initial_state,created_at FROM knowledge_entities ORDER BY created_at,knowledge_id"
+            ).fetchall()
+        return [
+            {"knowledgeId": row[0], "title": row[1], "initialState": row[2], "createdAt": row[3]}
+            for row in rows
+        ]
 
     def append_event(self, entry: EventLogEntry) -> None:
         transition = entry.event.transition
