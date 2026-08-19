@@ -11,8 +11,10 @@ COPY Runtime/requirements.txt /app/Runtime/requirements.txt
 RUN pip install --no-cache-dir -r /app/Runtime/requirements.txt \
     && rm -rf /root/.cache
 
+COPY Runtime /app/Runtime
 COPY Deployment/cloud/server.py /app/server.py
 COPY Deployment/cloud/worker_client.py /app/worker_client.py
+COPY Deployment/cloud/knowledge_rpc_server.py /app/knowledge_rpc_server.py
 COPY frontend /app/frontend
 
 RUN useradd --create-home --uid 10001 sarembok \
@@ -26,4 +28,4 @@ VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD python -c "import os,socket; s=socket.create_connection(('127.0.0.1',int(os.getenv('SAREMBOK_PORT','9000'))),2); s.close()"
 
-CMD ["python", "/app/server.py"]
+CMD ["python", "/app/knowledge_rpc_server.py"]
