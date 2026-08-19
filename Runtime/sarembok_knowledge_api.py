@@ -54,13 +54,13 @@ class KnowledgeRuntimeAPI:
         except ValueError as exc:
             raise ValueError(f"invalid_target_state:{target_state}") from exc
         transition = self.lifecycle.transition(knowledge_id, current_state, target, reason)
-        event = self.runtime.publish(KnowledgeLifecycleEvent(f"evt_{uuid.uuid4().hex}", transition))
+        entry = self.runtime.publish(KnowledgeLifecycleEvent(f"evt_{uuid.uuid4().hex}", transition))
         state = self.runtime.get_state(knowledge_id)
         return {
             "knowledgeId": knowledge_id,
             "state": state.state.value,
-            "eventId": event.event_id,
-            "sequence": event.sequence,
+            "eventId": entry.event.event_id,
+            "sequence": entry.sequence,
             "reason": reason,
         }
 
