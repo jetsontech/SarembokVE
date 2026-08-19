@@ -13,6 +13,11 @@ RUN pip install --no-cache-dir -r /app/Runtime/requirements.txt \
 
 COPY Deployment/cloud/server.py /app/server.py
 COPY frontend /app/frontend
+COPY Deployment/cloud/patch_frontend.py /app/patch_frontend.py
+
+# Apply deterministic frontend fixes during the image build. This keeps
+# source editing centralized and prevents ad-hoc production copy/paste.
+RUN python /app/patch_frontend.py
 
 RUN useradd --create-home --uid 10001 sarembok \
     && mkdir -p /data \
