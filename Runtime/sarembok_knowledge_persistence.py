@@ -10,7 +10,7 @@ from sarembok_knowledge_state_snapshot import KnowledgeStateSnapshot
 
 @runtime_checkable
 class KnowledgePersistenceBackend(Protocol):
-    """Minimal backend contract; SQLite/WAL can implement this without changing core logic."""
+    """Stable storage contract for events and snapshots."""
 
     def append_event(self, entry: EventLogEntry) -> None: ...
 
@@ -22,7 +22,7 @@ class KnowledgePersistenceBackend(Protocol):
 
 
 class KnowledgePersistenceAdapter:
-    """Coordinates the event log/snapshot semantics with a persistence backend."""
+    """Coordinates lifecycle events, optional entity metadata, and snapshots."""
 
     def __init__(self, backend: KnowledgePersistenceBackend):
         if not isinstance(backend, KnowledgePersistenceBackend):
@@ -50,6 +50,28 @@ class KnowledgePersistenceAdapter:
             self.event_log._event_ids.discard(event.event_id)
             raise
         return entry
+
+    def create_knowledge(self, knowledge_id: str, title: str, initial_state: str = "discovered") -> dict:
+        if not knowledge_id or not title:
+            raise ValueError("knowledge_id_and_title_required")
+        method = getattr(self.backend, "create_knowledge", None)
+        if method is None:
+            raise TypeError("backend_does_not_support_knowledge_entities")
+        return method(knowledge_id, title, initial_state)
+
+    def get_knowledge(self, knowledge_id: str) -> dict | None:
+        if not knowledge_id:
+            raise ValueError("knowledge_id_required")
+        method = getattr(self.backend, "get_knowledge", None)
+        if method is None:
+            raise TypeError("backend_does_not_support_knowledge_entities")
+        return method(knowledge_id)
+
+    def list_knowledge(self) -> list[dict]:
+        method = getattr(self.backend, "list_knowledge", None)
+        if method is None:
+            raise TypeError("backend_does_not_support_knowledge_entities")
+        return list(method())
 
     def load_events(self, after_sequence: int = 0) -> list[EventLogEntry]:
         if after_sequence < 0:
