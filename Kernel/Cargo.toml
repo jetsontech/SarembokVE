@@ -1,0 +1,24 @@
+[package]
+name = "sarembok-kernel"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "Proprietary"
+description = "Sarembok-native kernel foundation for an intelligence-first computing environment"
+
+[lib]
+name = "sarembok_kernel"
+path = "src/lib.rs"
+
+[features]
+default = []
+std = []
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "z"
