@@ -8,9 +8,9 @@ Sarembok's core architecture.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
-import sqlite3
 import urllib.error
 import urllib.request
 import uuid
@@ -79,13 +79,9 @@ class ModelProvider:
                 raw = response.read()
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")[:2000]
-            raise ModelProviderError(
-                f"model_provider_http_{exc.code}: {body}"
-            ) from exc
+            raise ModelProviderError(f"model_provider_http_{exc.code}: {body}") from exc
         except urllib.error.URLError as exc:
-            raise ModelProviderError(
-                f"model_provider_unreachable: {exc.reason}"
-            ) from exc
+            raise ModelProviderError(f"model_provider_unreachable: {exc.reason}") from exc
         except TimeoutError as exc:
             raise ModelProviderError("model_provider_timeout") from exc
 
@@ -277,6 +273,7 @@ class ConversationRuntime:
         self,
         agent_id: str,
         content: str,
+        db_lock: asyncio.Lock,
         session_id: str | None = None,
         history_limit: int = 20,
         memory_limit: int = 10,
@@ -285,8 +282,12 @@ class ConversationRuntime:
         if not content:
             raise ValueError("content is required")
 
-        history = self._history(agent_id, min(50, max(0, int(history_limit))))
-        memories = self._memories(agent_id, min(25, max(0, int(memory_limit))))
+        # Snapshot durable context while holding the same lock used by the
+        # established runtime. The provider call happens after the lock is
+        # released so one slow model request cannot block every RPC.
+        async with db_lock:
+            history = self._history(agent_id, min(50, max(0, int(history_limit))))
+            memories = self._memories(agent_id, min(25, max(0, int(memory_limit))))
 
         memory_block = "\n".join(
             f"- [{item['type']}] {item['content']}"
@@ -306,11 +307,7 @@ class ConversationRuntime:
         messages.extend(history)
         messages.append({"role": "user", "content": content})
 
-        # Network I/O is deliberately outside the database lock and off the event loop.
-        response_text = await __import__("asyncio").to_thread(
-            self.provider.complete,
-            messages,
-        )
+        response_text = await asyncio.to_thread(self.provider.complete, messages)
 
         stamp = utc_now()
         user_id = f"msg-{uuid.uuid4().hex[:12]}"
@@ -318,29 +315,30 @@ class ConversationRuntime:
         provider = self.provider.provider
         model = self.provider.model
 
-        self.store.db.executemany(
-            """
-            INSERT INTO conversation_messages(
-                message_id, agent_id, session_id, role, content, provider, model, created_at
-            ) VALUES(?,?,?,?,?,?,?,?)
-            """,
-            [
-                (user_id, agent_id, session_id, "user", content, provider, model, stamp),
-                (assistant_id, agent_id, session_id, "assistant", response_text, provider, model, stamp),
-            ],
-        )
-        self.store.db.commit()
-        self.store.event(
-            agent_id,
-            "CHAT_COMPLETED",
-            {
-                "userMessageId": user_id,
-                "assistantMessageId": assistant_id,
-                "provider": provider,
-                "model": model,
-                "memoryCount": len(memories),
-            },
-        )
+        async with db_lock:
+            self.store.db.executemany(
+                """
+                INSERT INTO conversation_messages(
+                    message_id, agent_id, session_id, role, content, provider, model, created_at
+                ) VALUES(?,?,?,?,?,?,?,?)
+                """,
+                [
+                    (user_id, agent_id, session_id, "user", content, provider, model, stamp),
+                    (assistant_id, agent_id, session_id, "assistant", response_text, provider, model, stamp),
+                ],
+            )
+            self.store.db.commit()
+            self.store.event(
+                agent_id,
+                "CHAT_COMPLETED",
+                {
+                    "userMessageId": user_id,
+                    "assistantMessageId": assistant_id,
+                    "provider": provider,
+                    "model": model,
+                    "memoryCount": len(memories),
+                },
+            )
 
         return {
             "agentId": agent_id,
