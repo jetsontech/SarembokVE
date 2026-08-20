@@ -3,6 +3,12 @@ services:
     ports: !reset []
     environment:
       SAREMBOK_AUTH_TOKEN: ${SAREMBOK_AUTH_TOKEN:?Set SAREMBOK_AUTH_TOKEN before starting production}
+      SAREMBOK_MODEL_PROVIDER: ${SAREMBOK_MODEL_PROVIDER:-openai}
+      SAREMBOK_MODEL_ENDPOINT: ${SAREMBOK_MODEL_ENDPOINT:-https://api.openai.com/v1/responses}
+      SAREMBOK_MODEL_API_KEY: ${SAREMBOK_MODEL_API_KEY:-}
+      SAREMBOK_MODEL_NAME: ${SAREMBOK_MODEL_NAME:-gpt-5.6-luna}
+      SAREMBOK_MODEL_PROTOCOL: ${SAREMBOK_MODEL_PROTOCOL:-responses}
+      SAREMBOK_MODEL_TIMEOUT: ${SAREMBOK_MODEL_TIMEOUT:-90}
 
   sarembok-edge:
     image: caddy:2-alpine
