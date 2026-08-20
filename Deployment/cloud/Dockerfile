@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r /app/Runtime/requirements.txt \
 COPY Deployment/cloud/server.py /app/server.py
 COPY Deployment/cloud/entrypoint.py /app/entrypoint.py
 COPY Deployment/cloud/conversation_runtime.py /app/conversation_runtime.py
+COPY Deployment/cloud/public_session.py /app/public_session.py
 COPY frontend /app/frontend
 COPY Deployment/cloud/patch_frontend.py /app/patch_frontend.py
 
