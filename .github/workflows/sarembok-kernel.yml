@@ -1,0 +1,22 @@
+name: Sarembok Kernel
+
+on:
+  push:
+    paths:
+      - "Kernel/**"
+      - ".github/workflows/sarembok-kernel.yml"
+  pull_request:
+    paths:
+      - "Kernel/**"
+      - ".github/workflows/sarembok-kernel.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Kernel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --all-targets
