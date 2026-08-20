@@ -33,14 +33,14 @@ async def conversation_handler(websocket) -> None:
                 if method in {"Chat", "SendChatMessage"}:
                     agent_id = str(params.get("agentId", "")).strip()
                     server.require_agent(agent_id)
-                    async with server.DB_LOCK:
-                        result = await conversation.chat(
-                            agent_id=agent_id,
-                            content=str(params.get("content", "")),
-                            session_id=(str(params.get("sessionId")) if params.get("sessionId") else None),
-                            history_limit=int(params.get("historyLimit", 20)),
-                            memory_limit=int(params.get("memoryLimit", 10)),
-                        )
+                    result = await conversation.chat(
+                        agent_id=agent_id,
+                        content=str(params.get("content", "")),
+                        db_lock=server.DB_LOCK,
+                        session_id=(str(params.get("sessionId")) if params.get("sessionId") else None),
+                        history_limit=int(params.get("historyLimit", 20)),
+                        memory_limit=int(params.get("memoryLimit", 10)),
+                    )
                 elif method == "RememberMemory":
                     agent_id = str(params.get("agentId", "")).strip()
                     server.require_agent(agent_id)
