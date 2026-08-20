@@ -25,7 +25,7 @@ if [[ -z "$SAREMBOK_AUTH_TOKEN" ]]; then
 fi
 
 echo "===== 1. UNIT TESTS ====="
-PYTHONPATH=. python3 -m unittest -v test_conversation_runtime.py
+PYTHONPATH=. python3 -m unittest -v test_conversation_runtime.py test_public_session.py
 
 echo "===== 2. PRODUCTION IMAGE BUILD ====="
 "${COMPOSE[@]}" build --no-cache sarembok-runtime
@@ -48,7 +48,41 @@ done
 
 sleep 1
 
-echo "===== 4. CONVERSATION E2E ====="
+echo "===== 4. PUBLIC BROWSER SESSION E2E ====="
+docker exec -i "$TEST_CONTAINER" python - <<'PY'
+import asyncio
+import json
+import urllib.request
+import websockets
+
+async def main():
+    request = urllib.request.Request("http://127.0.0.1:9000/")
+    with urllib.request.urlopen(request, timeout=5) as response:
+        cookie = response.headers.get("Set-Cookie", "")
+        assert "sarembok_session=" in cookie, cookie
+        session_cookie = cookie.split(";", 1)[0]
+
+    async with websockets.connect(
+        "ws://127.0.0.1:9000",
+        additional_headers={"Cookie": session_cookie},
+    ) as ws:
+        await ws.send(json.dumps({
+            "jsonrpc": "2.0",
+            "id": "public-runtime-info",
+            "method": "RuntimeInfo",
+            "params": {},
+        }))
+        response = json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+        assert not response.get("error"), response
+        assert (response.get("result") or {}).get("status") == "ONLINE", response
+
+    print("Public session cookie: PASS")
+    print("Browser RPC without master token: PASS")
+
+asyncio.run(main())
+PY
+
+echo "===== 5. CONVERSATION E2E ====="
 docker exec -i -e SAREMBOK_AUTH_TOKEN="$SAREMBOK_AUTH_TOKEN" "$TEST_CONTAINER" python - <<'PY'
 import asyncio
 import json
@@ -134,7 +168,7 @@ async def main():
 asyncio.run(main())
 PY
 
-echo "===== 5. TEST CONTAINER LOG ====="
-docker logs --tail 40 "$TEST_CONTAINER"
+echo "===== 6. TEST CONTAINER LOG ====="
+docker logs --tail 60 "$TEST_CONTAINER"
 
 echo "===== VALIDATION COMPLETE ====="
