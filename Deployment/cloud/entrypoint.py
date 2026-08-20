@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 
 import server
 from conversation_runtime import ConversationRuntime
@@ -17,6 +18,14 @@ import public_session
 
 LOG = logging.getLogger("sarembok.cloud.conversation")
 conversation = ConversationRuntime(server.store)
+PUBLIC_ORIGINS = {
+    item.strip().rstrip("/")
+    for item in os.getenv(
+        "SAREMBOK_PUBLIC_ORIGINS",
+        "https://sarembok.com,https://www.sarembok.com",
+    ).split(",")
+    if item.strip()
+}
 
 # Anonymous browser sessions may use product-facing operations, but never
 # infrastructure control operations such as worker registration/completion or
@@ -42,6 +51,12 @@ def _session_from_websocket(websocket) -> str:
     headers = _request_headers(websocket)
     cookie = headers.get("Cookie", "") if hasattr(headers, "get") else ""
     return public_session.extract_cookie(cookie)
+
+
+def _origin_allowed(websocket) -> bool:
+    headers = _request_headers(websocket)
+    origin = headers.get("Origin", "") if hasattr(headers, "get") else ""
+    return origin.rstrip("/") in PUBLIC_ORIGINS
 
 
 def _install_public_session_cookie(connection, response):
@@ -83,7 +98,10 @@ server.process_http_request = process_http_request
 async def conversation_handler(websocket) -> None:
     peer = getattr(websocket, "remote_address", None)
     session_token = _session_from_websocket(websocket)
-    public_authenticated = public_session.validate(session_token, server.AUTH_TOKEN)
+    public_authenticated = (
+        public_session.validate(session_token, server.AUTH_TOKEN)
+        and _origin_allowed(websocket)
+    )
     LOG.info(
         "conversation_connection_open peer=%s public_session=%s",
         peer,
