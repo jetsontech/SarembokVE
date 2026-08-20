@@ -64,7 +64,10 @@ async def main():
 
     async with websockets.connect(
         "ws://127.0.0.1:9000",
-        additional_headers={"Cookie": session_cookie},
+        additional_headers={
+            "Cookie": session_cookie,
+            "Origin": "https://sarembok.com",
+        },
     ) as ws:
         await ws.send(json.dumps({
             "jsonrpc": "2.0",
@@ -77,6 +80,7 @@ async def main():
         assert (response.get("result") or {}).get("status") == "ONLINE", response
 
     print("Public session cookie: PASS")
+    print("Trusted origin binding: PASS")
     print("Browser RPC without master token: PASS")
 
 asyncio.run(main())
