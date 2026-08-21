@@ -16,7 +16,7 @@ if 'document.querySelectorAll(\'.view-section\').forEach(s => s.classList.remove
 if 'const url = `${protocol}//${host}`;' in text:
     text = text.replace(
         'const url = `${protocol}//${host}`;',
-        'const url = `${protocol}//${host}/ws`'
+        'const url = `${protocol}//${host}/ws`;'
     )
 elif 'const url = `${protocol}//${host}/ws`;' in text:
     pass
