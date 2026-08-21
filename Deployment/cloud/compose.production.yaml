@@ -9,6 +9,18 @@ services:
       SAREMBOK_MODEL_NAME: ${SAREMBOK_MODEL_NAME:-gpt-5.6-luna}
       SAREMBOK_MODEL_PROTOCOL: ${SAREMBOK_MODEL_PROTOCOL:-responses}
       SAREMBOK_MODEL_TIMEOUT: ${SAREMBOK_MODEL_TIMEOUT:-90}
+      SAREMBOK_ENGINEERING_REMOTE_ENABLED: "true"
+      SAREMBOK_SSH_NAME: ${SAREMBOK_SSH_NAME:-sarembok-vps}
+      SAREMBOK_SSH_HOST: ${SAREMBOK_SSH_HOST:-15.204.173.205}
+      SAREMBOK_SSH_USER: ${SAREMBOK_SSH_USER:-ubuntu}
+      SAREMBOK_SSH_PORT: ${SAREMBOK_SSH_PORT:-22}
+      SAREMBOK_SSH_IDENTITY_FILE: /run/secrets/sarembok_engineering_ssh_key
+      SAREMBOK_ENGINEERING_REMOTE_COMMANDS: ${SAREMBOK_ENGINEERING_REMOTE_COMMANDS:-git -C /home/ubuntu/SarembokVE status,git -C /home/ubuntu/SarembokVE log -1 --oneline,hostname}
+    secrets:
+      - source: sarembok_engineering_ssh_key
+        target: /run/secrets/sarembok_engineering_ssh_key
+      - source: sarembok_engineering_known_hosts
+        target: /home/sarembok/.ssh/known_hosts
 
   sarembok-edge:
     image: caddy:2-alpine
@@ -36,3 +48,9 @@ services:
 volumes:
   sarembok-caddy-data:
   sarembok-caddy-config:
+
+secrets:
+  sarembok_engineering_ssh_key:
+    file: ${SAREMBOK_ENGINEERING_SSH_KEY_FILE:-/home/ubuntu/.config/sarembok/engineering_agent_ed25519}
+  sarembok_engineering_known_hosts:
+    file: ${SAREMBOK_ENGINEERING_KNOWN_HOSTS_FILE:-/home/ubuntu/.config/sarembok/known_hosts}

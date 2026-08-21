@@ -73,7 +73,17 @@ class OpenSSHTransport:
 
     def run(self, command: str, *, timeout_seconds: float) -> RemoteResult:
         target = f"{self.server.username}@{self.server.host}"
-        args = ["ssh", "-o", "BatchMode=yes", "-p", str(self.server.port)]
+        args = [
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "StrictHostKeyChecking=yes",
+            "-o",
+            "UpdateHostkeys=no",
+            "-p",
+            str(self.server.port),
+        ]
         if self.server.identity_file:
             args.extend(["-i", self.server.identity_file])
         args.extend([target, "--", command])

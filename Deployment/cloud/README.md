@@ -80,3 +80,16 @@ through `EngineeringAgentInfo`, `EngineeringExecutePlan`, and
 not available to anonymous browser sessions, and persist execution evidence
 under the writable `/data` volume.
 
+## Operator-managed remote connector
+
+Production enables the Engineering Agent's remote connector with a dedicated
+host-managed OpenSSH identity. The private key and pinned `known_hosts` file
+are mounted read-only into the runtime by `compose.production.yaml`; neither
+is committed to Git or copied into the image. Password authentication is not
+used by the agent.
+
+The connector is limited by `SAREMBOK_ENGINEERING_REMOTE_COMMANDS` and uses
+the configured VPS profile in `Config/remote_servers/sarembok-vps.json`. Keep
+the key restricted to the Docker network and rotate it as an operator-managed
+credential.
+
