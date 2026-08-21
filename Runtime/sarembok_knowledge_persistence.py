@@ -1,0 +1,86 @@
+"""Storage-neutral persistence adapter for knowledge events and snapshots."""
+from __future__ import annotations
+
+from typing import Iterable, Protocol, runtime_checkable
+
+from sarembok_knowledge_event_bus import KnowledgeLifecycleEvent
+from sarembok_knowledge_event_log import EventLogEntry, KnowledgeEventLog
+from sarembok_knowledge_state_snapshot import KnowledgeStateSnapshot
+
+
+@runtime_checkable
+class KnowledgePersistenceBackend(Protocol):
+    """Stable storage contract for events and snapshots."""
+
+    def append_event(self, entry: EventLogEntry) -> None: ...
+
+    def load_events(self, after_sequence: int = 0) -> Iterable[EventLogEntry]: ...
+
+    def save_snapshot(self, snapshot: KnowledgeStateSnapshot) -> None: ...
+
+    def load_snapshots(self) -> Iterable[KnowledgeStateSnapshot]: ...
+
+
+class KnowledgePersistenceAdapter:
+    """Coordinates lifecycle events, optional entity metadata, and snapshots."""
+
+    def __init__(self, backend: KnowledgePersistenceBackend):
+        if not isinstance(backend, KnowledgePersistenceBackend):
+            raise TypeError("backend_does_not_implement_knowledge_persistence_contract")
+        self.backend = backend
+        self.event_log = KnowledgeEventLog()
+        self._hydrate_event_log()
+
+    def _hydrate_event_log(self) -> None:
+        entries = sorted(self.backend.load_events(), key=lambda entry: entry.sequence)
+        expected = 1
+        for entry in entries:
+            if entry.sequence != expected:
+                raise ValueError("persisted_event_log_sequence_gap")
+            self.event_log._entries.append(entry)
+            self.event_log._event_ids.add(entry.event.event_id)
+            expected += 1
+
+    def append(self, event: KnowledgeLifecycleEvent) -> EventLogEntry:
+        entry = self.event_log.append(event)
+        try:
+            self.backend.append_event(entry)
+        except Exception:
+            self.event_log._entries.pop()
+            self.event_log._event_ids.discard(event.event_id)
+            raise
+        return entry
+
+    def create_knowledge(self, knowledge_id: str, title: str, initial_state: str = "discovered") -> dict:
+        if not knowledge_id or not title:
+            raise ValueError("knowledge_id_and_title_required")
+        method = getattr(self.backend, "create_knowledge", None)
+        if method is None:
+            raise TypeError("backend_does_not_support_knowledge_entities")
+        return method(knowledge_id, title, initial_state)
+
+    def get_knowledge(self, knowledge_id: str) -> dict | None:
+        if not knowledge_id:
+            raise ValueError("knowledge_id_required")
+        method = getattr(self.backend, "get_knowledge", None)
+        if method is None:
+            raise TypeError("backend_does_not_support_knowledge_entities")
+        return method(knowledge_id)
+
+    def list_knowledge(self) -> list[dict]:
+        method = getattr(self.backend, "list_knowledge", None)
+        if method is None:
+            raise TypeError("backend_does_not_support_knowledge_entities")
+        return list(method())
+
+    def load_events(self, after_sequence: int = 0) -> list[EventLogEntry]:
+        if after_sequence < 0:
+            raise ValueError("sequence_must_not_be_negative")
+        entries = sorted(self.backend.load_events(after_sequence), key=lambda entry: entry.sequence)
+        return [entry for entry in entries if entry.sequence > after_sequence]
+
+    def save_snapshot(self, snapshot: KnowledgeStateSnapshot) -> None:
+        self.backend.save_snapshot(snapshot)
+
+    def load_snapshots(self) -> list[KnowledgeStateSnapshot]:
+        return list(self.backend.load_snapshots())
