@@ -14,10 +14,15 @@ import os
 
 import server
 from conversation_runtime import ConversationRuntime
+from engineering_runtime import EngineeringRuntime
 import public_session
 
 LOG = logging.getLogger("sarembok.cloud.conversation")
 conversation = ConversationRuntime(server.store)
+engineering = EngineeringRuntime(
+    root=os.getenv("SAREMBOK_ENGINEERING_ROOT", "/app"),
+    data_root=os.getenv("SAREMBOK_ENGINEERING_DATA", "/data"),
+)
 PUBLIC_ORIGINS = {
     item.strip().rstrip("/")
     for item in os.getenv(
@@ -170,6 +175,15 @@ async def conversation_handler(websocket) -> None:
                         result = conversation.history(agent_id, int(params.get("limit", 50)))
                 elif method == "ModelProviderInfo":
                     result = conversation.provider_info()
+                elif method == "EngineeringAgentInfo":
+                    result = engineering.info()
+                elif method == "EngineeringExecutePlan":
+                    result = await asyncio.to_thread(engineering.execute, params)
+                elif method == "EngineeringGetExecution":
+                    execution_id = str(params.get("executionId", "")).strip()
+                    if not execution_id:
+                        raise ValueError("executionId is required")
+                    result = engineering.get(execution_id)
                 else:
                     async with server.DB_LOCK:
                         result = server.dispatch(method, params)
@@ -220,3 +234,4 @@ server.CONNECTIONS_guard = conversation_guard
 
 if __name__ == "__main__":
     asyncio.run(server.main())
+

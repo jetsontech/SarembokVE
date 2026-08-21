@@ -14,7 +14,9 @@ RUN pip install --no-cache-dir -r /app/Runtime/requirements.txt \
 COPY Deployment/cloud/server.py /app/server.py
 COPY Deployment/cloud/entrypoint.py /app/entrypoint.py
 COPY Deployment/cloud/conversation_runtime.py /app/conversation_runtime.py
+COPY Deployment/cloud/engineering_runtime.py /app/engineering_runtime.py
 COPY Deployment/cloud/public_session.py /app/public_session.py
+COPY Engineering /app/Engineering
 COPY frontend /app/frontend
 COPY Deployment/cloud/patch_frontend.py /app/patch_frontend.py
 
@@ -34,3 +36,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD python -c "import os,socket; s=socket.create_connection(('127.0.0.1',int(os.getenv('SAREMBOK_PORT','9000'))),2); s.close()"
 
 CMD ["python", "/app/entrypoint.py"]
+

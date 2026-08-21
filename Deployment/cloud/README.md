@@ -71,3 +71,12 @@ To test the deployment:
 ```powershell
 python Deployment/cloud/smoke_test.py ws://127.0.0.1:9000
 ```
+
+## Engineering Agent RPC
+
+The protected Runtime JSON-RPC gateway exposes the Sarembok Engineering Agent
+through `EngineeringAgentInfo`, `EngineeringExecutePlan`, and
+`EngineeringGetExecution`. These methods require `SAREMBOK_AUTH_TOKEN`, are
+not available to anonymous browser sessions, and persist execution evidence
+under the writable `/data` volume.
+
