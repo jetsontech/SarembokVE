@@ -40,6 +40,8 @@ class ModelProvider:
 
     @property
     def configured(self) -> bool:
+        if self.provider == "test":
+            return True
         return bool(self.api_key) and self.provider not in {"", "disabled", "none"}
 
     def info(self) -> dict[str, Any]:
@@ -51,6 +53,9 @@ class ModelProvider:
         }
 
     def complete(self, messages: list[dict[str, str]]) -> str:
+        if self.provider == "test":
+            return self._test_complete(messages)
+
         if not self.configured:
             raise ModelProviderError("model_provider_not_configured")
         if not self.endpoint:
@@ -94,6 +99,29 @@ class ModelProvider:
         if not text:
             raise ModelProviderError("model_provider_empty_response")
         return text.strip()
+
+    @staticmethod
+    def _test_complete(messages: list[dict[str, str]]) -> str:
+        """Deterministic provider used for local/CI Sarembok validation.
+
+        This provider never performs network I/O and never consumes external
+        model quota. It exercises the same ConversationRuntime provider
+        boundary used by production model adapters.
+        """
+        user_messages = [
+            message.get("content", "").strip()
+            for message in messages
+            if message.get("role") == "user"
+            and isinstance(message.get("content"), str)
+        ]
+
+        if not user_messages:
+            return "Sarembok test provider is operational."
+
+        return (
+            "Sarembok test provider response: "
+            + user_messages[-1]
+        )
 
     @staticmethod
     def _extract_text(data: dict[str, Any]) -> str:

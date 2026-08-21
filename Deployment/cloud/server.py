@@ -1009,10 +1009,21 @@ async def process_http_request(connection: Any, request: Any) -> Any:
     return None
 
 
-async def serve() -> None:
-    LOG.info("startup port=%s max_connections=%s auth_configured=%s db=%s", PORT, MAX_CONNECTIONS, bool(AUTH_TOKEN), DB_PATH)
+async def serve(connection_handler=None) -> None:
+    LOG.info(
+        "startup port=%s max_connections=%s auth_configured=%s db=%s handler=%s",
+        PORT,
+        MAX_CONNECTIONS,
+        bool(AUTH_TOKEN),
+        DB_PATH,
+        getattr(connection_handler, "__name__", "CONNECTIONS_guard"),
+    )
+
+    if connection_handler is None:
+        connection_handler = CONNECTIONS_guard
+
     async with websockets.serve(
-        lambda ws: CONNECTIONS_guard(ws),
+        connection_handler,
         "0.0.0.0",
         PORT,
         max_size=MAX_REQUEST_BYTES,
@@ -1046,7 +1057,7 @@ def request_shutdown() -> None:
     STOP.set()
 
 
-async def main() -> None:
+async def main(connection_handler=None) -> None:
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
@@ -1054,7 +1065,7 @@ async def main() -> None:
         except (NotImplementedError, RuntimeError):
             signal.signal(sig, lambda *_: request_shutdown())
     try:
-        await serve()
+        await serve(connection_handler)
     finally:
         store.close()
         LOG.info("shutdown_complete")
