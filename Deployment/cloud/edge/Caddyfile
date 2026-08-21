@@ -1,21 +1,12 @@
-# Sarembok_VE public edge.
+{
+    email admin@sarembok.com
+    acme_ca https://acme-v02.api.letsencrypt.org/directory
+}
 
-{$SAREMBOK_SITE_ADDRESS} {
-    encode gzip
-
-    header {
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "SAMEORIGIN"
-        Referrer-Policy "strict-origin-when-cross-origin"
+sarembok.com {
+    tls {
+        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
     }
 
-    # Public edge liveness endpoint.
-    handle /health {
-        respond "OK" 200
-    }
-
-    # Sarembok Cloud Runtime (handles web app & WebSocket upgrade).
-    handle {
-        reverse_proxy sarembok-runtime:9000
-    }
+    reverse_proxy sarembok-runtime:9000
 }

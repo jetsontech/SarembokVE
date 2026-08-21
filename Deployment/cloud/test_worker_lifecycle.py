@@ -22,9 +22,14 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
 
 # Ensure temp DB path before importing server
 temp_db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)

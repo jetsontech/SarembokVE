@@ -114,6 +114,54 @@ class CloudStore:
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS projects (
+                project_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL,
+                description TEXT,
+                lead_agent_id TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS memories (
+                memory_id TEXT PRIMARY KEY,
+                tier TEXT NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                agent_id TEXT,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS file_assets (
+                file_id TEXT PRIMARY KEY,
+                filename TEXT NOT NULL,
+                path TEXT NOT NULL,
+                size_bytes INTEGER NOT NULL DEFAULT 0,
+                mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+                category TEXT NOT NULL DEFAULT 'document',
+                metadata TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS checkpoints (
+                checkpoint_id TEXT PRIMARY KEY,
+                label TEXT NOT NULL,
+                agent_id TEXT,
+                task_id TEXT,
+                wal_index INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'VERIFIED',
+                payload TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS governance_approvals (
+                approval_id TEXT PRIMARY KEY,
+                action_type TEXT NOT NULL,
+                target TEXT NOT NULL,
+                risk_level TEXT NOT NULL,
+                requested_by TEXT,
+                status TEXT NOT NULL DEFAULT 'PENDING_APPROVAL',
+                details TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                resolved_at TEXT
+            );
             """
         )
         self.db.commit()
@@ -946,6 +994,12 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         agent_count = store.db.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
         task_count = store.db.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
         event_count = store.db.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+        project_count = store.db.execute("SELECT COUNT(*) FROM projects").fetchone()[0]
+        memory_count = store.db.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
+        file_count = store.db.execute("SELECT COUNT(*) FROM file_assets").fetchone()[0]
+        last_ckpt = store.db.execute("SELECT checkpoint_id, label, created_at FROM checkpoints ORDER BY created_at DESC LIMIT 1").fetchone()
+        last_checkpoint = f"{last_ckpt[1]} ({last_ckpt[0]})" if last_ckpt else "None"
+
         return {
             "status": "ONLINE",
             "service": "sarembok-ve-cloud-runtime",
@@ -962,7 +1016,259 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "activeAgents": agent_count,
             "totalTasks": task_count,
             "totalEvents": event_count,
+            "totalProjects": project_count,
+            "totalMemories": memory_count,
+            "totalFiles": file_count,
+            "lastCheckpoint": last_checkpoint,
         }
+
+    if method == "ListProjects":
+        rows = store.db.execute("SELECT project_id, name, status, description, lead_agent_id, created_at, updated_at FROM projects ORDER BY created_at DESC").fetchall()
+        projects = [{"projectId": r[0], "name": r[1], "status": r[2], "description": r[3], "leadAgentId": r[4], "createdAt": r[5], "updatedAt": r[6]} for r in rows]
+        return {"projects": projects, "count": len(projects)}
+
+    if method == "CreateProject":
+        project_id = str(params.get("projectId") or f"proj-{uuid.uuid4().hex[:8]}").strip()
+        name = str(params.get("name", "Untitled Project")).strip()
+        status = str(params.get("status", "IN_PROGRESS")).strip()
+        desc = str(params.get("description", "")).strip()
+        lead_agent = params.get("leadAgentId")
+        stamp = now()
+        store.db.execute(
+            "INSERT OR REPLACE INTO projects(project_id, name, status, description, lead_agent_id, created_at, updated_at) VALUES(?,?,?,?,?,?,?)",
+            (project_id, name, status, desc, lead_agent, stamp, stamp),
+        )
+        store.db.commit()
+        store.event(lead_agent, "PROJECT_CREATED", {"projectId": project_id, "name": name, "status": status})
+        return {"projectId": project_id, "name": name, "status": status, "description": desc, "createdAt": stamp}
+
+    if method == "GetProject":
+        project_id = str(params.get("projectId", "")).strip()
+        row = store.db.execute("SELECT project_id, name, status, description, lead_agent_id, created_at, updated_at FROM projects WHERE project_id=?", (project_id,)).fetchone()
+        if not row:
+            raise ValueError(f"project_not_found: {project_id}")
+        return {"projectId": row[0], "name": row[1], "status": row[2], "description": row[3], "leadAgentId": row[4], "createdAt": row[5], "updatedAt": row[6]}
+
+    if method == "UpdateProject":
+        project_id = str(params.get("projectId", "")).strip()
+        if not project_id:
+            raise ValueError("projectId is required")
+        status = params.get("status")
+        desc = params.get("description")
+        stamp = now()
+        if status is not None:
+            store.db.execute("UPDATE projects SET status=?, updated_at=? WHERE project_id=?", (str(status), stamp, project_id))
+        if desc is not None:
+            store.db.execute("UPDATE projects SET description=?, updated_at=? WHERE project_id=?", (str(desc), stamp, project_id))
+        store.db.commit()
+        store.event(None, "PROJECT_UPDATED", {"projectId": project_id, "status": status})
+        return {"projectId": project_id, "updated": True, "updatedAt": stamp}
+
+    if method == "ListMemories":
+        tier_filter = str(params.get("tier", "")).strip().upper()
+        agent_filter = str(params.get("agentId", "")).strip()
+        query = "SELECT memory_id, tier, key, value, agent_id, created_at FROM memories WHERE 1=1"
+        qp: list[Any] = []
+        if tier_filter:
+            query += " AND tier=?"
+            qp.append(tier_filter)
+        if agent_filter:
+            query += " AND agent_id=?"
+            qp.append(agent_filter)
+        query += " ORDER BY created_at DESC LIMIT 100"
+        rows = store.db.execute(query, qp).fetchall()
+        memories = [{"memoryId": r[0], "tier": r[1], "key": r[2], "value": r[3], "agentId": r[4], "createdAt": r[5]} for r in rows]
+        return {"memories": memories, "count": len(memories)}
+
+    if method == "StoreMemory":
+        key = str(params.get("key", "")).strip()
+        value = str(params.get("value", "")).strip()
+        tier = str(params.get("tier", "WORKING")).strip().upper()
+        agent_id = params.get("agentId")
+        if not key or not value:
+            raise ValueError("key and value are required")
+        memory_id = f"mem-{uuid.uuid4().hex[:10]}"
+        stamp = now()
+        store.db.execute(
+            "INSERT INTO memories(memory_id, tier, key, value, agent_id, created_at) VALUES(?,?,?,?,?,?)",
+            (memory_id, tier, key, value, agent_id, stamp),
+        )
+        store.db.commit()
+        store.event(agent_id, "MEMORY_STORED", {"memoryId": memory_id, "tier": tier, "key": key})
+        return {"memoryId": memory_id, "tier": tier, "key": key, "stored": True, "createdAt": stamp}
+
+    if method == "RecallMemory":
+        key = str(params.get("key", "")).strip()
+        agent_id = params.get("agentId")
+        if not key:
+            raise ValueError("key is required")
+        query = "SELECT memory_id, tier, key, value, agent_id, created_at FROM memories WHERE key=?"
+        qp = [key]
+        if agent_id:
+            query += " AND agent_id=?"
+            qp.append(str(agent_id))
+        query += " ORDER BY created_at DESC LIMIT 1"
+        row = store.db.execute(query, qp).fetchone()
+        if not row:
+            return {"found": False, "key": key, "value": None}
+        return {"found": True, "memoryId": row[0], "tier": row[1], "key": row[2], "value": row[3], "agentId": row[4], "createdAt": row[5]}
+
+    if method == "ListFiles":
+        cat_filter = str(params.get("category", "")).strip()
+        query = "SELECT file_id, filename, path, size_bytes, mime_type, category, metadata, created_at FROM file_assets WHERE 1=1"
+        qp = []
+        if cat_filter:
+            query += " AND category=?"
+            qp.append(cat_filter)
+        query += " ORDER BY created_at DESC LIMIT 100"
+        rows = store.db.execute(query, qp).fetchall()
+        files = []
+        for r in rows:
+            try:
+                meta = json.loads(r[6]) if r[6] else {}
+            except Exception:
+                meta = {}
+            files.append({
+                "fileId": r[0],
+                "filename": r[1],
+                "path": r[2],
+                "sizeBytes": r[3],
+                "mimeType": r[4],
+                "category": r[5],
+                "metadata": meta,
+                "createdAt": r[7],
+            })
+        return {"files": files, "count": len(files)}
+
+    if method == "IndexFile":
+        filename = str(params.get("filename", "")).strip()
+        path = str(params.get("path", "")).strip() or filename
+        size_bytes = int(params.get("sizeBytes", 0))
+        mime_type = str(params.get("mimeType", "text/plain")).strip()
+        category = str(params.get("category", "code")).strip()
+        metadata = params.get("metadata", {})
+        if not filename:
+            raise ValueError("filename is required")
+        file_id = f"file-{uuid.uuid4().hex[:10]}"
+        stamp = now()
+        store.db.execute(
+            "INSERT INTO file_assets(file_id, filename, path, size_bytes, mime_type, category, metadata, created_at) VALUES(?,?,?,?,?,?,?,?)",
+            (file_id, filename, path, size_bytes, mime_type, category, json.dumps(metadata), stamp),
+        )
+        store.db.commit()
+        store.event(None, "FILE_INDEXED", {"fileId": file_id, "filename": filename, "category": category})
+        return {"fileId": file_id, "filename": filename, "indexed": True, "createdAt": stamp}
+
+    if method == "ListCheckpoints":
+        rows = store.db.execute("SELECT checkpoint_id, label, agent_id, task_id, wal_index, status, payload, created_at FROM checkpoints ORDER BY created_at DESC LIMIT 50").fetchall()
+        ckpts = []
+        for r in rows:
+            try:
+                pay = json.loads(r[6]) if r[6] else {}
+            except Exception:
+                pay = {}
+            ckpts.append({
+                "checkpointId": r[0],
+                "label": r[1],
+                "agentId": r[2],
+                "taskId": r[3],
+                "walIndex": r[4],
+                "status": r[5],
+                "payload": pay,
+                "createdAt": r[7],
+            })
+        return {"checkpoints": ckpts, "count": len(ckpts)}
+
+    if method == "CreateCheckpoint":
+        label = str(params.get("label", "Manual Checkpoint")).strip()
+        agent_id = params.get("agentId")
+        task_id = params.get("taskId")
+        wal_index = int(params.get("walIndex", 0))
+        payload = params.get("payload", {})
+        checkpoint_id = f"ckpt-{uuid.uuid4().hex[:8]}"
+        stamp = now()
+        store.db.execute(
+            "INSERT INTO checkpoints(checkpoint_id, label, agent_id, task_id, wal_index, status, payload, created_at) VALUES(?,?,?,?,?,?,?,?)",
+            (checkpoint_id, label, agent_id, task_id, wal_index, "VERIFIED", json.dumps(payload), stamp),
+        )
+        store.db.commit()
+        store.event(agent_id, "CHECKPOINT_CREATED", {"checkpointId": checkpoint_id, "label": label, "status": "VERIFIED"})
+        return {"checkpointId": checkpoint_id, "label": label, "status": "VERIFIED", "createdAt": stamp}
+
+    if method == "RestoreCheckpoint":
+        checkpoint_id = str(params.get("checkpointId", "")).strip()
+        row = store.db.execute("SELECT checkpoint_id, label, agent_id, task_id, payload FROM checkpoints WHERE checkpoint_id=?", (checkpoint_id,)).fetchone()
+        if not row:
+            raise ValueError(f"checkpoint_not_found: {checkpoint_id}")
+        stamp = now()
+        store.event(row[2], "CHECKPOINT_RESTORED", {"checkpointId": checkpoint_id, "label": row[1]})
+        return {"checkpointId": checkpoint_id, "label": row[1], "restored": True, "status": "RESTORED", "timestamp": stamp}
+
+    if method == "ListGovernanceApprovals":
+        status_filter = str(params.get("status", "")).strip().upper()
+        query = "SELECT approval_id, action_type, target, risk_level, requested_by, status, details, created_at, resolved_at FROM governance_approvals WHERE 1=1"
+        qp = []
+        if status_filter:
+            query += " AND status=?"
+            qp.append(status_filter)
+        query += " ORDER BY created_at DESC LIMIT 50"
+        rows = store.db.execute(query, qp).fetchall()
+        approvals = []
+        for r in rows:
+            try:
+                det = json.loads(r[6]) if r[6] else {}
+            except Exception:
+                det = {}
+            approvals.append({
+                "approvalId": r[0],
+                "actionType": r[1],
+                "target": r[2],
+                "riskLevel": r[3],
+                "requestedBy": r[4],
+                "status": r[5],
+                "details": det,
+                "createdAt": r[7],
+                "resolvedAt": r[8],
+            })
+        return {"approvals": approvals, "count": len(approvals)}
+
+    if method == "RequestGovernanceApproval":
+        action_type = str(params.get("actionType", "DEPLOYMENT")).strip()
+        target = str(params.get("target", "Global Edge")).strip()
+        risk_level = str(params.get("riskLevel", "HIGH")).strip().upper()
+        requested_by = params.get("requestedBy", "Sarembok Core")
+        details = params.get("details", {})
+        approval_id = f"gov-{uuid.uuid4().hex[:8]}"
+        stamp = now()
+        store.db.execute(
+            "INSERT INTO governance_approvals(approval_id, action_type, target, risk_level, requested_by, status, details, created_at) VALUES(?,?,?,?,?,?,?,?)",
+            (approval_id, action_type, target, risk_level, requested_by, "PENDING_APPROVAL", json.dumps(details), stamp),
+        )
+        store.db.commit()
+        store.event(None, "GOVERNANCE_APPROVAL_REQUESTED", {"approvalId": approval_id, "actionType": action_type, "target": target})
+        return {"approvalId": approval_id, "actionType": action_type, "status": "PENDING_APPROVAL", "createdAt": stamp}
+
+    if method == "ApproveGovernanceAction":
+        approval_id = str(params.get("approvalId", "")).strip()
+        row = store.db.execute("SELECT approval_id, action_type, target FROM governance_approvals WHERE approval_id=?", (approval_id,)).fetchone()
+        if not row:
+            raise ValueError(f"approval_not_found: {approval_id}")
+        stamp = now()
+        store.db.execute("UPDATE governance_approvals SET status='APPROVED', resolved_at=? WHERE approval_id=?", (stamp, approval_id))
+        store.db.commit()
+        store.event(None, "GOVERNANCE_ACTION_APPROVED", {"approvalId": approval_id, "actionType": row[1], "target": row[2]})
+        return {"approvalId": approval_id, "status": "APPROVED", "resolvedAt": stamp}
+
+    if method == "RejectGovernanceAction":
+        approval_id = str(params.get("approvalId", "")).strip()
+        row = store.db.execute("SELECT approval_id, action_type, target FROM governance_approvals WHERE approval_id=?", (approval_id,)).fetchone()
+        if not row:
+            raise ValueError(f"approval_not_found: {approval_id}")
+        stamp = now()
+        store.db.execute("UPDATE governance_approvals SET status='REJECTED', resolved_at=? WHERE approval_id=?", (stamp, approval_id))
+        store.db.commit()
+        store.event(None, "GOVERNANCE_ACTION_REJECTED", {"approvalId": approval_id, "actionType": row[1], "target": row[2]})
+        return {"approvalId": approval_id, "status": "REJECTED", "resolvedAt": stamp}
 
     if method == "ListAgents":
         rows = store.db.execute("SELECT agent_id, display_name, status, created_at, updated_at FROM agents ORDER BY created_at DESC").fetchall()

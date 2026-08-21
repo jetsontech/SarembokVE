@@ -5,7 +5,10 @@ services:
       SAREMBOK_AUTH_TOKEN: ${SAREMBOK_AUTH_TOKEN:?Set SAREMBOK_AUTH_TOKEN before starting production}
 
   sarembok-edge:
-    image: caddy:2-alpine
+    build:
+      context: ./edge
+      dockerfile: Dockerfile
+    image: sarembok-edge:production
     container_name: sarembok-edge
     restart: unless-stopped
     depends_on:
@@ -13,11 +16,11 @@ services:
         condition: service_healthy
     environment:
       SAREMBOK_SITE_ADDRESS: ${SAREMBOK_PUBLIC_HOST:-${SAREMBOK_SITE_ADDRESS:-sarembok.com}}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?Set CLOUDFLARE_API_TOKEN before starting production}
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./edge/Caddyfile:/etc/caddy/Caddyfile:ro
       - sarembok-caddy-data:/data
       - sarembok-caddy-config:/config
     security_opt:

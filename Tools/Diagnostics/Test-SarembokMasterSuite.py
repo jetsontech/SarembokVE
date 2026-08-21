@@ -157,14 +157,16 @@ async def test_auth_security(ws_url: str, auth_token: str) -> bool:
 
 
 async def test_rpc_contract_facets(ws_url: str, auth_token: str) -> bool:
-    print(f"\n{INFO_TAG} === Phase 3: 12 Production JSON-RPC Facets Contract ===")
+    print(f"\n{INFO_TAG} === Phase 3: Production JSON-RPC Facets Contract ===")
     all_ok = True
     agent_id = f"test-agent-{uuid.uuid4().hex[:6]}"
     worker_id = f"test-worker-{uuid.uuid4().hex[:6]}"
     session_id = None
+    approval_id = None
 
     facets = [
         ("Health", {}),
+        ("RuntimeInfo", {}),
         ("ListWorkers", {}),
         ("CreateAgent", {"agentId": agent_id, "displayName": "Master Test Agent"}),
         ("QueryAgentState", {"agentId": agent_id}),
@@ -176,6 +178,18 @@ async def test_rpc_contract_facets(ws_url: str, auth_token: str) -> bool:
         ("GetDigitalHumanSession", {"sessionId": "PLACEHOLDER"}),
         ("ScheduleCompute", {"taskType": "smoke_test", "payload": {"operation": "add", "a": 5, "b": 10}}),
         ("GetAuditTrail", {"agentId": agent_id}),
+        ("CreateProject", {"name": "Launch Keynote", "status": "In Progress"}),
+        ("ListProjects", {}),
+        ("StoreMemory", {"tier": "WORKING", "key": "e2e_test_key", "value": "e2e_test_val"}),
+        ("RecallMemory", {"key": "e2e_test_key"}),
+        ("ListMemories", {}),
+        ("IndexFile", {"filename": "master_suite.py", "category": "code", "sizeBytes": 2048}),
+        ("ListFiles", {}),
+        ("CreateCheckpoint", {"label": "E2E Master Suite Checkpoint"}),
+        ("ListCheckpoints", {}),
+        ("RequestGovernanceApproval", {"actionType": "DEPLOYMENT", "target": "Edge", "riskLevel": "HIGH"}),
+        ("ListGovernanceApprovals", {}),
+        ("ApproveGovernanceAction", {"approvalId": "PLACEHOLDER"}),
     ]
 
     try:
@@ -183,12 +197,16 @@ async def test_rpc_contract_facets(ws_url: str, auth_token: str) -> bool:
             for method, params in facets:
                 if method == "GetDigitalHumanSession":
                     params["sessionId"] = session_id or "missing"
+                if method == "ApproveGovernanceAction":
+                    params["approvalId"] = approval_id or "missing"
 
                 resp = await send_rpc(ws, method, params, auth_token=auth_token, req_id=f"rpc-{method}")
                 ok = "result" in resp and "error" not in resp
 
                 if method == "CreateDigitalHumanSession" and ok:
                     session_id = resp["result"].get("sessionId")
+                if method == "RequestGovernanceApproval" and ok:
+                    approval_id = resp["result"].get("approvalId")
 
                 record_result("RPC_CONTRACT", f"Facet: {method}", ok, f"result={bool(resp.get('result'))}")
                 if not ok:
@@ -490,9 +508,30 @@ async def main_async() -> int:
     parser.add_argument("--target", default=os.getenv("SAREMBOK_WS_URL", "http://127.0.0.1:9000"), help="Server target (HTTP or WS URL)")
     parser.add_argument("--auth-token", default=os.getenv("SAREMBOK_AUTH_TOKEN", ""), help="Secret auth token")
     parser.add_argument("--concurrency", type=int, default=10, help="Number of concurrent clients to simulate")
+    parser.add_argument("--spawn-local", action="store_true", help="Spawn an isolated local server instance for testing")
     args = parser.parse_args()
 
-    raw_target = args.target
+    server_proc = None
+    temp_db = None
+    target_port = 9120
+    auth_token = args.auth_token
+
+    if args.spawn_local:
+        temp_db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        temp_db.close()
+        auth_token = auth_token or "master-suite-secret-token"
+        env = dict(os.environ)
+        env["SAREMBOK_PORT"] = str(target_port)
+        env["SAREMBOK_DB_PATH"] = temp_db.name
+        env["SAREMBOK_AUTH_TOKEN"] = auth_token
+        env["SAREMBOK_LOG_LEVEL"] = "WARNING"
+        server_py = os.path.join(REPO_ROOT, "Deployment", "cloud", "server.py")
+        server_proc = subprocess.Popen([sys.executable, server_py], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        await asyncio.sleep(1.5)
+        raw_target = f"http://127.0.0.1:{target_port}"
+    else:
+        raw_target = args.target
+
     if raw_target.startswith("https://"):
         http_url = raw_target
         ws_url = raw_target.replace("https://", "wss://")
@@ -513,31 +552,44 @@ async def main_async() -> int:
     print(" SAREMBOK VE MASTER REGRESSION TEST SUITE")
     print(f" HTTP URL: {http_url}")
     print(f" WS URL:   {ws_url}")
-    print(f" Auth:     {'CONFIGURED' if args.auth_token else 'DISABLED'}")
+    print(f" Auth:     {'CONFIGURED' if auth_token else 'DISABLED'}")
     print("=" * 70)
 
-    # 1. HTTP Endpoint Test
-    await test_http_endpoints(http_url)
+    try:
+        # 1. HTTP Endpoint Test
+        await test_http_endpoints(http_url)
 
-    # 2. Auth Security Test
-    await test_auth_security(ws_url, args.auth_token)
+        # 2. Auth Security Test
+        await test_auth_security(ws_url, auth_token)
 
-    # 3. RPC Contract Facets
-    await test_rpc_contract_facets(ws_url, args.auth_token)
+        # 3. RPC Contract Facets
+        await test_rpc_contract_facets(ws_url, auth_token)
 
-    # 4. Worker & Task Execution
-    await test_worker_and_task_execution(ws_url, args.auth_token)
+        # 4. Worker & Task Execution
+        await test_worker_and_task_execution(ws_url, auth_token)
 
-    # 5. Digital Human Lifecycle
-    await test_digital_human_lifecycle(ws_url, args.auth_token)
+        # 5. Digital Human Lifecycle
+        await test_digital_human_lifecycle(ws_url, auth_token)
 
-    # 6. High Concurrency Stress Test
-    await test_concurrency(ws_url, args.auth_token, client_count=args.concurrency)
+        # 6. High Concurrency Stress Test
+        await test_concurrency(ws_url, auth_token, client_count=args.concurrency)
 
-    # 7. SQLite Persistence & Audit Integrity
-    await test_persistence_and_audit(ws_url, args.auth_token)
+        # 7. SQLite Persistence & Audit Integrity
+        await test_persistence_and_audit(ws_url, auth_token)
 
-    return print_final_completion_report()
+        return print_final_completion_report()
+    finally:
+        if server_proc:
+            server_proc.terminate()
+            try:
+                server_proc.wait(timeout=2.0)
+            except Exception:
+                server_proc.kill()
+        if temp_db and os.path.exists(temp_db.name):
+            try:
+                os.unlink(temp_db.name)
+            except Exception:
+                pass
 
 
 def main() -> None:
