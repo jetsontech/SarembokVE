@@ -1,0 +1,12 @@
+{
+  "name": "sarembok-vps",
+  "host": "15.204.173.205",
+  "username": "ubuntu",
+  "port": 22,
+  "credential_ref": "ssh-agent-or-operator-managed-key",
+  "known_hosts_policy": "operator-managed",
+  "repository_path": "/home/ubuntu/SarembokVE",
+  "deployment_branch": "feature/conversation-runtime-v1",
+  "notes": "The VPS checkout currently contains pre-existing deployment changes. Do not switch branches or reset it without operator approval."
+}
+

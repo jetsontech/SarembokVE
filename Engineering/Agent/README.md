@@ -41,6 +41,12 @@ Run the focused tests from this directory with:
 python -m unittest -v test_engineering_agent.py
 ```
 
+The remote connector tests are run with:
+
+```text
+python -m unittest -v test_remote_connector.py
+```
+
 The implementation follows `Architecture/AGENTIC_CAPABILITY_MODEL_V1.md` and
 `Architecture/AGENTIC_EXECUTION_CONTRACT_V1.md`. Each execution step produces
 an audit event, and each checkpoint is fsync'd before execution continues.
