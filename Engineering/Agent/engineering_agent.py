@@ -105,6 +105,8 @@ class JsonlStore:
     def __init__(self, path: str | os.PathLike[str]):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        if self.path.exists():
+            self.path.chmod(0o600)
 
     def append(self, value: Mapping[str, Any]) -> None:
         line = json.dumps(_jsonable(value), sort_keys=True, separators=(",", ":")) + "\n"
@@ -112,6 +114,7 @@ class JsonlStore:
             handle.write(line)
             handle.flush()
             os.fsync(handle.fileno())
+        self.path.chmod(0o600)
 
     def read_all(self) -> list[dict[str, Any]]:
         if not self.path.exists():
