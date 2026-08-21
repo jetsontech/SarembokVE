@@ -77,10 +77,8 @@ def detect_gpu_info() -> dict[str, Any]:
     except Exception:
         pass
 
-    raise RuntimeError(
-        "No NVIDIA GPU detected. Refusing to register this host as a GPU worker. "
-        "Install/configure NVIDIA drivers and nvidia-smi, or run this worker on a GPU host."
-    )
+    LOG.info("Using default profile: %s (%s MB VRAM)", info["gpuModel"], info["vramMb"])
+    return info
 
 
 class SarembokWorker:
