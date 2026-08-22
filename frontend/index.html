@@ -1142,33 +1142,57 @@
                     </div>
                 </div>
 
-                <div class="two-column-grid">
-                    <!-- Cognitive Reliability Scorecard -->
-                    <div class="panel-container">
-                        <div class="panel-header">
-                            <span class="panel-title">🧠 Cognitive Scorecard & Reliability</span>
-                            <span class="tag tag-online" id="home-scorecard-tag">ONLINE</span>
+                <!-- Frontier Autonomous Multi-Agent Pipeline Execution Studio -->
+                <div class="panel-container" style="margin-top:24px; background:linear-gradient(135deg, rgba(15,23,42,0.85), rgba(7,12,22,0.95)); border:1px solid rgba(0,255,204,0.3); border-radius:var(--radius-lg); padding:24px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <span style="font-size:24px; background:rgba(0,255,204,0.15); width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:1px solid rgba(0,255,204,0.4);">🚀</span>
+                            <div>
+                                <h3 style="font-size:18px; font-weight:800; color:#fff; margin:0;">Autonomous Multi-Agent Pipeline Studio</h3>
+                                <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Decompose complex engineering objectives into multi-agent execution DAGs</p>
+                            </div>
                         </div>
-                        <table>
-                            <tbody>
-                                <tr><td>Overall Cognitive Reliability</td><td><strong class="text-cyan mono" id="sc-overall">--</strong></td></tr>
-                                <tr><td>Perception & Vision Pipeline</td><td class="mono" id="sc-perception">--</td></tr>
-                                <tr><td>Memory Recall & Consistency</td><td class="mono" id="sc-memory">--</td></tr>
-                                <tr><td>Reasoning & Task Decomposition</td><td class="mono" id="sc-reasoning">--</td></tr>
-                                <tr><td>Governance & Policy Enforcement</td><td class="mono text-emerald" id="sc-governance">--</td></tr>
-                                <tr><td>Storage Subsystem</td><td><span class="tag tag-cyan">SQLite-WAL</span></td></tr>
-                            </tbody>
-                        </table>
+                        <span class="tag tag-cyan" style="font-family:var(--font-mono);">LONG-HORIZON ENGINE v2.2</span>
                     </div>
 
-                    <!-- Real-Time Event Stream -->
-                    <div class="panel-container">
-                        <div class="panel-header">
-                            <span class="panel-title">📜 Live Event Stream</span>
+                    <div style="display:flex; gap:12px; margin-bottom:16px;">
+                        <input type="text" id="pipeline-goal-input" class="aria-input" placeholder="Enter high-level engineering goal (e.g., 'Synthesize distributed WebRTC MetaHuman streaming cluster')..." style="flex:1; background:rgba(5,8,16,0.8); border:1px solid rgba(255,255,255,0.15); border-radius:var(--radius-md); padding:12px 18px; color:#fff; font-size:14px;">
+                        <button class="btn btn-cyan" onclick="runAutonomousPipeline()" style="padding:12px 24px; font-weight:700;">🚀 Launch Pipeline</button>
+                    </div>
+
+                    <div id="pipeline-stages-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px;">
+                        <!-- Dynamically Injected Pipeline Stages -->
+                        <div style="background:rgba(10,15,28,0.7); border:1px dashed rgba(255,255,255,0.1); border-radius:var(--radius-md); padding:16px; text-align:center; color:var(--text-muted); font-size:13px; grid-column:1/-1;">
+                            Enter an objective above to trigger autonomous architecture decomposition, code generation, and distributed worker execution.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Topological Cognitive Node Graph & Live Event Stream -->
+                <div class="two-column-grid" style="margin-top:24px;">
+                    <!-- Interactive 2D/3D Cognitive Topology Graph -->
+                    <div class="panel-container" style="background:rgba(12,18,32,0.85); border:1px solid rgba(0,255,204,0.2); border-radius:var(--radius-lg); padding:20px;">
+                        <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:18px;">🕸️</span>
+                                <span class="panel-title" style="font-weight:700;">Cognitive Bus & Swarm Topology</span>
+                            </div>
+                            <button class="btn btn-outline btn-sm" onclick="loadCognitiveGraph()">🔄 Sync Graph</button>
+                        </div>
+                        <canvas id="cognitive-graph-canvas" width="480" height="260" style="width:100%; height:260px; background:radial-gradient(circle at 50% 50%, rgba(0,255,204,0.05), rgba(5,8,16,0.95)); border-radius:var(--radius-md); border:1px solid rgba(255,255,255,0.06); display:block;"></canvas>
+                    </div>
+
+                    <!-- Real-Time Event Stream & Kernel Log -->
+                    <div class="panel-container" style="background:rgba(12,18,32,0.85); border:1px solid rgba(255,0,127,0.2); border-radius:var(--radius-lg); padding:20px;">
+                        <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:18px;">📜</span>
+                                <span class="panel-title" style="font-weight:700;">Kernel Event & Audit Journal</span>
+                            </div>
                             <button class="btn btn-outline btn-sm" onclick="fetchEvents()">Refresh</button>
                         </div>
-                        <div class="terminal-box" id="home-events-box" style="height:250px;">
-                            <div class="log-entry"><span class="text-muted">[SYSTEM]</span> Connecting to runtime events...</div>
+                        <div class="terminal-box" id="home-events-box" style="height:260px; font-family:var(--font-mono); font-size:12px; line-height:1.5; overflow-y:auto;">
+                            <div class="log-entry"><span class="text-muted">[SYSTEM]</span> Kernel audit journal initialized with SQLite-WAL.</div>
                         </div>
                     </div>
                 </div>
@@ -2852,9 +2876,152 @@
             }
         }
 
+        // Autonomous Multi-Agent Pipeline Studio Execution
+        async function runAutonomousPipeline() {
+            const input = document.getElementById('pipeline-goal-input');
+            const goal = (input ? input.value : "").trim();
+            if (!goal) {
+                alert("Please enter an engineering goal to launch an autonomous pipeline.");
+                return;
+            }
+
+            const container = document.getElementById('pipeline-stages-container');
+            if (container) {
+                container.innerHTML = `
+                    <div style="grid-column:1/-1; background:rgba(0,255,204,0.08); border:1px solid rgba(0,255,204,0.3); border-radius:var(--radius-md); padding:16px; display:flex; align-items:center; gap:12px;">
+                        <span class="status-dot"></span>
+                        <span style="font-weight:700; color:#fff;">Decomposing Objective: "${escapeHtml(goal)}"...</span>
+                    </div>
+                `;
+            }
+
+            try {
+                const res = await sendRPC("ExecuteAutonomousPipeline", { goal: goal });
+                const tasks = res.tasks || [];
+                
+                if (container) {
+                    container.innerHTML = tasks.map((t, idx) => {
+                        const icons = ['🏛️', '⚡', '🧪', '🌐'];
+                        const icon = icons[idx % icons.length];
+                        return `
+                            <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(0,255,204,0.25); border-radius:var(--radius-md); padding:16px; display:flex; flex-direction:column; gap:8px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="font-size:20px;">${icon}</span>
+                                    <span class="tag tag-online" style="font-size:9px;">STAGE 0${idx+1}</span>
+                                </div>
+                                <div style="font-weight:700; color:#fff; font-size:13px;">${escapeHtml(t.title)}</div>
+                                <div style="font-size:11px; color:var(--cyan); font-family:var(--font-mono);">${escapeHtml(t.taskId)}</div>
+                                <div style="font-size:10px; color:var(--text-muted); display:flex; align-items:center; gap:4px; margin-top:4px;">
+                                    <span style="width:6px; height:6px; border-radius:50%; background:var(--emerald);"></span> Autonomous Execution
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                speakAria(`Autonomous engineering pipeline initiated for: ${goal}. Four autonomous stages have been dispatched across the compute mesh.`);
+                refreshDashboard();
+                fetchAgents();
+                fetchTasks();
+                fetchMemories();
+                loadCognitiveGraph();
+            } catch(e) {
+                alert("Pipeline execution error: " + e);
+            }
+        }
+
+        // 2D/3D Cognitive Topology Graph Visualizer
+        let graphAnimFrame = null;
+        async function loadCognitiveGraph() {
+            const canvas = document.getElementById('cognitive-graph-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            try {
+                const data = await sendRPC("QueryCognitiveGraph");
+                const nodes = data.nodes || [];
+                const links = data.links || [];
+                
+                // Position nodes in a radial topology
+                const cx = canvas.width / 2;
+                const cy = canvas.height / 2;
+                
+                nodes.forEach((n, i) => {
+                    if (n.type === 'core') {
+                        n.x = cx;
+                        n.y = cy;
+                    } else {
+                        const angle = (i / (nodes.length - 1)) * 2 * Math.PI;
+                        const dist = 75 + (i % 3) * 25;
+                        n.x = cx + Math.cos(angle) * dist;
+                        n.y = cy + Math.sin(angle) * dist;
+                    }
+                });
+
+                let phase = 0;
+                function drawGraph() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    phase += 0.03;
+
+                    // Draw links with glowing pulses
+                    links.forEach(l => {
+                        const s = nodes.find(n => n.id === l.source) || {x: cx, y: cy};
+                        const t = nodes.find(n => n.id === l.target) || {x: cx, y: cy};
+                        
+                        ctx.beginPath();
+                        ctx.strokeStyle = 'rgba(0, 255, 204, 0.18)';
+                        ctx.lineWidth = 1.5;
+                        ctx.moveTo(s.x, s.y);
+                        ctx.lineTo(t.x, t.y);
+                        ctx.stroke();
+
+                        // Link pulse
+                        const pulsePos = (Math.sin(phase) + 1) / 2;
+                        const px = s.x + (t.x - s.x) * pulsePos;
+                        const py = s.y + (t.y - s.y) * pulsePos;
+                        ctx.beginPath();
+                        ctx.fillStyle = '#00ffcc';
+                        ctx.arc(px, py, 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    });
+
+                    // Draw nodes
+                    nodes.forEach(n => {
+                        ctx.beginPath();
+                        let col = '#00ffcc';
+                        if (n.type === 'agent') col = '#10b981';
+                        if (n.type === 'memory') col = '#ff007f';
+                        if (n.type === 'worker') col = '#f59e0b';
+                        if (n.type === 'task') col = '#8b5cf6';
+                        
+                        ctx.fillStyle = col;
+                        ctx.shadowColor = col;
+                        ctx.shadowBlur = 8;
+                        ctx.arc(n.x, n.y, n.val / 2, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+
+                        // Label
+                        ctx.fillStyle = '#cbd5e1';
+                        ctx.font = '9px JetBrains Mono, monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(n.label.substring(0, 10), n.x, n.y + n.val/2 + 10);
+                    });
+                }
+
+                if (graphAnimFrame) cancelAnimationFrame(graphAnimFrame);
+                function loop() {
+                    drawGraph();
+                    graphAnimFrame = requestAnimationFrame(loop);
+                }
+                loop();
+            } catch(e) {}
+        }
+
         window.onload = () => {
             connectWebSocket();
             setTimeout(initAria3D, 200);
+            setTimeout(loadCognitiveGraph, 500);
         };
     </script>
 </body>
