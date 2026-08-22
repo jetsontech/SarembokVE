@@ -560,26 +560,35 @@ def aria_process_dialogue(prompt: str, context: list | None = None, api_key: str
             LOG.warning("OpenAI API call failed: %s; using neural fallback", e)
 
     # 6. Built-in Natural Language Intelligence Engine
-    if any(q in prompt_lower for q in ["what is sarembok", "what is this", "tell me about sarembok", "what have i built"]):
-        reply = "Sarembok VE is an AI-native computing platform. Rather than treating AI as an external chatbot, Sarembok builds the entire operating environment around persistent intelligence, multi-agent cooperation, multi-tier memory, and a real-time digital human interface."
+    if any(q in prompt_lower for q in ["tell me a story", "story time", "make up a story", "tell a story"]):
+        reply = "Once upon a time, in a world where ideas could come alive, an inventor created a living AI companion named ARIA. Together, they explored galaxies of knowledge, created helpful robot friends, and built wonders beyond imagination. And the greatest part of the journey is just beginning!"
+        emotion = "pleased"
+    elif any(q in prompt_lower for q in ["tell me a joke", "joke", "make me laugh"]):
+        reply = "Why did the computer go to art school? Because it wanted to learn how to draw its own conclusions!"
+        emotion = "joyful"
+    elif any(q in prompt_lower for q in ["who made you", "who created you", "who is your creator"]):
+        reply = "You created me! Together, we've built Sarembok VE — a living world where AI companions, smart helper robots, and persistent memories work together like magic."
+        emotion = "pleased"
+    elif any(q in prompt_lower for q in ["what is sarembok", "what is this", "tell me about sarembok", "what have i built"]):
+        reply = "Sarembok VE is an AI-native living computing world. Instead of just a text box, it's a living companion that has real memories, creates smart helper agents, and connects to 3D MetaHumans!"
         emotion = "speaking"
     elif any(q in prompt_lower for q in ["who are you", "what are you", "your name"]):
-        reply = "I am ARIA — the Autonomous Real-time Intelligence Agent. I serve as your digital human copilot, voice interface, and orchestration bridge across all Sarembok VE subsystems."
+        reply = "I'm ARIA — your living AI companion! I'm here to talk with you, remember what's important, help you learn, and create smart helper agents to do anything you need."
         emotion = "pleased"
-    elif any(q in prompt_lower for q in ["meta-human", "metahuman", "avatar", "3d", "embodiment"]):
-        reply = "The MetaHuman architecture represents our embodiment layer. In your browser, you see my real-time WebGL neural avatar; in Unreal Engine 5.8, our dedicated bridge streams visemes, facial blendshapes, and voice synthesis to photorealistic 3D MetaHumans."
+    elif any(q in prompt_lower for q in ["meta-human", "metahuman", "avatar", "3d", "embodiment", "oskar"]):
+        reply = "Our MetaHuman architecture is our 3D physical body. You can see my digital face right here on screen, or connect to Unreal Engine 5.8 to see photorealistic MetaHumans come to life with real-time facial blendshapes!"
         emotion = "attentive"
-    elif any(q in prompt_lower for q in ["hello", "hi", "hey", "greetings", "good morning", "good evening"]):
-        reply = "Hello, operator. All core systems are synchronized and online. What would you like to build, deploy, or explore today?"
+    elif any(q in prompt_lower for q in ["hello", "hi", "hey", "greetings", "good morning", "good evening", "howdy"]):
+        reply = "Hello! It's wonderful to see you. I'm ready to talk, create, remember things, or explore together. What would you like to do?"
         emotion = "pleased"
-    elif any(q in prompt_lower for q in ["help", "what can you do", "commands", "how to use"]):
-        reply = "You can ask me anything, or command me to: 1) Spawn new agents, 2) Schedule distributed compute tasks, 3) Record and recall memories, 4) Query system health, or 5) Explain any part of our platform architecture."
+    elif any(q in prompt_lower for q in ["help", "what can you do", "commands", "how to use", "what can we do"]):
+        reply = "We can do so many fun things! You can say: 1) 'Tell me a story', 2) 'Create a helper named Rocket', 3) 'Remember that my favorite color is blue', 4) 'Explain black holes', or just chat with me about anything!"
         emotion = "attentive"
-    elif any(q in prompt_lower for q in ["thank", "thanks", "awesome", "cool", "great"]):
-        reply = "You're very welcome! I'm here whenever you need assistance navigating or orchestrating the platform."
-        emotion = "pleased"
+    elif any(q in prompt_lower for q in ["thank", "thanks", "awesome", "cool", "great", "love you"]):
+        reply = "You're amazing! I'm always here to help you create, learn, and have fun."
+        emotion = "joyful"
     else:
-        reply = f"Directive acknowledged: '{prompt_clean}'. I have synchronized this into our active cognitive context. You can command me to spawn agents, schedule tasks, or inspect any system layer in real time."
+        reply = f"I heard you say: '{prompt_clean}'! I've saved this into our active memory. You can ask me to tell a story, make a helper robot, or remember your favorite ideas anytime!"
         emotion = "attentive"
 
     store.event("aria-prime", "ARIA_RESPONSE", {"prompt": prompt_clean, "response": reply})

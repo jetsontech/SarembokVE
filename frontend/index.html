@@ -248,6 +248,32 @@
             margin: 0 auto;
         }
 
+        /* Companion Mode vs Studio Mode Behavioral CSS */
+        body.mode-companion .sidebar {
+            display: none !important;
+        }
+        body.mode-companion .workspace {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px 20px 60px;
+        }
+        body.mode-companion .dashboard-grid {
+            display: none !important;
+        }
+        body.mode-companion .two-column-grid {
+            display: none !important;
+        }
+        body.mode-companion .companion-shelves {
+            display: flex !important;
+        }
+
+        body.mode-studio .sidebar {
+            display: flex !important;
+        }
+        body.mode-studio .companion-shelves {
+            display: none !important;
+        }
+
         /* Sidebar Navigation */
         .sidebar {
             width: 240px;
@@ -862,13 +888,19 @@
                 <span id="topbar-worker-summary">Connecting...</span>
             </div>
 
+            <!-- App Experience Mode Switcher -->
+            <div class="mode-switcher" style="display:flex; background:rgba(0,0,0,0.6); border:1px solid var(--border-subtle); border-radius:24px; padding:3px; gap:4px; box-shadow:0 4px 12px rgba(0,0,0,0.5);">
+                <button id="btn-mode-companion" class="btn-mode" onclick="setAppMode('companion')" style="padding:6px 14px; border-radius:20px; font-size:12px; font-weight:700; border:none; cursor:pointer; background:var(--cyan); color:#05070a; transition:all 0.2s; display:flex; align-items:center; gap:6px;">✨ Companion</button>
+                <button id="btn-mode-studio" class="btn-mode" onclick="setAppMode('studio')" style="padding:6px 14px; border-radius:20px; font-size:12px; font-weight:700; border:none; cursor:pointer; background:transparent; color:var(--text-muted); transition:all 0.2s; display:flex; align-items:center; gap:6px;">⚙️ Studio</button>
+            </div>
+
             <div class="topbar-actions">
                 <div class="unreal-bridge-indicator" id="topbar-unreal-bridge" style="display:flex; align-items:center; gap:6px; background:rgba(15,20,34,0.85); border:1px solid rgba(0,255,204,0.25); padding:4px 10px; border-radius:16px; font-size:11px; font-weight:600;">
                     <span class="status-dot" style="background:#64748b; width:6px; height:6px;" id="unreal-bridge-dot"></span>
                     <span>Unreal 5.8: <strong id="unreal-bridge-status" class="mono text-muted">STANDBY</strong></span>
                 </div>
                 <div class="clock-display mono" id="live-clock">--:--:-- UTC</div>
-                <button class="btn btn-outline btn-sm" onclick="openModal('modal-auth')">🔑 Auth Secret</button>
+                <button class="btn btn-outline btn-sm" onclick="openModal('modal-auth')">🔑 Auth</button>
             </div>
         </div>
     </header>
@@ -963,12 +995,14 @@
             
             <!-- ================= VIEW 1: HOME ================= -->
             <section id="view-home" class="view-section active">
-                <div class="greeting-banner">
+                <div class="greeting-banner" style="display:flex; justify-content:space-between; align-items:center; background:linear-gradient(135deg, rgba(0,255,204,0.08), rgba(255,0,127,0.06)); border:1px solid rgba(0,255,204,0.2); border-radius:var(--radius-lg); padding:18px 24px; margin-bottom:20px;">
                     <div>
-                        <h2 class="greeting-title" id="greeting-text">Good morning, Operator.</h2>
-                        <p class="greeting-sub" id="greeting-date">Virtual Evolution Operating Environment · Cloud Runtime Online</p>
+                        <h2 class="greeting-title" id="greeting-text" style="font-size:22px; font-weight:800; color:#fff; margin:0;">Welcome to Sarembok! ✨</h2>
+                        <p class="greeting-sub" id="greeting-date" style="font-size:13px; color:var(--text-muted); margin:4px 0 0;">Your Living AI Companion · Ready to talk, create, and explore</p>
                     </div>
-                    <button class="btn btn-cyan btn-sm" onclick="refreshAllViews()">🔄 Synchronize</button>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-cyan btn-sm" onclick="refreshAllViews()">🔄 Sync</button>
+                    </div>
                 </div>
 
                 <!-- Target Experience Operational Cards (Backed by real state) -->
@@ -1024,35 +1058,72 @@
                     <!-- Right: Neural Dialogue Console -->
                     <div class="aria-visual">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div class="aria-tag">✨ ARIA · EMBODIED COGNITIVE AGENT</div>
+                            <div class="aria-tag">✨ ARIA · Autonomous Digital Human</div>
                             <span class="tag tag-online" id="aria-emotion-tag" style="font-size:10px;">Attentive</span>
                         </div>
-                        <h3 class="aria-headline">Autonomous Digital Human</h3>
-                        <div class="aria-quote" id="aria-dialogue-bubble">"Hello, Operator. I am ARIA, the embodied digital human interface of Sarembok VE. How may I assist you?"</div>
+                        <h3 class="aria-headline">Hello! What should we do today?</h3>
+                        <div class="aria-quote" id="aria-dialogue-bubble">"Hi there! I'm ARIA, your living AI companion. Talk to me, ask me a question, or tap any button below to get started!"</div>
                         
                         <!-- Quick Action Prompt Pills -->
                         <div class="aria-prompt-pills">
-                            <span class="aria-pill" onclick="sendQuickPrompt('What is Sarembok VE and what have I built?')">🌟 What is Sarembok VE?</span>
-                            <span class="aria-pill" onclick="sendQuickPrompt('Spawn an autonomous research agent named Sentinel')">🤖 Spawn Agent</span>
-                            <span class="aria-pill" onclick="sendQuickPrompt('Schedule compute task for neural reasoning')">⚡ Schedule Compute</span>
-                            <span class="aria-pill" onclick="sendQuickPrompt('Remember that our core architecture unifies memory, agents, and embodiment')">🧠 Store Memory</span>
-                            <span class="aria-pill" onclick="sendQuickPrompt('Give me a full system status report')">📊 System Status</span>
+                            <span class="aria-pill" onclick="sendQuickPrompt('Tell me a fun adventure story')">📖 Tell a Story</span>
+                            <span class="aria-pill" onclick="sendQuickPrompt('Tell me a funny joke')">😂 Tell a Joke</span>
+                            <span class="aria-pill" onclick="sendQuickPrompt('Create a smart helper robot named Rocket')">🤖 Make Helper Robot</span>
+                            <span class="aria-pill" onclick="sendQuickPrompt('Remember that my favorite color is cyan')">🧠 Remember Something</span>
+                            <span class="aria-pill" onclick="sendQuickPrompt('Who created you and what can we do?')">🌟 Who Made You?</span>
                         </div>
 
                         <!-- Interaction Input Deck -->
                         <div class="aria-controls" style="margin-top:6px;">
                             <div class="aria-input-row">
-                                <button class="btn-mic" id="btn-aria-mic" onclick="toggleVoiceRecognition()" title="Click to speak with voice (Speech-to-Text)">🎤</button>
-                                <input type="text" class="aria-input" id="aria-prompt-input" placeholder="Talk or type to ARIA (e.g. 'Spawn agent Atlas', 'What is Sarembok?')..." onkeydown="if(event.key==='Enter')dispatchAriaPrompt()">
-                                <button class="btn btn-cyan" onclick="dispatchAriaPrompt()">Transmit ➔</button>
+                                <button class="btn-mic" id="btn-aria-mic" onclick="toggleVoiceRecognition()" title="Click to speak with your voice (Microphone)">🎤</button>
+                                <input type="text" class="aria-input" id="aria-prompt-input" placeholder="Say or type anything to ARIA (e.g. 'Tell me a story', 'Make a helper robot')..." onkeydown="if(event.key==='Enter')dispatchAriaPrompt()">
+                                <button class="btn btn-cyan" onclick="dispatchAriaPrompt()">Send ➔</button>
                             </div>
                             <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-muted);">
-                                <span>Voice: <strong class="text-cyan mono">Neural Web Speech (W3C)</strong> · 3D Engine: <strong class="text-emerald mono">WebGL Three.js</strong></span>
+                                <span>Voice: <strong class="text-cyan mono">Neural Web Speech</strong> · Real-Time 3D Face</span>
                                 <div style="display:flex; gap:8px;">
-                                    <button class="btn btn-outline btn-sm" onclick="openModal('modal-session')">+ New Session</button>
-                                    <button class="btn btn-outline btn-sm" onclick="injectSimulatedPerception()">👁️ Test Perception</button>
+                                    <button class="btn btn-outline btn-sm" onclick="openModal('modal-session')">+ 3D Session</button>
+                                    <button class="btn btn-outline btn-sm" onclick="injectSimulatedPerception()">👁️ Look</button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kid-Friendly & Effortless Companion Shelves (Visible in Companion Mode) -->
+                <div class="companion-shelves" id="companion-shelves" style="display:none; flex-direction:column; gap:20px; margin-top:24px;">
+                    <!-- Friendly Helpers Deck -->
+                    <div class="panel-container" style="background:rgba(12,16,26,0.7); border:1px solid rgba(0,255,204,0.15); border-radius:var(--radius-lg); padding:20px;">
+                        <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span style="font-size:22px;">🤖</span>
+                                <div>
+                                    <h4 style="font-size:16px; font-weight:800; color:#fff; margin:0;">My Smart Helper Robots</h4>
+                                    <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Agents ready to think, research, and do tasks for you</p>
+                                </div>
+                            </div>
+                            <button class="btn btn-cyan btn-sm" onclick="openModal('modal-agent')">+ Make New Helper</button>
+                        </div>
+                        <div id="companion-helpers-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:14px;">
+                            <!-- Injected dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Friendly Memory Deck -->
+                    <div class="panel-container" style="background:rgba(12,16,26,0.7); border:1px solid rgba(255,0,127,0.15); border-radius:var(--radius-lg); padding:20px;">
+                        <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span style="font-size:22px;">🧠</span>
+                                <div>
+                                    <h4 style="font-size:16px; font-weight:800; color:#fff; margin:0;">Things ARIA Remembers</h4>
+                                    <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Ideas, facts, and favorite things saved in memory</p>
+                                </div>
+                            </div>
+                            <button class="btn btn-outline btn-sm" onclick="openModal('modal-memory')">+ Save New Memory</button>
+                        </div>
+                        <div id="companion-memories-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:14px;">
+                            <!-- Injected dynamically -->
                         </div>
                     </div>
                 </div>
@@ -1733,6 +1804,89 @@
         setInterval(updateClock, 1000);
         updateClock();
 
+        let currentAppMode = localStorage.getItem('sarembok_app_mode') || 'companion';
+
+        function setAppMode(mode) {
+            currentAppMode = mode;
+            if (mode === 'companion') {
+                document.body.classList.add('mode-companion');
+                document.body.classList.remove('mode-studio');
+                const btnC = document.getElementById('btn-mode-companion');
+                const btnS = document.getElementById('btn-mode-studio');
+                if (btnC) { btnC.style.background = 'var(--cyan)'; btnC.style.color = '#05070a'; }
+                if (btnS) { btnS.style.background = 'transparent'; btnS.style.color = 'var(--text-muted)'; }
+                switchView('home');
+            } else {
+                document.body.classList.remove('mode-companion');
+                document.body.classList.add('mode-studio');
+                const btnC = document.getElementById('btn-mode-companion');
+                const btnS = document.getElementById('btn-mode-studio');
+                if (btnC) { btnC.style.background = 'transparent'; btnC.style.color = 'var(--text-muted)'; }
+                if (btnS) { btnS.style.background = 'var(--magenta)'; btnS.style.color = '#fff'; }
+            }
+            localStorage.setItem('sarembok_app_mode', mode);
+            renderCompanionShelves();
+        }
+
+        async function renderCompanionShelves() {
+            // Render Smart Helper Robots
+            const helpersGrid = document.getElementById('companion-helpers-grid');
+            if (helpersGrid) {
+                try {
+                    const res = await sendRPC("ListAgents");
+                    const agents = res.agents || [];
+                    if (agents.length === 0) {
+                        helpersGrid.innerHTML = `
+                            <div style="grid-column:1/-1; background:rgba(0,0,0,0.3); border:1px dashed var(--border-subtle); border-radius:var(--radius-md); padding:20px; text-align:center; color:var(--text-muted);">
+                                🤖 No helpers created yet. Tap <strong>"+ Make New Helper"</strong> or tell ARIA: <em>"Create a helper named Rocket"</em>!
+                            </div>
+                        `;
+                    } else {
+                        helpersGrid.innerHTML = agents.map((a, idx) => {
+                            const icons = ['🤖', '🚀', '⚡', '🌟', '🛡️', '🛰️'];
+                            const icon = icons[idx % icons.length];
+                            return `
+                                <div style="background:rgba(15,20,32,0.85); border:1px solid rgba(0,255,204,0.2); border-radius:var(--radius-md); padding:14px 16px; display:flex; align-items:center; gap:12px;">
+                                    <div style="font-size:24px; background:rgba(0,255,204,0.1); width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:1px solid rgba(0,255,204,0.3);">${icon}</div>
+                                    <div style="flex:1; min-width:0;">
+                                        <div style="font-weight:700; color:#fff; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(a.displayName || a.agentId)}</div>
+                                        <div style="font-size:11px; color:var(--emerald); display:flex; align-items:center; gap:4px; margin-top:2px;">
+                                            <span style="width:5px; height:5px; border-radius:50%; background:var(--emerald);"></span> ${escapeHtml(a.status || 'ONLINE')}
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    }
+                } catch(e) {}
+            }
+
+            // Render Things I Remember (Memories)
+            const memoriesGrid = document.getElementById('companion-memories-grid');
+            if (memoriesGrid) {
+                try {
+                    const res = await sendRPC("ListMemories", { limit: 6 });
+                    const memories = res.memories || [];
+                    if (memories.length === 0) {
+                        memoriesGrid.innerHTML = `
+                            <div style="grid-column:1/-1; background:rgba(0,0,0,0.3); border:1px dashed var(--border-subtle); border-radius:var(--radius-md); padding:20px; text-align:center; color:var(--text-muted);">
+                                🧠 No saved memories yet. Say to ARIA: <em>"Remember that my favorite color is blue"</em> or click <strong>"+ Save New Memory"</strong>!
+                            </div>
+                        `;
+                    } else {
+                        memoriesGrid.innerHTML = memories.map(m => `
+                            <div style="background:rgba(20,15,30,0.85); border:1px solid rgba(255,0,127,0.25); border-radius:var(--radius-md); padding:14px 16px; display:flex; flex-direction:column; gap:6px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="font-size:11px; font-weight:700; color:var(--magenta); text-transform:uppercase;">${escapeHtml(m.key || 'Memory')}</span>
+                                    <span style="font-size:10px; color:var(--text-muted);">${new Date(m.createdAt).toLocaleDateString()}</span>
+                                </div>
+                                <div style="font-size:13px; color:#e2e8f0; line-height:1.4; word-break:break-word;">${escapeHtml(m.value)}</div>
+                            </div>
+                        `).join('');
+                    }
+                } catch(e) {}
+        }
+
         function switchView(viewId) {
             document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
@@ -1762,7 +1916,8 @@
             ws = new WebSocket(url);
 
             ws.onopen = () => {
-                document.getElementById('topbar-worker-summary').textContent = "All systems active · Connecting...";
+                document.getElementById('topbar-worker-summary').textContent = "All systems active · Ready";
+                setAppMode(currentAppMode);
                 refreshAllViews();
             };
 
@@ -1891,6 +2046,7 @@
                     }
                 } catch(e) {}
 
+                await renderCompanionShelves();
             } catch(e) {}
         }
 
