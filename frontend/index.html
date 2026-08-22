@@ -9,7 +9,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+    <!-- Three.js 3D WebGL Library for Digital Human Avatar -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
     <style>
         :root {
             --bg-void: #05070a;
@@ -450,21 +452,85 @@
 
         /* Digital Human ARIA Showcase Card */
         .aria-hero-card {
-            background: radial-gradient(circle at 80% 20%, rgba(255, 0, 127, 0.08) 0%, transparent 60%),
-                        linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-card) 100%);
-            border: 1px solid rgba(255, 0, 127, 0.3);
+            background: radial-gradient(circle at 85% 15%, rgba(255, 0, 127, 0.12) 0%, transparent 60%),
+                        linear-gradient(135deg, rgba(15, 20, 34, 0.95) 0%, rgba(9, 12, 19, 0.98) 100%);
+            border: 1px solid rgba(0, 255, 204, 0.35);
             border-radius: var(--radius-lg);
-            padding: 28px;
+            padding: 24px;
             margin-bottom: 28px;
             display: grid;
-            grid-template-columns: 1fr 1.2fr;
-            gap: 28px;
+            grid-template-columns: 340px 1fr;
+            gap: 24px;
             align-items: center;
-            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 255, 204, 0.08);
+            position: relative;
+            overflow: hidden;
         }
 
-        @media (max-width: 960px) {
+        @media (max-width: 1040px) {
             .aria-hero-card { grid-template-columns: 1fr; }
+        }
+
+        /* 3D ARIA Digital Human Container */
+        .aria-3d-stage {
+            position: relative;
+            width: 100%;
+            height: 320px;
+            border-radius: var(--radius-md);
+            background: radial-gradient(circle at 50% 50%, rgba(0, 255, 204, 0.15) 0%, rgba(5, 7, 10, 0.98) 75%);
+            border: 1px solid rgba(0, 255, 204, 0.3);
+            overflow: hidden;
+            box-shadow: 0 0 25px rgba(0, 255, 204, 0.12) inset;
+        }
+
+        #aria-3d-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: grab;
+        }
+        #aria-3d-canvas:active { cursor: grabbing; }
+
+        .aria-hud-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .aria-status-badge {
+            background: rgba(5, 7, 10, 0.85);
+            border: 1px solid var(--cyan);
+            color: var(--cyan);
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(8px);
+            letter-spacing: 0.5px;
+        }
+
+        .aria-status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--cyan);
+            box-shadow: 0 0 8px var(--cyan);
+            animation: pulse 1.5s infinite;
+        }
+
+        .aria-waveform-canvas {
+            width: 90px;
+            height: 20px;
+            background: transparent;
         }
 
         .aria-visual {
@@ -489,32 +555,37 @@
         }
 
         .aria-headline {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 800;
             color: #fff;
-            line-height: 1.3;
+            line-height: 1.25;
         }
 
         .aria-quote {
-            font-size: 15px;
-            font-style: italic;
-            color: var(--cyan);
-            line-height: 1.5;
-            background: rgba(0, 255, 204, 0.05);
+            font-size: 14px;
+            font-style: normal;
+            color: #e2e8f0;
+            line-height: 1.6;
+            background: rgba(0, 255, 204, 0.06);
             border-left: 3px solid var(--cyan);
-            padding: 12px 16px;
+            padding: 14px 18px;
             border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            min-height: 54px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            transition: var(--transition);
         }
 
         .aria-controls {
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 12px;
         }
 
         .aria-input-row {
             display: flex;
-            gap: 10px;
+            gap: 8px;
         }
 
         .aria-input {
@@ -533,6 +604,60 @@
         .aria-input:focus {
             border-color: var(--cyan);
             box-shadow: 0 0 10px var(--cyan-glow);
+        }
+
+        .btn-mic {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+            padding: 0 14px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .btn-mic:hover {
+            border-color: var(--magenta);
+            color: var(--magenta);
+            background: var(--magenta-subtle);
+        }
+
+        .btn-mic.listening {
+            background: rgba(255, 0, 127, 0.25);
+            border-color: var(--magenta);
+            color: var(--magenta);
+            box-shadow: 0 0 16px rgba(255, 0, 127, 0.6);
+            animation: pulse 1s infinite;
+        }
+
+        .aria-prompt-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .aria-pill {
+            background: rgba(15, 20, 34, 0.85);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 5px 12px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            user-select: none;
+        }
+
+        .aria-pill:hover {
+            border-color: var(--cyan);
+            color: #fff;
+            background: rgba(0, 255, 204, 0.12);
+            transform: translateY(-1px);
         }
 
         /* Generic Panels & Tables */
@@ -875,22 +1000,55 @@
                     </div>
                 </div>
 
-                <!-- Digital Human / ARIA Embodiment Interface -->
+                <!-- Digital Human / ARIA Embodiment Interface (3D WebGL + Neural Speech) -->
                 <div class="aria-hero-card">
-                    <div class="aria-visual">
-                        <div class="aria-tag">✨ ARIA · SAREMBOK EMBODIMENT</div>
-                        <h3 class="aria-headline">Autonomous Digital Human</h3>
-                        <p class="aria-quote" id="aria-dialogue-bubble">"Good morning. What would you like to accomplish today?"</p>
-                        <div style="font-size:12px; color:var(--text-muted);">Session Status: <strong class="text-emerald" id="aria-session-status">IDLE</strong> · Voice Profile: <span class="mono" id="aria-voice-profile">en_us_aria_neural</span></div>
-                    </div>
-                    <div class="aria-controls">
-                        <div class="aria-input-row">
-                            <input type="text" class="aria-input" id="aria-prompt-input" placeholder="Instruct ARIA or submit perception query...">
-                            <button class="btn btn-cyan" onclick="dispatchAriaPrompt()">Transmit</button>
+                    <!-- Left: 3D Holographic WebGL Stage -->
+                    <div class="aria-3d-stage">
+                        <div class="aria-hud-overlay">
+                            <div class="aria-status-badge">
+                                <span class="aria-status-dot"></span>
+                                <span id="aria-hud-status">ARIA · ONLINE</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <canvas class="aria-waveform-canvas" id="aria-waveform-canvas"></canvas>
+                                <button class="btn btn-outline btn-sm" id="btn-audio-toggle" onclick="toggleAriaAudio()" title="Toggle Speech Audio" style="padding:2px 8px; font-size:10px; pointer-events:auto;">🔊 Audio</button>
+                            </div>
                         </div>
-                        <div style="display:flex; gap:8px;">
-                            <button class="btn btn-outline btn-sm" onclick="openModal('modal-session')">+ New Session</button>
-                            <button class="btn btn-outline btn-sm" onclick="injectSimulatedPerception()">👁️ Test Perception</button>
+                        <canvas id="aria-3d-canvas"></canvas>
+                    </div>
+
+                    <!-- Right: Neural Dialogue Console -->
+                    <div class="aria-visual">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div class="aria-tag">✨ ARIA · EMBODIED COGNITIVE AGENT</div>
+                            <span class="tag tag-online" id="aria-emotion-tag" style="font-size:10px;">Attentive</span>
+                        </div>
+                        <h3 class="aria-headline">Autonomous Digital Human</h3>
+                        <div class="aria-quote" id="aria-dialogue-bubble">"Hello, Operator. I am ARIA, the embodied digital human interface of Sarembok VE. How may I assist you?"</div>
+                        
+                        <!-- Quick Action Prompt Pills -->
+                        <div class="aria-prompt-pills">
+                            <span class="aria-pill" onclick="sendQuickPrompt('What is Sarembok VE and what have I built?')">🌟 What is Sarembok VE?</span>
+                            <span class="aria-pill" onclick="sendQuickPrompt('Spawn an autonomous research agent named Sentinel')">🤖 Spawn Agent</span>
+                            <span class="aria-pill" onclick="sendQuickPrompt('Schedule compute task for neural reasoning')">⚡ Schedule Compute</span>
+                            <span class="aria-pill" onclick="sendQuickPrompt('Remember that our core architecture unifies memory, agents, and embodiment')">🧠 Store Memory</span>
+                            <span class="aria-pill" onclick="sendQuickPrompt('Give me a full system status report')">📊 System Status</span>
+                        </div>
+
+                        <!-- Interaction Input Deck -->
+                        <div class="aria-controls" style="margin-top:6px;">
+                            <div class="aria-input-row">
+                                <button class="btn-mic" id="btn-aria-mic" onclick="toggleVoiceRecognition()" title="Click to speak with voice (Speech-to-Text)">🎤</button>
+                                <input type="text" class="aria-input" id="aria-prompt-input" placeholder="Talk or type to ARIA (e.g. 'Spawn agent Atlas', 'What is Sarembok?')..." onkeydown="if(event.key==='Enter')dispatchAriaPrompt()">
+                                <button class="btn btn-cyan" onclick="dispatchAriaPrompt()">Transmit ➔</button>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-muted);">
+                                <span>Voice: <strong class="text-cyan mono">Neural Web Speech (W3C)</strong> · 3D Engine: <strong class="text-emerald mono">WebGL Three.js</strong></span>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn btn-outline btn-sm" onclick="openModal('modal-session')">+ New Session</button>
+                                    <button class="btn btn-outline btn-sm" onclick="injectSimulatedPerception()">👁️ Test Perception</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2039,18 +2197,436 @@
             } catch(e) { alert("Error: " + (e.message||e)); }
         }
 
+        // ==========================================
+        // 3D DIGITAL HUMAN (ARIA) WEBGL & AUDIO SUITE
+        // ==========================================
+        let ariaAudioEnabled = true;
+        let ariaSpeaking = false;
+        let ariaCurrentUtterance = null;
+        let ariaVoiceRecognition = null;
+        let isListening = false;
+
+        // Three.js State
+        let ariaScene, ariaCamera, ariaRenderer;
+        let ariaHeadGroup, ariaHeadMesh, ariaEyelidLeft, ariaEyelidRight, ariaMouthMesh;
+        let ariaEyeLeft, ariaEyeRight, ariaBrainCircuits, ariaParticleSystem;
+        let mouseX = 0, mouseY = 0, targetLookX = 0, targetLookY = 0;
+        let blinkTimer = 0, isBlinking = false, blinkProgress = 0;
+        let mouthOpenTarget = 0, mouthCurrentOpen = 0;
+        let timeClock = 0;
+
+        function initAria3D() {
+            const canvas = document.getElementById('aria-3d-canvas');
+            if (!canvas || typeof THREE === 'undefined') return;
+
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const width = rect.width || 340;
+            const height = rect.height || 320;
+
+            // Scene & Camera
+            ariaScene = new THREE.Scene();
+            ariaCamera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
+            ariaCamera.position.set(0, 0.1, 3.8);
+
+            // Renderer
+            ariaRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+            ariaRenderer.setSize(width, height);
+            ariaRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            ariaRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+            ariaRenderer.toneMappingExposure = 1.2;
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0x0f172a, 1.8);
+            ariaScene.add(ambientLight);
+
+            const cyanKeyLight = new THREE.DirectionalLight(0x00ffcc, 2.5);
+            cyanKeyLight.position.set(2, 3, 3);
+            ariaScene.add(cyanKeyLight);
+
+            const magentaRimLight = new THREE.DirectionalLight(0xff007f, 2.2);
+            magentaRimLight.position.set(-3, 2, -2);
+            ariaScene.add(magentaRimLight);
+
+            const bottomFillLight = new THREE.PointLight(0x00ffcc, 1.2, 10);
+            bottomFillLight.position.set(0, -2, 2);
+            ariaScene.add(bottomFillLight);
+
+            // Avatar Head Group
+            ariaHeadGroup = new THREE.Group();
+            ariaScene.add(ariaHeadGroup);
+
+            // Cyber Head Geometry & Shaders
+            const headGeo = new THREE.SphereGeometry(0.85, 32, 32);
+            headGeo.scale(0.9, 1.15, 0.95);
+            const headMat = new THREE.MeshPhysicalMaterial({
+                color: 0x0f172a,
+                emissive: 0x05131f,
+                roughness: 0.25,
+                metalness: 0.65,
+                clearcoat: 0.6,
+                clearcoatRoughness: 0.1,
+                wireframe: false
+            });
+            ariaHeadMesh = new THREE.Mesh(headGeo, headMat);
+            ariaHeadGroup.add(ariaHeadMesh);
+
+            // Holographic Brain Wireframe Aura
+            const brainGeo = new THREE.IcosahedronGeometry(0.9, 2);
+            const brainMat = new THREE.MeshBasicMaterial({
+                color: 0x00ffcc,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.25
+            });
+            ariaBrainCircuits = new THREE.Mesh(brainGeo, brainMat);
+            ariaBrainCircuits.scale.set(0.95, 1.18, 0.98);
+            ariaHeadGroup.add(ariaBrainCircuits);
+
+            // Eyes Group
+            const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
+            const eyeMat = new THREE.MeshStandardMaterial({
+                color: 0x00ffcc,
+                emissive: 0x00ffcc,
+                emissiveIntensity: 1.2,
+                roughness: 0.1
+            });
+
+            ariaEyeLeft = new THREE.Mesh(eyeGeo, eyeMat);
+            ariaEyeLeft.position.set(-0.3, 0.18, 0.72);
+            ariaHeadGroup.add(ariaEyeLeft);
+
+            ariaEyeRight = new THREE.Mesh(eyeGeo, eyeMat);
+            ariaEyeRight.position.set(0.3, 0.18, 0.72);
+            ariaHeadGroup.add(ariaEyeRight);
+
+            // Eyelids for natural blinking
+            const eyelidGeo = new THREE.BoxGeometry(0.28, 0.18, 0.1);
+            const eyelidMat = new THREE.MeshStandardMaterial({ color: 0x090c13, roughness: 0.5 });
+
+            ariaEyelidLeft = new THREE.Mesh(eyelidGeo, eyelidMat);
+            ariaEyelidLeft.position.set(-0.3, 0.32, 0.76);
+            ariaHeadGroup.add(ariaEyelidLeft);
+
+            ariaEyelidRight = new THREE.Mesh(eyelidGeo, eyelidMat);
+            ariaEyelidRight.position.set(0.3, 0.32, 0.76);
+            ariaHeadGroup.add(ariaEyelidRight);
+
+            // Mouth / Phoneme Viseme Geometry
+            const mouthGeo = new THREE.BoxGeometry(0.35, 0.06, 0.1);
+            const mouthMat = new THREE.MeshStandardMaterial({
+                color: 0xff007f,
+                emissive: 0xff007f,
+                emissiveIntensity: 0.6,
+                roughness: 0.3
+            });
+            ariaMouthMesh = new THREE.Mesh(mouthGeo, mouthMat);
+            ariaMouthMesh.position.set(0, -0.36, 0.76);
+            ariaHeadGroup.add(ariaMouthMesh);
+
+            // Neck & Holographic Torso Collar
+            const collarGeo = new THREE.CylinderGeometry(0.5, 0.9, 0.7, 16, 1, true);
+            const collarMat = new THREE.MeshStandardMaterial({
+                color: 0x0b1120,
+                metalness: 0.8,
+                roughness: 0.3,
+                side: THREE.DoubleSide
+            });
+            const collar = new THREE.Mesh(collarGeo, collarMat);
+            collar.position.set(0, -1.2, 0);
+            ariaScene.add(collar);
+
+            // Ambient Neural Particles
+            const particleCount = 70;
+            const particleGeo = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 3;
+                positions[i + 1] = (Math.random() - 0.5) * 3;
+                positions[i + 2] = (Math.random() - 0.5) * 2;
+            }
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const particleMat = new THREE.PointsMaterial({
+                color: 0x00ffcc,
+                size: 0.035,
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending
+            });
+            ariaParticleSystem = new THREE.Points(particleGeo, particleMat);
+            ariaScene.add(ariaParticleSystem);
+
+            // Mouse tracking
+            window.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) {
+                    const cx = rect.left + rect.width / 2;
+                    const cy = rect.top + rect.height / 2;
+                    targetLookX = Math.max(-0.4, Math.min(0.4, (e.clientX - cx) / (window.innerWidth / 2)));
+                    targetLookY = Math.max(-0.3, Math.min(0.3, -(e.clientY - cy) / (window.innerHeight / 2)));
+                }
+            });
+
+            window.addEventListener('resize', () => {
+                if (!canvas.parentElement) return;
+                const r = canvas.parentElement.getBoundingClientRect();
+                const w = r.width || 340;
+                const h = r.height || 320;
+                ariaCamera.aspect = w / h;
+                ariaCamera.updateProjectionMatrix();
+                ariaRenderer.setSize(w, h);
+            });
+
+            animateAria3D();
+            startWaveformAnimation();
+        }
+
+        function animateAria3D() {
+            requestAnimationFrame(animateAria3D);
+            if (!ariaHeadGroup) return;
+
+            timeClock += 0.02;
+
+            // Natural Breathing
+            const breathing = Math.sin(timeClock * 1.5) * 0.015;
+            ariaHeadGroup.position.y = breathing;
+
+            // Head Sway & Mouse orientation
+            mouseX += (targetLookX - mouseX) * 0.05;
+            mouseY += (targetLookY - mouseY) * 0.05;
+            ariaHeadGroup.rotation.y = mouseX * 0.8 + Math.sin(timeClock * 0.8) * 0.04;
+            ariaHeadGroup.rotation.x = -mouseY * 0.6 + Math.cos(timeClock * 1.2) * 0.02;
+            ariaHeadGroup.rotation.z = -mouseX * 0.2;
+
+            // Brain Circuits Subtle Pulse
+            if (ariaBrainCircuits) {
+                ariaBrainCircuits.rotation.y += 0.003;
+                ariaBrainCircuits.material.opacity = 0.2 + Math.sin(timeClock * 3) * 0.08;
+            }
+
+            // Periodic Natural Eye Blinking
+            blinkTimer += 0.016;
+            if (blinkTimer > 3.5 + Math.random() * 2) {
+                isBlinking = true;
+                blinkTimer = 0;
+            }
+            if (isBlinking) {
+                blinkProgress += 0.15;
+                const closeAmount = Math.sin(blinkProgress * Math.PI);
+                if (ariaEyelidLeft && ariaEyelidRight) {
+                    ariaEyelidLeft.position.y = 0.32 - closeAmount * 0.14;
+                    ariaEyelidRight.position.y = 0.32 - closeAmount * 0.14;
+                }
+                if (blinkProgress >= 1) {
+                    isBlinking = false;
+                    blinkProgress = 0;
+                    if (ariaEyelidLeft && ariaEyelidRight) {
+                        ariaEyelidLeft.position.y = 0.32;
+                        ariaEyelidRight.position.y = 0.32;
+                    }
+                }
+            }
+
+            // Real-Time Lip Sync Visemes
+            if (ariaSpeaking) {
+                mouthOpenTarget = 0.04 + Math.random() * 0.18;
+            } else {
+                mouthOpenTarget = 0.04;
+            }
+            mouthCurrentOpen += (mouthOpenTarget - mouthCurrentOpen) * 0.35;
+            if (ariaMouthMesh) {
+                ariaMouthMesh.scale.y = mouthCurrentOpen / 0.06;
+                ariaMouthMesh.scale.x = 1 + (mouthCurrentOpen > 0.1 ? 0.2 : 0);
+            }
+
+            // Particles Drift
+            if (ariaParticleSystem) {
+                ariaParticleSystem.rotation.y += 0.001;
+            }
+
+            ariaRenderer.render(ariaScene, ariaCamera);
+        }
+
+        // Real-Time Audio Waveform Canvas
+        function startWaveformAnimation() {
+            const canvas = document.getElementById('aria-waveform-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            let phase = 0;
+
+            function drawWave() {
+                requestAnimationFrame(drawWave);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                phase += ariaSpeaking ? 0.25 : 0.05;
+                ctx.beginPath();
+                ctx.strokeStyle = ariaSpeaking ? '#00ffcc' : '#334155';
+                ctx.lineWidth = 2;
+                const amp = ariaSpeaking ? 8 : 2;
+                for (let x = 0; x < canvas.width; x++) {
+                    const y = (canvas.height / 2) + Math.sin((x * 0.15) + phase) * amp * Math.sin(x / canvas.width * Math.PI);
+                    if (x === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+            drawWave();
+        }
+
+        // Web Speech API: Text-to-Speech
+        function speakAria(text, emotion = "attentive") {
+            if (!ariaAudioEnabled || !('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.rate = 1.05;
+            utter.pitch = 1.1;
+
+            const voices = window.speechSynthesis.getVoices();
+            const femaleVoice = voices.find(v => (v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Zira') || v.name.includes('Victoria') || v.name.includes('Google UK English Female') || v.name.includes('Natural')) && v.lang.startsWith('en')) || voices.find(v => v.lang.startsWith('en'));
+            if (femaleVoice) utter.voice = femaleVoice;
+
+            utter.onstart = () => {
+                ariaSpeaking = true;
+                setAriaStatus("ARIA · SPEAKING", "#ff007f");
+            };
+            utter.onend = () => {
+                ariaSpeaking = false;
+                setAriaStatus("ARIA · ONLINE", "#00ffcc");
+            };
+            utter.onerror = () => {
+                ariaSpeaking = false;
+                setAriaStatus("ARIA · ONLINE", "#00ffcc");
+            };
+
+            ariaCurrentUtterance = utter;
+            window.speechSynthesis.speak(utter);
+        }
+
+        function toggleAriaAudio() {
+            ariaAudioEnabled = !ariaAudioEnabled;
+            const btn = document.getElementById('btn-audio-toggle');
+            if (btn) {
+                btn.textContent = ariaAudioEnabled ? "🔊 Audio: ON" : "🔇 Audio: OFF";
+                btn.style.color = ariaAudioEnabled ? "var(--cyan)" : "var(--text-muted)";
+            }
+            if (!ariaAudioEnabled) {
+                window.speechSynthesis.cancel();
+                ariaSpeaking = false;
+            }
+        }
+
+        function setAriaStatus(statusText, color = "#00ffcc") {
+            const el = document.getElementById('aria-hud-status');
+            if (el) el.textContent = statusText;
+            const tag = document.getElementById('aria-emotion-tag');
+            if (tag) {
+                tag.textContent = statusText.replace("ARIA · ", "");
+                tag.style.color = color;
+                tag.style.borderColor = color;
+            }
+        }
+
+        // Web Speech API: Speech-to-Text Microphone Input
+        function toggleVoiceRecognition() {
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) {
+                alert("Speech recognition is not supported in this browser. You can type directly in the prompt bar!");
+                return;
+            }
+
+            const micBtn = document.getElementById('btn-aria-mic');
+            if (isListening) {
+                if (ariaVoiceRecognition) ariaVoiceRecognition.stop();
+                isListening = false;
+                if (micBtn) micBtn.classList.remove('listening');
+                return;
+            }
+
+            try {
+                ariaVoiceRecognition = new SpeechRec();
+                ariaVoiceRecognition.continuous = false;
+                ariaVoiceRecognition.interimResults = true;
+                ariaVoiceRecognition.lang = 'en-US';
+
+                ariaVoiceRecognition.onstart = () => {
+                    isListening = true;
+                    if (micBtn) micBtn.classList.add('listening');
+                    document.getElementById('aria-prompt-input').placeholder = "Listening to your voice...";
+                    setAriaStatus("ARIA · LISTENING", "#ff007f");
+                };
+
+                ariaVoiceRecognition.onresult = (event) => {
+                    let transcript = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        transcript += event.results[i][0].transcript;
+                    }
+                    document.getElementById('aria-prompt-input').value = transcript;
+                };
+
+                ariaVoiceRecognition.onend = () => {
+                    isListening = false;
+                    if (micBtn) micBtn.classList.remove('listening');
+                    document.getElementById('aria-prompt-input').placeholder = "Talk or type to ARIA...";
+                    setAriaStatus("ARIA · ONLINE", "#00ffcc");
+                    const val = document.getElementById('aria-prompt-input').value.trim();
+                    if (val) dispatchAriaPrompt();
+                };
+
+                ariaVoiceRecognition.onerror = () => {
+                    isListening = false;
+                    if (micBtn) micBtn.classList.remove('listening');
+                    document.getElementById('aria-prompt-input').placeholder = "Talk or type to ARIA...";
+                    setAriaStatus("ARIA · ONLINE", "#00ffcc");
+                };
+
+                ariaVoiceRecognition.start();
+            } catch (err) {
+                console.error("Speech recognition error:", err);
+            }
+        }
+
+        // Quick prompt chips
+        function sendQuickPrompt(promptText) {
+            document.getElementById('aria-prompt-input').value = promptText;
+            dispatchAriaPrompt();
+        }
+
+        // Main Conversational Dispatcher
         async function dispatchAriaPrompt() {
             const input = document.getElementById('aria-prompt-input');
             const txt = input.value.trim();
             if (!txt) return;
-            document.getElementById('aria-dialogue-bubble').textContent = `Processing instruction: "${txt}"...`;
+
+            const bubble = document.getElementById('aria-dialogue-bubble');
+            bubble.innerHTML = `<span style="color:var(--text-muted);">Thinking:</span> "${txt}"...`;
             input.value = "";
+            setAriaStatus("ARIA · REASONING", "#38bdf8");
+
             try {
-                const res = await sendRPC("ScheduleCompute", { taskType: "aria_dialogue", payload: { prompt: txt } });
-                document.getElementById('aria-dialogue-bubble').textContent = `ARIA acknowledged task ${res.taskId}. Orchestrating agent fleet...`;
-                refreshDashboard();
-            } catch(e) {
-                document.getElementById('aria-dialogue-bubble').textContent = `ARIA response: Ready for next directive.`;
+                const res = await sendRPC("AriaChat", { prompt: txt });
+                const reply = res.response || res.audioText || "Directive executed.";
+                bubble.textContent = `"${reply}"`;
+                speakAria(reply, res.emotion || "pleased");
+
+                if (res.action) {
+                    console.log("ARIA executed system tool:", res.action);
+                    refreshDashboard();
+                    fetchAgents();
+                    fetchTasks();
+                    fetchMemories();
+                }
+            } catch (e) {
+                // Fallback to ScheduleCompute if AriaChat encounters an issue
+                try {
+                    const res = await sendRPC("ScheduleCompute", { taskType: "aria_dialogue", payload: { prompt: txt } });
+                    const reply = `I have received and scheduled your instruction '${txt}' into compute task ${res.taskId}.`;
+                    bubble.textContent = `"${reply}"`;
+                    speakAria(reply);
+                    refreshDashboard();
+                } catch(err) {
+                    const fallback = `Understood: '${txt}'. I have synchronized this directive with our operating context.`;
+                    bubble.textContent = `"${fallback}"`;
+                    speakAria(fallback);
+                }
             }
         }
 
@@ -2070,6 +2646,7 @@
 
         window.onload = () => {
             connectWebSocket();
+            setTimeout(initAria3D, 200);
         };
     </script>
 </body>

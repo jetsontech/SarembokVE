@@ -69,10 +69,11 @@ async def test_http_endpoints(http_url: str) -> bool:
     print(f"\n{INFO_TAG} === Phase 1: HTTP Edge & Web UI Serving ===")
     all_ok = True
     
+    ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     # 1. /health probe
     try:
         health_url = http_url.rstrip("/") + "/health"
-        req = urllib.request.Request(health_url, headers={"User-Agent": "SarembokMasterSuite/1.0"})
+        req = urllib.request.Request(health_url, headers={"User-Agent": ua})
         with urllib.request.urlopen(req, timeout=5) as resp:
             ok = resp.status == 200 and resp.read().decode("utf-8").strip() in ("OK", "healthy")
             record_result("HTTP", "Health Endpoint Probe (/health)", ok, f"Status={resp.status}")
@@ -85,7 +86,7 @@ async def test_http_endpoints(http_url: str) -> bool:
     # 2. / Web UI application serving
     try:
         root_url = http_url.rstrip("/") + "/"
-        req = urllib.request.Request(root_url, headers={"User-Agent": "SarembokMasterSuite/1.0"})
+        req = urllib.request.Request(root_url, headers={"User-Agent": ua})
         with urllib.request.urlopen(req, timeout=5) as resp:
             body = resp.read().decode("utf-8", errors="ignore")
             content_type = resp.headers.get("Content-Type", "")
@@ -105,7 +106,7 @@ async def test_http_endpoints(http_url: str) -> bool:
     # 3. /index.html Web UI serving
     try:
         idx_url = http_url.rstrip("/") + "/index.html"
-        req = urllib.request.Request(idx_url, headers={"User-Agent": "SarembokMasterSuite/1.0"})
+        req = urllib.request.Request(idx_url, headers={"User-Agent": ua})
         with urllib.request.urlopen(req, timeout=5) as resp:
             body = resp.read().decode("utf-8", errors="ignore")
             content_type = resp.headers.get("Content-Type", "")
@@ -400,6 +401,23 @@ async def test_digital_human_lifecycle(ws_url: str, auth_token: str) -> bool:
             close_ok = close_resp.get("result", {}).get("status") == "CLOSED"
             record_result("DIGITAL_HUMAN", "Session Termination (CLOSED)", close_ok, f"status={close_resp.get('result', {}).get('status')}")
             if not close_ok:
+                all_ok = False
+
+            # 6. ARIA Neural Conversational Dialogue
+            aria_chat_resp = await send_rpc(ws, "AriaChat", {"prompt": "What is Sarembok VE?"}, auth_token=auth_token)
+            ac_res = aria_chat_resp.get("result", {})
+            chat_ok = bool(ac_res.get("response")) and bool(ac_res.get("audioText")) and ac_res.get("agentId") == "aria-prime"
+            record_result("DIGITAL_HUMAN", "ARIA Conversational Dialogue (AriaChat)", chat_ok, f"replyPreview={ac_res.get('response', '')[:40]}...")
+            if not chat_ok:
+                all_ok = False
+
+            # 7. ARIA Tool-Execution & Agent Deployment
+            tool_agent_name = f"Horizon-{uuid.uuid4().hex[:4]}"
+            aria_tool_resp = await send_rpc(ws, "AriaChat", {"prompt": f"Spawn an agent named {tool_agent_name}"}, auth_token=auth_token)
+            at_res = aria_tool_resp.get("result", {})
+            tool_ok = bool(at_res.get("action")) and at_res.get("action", {}).get("type") == "CREATE_AGENT"
+            record_result("DIGITAL_HUMAN", "ARIA Autonomous Tool Calling (CreateAgent via Dialogue)", tool_ok, f"action={at_res.get('action')}")
+            if not tool_ok:
                 all_ok = False
 
     except Exception as exc:
