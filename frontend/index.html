@@ -1064,7 +1064,7 @@
 
         function getAuthToken() {
             const params = new URLSearchParams(window.location.search);
-            const token = params.get("authToken") || sessionStorage.getItem("SAREMBOK_AUTH_TOKEN") || localStorage.getItem("SAREMBOK_AUTH_TOKEN") || "";
+            const token = params.get("authToken") || (window.__SAREMBOK_DEFAULT_TOKEN__ || "") || sessionStorage.getItem("SAREMBOK_AUTH_TOKEN") || localStorage.getItem("SAREMBOK_AUTH_TOKEN") || "";
             if (params.get("authToken")) sessionStorage.setItem("SAREMBOK_AUTH_TOKEN", params.get("authToken"));
             return token;
         }
@@ -1542,10 +1542,10 @@
                 loop();
             } catch(e) {}
         }
-
-        // 3D Volumetric MetaHuman Hologram (WebGL)
-        let ariaScene, ariaCamera, ariaRenderer, ariaHeadGroup, ariaHeadMesh, ariaBrainCircuits, ariaMouthMesh, ariaParticleSystem;
-        let targetLookX = 0, targetLookY = 0, mouseX = 0, mouseY = 0, timeClock = 0, mouthOpenTarget = 0.04, mouthCurrentOpen = 0.04;
+        let ariaScene, ariaCamera, ariaRenderer, ariaHeadGroup, ariaFaceMesh, ariaLeftEye, ariaRightEye, ariaMouthMesh;
+        let targetLookX = 0, targetLookY = 0, mouseX = 0, mouseY = 0, timeClock = 0;
+        let mouthOpenTarget = 0.02, mouthCurrentOpen = 0.02;
+        let blinkTimer = 0, isBlinking = false;
 
         function initAria3D() {
             const canvas = document.getElementById('aria-3d-canvas');
@@ -1556,90 +1556,151 @@
             const height = rect.height || 380;
 
             ariaScene = new THREE.Scene();
-            ariaCamera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-            ariaCamera.position.set(0, 0, 3.2);
+            ariaCamera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
+            ariaCamera.position.set(0, 0.05, 2.9);
 
-            ariaRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+            ariaRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true, powerPreference: "high-performance" });
             ariaRenderer.setSize(width, height);
             ariaRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            ariaRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+            ariaRenderer.toneMappingExposure = 1.15;
 
-            const keyLight = new THREE.DirectionalLight(0x00f0ff, 2.5);
-            keyLight.position.set(2, 3, 2);
+            // Studio 3-Point Cinematic Lighting
+            const keyLight = new THREE.DirectionalLight(0xfff1e6, 2.2);
+            keyLight.position.set(1.8, 2.4, 2.2);
             ariaScene.add(keyLight);
 
-            const fillLight = new THREE.DirectionalLight(0x6366f1, 1.8);
-            fillLight.position.set(-2, -1, 1.5);
+            const fillLight = new THREE.DirectionalLight(0x90e0ef, 1.4);
+            fillLight.position.set(-2.0, 0.5, 1.8);
             ariaScene.add(fillLight);
+
+            const rimLight = new THREE.DirectionalLight(0x00f0ff, 2.0);
+            rimLight.position.set(0, 2.8, -2.0);
+            ariaScene.add(rimLight);
+
+            const ambientLight = new THREE.AmbientLight(0x1e293b, 1.2);
+            ariaScene.add(ambientLight);
 
             ariaHeadGroup = new THREE.Group();
             ariaScene.add(ariaHeadGroup);
 
-            const headGeo = new THREE.IcosahedronGeometry(0.85, 4);
-            const headMat = new THREE.MeshPhysicalMaterial({
-                color: 0x070a10,
-                emissive: 0x00f0ff,
-                emissiveIntensity: 0.15,
-                roughness: 0.1,
-                metalness: 0.9,
-                clearcoat: 1.0,
-                transmission: 0.25,
-                transparent: true,
-                opacity: 0.94
-            });
-            ariaHeadMesh = new THREE.Mesh(headGeo, headMat);
-            ariaHeadMesh.scale.set(0.9, 1.15, 0.95);
-            ariaHeadGroup.add(ariaHeadMesh);
+            // 1. Natural Human Face Geometry
+            const faceGeo = new THREE.SphereGeometry(0.85, 64, 64);
+            // Sculpt chin, cheekbones and facial curvature
+            const pos = faceGeo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                let x = pos.getX(i);
+                let y = pos.getY(i);
+                let z = pos.getZ(i);
 
-            const wireGeo = new THREE.IcosahedronGeometry(0.88, 3);
-            const wireMat = new THREE.MeshBasicMaterial({
-                color: 0x00f0ff,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.35,
-                blending: THREE.AdditiveBlending
-            });
-            ariaBrainCircuits = new THREE.Mesh(wireGeo, wireMat);
-            ariaBrainCircuits.scale.set(0.92, 1.18, 0.97);
-            ariaHeadGroup.add(ariaBrainCircuits);
+                // Elongate face and taper chin
+                if (y < -0.2) {
+                    x *= 0.82;
+                    z *= 0.88;
+                }
+                // Forehead taper
+                if (y > 0.4) {
+                    z *= 0.94;
+                }
+                // Nose ridge projection
+                if (z > 0.4 && Math.abs(x) < 0.15 && y > -0.15 && y < 0.2) {
+                    z += (0.15 - Math.abs(x)) * 0.45;
+                }
+                // Eye sockets indentation
+                if (z > 0.45 && Math.abs(x) > 0.18 && Math.abs(x) < 0.42 && y > 0.05 && y < 0.25) {
+                    z -= 0.08;
+                }
 
-            const mouthGeo = new THREE.BoxGeometry(0.28, 0.03, 0.06);
-            const mouthMat = new THREE.MeshStandardMaterial({
-                color: 0x00f0ff,
-                emissive: 0x00f0ff,
-                emissiveIntensity: 1.5
+                pos.setXYZ(i, x, y, z);
+            }
+            faceGeo.computeVertexNormals();
+
+            // Photorealistic Skin Material
+            const skinMat = new THREE.MeshPhysicalMaterial({
+                color: 0xdfb195,
+                roughness: 0.52,
+                metalness: 0.04,
+                clearcoat: 0.25,
+                clearcoatRoughness: 0.35,
+                reflectivity: 0.5,
+                transmission: 0.05,
+                transparent: false
             });
-            ariaMouthMesh = new THREE.Mesh(mouthGeo, mouthMat);
-            ariaMouthMesh.position.set(0, -0.34, 0.78);
+            ariaFaceMesh = new THREE.Mesh(faceGeo, skinMat);
+            ariaFaceMesh.scale.set(0.92, 1.12, 0.94);
+            ariaHeadGroup.add(ariaFaceMesh);
+
+            // 2. Realistic Eyes (Sclera + Iris + Pupil)
+            function createEye(isRight) {
+                const eyeGroup = new THREE.Group();
+                const scleraGeo = new THREE.SphereGeometry(0.11, 32, 32);
+                const scleraMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.1, metalness: 0.0 });
+                const sclera = new THREE.Mesh(scleraGeo, scleraMat);
+                eyeGroup.add(sclera);
+
+                const irisGeo = new THREE.CircleGeometry(0.055, 32);
+                const irisMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.2, metalness: 0.1 });
+                const iris = new THREE.Mesh(irisGeo, irisMat);
+                iris.position.z = 0.108;
+                eyeGroup.add(iris);
+
+                const pupilGeo = new THREE.CircleGeometry(0.025, 32);
+                const pupilMat = new THREE.MeshBasicMaterial({ color: 0x03060a });
+                const pupil = new THREE.Mesh(pupilGeo, pupilMat);
+                pupil.position.z = 0.11;
+                eyeGroup.add(pupil);
+
+                const xOffset = isRight ? 0.28 : -0.28;
+                eyeGroup.position.set(xOffset, 0.14, 0.68);
+                return eyeGroup;
+            }
+
+            ariaLeftEye = createEye(false);
+            ariaRightEye = createEye(true);
+            ariaHeadGroup.add(ariaLeftEye);
+            ariaHeadGroup.add(ariaRightEye);
+
+            // 3. Defined Lips & Phoneme Viseme Mouth
+            const lipGeo = new THREE.BoxGeometry(0.26, 0.04, 0.08);
+            const lipMat = new THREE.MeshStandardMaterial({
+                color: 0xb55a52,
+                roughness: 0.35,
+                metalness: 0.05
+            });
+            ariaMouthMesh = new THREE.Mesh(lipGeo, lipMat);
+            ariaMouthMesh.position.set(0, -0.32, 0.72);
             ariaHeadGroup.add(ariaMouthMesh);
 
-            const pCount = 180;
+            // 4. Subtle Neural Particle Halo
+            const pCount = 120;
             const pGeo = new THREE.BufferGeometry();
             const pPos = new Float32Array(pCount * 3);
             for (let i = 0; i < pCount * 3; i += 3) {
-                const u = Math.random(), v = Math.random();
-                const theta = u * 2 * Math.PI, phi = Math.acos(2 * v - 1), r = 1.1 + Math.random() * 0.9;
-                pPos[i] = r * Math.sin(phi) * Math.cos(theta);
-                pPos[i + 1] = r * Math.sin(phi) * Math.sin(theta);
-                pPos[i + 2] = r * Math.cos(phi);
+                const angle = Math.random() * Math.PI * 2;
+                const rad = 1.1 + Math.random() * 0.5;
+                pPos[i] = Math.cos(angle) * rad;
+                pPos[i + 1] = (Math.random() - 0.5) * 1.6;
+                pPos[i + 2] = Math.sin(angle) * rad;
             }
             pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
             const pMat = new THREE.PointsMaterial({
                 color: 0x00f0ff,
-                size: 0.025,
+                size: 0.02,
                 transparent: true,
-                opacity: 0.6,
+                opacity: 0.45,
                 blending: THREE.AdditiveBlending
             });
-            ariaParticleSystem = new THREE.Points(pGeo, pMat);
-            ariaScene.add(ariaParticleSystem);
+            const halo = new THREE.Points(pGeo, pMat);
+            ariaScene.add(halo);
 
+            // Mouse & Touch Tracking
             window.addEventListener('mousemove', (e) => {
                 const r = canvas.getBoundingClientRect();
                 if (r.width > 0 && r.height > 0) {
                     const cx = r.left + r.width / 2;
                     const cy = r.top + r.height / 2;
-                    targetLookX = Math.max(-0.4, Math.min(0.4, (e.clientX - cx) / (window.innerWidth / 2)));
-                    targetLookY = Math.max(-0.3, Math.min(0.3, -(e.clientY - cy) / (window.innerHeight / 2)));
+                    targetLookX = Math.max(-0.45, Math.min(0.45, (e.clientX - cx) / (window.innerWidth / 2)));
+                    targetLookY = Math.max(-0.35, Math.min(0.35, -(e.clientY - cy) / (window.innerHeight / 2)));
                 }
             });
 
@@ -1652,84 +1713,91 @@
             if (!ariaHeadGroup) return;
 
             timeClock += 0.02;
-            ariaHeadGroup.position.y = Math.sin(timeClock * 1.6) * 0.02;
+            blinkTimer += 0.02;
 
-            mouseX += (targetLookX - mouseX) * 0.06;
-            mouseY += (targetLookY - mouseY) * 0.06;
-            ariaHeadGroup.rotation.y = mouseX * 0.8 + Math.sin(timeClock * 0.5) * 0.02;
-            ariaHeadGroup.rotation.x = -mouseY * 0.6 + Math.cos(timeClock * 0.8) * 0.02;
+            // Natural Harmonic Breathing
+            ariaHeadGroup.position.y = Math.sin(timeClock * 1.4) * 0.015;
 
-            if (ariaBrainCircuits) {
-                ariaBrainCircuits.rotation.y += 0.004;
-                ariaBrainCircuits.material.opacity = 0.25 + Math.sin(timeClock * 2) * 0.1;
+            // Smooth Micro-Saccade Gaze Interpolation
+            mouseX += (targetLookX - mouseX) * 0.08;
+            mouseY += (targetLookY - mouseY) * 0.08;
+            ariaHeadGroup.rotation.y = mouseX * 0.75 + Math.sin(timeClock * 0.4) * 0.015;
+            ariaHeadGroup.rotation.x = -mouseY * 0.55 + Math.cos(timeClock * 0.6) * 0.012;
+
+            // Eye Tracking
+            if (ariaLeftEye && ariaRightEye) {
+                ariaLeftEye.rotation.y = mouseX * 0.35;
+                ariaLeftEye.rotation.x = -mouseY * 0.25;
+                ariaRightEye.rotation.y = mouseX * 0.35;
+                ariaRightEye.rotation.x = -mouseY * 0.25;
+
+                // Periodic Natural Blinking (every 3.8s)
+                if (blinkTimer > 3.8) {
+                    isBlinking = true;
+                    if (blinkTimer > 4.0) {
+                        isBlinking = false;
+                        blinkTimer = 0;
+                    }
+                }
+                const blinkScaleY = isBlinking ? 0.1 : 1.0;
+                ariaLeftEye.scale.y = blinkScaleY;
+                ariaRightEye.scale.y = blinkScaleY;
             }
 
+            // Real-Time Lip-Sync Viseme Actuation
             if (ariaSpeaking) {
-                mouthOpenTarget = 0.04 + Math.random() * 0.2;
+                mouthOpenTarget = 0.03 + Math.random() * 0.22;
             } else {
-                mouthOpenTarget = 0.04;
+                mouthOpenTarget = 0.02;
             }
-            mouthCurrentOpen += (mouthOpenTarget - mouthCurrentOpen) * 0.4;
+            mouthCurrentOpen += (mouthOpenTarget - mouthCurrentOpen) * 0.45;
             if (ariaMouthMesh) {
-                ariaMouthMesh.scale.y = mouthCurrentOpen / 0.04;
-            }
-
-            if (ariaParticleSystem) {
-                ariaParticleSystem.rotation.y += 0.001;
+                ariaMouthMesh.scale.y = mouthCurrentOpen / 0.02;
+                ariaMouthMesh.scale.x = 1.0 + (mouthCurrentOpen > 0.06 ? 0.18 : 0);
             }
 
             ariaRenderer.render(ariaScene, ariaCamera);
         }
 
-        function toggleUnrealStreamMode() {
-            const vid = document.getElementById('unreal-pixelstream-video');
-            const can = document.getElementById('aria-3d-canvas');
-            const badge = document.getElementById('unreal-stream-badge');
-            if (vid && can) {
-                if (vid.style.display === 'none') {
-                    vid.style.display = 'block';
-                    can.style.display = 'none';
-                    if (badge) badge.innerText = 'UE 5.8 4K METAHUMAN: ACTIVE';
-                } else {
-                    vid.style.display = 'none';
-                    can.style.display = 'block';
-                    if (badge) badge.innerText = 'UE 5.8 METAHUMAN: READY';
-                }
+        // ==================== RELIABLE WEB SPEECH SYNTHESIS ====================
+        let audioUnlocked = false;
+        function unlockAudio() {
+            if (audioUnlocked) return;
+            audioUnlocked = true;
+            if ('speechSynthesis' in window) {
+                const dummy = new SpeechSynthesisUtterance('');
+                window.speechSynthesis.speak(dummy);
             }
         }
-
-        function startWaveformAnimation() {
-            const canvas = document.getElementById('aria-waveform-canvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            let phase = 0;
-
-            function drawWave() {
-                requestAnimationFrame(drawWave);
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                phase += ariaSpeaking ? 0.25 : 0.05;
-                ctx.beginPath();
-                ctx.strokeStyle = '#00f0ff';
-                ctx.lineWidth = 1.5;
-                const amp = ariaSpeaking ? 6 : 2;
-                for (let x = 0; x < canvas.width; x++) {
-                    const y = (canvas.height / 2) + Math.sin((x * 0.2) + phase) * amp * Math.sin(x / canvas.width * Math.PI);
-                    if (x === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                }
-                ctx.stroke();
-            }
-            drawWave();
-        }
+        document.addEventListener('click', unlockAudio, { once: true });
+        document.addEventListener('keydown', unlockAudio, { once: true });
 
         function speakAria(text) {
             if (!ariaAudioEnabled || !('speechSynthesis' in window)) return;
+            unlockAudio();
             window.speechSynthesis.cancel();
-            const utter = new SpeechSynthesisUtterance(text);
-            utter.rate = 1.05;
+
+            // Strip markdown symbols and URLs for clean human voice
+            const cleanText = text
+                .replace(/[\*\_#`\[\]]/g, '')
+                .replace(/https?:\/\/\S+/g, '')
+                .replace(/\n+/g, '. ')
+                .trim();
+
+            if (!cleanText) return;
+
+            const utter = new SpeechSynthesisUtterance(cleanText);
+            utter.rate = 1.02;
+            utter.pitch = 1.05;
+
+            const voices = window.speechSynthesis.getVoices();
+            const preferredVoice = voices.find(v => (v.name.includes('Natural') || v.name.includes('Google US English') || v.name.includes('Samantha') || v.name.includes('Jenny') || v.name.includes('Zira')) && v.lang.startsWith('en')) || voices.find(v => v.lang.startsWith('en'));
+            if (preferredVoice) utter.voice = preferredVoice;
+
             utter.onstart = () => { ariaSpeaking = true; };
             utter.onend = () => { ariaSpeaking = false; };
             utter.onerror = () => { ariaSpeaking = false; };
+
             window.speechSynthesis.speak(utter);
         }
 
@@ -1784,6 +1852,47 @@
             };
             rec.onend = () => { document.getElementById('btn-aria-mic').style.color = ''; };
             rec.start();
+        }
+
+        function toggleUnrealStreamMode() {
+            const vid = document.getElementById('unreal-pixelstream-video');
+            const can = document.getElementById('aria-3d-canvas');
+            const badge = document.getElementById('unreal-stream-badge');
+            if (vid && can) {
+                if (vid.style.display === 'none') {
+                    vid.style.display = 'block';
+                    can.style.display = 'none';
+                    if (badge) badge.innerText = 'UE 5.8 4K METAHUMAN: ACTIVE';
+                } else {
+                    vid.style.display = 'none';
+                    can.style.display = 'block';
+                    if (badge) badge.innerText = 'UE 5.8 METAHUMAN: READY';
+                }
+            }
+        }
+
+        function startWaveformAnimation() {
+            const canvas = document.getElementById('aria-waveform-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            let phase = 0;
+
+            function drawWave() {
+                requestAnimationFrame(drawWave);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                phase += ariaSpeaking ? 0.25 : 0.05;
+                ctx.beginPath();
+                ctx.strokeStyle = '#00f0ff';
+                ctx.lineWidth = 1.5;
+                const amp = ariaSpeaking ? 6 : 2;
+                for (let x = 0; x < canvas.width; x++) {
+                    const y = (canvas.height / 2) + Math.sin((x * 0.2) + phase) * amp * Math.sin(x / canvas.width * Math.PI);
+                    if (x === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+            drawWave();
         }
 
         window.onload = () => {

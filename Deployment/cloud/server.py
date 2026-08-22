@@ -1979,6 +1979,12 @@ async def process_http_request(connection: Any, request: Any) -> Any:
                     LOG.error("Failed to read frontend index.html: %s", exc)
         if not html_str:
             html_str = "<!DOCTYPE html><html><body><h1>Sarembok VE Cloud Runtime</h1><p>Status: ONLINE</p></body></html>\n"
+        elif AUTH_TOKEN:
+            token_injection = f'<script>window.__SAREMBOK_DEFAULT_TOKEN__ = "{AUTH_TOKEN}";</script>'
+            if "<head>" in html_str:
+                html_str = html_str.replace("<head>", f"<head>\n    {token_injection}", 1)
+            else:
+                html_str = token_injection + html_str
         
         if hasattr(connection, "respond"):
             resp = connection.respond(200, html_str)
