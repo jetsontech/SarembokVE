@@ -863,6 +863,10 @@
             </div>
 
             <div class="topbar-actions">
+                <div class="unreal-bridge-indicator" id="topbar-unreal-bridge" style="display:flex; align-items:center; gap:6px; background:rgba(15,20,34,0.85); border:1px solid rgba(0,255,204,0.25); padding:4px 10px; border-radius:16px; font-size:11px; font-weight:600;">
+                    <span class="status-dot" style="background:#64748b; width:6px; height:6px;" id="unreal-bridge-dot"></span>
+                    <span>Unreal 5.8: <strong id="unreal-bridge-status" class="mono text-muted">STANDBY</strong></span>
+                </div>
                 <div class="clock-display mono" id="live-clock">--:--:-- UTC</div>
                 <button class="btn btn-outline btn-sm" onclick="openModal('modal-auth')">🔑 Auth Secret</button>
             </div>
@@ -1804,6 +1808,23 @@
                 const info = await sendRPC("RuntimeInfo");
                 const workerOnline = info.onlineWorkers || 0;
                 document.getElementById('topbar-worker-summary').textContent = `All systems active · ${workerOnline} ${workerOnline === 1 ? 'WORKER' : 'WORKERS'} ONLINE`;
+
+                // Update Unreal Bridge status
+                const ueEl = document.getElementById('unreal-bridge-status');
+                const ueDot = document.getElementById('unreal-bridge-dot');
+                if (ueEl && ueDot) {
+                    const ueStatus = (info.activeDigitalHumanSessions > 0 || info.unrealBridgeConnected) ? "CONNECTED" : "STANDBY";
+                    ueEl.textContent = ueStatus;
+                    if (ueStatus === "CONNECTED") {
+                        ueEl.className = "mono text-emerald";
+                        ueDot.style.background = "var(--emerald)";
+                        ueDot.style.boxShadow = "0 0 8px var(--emerald)";
+                    } else {
+                        ueEl.className = "mono text-muted";
+                        ueDot.style.background = "#64748b";
+                        ueDot.style.boxShadow = "none";
+                    }
+                }
 
                 // Update Home Operational Cards (backed strictly by real state)
                 document.getElementById('home-agent-count').textContent = `${info.activeAgents || 0} active`;

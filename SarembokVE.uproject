@@ -1,23 +1,66 @@
 {
-  "FileVersion": 3,
-  "EngineAssociation": "5.8",
-  "Category": "",
-  "Description": "Sarembok Virtual Environment",
-  "Modules": [
-    {
-      "Name": "SarembokVE",
-      "Type": "Runtime",
-      "LoadingPhase": "Default"
-    }
-  ],
-  "Plugins": [
-    { "Name": "SarembokBridge",      "Enabled": true },
-    { "Name": "SarembokAvatar",      "Enabled": true },
-    { "Name": "SarembokVoice",       "Enabled": true },
-    { "Name": "SarembokVision",      "Enabled": true },
-    { "Name": "SarembokAgent",       "Enabled": true },
-    { "Name": "SarembokMemory",      "Enabled": true },
-    { "Name": "SarembokCore",        "Enabled": true },
-    { "Name": "SarembokGovernance",  "Enabled": true }
-  ]
+	"FileVersion": 3,
+	"EngineAssociation": "5.8",
+	"Category": "",
+	"Description": "Sarembok Virtual Environment",
+	"Modules": [
+		{
+			"Name": "SarembokVE",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "SarembokBridge",
+			"Enabled": true
+		},
+		{
+			"Name": "SarembokAvatar",
+			"Enabled": true
+		},
+		{
+			"Name": "SarembokVoice",
+			"Enabled": true
+		},
+		{
+			"Name": "SarembokVision",
+			"Enabled": true
+		},
+		{
+			"Name": "SarembokAgent",
+			"Enabled": true
+		},
+		{
+			"Name": "SarembokMemory",
+			"Enabled": true
+		},
+		{
+			"Name": "SarembokCore",
+			"Enabled": true
+		},
+		{
+			"Name": "SarembokGovernance",
+			"Enabled": true
+		},
+		{
+			"Name": "LiveLink",
+			"Enabled": true
+		},
+		{
+			"Name": "LiveLinkControlRig",
+			"Enabled": true
+		},
+		{
+			"Name": "AppleARKitFaceSupport",
+			"Enabled": true,
+			"SupportedTargetPlatforms": [
+				"IOS",
+				"Win64",
+				"Mac",
+				"Linux",
+				"Android"
+			]
+		}
+	]
 }
