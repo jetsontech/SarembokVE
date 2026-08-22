@@ -218,6 +218,28 @@ store = CloudStore(DB_PATH)
 STARTED = time.time()
 DB_LOCK = asyncio.Lock()
 CONNECTIONS = asyncio.Semaphore(MAX_CONNECTIONS)
+
+# Prometheus Super-Engine Subsystems
+try:
+    from Deployment.cloud.evolver import AutonomousEvolver
+    from Deployment.cloud.proactive_daemon import ProactiveOmniDaemon
+    from Deployment.cloud.swarm_compiler import SwarmCompiler
+except ImportError:
+    try:
+        from evolver import AutonomousEvolver
+        from proactive_daemon import ProactiveOmniDaemon
+        from swarm_compiler import SwarmCompiler
+    except ImportError:
+        import sys
+        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+        from evolver import AutonomousEvolver
+        from proactive_daemon import ProactiveOmniDaemon
+        from swarm_compiler import SwarmCompiler
+
+evolver = AutonomousEvolver(store.db)
+proactive_daemon = ProactiveOmniDaemon(store.db, scan_interval_sec=30.0)
+proactive_daemon.start()
+swarm_compiler = SwarmCompiler(store.db)
 STOP = asyncio.Event()
 
 
@@ -1762,6 +1784,71 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             result_data = {"status": "EXECUTED", "action": action}
             
         return {"action": action, "timestamp": stamp, "result": result_data}
+
+    # ==================== PROMETHEUS SUPER-ENGINE FACETS ====================
+    if method == "TriggerSelfEvolution":
+        target_dim = params.get("dimension")
+        milestone = evolver.run_evolution_cycle(target_dim)
+        return {
+            "milestoneId": milestone.milestone_id,
+            "iteration": milestone.iteration,
+            "dimension": milestone.dimension,
+            "baselineLatencyMs": milestone.baseline_latency_ms,
+            "optimizedLatencyMs": milestone.optimized_latency_ms,
+            "speedupFactor": milestone.speedup_factor,
+            "verificationHash": milestone.verification_hash,
+            "timestamp": milestone.timestamp,
+            "metadata": milestone.metadata
+        }
+
+    if method == "ListEvolutionMilestones":
+        limit = min(100, max(1, int(params.get("limit", 20))))
+        return {"milestones": evolver.get_evolution_history(limit)}
+
+    if method == "CompileEngineeringSwarm":
+        goal = str(params.get("goal", "Build high-performance real-time exchange")).strip()
+        project = swarm_compiler.compile_project(goal)
+        import dataclasses
+        return {
+            "projectId": project.project_id,
+            "goal": project.goal,
+            "status": project.status,
+            "createdAt": project.created_at,
+            "stages": [dataclasses.asdict(s) for s in project.stages],
+            "files": [dataclasses.asdict(f) for f in project.all_files],
+            "executionResult": project.execution_result
+        }
+
+    if method == "ListSwarmProjects":
+        limit = min(50, max(1, int(params.get("limit", 10))))
+        return {"projects": swarm_compiler.list_projects(limit)}
+
+    if method == "QueryProactiveInsights":
+        limit = min(50, max(1, int(params.get("limit", 15))))
+        return {"insights": proactive_daemon.list_insights(limit)}
+
+    if method == "TriggerProactiveScan":
+        insights = proactive_daemon.run_proactive_scan()
+        return {"insights": insights, "count": len(insights)}
+
+    if method == "ExecuteSandboxCode":
+        code_str = str(params.get("code", "")).strip()
+        lang = str(params.get("language", "python")).lower()
+        if not code_str:
+            return {"status": "ERROR", "output": "No code provided for execution."}
+        
+        # Execute Python sandbox safely
+        start_t = time.perf_counter()
+        output_buffer = []
+        try:
+            local_scope = {"print": lambda *args: output_buffer.append(" ".join(str(a) for a in args))}
+            exec(code_str, {"__builtins__": __builtins__}, local_scope)
+            dur_ms = round((time.perf_counter() - start_t) * 1000.0, 2)
+            out_txt = "\n".join(output_buffer) if output_buffer else "Execution completed with return code 0."
+            return {"status": "SUCCESS", "language": lang, "executionTimeMs": dur_ms, "output": out_txt}
+        except Exception as e:
+            dur_ms = round((time.perf_counter() - start_t) * 1000.0, 2)
+            return {"status": "RUNTIME_EXCEPTION", "language": lang, "executionTimeMs": dur_ms, "output": f"Exception: {e}"}
 
     if method == "Health":
         worker_stats = get_worker_status_counts()

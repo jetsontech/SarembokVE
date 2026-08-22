@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sarembok VE — Autonomous Digital Human & AI-Native Operating Environment</title>
-    <meta name="description" content="Sarembok VE is an enterprise AI-native spatial operating environment combining persistent multi-agent cognition, distributed GPU orchestration, and photorealistic Unreal Engine 5.8 MetaHuman embodiment.">
+    <title>Sarembok VE — Autonomous Digital Human & Self-Evolving AI OS</title>
+    <meta name="description" content="Sarembok VE Prometheus is an enterprise AI-native spatial operating environment with recursive self-evolution, autonomous multi-agent swarm compilation, and photorealistic digital human embodiment.">
     
     <!-- Enterprise Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
     
-    <!-- Three.js 3D WebGL Library for High-End Volumetric Embodiment -->
+    <!-- Three.js WebGL Library for High-End Volumetric Embodiment -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <style>
@@ -241,7 +241,7 @@
             display: flex;
             flex-direction: column;
             padding: 16px 12px;
-            gap: 6px;
+            gap: 4px;
             flex-shrink: 0;
         }
 
@@ -259,7 +259,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 9px 12px;
+            padding: 8px 12px;
             border-radius: var(--radius-sm);
             color: var(--text-secondary);
             font-size: 13px;
@@ -570,18 +570,18 @@
             <a href="#" class="brand-cluster">
                 <div class="brand-symbol">S</div>
                 <div style="display:flex; flex-direction:column;">
-                    <span class="brand-name">SAREMBOK VE</span>
-                    <span class="brand-tag">Autonomous Digital Human & AI-Native OS</span>
+                    <span class="brand-name">SAREMBOK PROMETHEUS</span>
+                    <span class="brand-tag">Autonomous Self-Evolving AI Operating Environment</span>
                 </div>
             </a>
 
             <div style="display:flex; align-items:center; gap:16px;">
                 <div class="system-status-indicator">
                     <span class="status-dot"></span>
-                    <span id="topbar-status-text">COGNITIVE KERNEL: ONLINE</span>
+                    <span id="topbar-status-text">PROMETHEUS KERNEL: ACTIVE</span>
                 </div>
                 <div class="hud-badge mono" style="font-size:11px;">
-                    <span class="text-muted">INTEGRITY:</span> <strong class="text-cyan">SHA-256 (SQLITE-WAL)</strong>
+                    <span class="text-muted">EVOLUTION:</span> <strong class="text-cyan" id="topbar-evo-status">RECURSIVE BENCHMARKING</strong>
                 </div>
                 <div class="hud-badge mono" style="font-size:11px;">
                     <span class="text-muted">CLUSTER:</span> <strong class="text-emerald" id="topbar-worker-status">GPU MESH ACTIVE</strong>
@@ -593,9 +593,9 @@
                     <svg class="nav-icon" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
                     Sync
                 </button>
-                <button class="btn btn-cyan btn-sm" onclick="openModal('modal-pipeline')">
-                    <svg class="nav-icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                    Launch Pipeline
+                <button class="btn btn-cyan btn-sm" onclick="switchView('synthesis')">
+                    <svg class="nav-icon" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                    Synthesize Project
                 </button>
             </div>
         </div>
@@ -604,11 +604,25 @@
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
-            <div class="sidebar-heading">Core Environment</div>
+            <div class="sidebar-heading">Autonomous Engines</div>
             <button class="nav-item active" onclick="switchView('overview')">
                 <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 Overview & Embodiment
             </button>
+            <button class="nav-item" onclick="switchView('synthesis')">
+                <svg class="nav-icon" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                Software Synthesis Studio
+            </button>
+            <button class="nav-item" onclick="switchView('evolution')">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Recursive Self-Evolution
+            </button>
+            <button class="nav-item" onclick="switchView('proactive')">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                Proactive OmniDaemon
+            </button>
+
+            <div class="sidebar-heading" style="margin-top:10px;">Swarm & Infrastructure</div>
             <button class="nav-item" onclick="switchView('agents')">
                 <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a8.38 8.38 0 0 1 13 0"/></svg>
                 Agent Swarm Fleet
@@ -626,7 +640,7 @@
                 Task Orchestration
             </button>
 
-            <div class="sidebar-heading" style="margin-top:12px;">System & Governance</div>
+            <div class="sidebar-heading" style="margin-top:10px;">System & Governance</div>
             <button class="nav-item" onclick="switchView('checkpoints')">
                 <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 Checkpoints & WAL
@@ -650,9 +664,9 @@
                 <!-- Telemetry Metrics Grid -->
                 <div class="dashboard-grid">
                     <div class="target-card">
-                        <span class="card-eyebrow">Cognitive Reliability</span>
-                        <span class="card-main-val text-cyan" id="metric-reliability">99.4%</span>
-                        <span class="card-sub-status text-emerald">Integrity Verified</span>
+                        <span class="card-eyebrow">Self-Evolution Iteration</span>
+                        <span class="card-main-val text-cyan" id="metric-evolution-iter">Cycle 04</span>
+                        <span class="card-sub-status text-emerald">2.1x Speedup Verified</span>
                     </div>
                     <div class="target-card">
                         <span class="card-eyebrow">Distributed GPU Nodes</span>
@@ -661,7 +675,7 @@
                     </div>
                     <div class="target-card">
                         <span class="card-eyebrow">Active Agent Swarm</span>
-                        <span class="card-main-val" id="metric-agents">0 Deployed</span>
+                        <span class="card-main-val" id="metric-agents">4 Deployed</span>
                         <span class="card-sub-status text-cyan">Multi-Agent Bus</span>
                     </div>
                     <div class="target-card">
@@ -682,7 +696,7 @@
                         <div class="metahuman-hud-top">
                             <div class="hud-badge">
                                 <span class="status-dot"></span>
-                                <span id="aria-hud-status">SAREMBOK · FRONTIER COGNITION</span>
+                                <span id="aria-hud-status">SAREMBOK · PROMETHEUS EMBODIMENT</span>
                             </div>
                             <div style="display:flex; align-items:center; gap:8px; pointer-events:auto;">
                                 <span id="unreal-stream-badge" class="tag tag-online" style="cursor:pointer;" onclick="toggleUnrealStreamMode()">UE 5.8 METAHUMAN: READY</span>
@@ -706,17 +720,17 @@
                     <div class="dialogue-console">
                         <div>
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                                <span class="tag tag-cyan">AUTHORITATIVE OPERATING SYSTEM INTELLIGENCE</span>
-                                <span class="tag tag-online" id="aria-emotion-tag">Cognitive Bus Synchronized</span>
+                                <span class="tag tag-cyan">SOVEREIGN AI OPERATING ENVIRONMENT</span>
+                                <span class="tag tag-online" id="aria-emotion-tag">Prometheus Engine Active</span>
                             </div>
-                            <div class="dialogue-bubble" id="aria-dialogue-bubble">"System initialized. I am SAREMBOK — the authoritative intelligence of this AI-native operating environment. I govern agent swarms, persist multi-tier vector memory graphs, and actuate 52 ARKit facial blendshapes on our Unreal Engine 5.8 MetaHuman."</div>
+                            <div class="dialogue-bubble" id="aria-dialogue-bubble">"System initialized. I am SAREMBOK Prometheus — an autonomous, self-evolving AI operating environment. I continuously optimize my own kernels, compile multi-agent software engineering swarms, and embody physical presence in Unreal Engine 5.8."</div>
                         </div>
 
                         <div class="prompt-chips-row">
+                            <span class="chip-action" onclick="sendQuickPrompt('Trigger autonomous self-evolution cycle on our vector retrieval index')">Self-Evolution Cycle</span>
+                            <span class="chip-action" onclick="sendQuickPrompt('Compile an autonomous multi-agent swarm to build a distributed real-time exchange')">Compile Swarm Project</span>
+                            <span class="chip-action" onclick="sendQuickPrompt('Run proactive OmniDaemon scan on system architecture and security posture')">Proactive System Scan</span>
                             <span class="chip-action" onclick="sendQuickPrompt('Explain our 3-tier architecture: Cognitive Core, Distributed GPU Mesh, and Unreal 5.8 MetaHuman')">System Architecture</span>
-                            <span class="chip-action" onclick="sendQuickPrompt('Show me our Unreal Engine 5.8 MetaHuman Oskar integration details')">MetaHuman 5.8 Bridge</span>
-                            <span class="chip-action" onclick="sendQuickPrompt('Deploy an autonomous agent swarm for distributed code synthesis')">Deploy Agent Swarm</span>
-                            <span class="chip-action" onclick="sendQuickPrompt('Schedule a distributed GPU compute task for model benchmarking')">Schedule GPU Workload</span>
                             <span class="chip-action" onclick="sendQuickPrompt('Give me a full system diagnostics and memory health report')">System Diagnostics</span>
                         </div>
 
@@ -724,30 +738,8 @@
                             <button class="btn btn-outline" id="btn-aria-mic" onclick="toggleVoiceRecognition()" style="padding:11px 14px;" title="Neural Microphone">
                                 <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
                             </button>
-                            <input type="text" class="cmd-input" id="aria-prompt-input" placeholder="Enter system directive (e.g. 'Deploy agent swarm', 'Schedule compute task', 'Inspect memory graph')..." onkeydown="if(event.key==='Enter')dispatchAriaPrompt()">
+                            <input type="text" class="cmd-input" id="aria-prompt-input" placeholder="Enter system directive (e.g. 'Synthesize crypto trading engine', 'Trigger self-evolution', 'Inspect swarm DAG')..." onkeydown="if(event.key==='Enter')dispatchAriaPrompt()">
                             <button class="btn btn-cyan" onclick="dispatchAriaPrompt()" style="padding:11px 20px;">Execute</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Autonomous Multi-Agent Pipeline Studio -->
-                <div class="panel-container" style="background:var(--bg-surface);">
-                    <div class="panel-header">
-                        <div>
-                            <span class="panel-title">Autonomous Multi-Agent Pipeline Studio</span>
-                            <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Decompose complex engineering objectives into multi-agent execution DAGs</p>
-                        </div>
-                        <span class="tag tag-cyan">LONG-HORIZON ENGINE v2.2</span>
-                    </div>
-
-                    <div style="display:flex; gap:10px;">
-                        <input type="text" id="pipeline-goal-input" class="cmd-input" placeholder="Enter high-level engineering goal (e.g., 'Synthesize distributed WebRTC MetaHuman streaming cluster')...">
-                        <button class="btn btn-cyan" onclick="runAutonomousPipeline()" style="padding:11px 22px;">Launch Pipeline</button>
-                    </div>
-
-                    <div id="pipeline-stages-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
-                        <div style="background:rgba(3,6,10,0.5); border:1px dashed var(--border-subtle); border-radius:var(--radius-sm); padding:16px; text-align:center; color:var(--text-muted); font-size:12px; grid-column:1/-1;">
-                            Enter an objective above to trigger autonomous architecture decomposition, code generation, and distributed worker execution.
                         </div>
                     </div>
                 </div>
@@ -775,7 +767,121 @@
 
             </section>
 
-            <!-- VIEW 2: AGENT SWARM FLEET -->
+            <!-- VIEW 2: AUTONOMOUS SOFTWARE SYNTHESIS STUDIO -->
+            <section id="view-synthesis" class="view-section">
+                <div class="panel-container">
+                    <div class="panel-header">
+                        <div>
+                            <span class="panel-title">Autonomous Multi-Agent Software Synthesis Studio</span>
+                            <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Decompose any complex engineering objective into a verified 4-agent software synthesis DAG</p>
+                        </div>
+                        <span class="tag tag-cyan">SWARM COMPILER v2.2</span>
+                    </div>
+
+                    <div style="display:flex; gap:10px;">
+                        <input type="text" id="swarm-goal-input" class="cmd-input" placeholder="Enter software objective (e.g., 'Build a distributed real-time order book with sub-millisecond matching')...">
+                        <button class="btn btn-cyan" onclick="compileSwarmProject()" style="padding:11px 24px;">Compile & Synthesize</button>
+                    </div>
+
+                    <div id="swarm-stages-deck" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+                        <div style="background:rgba(3,6,10,0.5); border:1px dashed var(--border-subtle); border-radius:var(--radius-sm); padding:20px; text-align:center; color:var(--text-muted); font-size:12px; grid-column:1/-1;">
+                            Enter an engineering goal above to launch Architect-Prime, Synthesizer-Core, Adversary-Validator, and Deployer-Mesh agents.
+                        </div>
+                    </div>
+
+                    <div id="swarm-files-container" style="display:none; flex-direction:column; gap:12px;">
+                        <div class="panel-header">
+                            <span class="panel-title" style="font-size:13px;">Synthesized Source Code Modules</span>
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn btn-cyan btn-sm" onclick="runSandboxTest()">Run in Cloud Sandbox</button>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px;" id="file-tabs-header"></div>
+                        <pre class="terminal-box" id="file-code-viewer" style="height:240px; white-space:pre-wrap;"></pre>
+                        <div class="terminal-box" id="sandbox-output-box" style="display:none; height:100px; border-color:var(--emerald);"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW 3: RECURSIVE SELF-EVOLUTION -->
+            <section id="view-evolution" class="view-section">
+                <div class="panel-container">
+                    <div class="panel-header">
+                        <div>
+                            <span class="panel-title">Recursive Autonomous Self-Evolution Engine</span>
+                            <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Profiles core kernel algorithms, benchmarks latency, and applies self-optimizations autonomously</p>
+                        </div>
+                        <button class="btn btn-cyan" onclick="triggerEvolutionCycle()">+ Run Evolution Cycle</button>
+                    </div>
+
+                    <div class="dashboard-grid">
+                        <div class="target-card">
+                            <span class="card-eyebrow">Latest Cycle Speedup</span>
+                            <span class="card-main-val text-cyan" id="evo-card-speedup">2.35x</span>
+                            <span class="card-sub-status text-emerald">Verified Deterministic</span>
+                        </div>
+                        <div class="target-card">
+                            <span class="card-eyebrow">Vector Search Latency</span>
+                            <span class="card-main-val" id="evo-card-latency">0.42 ms</span>
+                            <span class="card-sub-status text-cyan">Zero-Copy Cache</span>
+                        </div>
+                        <div class="target-card">
+                            <span class="card-eyebrow">Cryptographic Proof</span>
+                            <span class="card-main-val mono text-emerald" style="font-size:14px;" id="evo-card-hash">SHA-256 Valid</span>
+                            <span class="card-sub-status text-muted">Merkle Root Synced</span>
+                        </div>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Milestone ID</th>
+                                <th>Cycle</th>
+                                <th>Dimension</th>
+                                <th>Baseline Latency</th>
+                                <th>Optimized Latency</th>
+                                <th>Speedup</th>
+                                <th>SHA-256 Proof Hash</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody id="evolution-table-body">
+                            <tr><td colspan="8" class="text-muted" style="text-align:center;">Loading evolution history...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- VIEW 4: PROACTIVE OMNIDAEMON -->
+            <section id="view-proactive" class="view-section">
+                <div class="panel-container">
+                    <div class="panel-header">
+                        <div>
+                            <span class="panel-title">Proactive OmniDaemon Intelligence Feed</span>
+                            <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Continuous background discoveries, security audits, and automated index warmups</p>
+                        </div>
+                        <button class="btn btn-outline btn-sm" onclick="triggerProactiveScan()">Trigger System Scan</button>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Discovery / Optimization</th>
+                                <th>Severity</th>
+                                <th>Action Taken / Suggested</th>
+                                <th>Status</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody id="proactive-table-body">
+                            <tr><td colspan="6" class="text-muted" style="text-align:center;">Querying proactive insights...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- VIEW 5: AGENT SWARM FLEET -->
             <section id="view-agents" class="view-section">
                 <div class="panel-container">
                     <div class="panel-header">
@@ -799,7 +905,7 @@
                 </div>
             </section>
 
-            <!-- VIEW 3: DISTRIBUTED GPU WORKERS -->
+            <!-- VIEW 6: DISTRIBUTED GPU WORKERS -->
             <section id="view-workers" class="view-section">
                 <div class="panel-container">
                     <div class="panel-header">
@@ -823,7 +929,7 @@
                 </div>
             </section>
 
-            <!-- VIEW 4: PERSISTENT MEMORY RAG -->
+            <!-- VIEW 7: PERSISTENT MEMORY RAG -->
             <section id="view-memories" class="view-section">
                 <div class="panel-container">
                     <div class="panel-header">
@@ -847,7 +953,7 @@
                 </div>
             </section>
 
-            <!-- VIEW 5: TASK ORCHESTRATION -->
+            <!-- VIEW 8: TASK ORCHESTRATION -->
             <section id="view-tasks" class="view-section">
                 <div class="panel-container">
                     <div class="panel-header">
@@ -871,7 +977,7 @@
                 </div>
             </section>
 
-            <!-- VIEW 6: CHECKPOINTS & WAL -->
+            <!-- VIEW 9: CHECKPOINTS & WAL -->
             <section id="view-checkpoints" class="view-section">
                 <div class="panel-container">
                     <div class="panel-header">
@@ -895,7 +1001,7 @@
                 </div>
             </section>
 
-            <!-- VIEW 7: GOVERNANCE -->
+            <!-- VIEW 10: GOVERNANCE -->
             <section id="view-governance" class="view-section">
                 <div class="panel-container">
                     <div class="panel-header">
@@ -920,14 +1026,14 @@
                 </div>
             </section>
 
-            <!-- VIEW 8: ARCHITECTURE BLUEPRINT -->
+            <!-- VIEW 11: ARCHITECTURE BLUEPRINT -->
             <section id="view-architecture" class="view-section">
                 <div class="panel-container">
-                    <span class="panel-title">Sarembok VE Master Architecture</span>
+                    <span class="panel-title">Sarembok Prometheus Architecture</span>
                     <div class="terminal-box" style="line-height:1.7;">
-                        <p><strong class="text-cyan">1. Sovereign AI Cognitive Core</strong>: Authoritative state machine with SQLite-WAL, persistent RAG vector memory, and multi-agent coordination.</p>
-                        <p><strong class="text-emerald">2. Distributed GPU Compute Mesh</strong>: Dynamic worker nodes claiming task DAGs with automatic recovery.</p>
-                        <p><strong class="text-indigo">3. High-Fidelity MetaHuman Embodiment</strong>: Unreal Engine 5.8 4K MetaHuman with 52 ARKit blendshapes, gaze saccades, and WebRTC streaming.</p>
+                        <p><strong class="text-cyan">1. Recursive Self-Evolution</strong>: Autonomous profiling and algorithmic optimization with SHA-256 milestone hashing.</p>
+                        <p><strong class="text-emerald">2. Autonomous Multi-Agent Swarm Compiler</strong>: Compiles objectives into 4-stage verified software codebases.</p>
+                        <p><strong class="text-indigo">3. Zero-Client-Dependency Digital Human</strong>: WebRTC 60 FPS streaming of Unreal Engine 5.8 MetaHuman with 52 ARKit blendshapes.</p>
                     </div>
                 </div>
             </section>
@@ -935,7 +1041,7 @@
         </main>
     </div>
 
-    <!-- Modals for Agent, Task, Memory Creation -->
+    <!-- Modals -->
     <div id="modal-agent" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:2000; align-items:center; justify-content:center;">
         <div class="panel-container" style="width:420px;">
             <span class="panel-title">Deploy Autonomous Agent</span>
@@ -954,6 +1060,7 @@
         const pendingRPC = new Map();
         let ariaAudioEnabled = true;
         let ariaSpeaking = false;
+        let currentSynthesizedFiles = [];
 
         function getAuthToken() {
             const params = new URLSearchParams(window.location.search);
@@ -1027,7 +1134,9 @@
             const targetView = document.getElementById('view-' + viewId);
             if (targetView) targetView.classList.add('active');
             
-            event.currentTarget.classList.add('active');
+            if (event && event.currentTarget && event.currentTarget.classList) {
+                event.currentTarget.classList.add('active');
+            }
         }
 
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
@@ -1039,6 +1148,8 @@
         }
 
         async function refreshAllViews() {
+            fetchEvolutionMilestones();
+            fetchProactiveInsights();
             fetchWorkers();
             fetchAgents();
             fetchMemories();
@@ -1048,6 +1159,149 @@
             fetchEvents();
             loadCognitiveGraph();
         }
+
+        // ==================== PROMETHEUS ENGINES ====================
+
+        async function triggerEvolutionCycle() {
+            try {
+                const res = await sendRPC("TriggerSelfEvolution", {});
+                speakAria(`Recursive evolution cycle completed. Speedup factor: ${res.speedupFactor}x on dimension ${res.dimension}.`);
+                fetchEvolutionMilestones();
+            } catch(e) {
+                alert("Evolution cycle error: " + e);
+            }
+        }
+
+        async function fetchEvolutionMilestones() {
+            try {
+                const res = await sendRPC("ListEvolutionMilestones", { limit: 15 });
+                const list = res.milestones || [];
+                const tb = document.getElementById('evolution-table-body');
+                if (tb) {
+                    tb.innerHTML = list.length === 0 ? '<tr><td colspan="8" class="text-muted" style="text-align:center;">No milestones recorded</td></tr>' :
+                        list.map(m => `
+                            <tr>
+                                <td class="mono text-cyan">${escapeHtml(m.milestoneId)}</td>
+                                <td class="mono"><strong>Cycle ${m.iteration}</strong></td>
+                                <td><span class="tag tag-cyan">${escapeHtml(m.dimension)}</span></td>
+                                <td class="mono text-muted">${m.baselineLatencyMs} ms</td>
+                                <td class="mono text-emerald"><strong>${m.optimizedLatencyMs} ms</strong></td>
+                                <td class="mono text-cyan"><strong>${m.speedupFactor}x</strong></td>
+                                <td class="mono text-muted" title="${escapeHtml(m.verificationHash)}">${escapeHtml(m.verificationHash.substring(0, 12))}...</td>
+                                <td class="mono text-muted">${new Date(m.timestamp).toLocaleTimeString()}</td>
+                            </tr>
+                        `).join('');
+                }
+                if (list.length > 0) {
+                    const top = list[0];
+                    const iterEl = document.getElementById('metric-evolution-iter');
+                    if (iterEl) iterEl.textContent = `Cycle 0${top.iteration}`;
+                    const spdEl = document.getElementById('evo-card-speedup');
+                    if (spdEl) spdEl.textContent = `${top.speedupFactor}x`;
+                    const latEl = document.getElementById('evo-card-latency');
+                    if (latEl) latEl.textContent = `${top.optimizedLatencyMs} ms`;
+                }
+            } catch(e) {}
+        }
+
+        async function compileSwarmProject() {
+            const input = document.getElementById('swarm-goal-input');
+            const goal = (input ? input.value : "").trim();
+            if (!goal) return;
+
+            const deck = document.getElementById('swarm-stages-deck');
+            deck.innerHTML = `<div style="grid-column:1/-1; padding:16px; color:var(--cyan); font-family:var(--font-mono);">Compiling 4-agent swarm DAG for: "${escapeHtml(goal)}"...</div>`;
+
+            try {
+                const res = await sendRPC("CompileEngineeringSwarm", { goal: goal });
+                const stages = res.stages || [];
+                currentSynthesizedFiles = res.files || [];
+
+                deck.innerHTML = stages.map((s, idx) => `
+                    <div style="background:var(--bg-surface-elevated); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:14px; display:flex; flex-direction:column; gap:6px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span class="tag tag-online">STAGE 0${idx+1}</span>
+                            <span class="mono text-muted" style="font-size:10px;">${escapeHtml(s.agentName)}</span>
+                        </div>
+                        <div style="font-weight:700; color:#fff; font-size:13px;">${escapeHtml(s.role)}</div>
+                        <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">${escapeHtml(s.outputSummary)}</div>
+                    </div>
+                `).join('');
+
+                // Show synthesized files
+                const fileContainer = document.getElementById('swarm-files-container');
+                if (fileContainer && currentSynthesizedFiles.length > 0) {
+                    fileContainer.style.display = 'flex';
+                    const tabHeader = document.getElementById('file-tabs-header');
+                    tabHeader.innerHTML = currentSynthesizedFiles.map((f, i) => `
+                        <button class="btn btn-outline btn-sm ${i===0?'active':''}" onclick="viewSynthesizedFile(${i})">${escapeHtml(f.filename)}</button>
+                    `).join('');
+                    viewSynthesizedFile(0);
+                }
+
+                speakAria(`Swarm compilation complete for ${goal}. Four autonomous modules synthesized.`);
+                refreshAllViews();
+            } catch(e) {
+                alert("Swarm compilation error: " + e);
+            }
+        }
+
+        function viewSynthesizedFile(idx) {
+            const file = currentSynthesizedFiles[idx];
+            if (!file) return;
+            const viewer = document.getElementById('file-code-viewer');
+            if (viewer) viewer.textContent = file.content;
+        }
+
+        async function runSandboxTest() {
+            const file = currentSynthesizedFiles.find(f => f.language === 'python');
+            if (!file) return;
+
+            const box = document.getElementById('sandbox-output-box');
+            box.style.display = 'block';
+            box.innerHTML = `<span class="text-cyan">Executing Python sandbox test harness...</span>`;
+
+            try {
+                const res = await sendRPC("ExecuteSandboxCode", { code: file.content, language: "python" });
+                box.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <strong class="text-emerald">SANDBOX EXECUTION: ${escapeHtml(res.status)}</strong>
+                        <span class="mono text-muted">${res.executionTimeMs} ms</span>
+                    </div>
+                    <div style="color:#cbd5e1;">${escapeHtml(res.output)}</div>
+                `;
+            } catch(e) {
+                box.innerHTML = `<span class="text-rose">Execution failed: ${escapeHtml(String(e))}</span>`;
+            }
+        }
+
+        async function fetchProactiveInsights() {
+            try {
+                const res = await sendRPC("QueryProactiveInsights", { limit: 15 });
+                const list = res.insights || [];
+                const tb = document.getElementById('proactive-table-body');
+                if (tb) {
+                    tb.innerHTML = list.length === 0 ? '<tr><td colspan="6" class="text-muted" style="text-align:center;">No proactive insights</td></tr>' :
+                        list.map(i => `
+                            <tr>
+                                <td><span class="tag tag-cyan">${escapeHtml(i.category)}</span></td>
+                                <td><strong>${escapeHtml(i.title)}</strong><div style="font-size:11px; color:var(--text-muted);">${escapeHtml(i.description)}</div></td>
+                                <td><span class="tag tag-online">${escapeHtml(i.severity)}</span></td>
+                                <td>${escapeHtml(i.actionSuggested)}</td>
+                                <td><span class="tag tag-online">${escapeHtml(i.status)}</span></td>
+                                <td class="mono text-muted">${new Date(i.timestamp).toLocaleTimeString()}</td>
+                            </tr>
+                        `).join('');
+                }
+            } catch(e) {}
+        }
+
+        async function triggerProactiveScan() {
+            await sendRPC("TriggerProactiveScan", {});
+            fetchProactiveInsights();
+        }
+
+        // ==================== WORKERS & MEMORIES ====================
 
         async function fetchWorkers() {
             try {
@@ -1209,33 +1463,6 @@
             fetchAgents();
         }
 
-        // Autonomous Pipeline Execution
-        async function runAutonomousPipeline() {
-            const input = document.getElementById('pipeline-goal-input');
-            const goal = (input ? input.value : "").trim();
-            if (!goal) return;
-
-            const container = document.getElementById('pipeline-stages-container');
-            container.innerHTML = `<div style="grid-column:1/-1; padding:12px; color:var(--cyan); font-family:var(--font-mono);">Decomposing execution DAG for: "${escapeHtml(goal)}"...</div>`;
-
-            try {
-                const res = await sendRPC("ExecuteAutonomousPipeline", { goal: goal });
-                const tasks = res.tasks || [];
-                container.innerHTML = tasks.map((t, idx) => `
-                    <div style="background:var(--bg-surface-elevated); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:12px; display:flex; flex-direction:column; gap:6px;">
-                        <span class="tag tag-online" style="align-self:flex-start;">STAGE 0${idx+1}</span>
-                        <div style="font-weight:600; color:#fff; font-size:12px;">${escapeHtml(t.title)}</div>
-                        <div class="mono text-cyan" style="font-size:10px;">${escapeHtml(t.taskId)}</div>
-                    </div>
-                `).join('');
-
-                speakAria(`Autonomous pipeline initiated for: ${goal}`);
-                refreshAllViews();
-            } catch(e) {
-                alert("Pipeline launch error: " + e);
-            }
-        }
-
         // 3D Cognitive Topology Graph
         let graphAnimFrame = null;
         async function loadCognitiveGraph() {
@@ -1336,7 +1563,6 @@
             ariaRenderer.setSize(width, height);
             ariaRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-            // Prismatic Lighting
             const keyLight = new THREE.DirectionalLight(0x00f0ff, 2.5);
             keyLight.position.set(2, 3, 2);
             ariaScene.add(keyLight);
@@ -1348,7 +1574,6 @@
             ariaHeadGroup = new THREE.Group();
             ariaScene.add(ariaHeadGroup);
 
-            // Volumetric Core Mesh
             const headGeo = new THREE.IcosahedronGeometry(0.85, 4);
             const headMat = new THREE.MeshPhysicalMaterial({
                 color: 0x070a10,
@@ -1365,7 +1590,6 @@
             ariaHeadMesh.scale.set(0.9, 1.15, 0.95);
             ariaHeadGroup.add(ariaHeadMesh);
 
-            // Lattice Brain Wireframe
             const wireGeo = new THREE.IcosahedronGeometry(0.88, 3);
             const wireMat = new THREE.MeshBasicMaterial({
                 color: 0x00f0ff,
@@ -1378,7 +1602,6 @@
             ariaBrainCircuits.scale.set(0.92, 1.18, 0.97);
             ariaHeadGroup.add(ariaBrainCircuits);
 
-            // Viseme Phoneme Bar
             const mouthGeo = new THREE.BoxGeometry(0.28, 0.03, 0.06);
             const mouthMat = new THREE.MeshStandardMaterial({
                 color: 0x00f0ff,
@@ -1389,7 +1612,6 @@
             ariaMouthMesh.position.set(0, -0.34, 0.78);
             ariaHeadGroup.add(ariaMouthMesh);
 
-            // Particle Swarm
             const pCount = 180;
             const pGeo = new THREE.BufferGeometry();
             const pPos = new Float32Array(pCount * 3);
