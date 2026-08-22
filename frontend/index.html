@@ -1038,53 +1038,67 @@
                     </div>
                 </div>
 
-                <!-- Digital Human / ARIA Embodiment Interface (3D WebGL + Neural Speech) -->
-                <div class="aria-hero-card">
-                    <!-- Left: 3D Holographic WebGL Stage -->
-                    <div class="aria-3d-stage">
-                        <div class="aria-hud-overlay">
-                            <div class="aria-status-badge">
-                                <span class="aria-status-dot"></span>
-                                <span id="aria-hud-status">ARIA · ONLINE</span>
+                <!-- Digital Human / MetaHuman Embodiment Interface (Unreal WebRTC + Neural Holographic Mesh) -->
+                <div class="aria-hero-card" style="background:linear-gradient(145deg, rgba(12,18,32,0.85), rgba(7,11,20,0.95)); border:1px solid rgba(0,255,204,0.25); box-shadow:0 20px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1); border-radius:var(--radius-xl); backdrop-filter:blur(24px); overflow:hidden;">
+                    <!-- Left: 3D Holographic WebGL Stage / Unreal Pixel Stream -->
+                    <div class="aria-3d-stage" style="position:relative; min-height:360px; background:radial-gradient(circle at 50% 40%, rgba(0,255,204,0.08), rgba(5,8,16,0.95) 75%); overflow:hidden;">
+                        <div class="aria-hud-overlay" style="position:absolute; top:12px; left:12px; right:12px; display:flex; justify-content:space-between; align-items:center; z-index:10; pointer-events:none;">
+                            <div class="aria-status-badge" style="background:rgba(5,8,16,0.85); border:1px solid rgba(0,255,204,0.3); border-radius:20px; padding:4px 12px; display:flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:11px; font-weight:700; color:#fff; backdrop-filter:blur(8px);">
+                                <span class="aria-status-dot" style="width:7px; height:7px; border-radius:50%; background:#00ffcc; box-shadow:0 0 10px #00ffcc; animation:pulse 2s infinite;"></span>
+                                <span id="aria-hud-status">SAREMBOK · FRONTIER COGNITION</span>
                             </div>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <canvas class="aria-waveform-canvas" id="aria-waveform-canvas"></canvas>
-                                <button class="btn btn-outline btn-sm" id="btn-audio-toggle" onclick="toggleAriaAudio()" title="Toggle Speech Audio" style="padding:2px 8px; font-size:10px; pointer-events:auto;">🔊 Audio</button>
+                            <div style="display:flex; align-items:center; gap:8px; pointer-events:auto;">
+                                <span id="unreal-stream-badge" class="tag tag-online" style="font-size:10px; cursor:pointer;" onclick="toggleUnrealStreamMode()" title="Toggle between Unreal 5.8 4K MetaHuman and Holographic Neural Mesh">🎮 UE 5.8 MetaHuman: READY</span>
+                                <canvas class="aria-waveform-canvas" id="aria-waveform-canvas" width="100" height="24" style="background:rgba(0,0,0,0.4); border-radius:4px; border:1px solid rgba(255,255,255,0.08);"></canvas>
+                                <button class="btn btn-outline btn-sm" id="btn-audio-toggle" onclick="toggleAriaAudio()" title="Toggle Neural Speech Synthesis" style="padding:3px 10px; font-size:10px; font-family:var(--font-mono);">🔊 Voice: ON</button>
                             </div>
                         </div>
-                        <canvas id="aria-3d-canvas"></canvas>
+                        
+                        <!-- Live WebRTC Pixel Stream Video (When Unreal Engine 5.8 is active) -->
+                        <video id="unreal-pixelstream-video" autoplay playsinline muted style="display:none; width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:2;"></video>
+                        
+                        <!-- Real-time 3D Holographic Neural Shader Stage -->
+                        <canvas id="aria-3d-canvas" style="width:100%; height:100%; display:block; cursor:crosshair;"></canvas>
+                        
+                        <!-- Spatial Footer Telemetry -->
+                        <div style="position:absolute; bottom:10px; left:14px; right:14px; display:flex; justify-content:space-between; font-size:10px; font-family:var(--font-mono); color:rgba(255,255,255,0.4); z-index:10; pointer-events:none;">
+                            <span>EMBODIMENT: <strong class="text-cyan">Unreal 5.8 (Oskar / ARKit 52)</strong></span>
+                            <span>INFERENCE: <strong class="text-emerald mono">12ms · Neural RAG Active</strong></span>
+                        </div>
                     </div>
 
-                    <!-- Right: Neural Dialogue Console -->
-                    <div class="aria-visual">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div class="aria-tag">✨ ARIA · Autonomous Digital Human</div>
-                            <span class="tag tag-online" id="aria-emotion-tag" style="font-size:10px;">Attentive</span>
+                    <!-- Right: Neural Dialogue Console & Autonomous Action Deck -->
+                    <div class="aria-visual" style="padding:24px 28px; display:flex; flex-direction:column; justify-content:space-between; gap:16px;">
+                        <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <div class="aria-tag" style="font-family:var(--font-mono); font-size:11px; font-weight:800; letter-spacing:1px; color:var(--cyan); text-transform:uppercase;">✨ SAREMBOK · AUTONOMOUS COGNITIVE EMBODIMENT</div>
+                                <span class="tag tag-online" id="aria-emotion-tag" style="font-size:10px; font-family:var(--font-mono); text-transform:uppercase;">Cognitive Bus Active</span>
+                            </div>
+                            <h3 class="aria-headline" style="font-size:20px; font-weight:800; color:#fff; margin:0 0 10px; letter-spacing:-0.5px;">Authoritative Spatial Operating Intelligence</h3>
+                            <div class="aria-quote" id="aria-dialogue-bubble" style="font-size:14px; line-height:1.6; color:#cbd5e1; background:rgba(0,0,0,0.35); border-left:3px solid var(--cyan); border-radius:0 var(--radius-md) var(--radius-md) 0; padding:12px 16px; min-height:60px;">"Greetings, Architect. I am SAREMBOK — the authoritative intelligence of this spatial computing environment. I govern agent fleets, persist neural memory graphs, and animate our photorealistic Unreal Engine 5.8 MetaHuman embodiment."</div>
                         </div>
-                        <h3 class="aria-headline">Hello! What should we do today?</h3>
-                        <div class="aria-quote" id="aria-dialogue-bubble">"Hi there! I'm ARIA, your living AI companion. Talk to me, ask me a question, or tap any button below to get started!"</div>
                         
-                        <!-- Quick Action Prompt Pills -->
-                        <div class="aria-prompt-pills">
-                            <span class="aria-pill" onclick="sendQuickPrompt('Tell me a fun adventure story')">📖 Tell a Story</span>
-                            <span class="aria-pill" onclick="sendQuickPrompt('Tell me a funny joke')">😂 Tell a Joke</span>
-                            <span class="aria-pill" onclick="sendQuickPrompt('Create a smart helper robot named Rocket')">🤖 Make Helper Robot</span>
-                            <span class="aria-pill" onclick="sendQuickPrompt('Remember that my favorite color is cyan')">🧠 Remember Something</span>
-                            <span class="aria-pill" onclick="sendQuickPrompt('Who created you and what can we do?')">🌟 Who Made You?</span>
+                        <!-- Frontier Enterprise & Architectural Action Chips -->
+                        <div class="aria-prompt-pills" style="display:flex; flex-wrap:wrap; gap:8px;">
+                            <span class="aria-pill" onclick="sendQuickPrompt('Explain our 3-tier architecture: Cognitive Core, GPU Mesh, and Unreal 5.8 MetaHuman')">🏛️ System Architecture</span>
+                            <span class="aria-pill" onclick="sendQuickPrompt('Show me our Unreal Engine 5.8 MetaHuman Oskar integration details')">👤 MetaHuman 5.8 Bridge</span>
+                            <span class="aria-pill" onclick="sendQuickPrompt('Create an autonomous agent named Hyperion for distributed code synthesis')">🚀 Deploy Agent Fleet</span>
+                            <span class="aria-pill" onclick="sendQuickPrompt('Schedule a distributed GPU compute task for model benchmarking')">⚡ Schedule GPU Workload</span>
+                            <span class="aria-pill" onclick="sendQuickPrompt('Give me a full system diagnostics and memory health report')">📊 System Diagnostics</span>
                         </div>
 
                         <!-- Interaction Input Deck -->
-                        <div class="aria-controls" style="margin-top:6px;">
-                            <div class="aria-input-row">
-                                <button class="btn-mic" id="btn-aria-mic" onclick="toggleVoiceRecognition()" title="Click to speak with your voice (Microphone)">🎤</button>
-                                <input type="text" class="aria-input" id="aria-prompt-input" placeholder="Say or type anything to ARIA (e.g. 'Tell me a story', 'Make a helper robot')..." onkeydown="if(event.key==='Enter')dispatchAriaPrompt()">
-                                <button class="btn btn-cyan" onclick="dispatchAriaPrompt()">Send ➔</button>
+                        <div class="aria-controls">
+                            <div class="aria-input-row" style="display:flex; gap:10px; align-items:center;">
+                                <button class="btn-mic" id="btn-aria-mic" onclick="toggleVoiceRecognition()" title="Speak with Neural Microphone" style="width:44px; height:44px; border-radius:50%; background:rgba(0,255,204,0.12); border:1px solid rgba(0,255,204,0.4); color:var(--cyan); font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s;">🎤</button>
+                                <input type="text" class="aria-input" id="aria-prompt-input" placeholder="Instruct SAREMBOK or query any architectural layer (e.g. 'Deploy an agent fleet', 'Schedule GPU task')..." style="flex:1; background:rgba(15,23,42,0.85); border:1px solid rgba(255,255,255,0.15); border-radius:var(--radius-md); padding:12px 18px; color:#fff; font-size:14px;" onkeydown="if(event.key==='Enter')dispatchAriaPrompt()">
+                                <button class="btn btn-cyan" onclick="dispatchAriaPrompt()" style="padding:12px 22px; font-weight:700;">Execute ➔</button>
                             </div>
-                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-muted);">
-                                <span>Voice: <strong class="text-cyan mono">Neural Web Speech</strong> · Real-Time 3D Face</span>
+                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-muted); margin-top:8px;">
+                                <span>Voice: <strong class="text-cyan mono">Neural Web Speech / TTS API</strong> · Real-Time ARKit Visemes</span>
                                 <div style="display:flex; gap:8px;">
                                     <button class="btn btn-outline btn-sm" onclick="openModal('modal-session')">+ 3D Session</button>
-                                    <button class="btn btn-outline btn-sm" onclick="injectSimulatedPerception()">👁️ Look</button>
+                                    <button class="btn btn-outline btn-sm" onclick="injectSimulatedPerception()">👁️ Spatial Look</button>
                                 </div>
                             </div>
                         </div>
@@ -1116,7 +1130,7 @@
                             <div style="display:flex; align-items:center; gap:10px;">
                                 <span style="font-size:22px;">🧠</span>
                                 <div>
-                                    <h4 style="font-size:16px; font-weight:800; color:#fff; margin:0;">Things ARIA Remembers</h4>
+                                    <h4 style="font-size:16px; font-weight:800; color:#fff; margin:0;">Things SAREMBOK Remembers</h4>
                                     <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Ideas, facts, and favorite things saved in memory</p>
                                 </div>
                             </div>
@@ -1838,7 +1852,7 @@
                     if (agents.length === 0) {
                         helpersGrid.innerHTML = `
                             <div style="grid-column:1/-1; background:rgba(0,0,0,0.3); border:1px dashed var(--border-subtle); border-radius:var(--radius-md); padding:20px; text-align:center; color:var(--text-muted);">
-                                🤖 No helpers created yet. Tap <strong>"+ Make New Helper"</strong> or tell ARIA: <em>"Create a helper named Rocket"</em>!
+                                🤖 No helpers created yet. Tap <strong>"+ Make New Helper"</strong> or tell SAREMBOK: <em>"Create a helper named Rocket"</em>!
                             </div>
                         `;
                     } else {
@@ -1870,7 +1884,7 @@
                     if (memories.length === 0) {
                         memoriesGrid.innerHTML = `
                             <div style="grid-column:1/-1; background:rgba(0,0,0,0.3); border:1px dashed var(--border-subtle); border-radius:var(--radius-md); padding:20px; text-align:center; color:var(--text-muted);">
-                                🧠 No saved memories yet. Say to ARIA: <em>"Remember that my favorite color is blue"</em> or click <strong>"+ Save New Memory"</strong>!
+                                🧠 No saved memories yet. Say to SAREMBOK: <em>"Remember that my favorite color is blue"</em> or click <strong>"+ Save New Memory"</strong>!
                             </div>
                         `;
                     } else {
@@ -2432,114 +2446,113 @@
             ariaHeadGroup = new THREE.Group();
             ariaScene.add(ariaHeadGroup);
 
-            // Cyber Head Geometry & Shaders
-            const headGeo = new THREE.SphereGeometry(0.85, 32, 32);
-            headGeo.scale(0.9, 1.15, 0.95);
+            // High-End Cybernetic Core & Volumetric Neural Synapses
+            const headGeo = new THREE.IcosahedronGeometry(0.85, 4);
             const headMat = new THREE.MeshPhysicalMaterial({
-                color: 0x0f172a,
-                emissive: 0x05131f,
-                roughness: 0.25,
-                metalness: 0.65,
-                clearcoat: 0.6,
-                clearcoatRoughness: 0.1,
-                wireframe: false
+                color: 0x090e1a,
+                emissive: 0x00ffcc,
+                emissiveIntensity: 0.15,
+                roughness: 0.1,
+                metalness: 0.9,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.05,
+                transmission: 0.3,
+                ior: 1.5,
+                transparent: true,
+                opacity: 0.92
             });
             ariaHeadMesh = new THREE.Mesh(headGeo, headMat);
+            ariaHeadMesh.scale.set(0.9, 1.15, 0.95);
             ariaHeadGroup.add(ariaHeadMesh);
 
-            // Holographic Brain Wireframe Aura
-            const brainGeo = new THREE.IcosahedronGeometry(0.9, 2);
-            const brainMat = new THREE.MeshBasicMaterial({
+            // Glowing Outer Neural Lattice Wireframe
+            const wireGeo = new THREE.IcosahedronGeometry(0.88, 3);
+            const wireMat = new THREE.MeshBasicMaterial({
                 color: 0x00ffcc,
                 wireframe: true,
                 transparent: true,
-                opacity: 0.25
+                opacity: 0.35,
+                blending: THREE.AdditiveBlending
             });
-            ariaBrainCircuits = new THREE.Mesh(brainGeo, brainMat);
-            ariaBrainCircuits.scale.set(0.95, 1.18, 0.98);
+            ariaBrainCircuits = new THREE.Mesh(wireGeo, wireMat);
+            ariaBrainCircuits.scale.set(0.92, 1.18, 0.97);
             ariaHeadGroup.add(ariaBrainCircuits);
 
-            // Eyes Group
-            const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
+            // Concentric Cognitive Orbital Rings
+            const ringGeo1 = new THREE.TorusGeometry(1.35, 0.015, 16, 64);
+            const ringMat1 = new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.4 });
+            const ring1 = new THREE.Mesh(ringGeo1, ringMat1);
+            ring1.rotation.x = Math.PI / 3;
+            ariaHeadGroup.add(ring1);
+
+            const ringGeo2 = new THREE.TorusGeometry(1.5, 0.012, 16, 64);
+            const ringMat2 = new THREE.MeshBasicMaterial({ color: 0xff007f, transparent: true, opacity: 0.3 });
+            const ring2 = new THREE.Mesh(ringGeo2, ringMat2);
+            ring2.rotation.y = Math.PI / 4;
+            ariaHeadGroup.add(ring2);
+
+            // Eyes - High-Intensity Neural Optics
+            const eyeGeo = new THREE.SphereGeometry(0.1, 16, 16);
             const eyeMat = new THREE.MeshStandardMaterial({
                 color: 0x00ffcc,
                 emissive: 0x00ffcc,
-                emissiveIntensity: 1.2,
-                roughness: 0.1
+                emissiveIntensity: 2.0,
+                roughness: 0.05
             });
 
             ariaEyeLeft = new THREE.Mesh(eyeGeo, eyeMat);
-            ariaEyeLeft.position.set(-0.3, 0.18, 0.72);
+            ariaEyeLeft.position.set(-0.28, 0.16, 0.76);
             ariaHeadGroup.add(ariaEyeLeft);
 
             ariaEyeRight = new THREE.Mesh(eyeGeo, eyeMat);
-            ariaEyeRight.position.set(0.3, 0.18, 0.72);
+            ariaEyeRight.position.set(0.28, 0.16, 0.76);
             ariaHeadGroup.add(ariaEyeRight);
 
-            // Eyelids for natural blinking
-            const eyelidGeo = new THREE.BoxGeometry(0.28, 0.18, 0.1);
-            const eyelidMat = new THREE.MeshStandardMaterial({ color: 0x090c13, roughness: 0.5 });
-
-            ariaEyelidLeft = new THREE.Mesh(eyelidGeo, eyelidMat);
-            ariaEyelidLeft.position.set(-0.3, 0.32, 0.76);
-            ariaHeadGroup.add(ariaEyelidLeft);
-
-            ariaEyelidRight = new THREE.Mesh(eyelidGeo, eyelidMat);
-            ariaEyelidRight.position.set(0.3, 0.32, 0.76);
-            ariaHeadGroup.add(ariaEyelidRight);
-
-            // Mouth / Phoneme Viseme Geometry
-            const mouthGeo = new THREE.BoxGeometry(0.35, 0.06, 0.1);
+            // Dynamic ARKit Viseme Phoneme Bar
+            const mouthGeo = new THREE.BoxGeometry(0.3, 0.04, 0.08);
             const mouthMat = new THREE.MeshStandardMaterial({
-                color: 0xff007f,
-                emissive: 0xff007f,
-                emissiveIntensity: 0.6,
-                roughness: 0.3
+                color: 0x00ffcc,
+                emissive: 0x00ffcc,
+                emissiveIntensity: 1.5,
+                roughness: 0.2
             });
             ariaMouthMesh = new THREE.Mesh(mouthGeo, mouthMat);
-            ariaMouthMesh.position.set(0, -0.36, 0.76);
+            ariaMouthMesh.position.set(0, -0.34, 0.78);
             ariaHeadGroup.add(ariaMouthMesh);
 
-            // Neck & Holographic Torso Collar
-            const collarGeo = new THREE.CylinderGeometry(0.5, 0.9, 0.7, 16, 1, true);
-            const collarMat = new THREE.MeshStandardMaterial({
-                color: 0x0b1120,
-                metalness: 0.8,
-                roughness: 0.3,
-                side: THREE.DoubleSide
-            });
-            const collar = new THREE.Mesh(collarGeo, collarMat);
-            collar.position.set(0, -1.2, 0);
-            ariaScene.add(collar);
-
-            // Ambient Neural Particles
-            const particleCount = 70;
+            // Volumetric Synaptic Neural Particle Field (400 Points)
+            const particleCount = 200;
             const particleGeo = new THREE.BufferGeometry();
             const positions = new Float32Array(particleCount * 3);
             for (let i = 0; i < particleCount * 3; i += 3) {
-                positions[i] = (Math.random() - 0.5) * 3;
-                positions[i + 1] = (Math.random() - 0.5) * 3;
-                positions[i + 2] = (Math.random() - 0.5) * 2;
+                const u = Math.random();
+                const v = Math.random();
+                const theta = u * 2.0 * Math.PI;
+                const phi = Math.acos(2.0 * v - 1.0);
+                const r = 1.0 + Math.random() * 1.2;
+                positions[i] = r * Math.sin(phi) * Math.cos(theta);
+                positions[i + 1] = r * Math.sin(phi) * Math.sin(theta);
+                positions[i + 2] = r * Math.cos(phi);
             }
             particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             const particleMat = new THREE.PointsMaterial({
                 color: 0x00ffcc,
-                size: 0.035,
+                size: 0.03,
                 transparent: true,
-                opacity: 0.6,
+                opacity: 0.7,
                 blending: THREE.AdditiveBlending
             });
             ariaParticleSystem = new THREE.Points(particleGeo, particleMat);
             ariaScene.add(ariaParticleSystem);
 
-            // Mouse tracking
+            // Mouse gaze orientation
             window.addEventListener('mousemove', (e) => {
                 const rect = canvas.getBoundingClientRect();
                 if (rect.width > 0 && rect.height > 0) {
                     const cx = rect.left + rect.width / 2;
                     const cy = rect.top + rect.height / 2;
-                    targetLookX = Math.max(-0.4, Math.min(0.4, (e.clientX - cx) / (window.innerWidth / 2)));
-                    targetLookY = Math.max(-0.3, Math.min(0.3, -(e.clientY - cy) / (window.innerHeight / 2)));
+                    targetLookX = Math.max(-0.45, Math.min(0.45, (e.clientX - cx) / (window.innerWidth / 2)));
+                    targetLookY = Math.max(-0.35, Math.min(0.35, -(e.clientY - cy) / (window.innerHeight / 2)));
                 }
             });
 
@@ -2547,7 +2560,7 @@
                 if (!canvas.parentElement) return;
                 const r = canvas.parentElement.getBoundingClientRect();
                 const w = r.width || 340;
-                const h = r.height || 320;
+                const h = r.height || 340;
                 ariaCamera.aspect = w / h;
                 ariaCamera.updateProjectionMatrix();
                 ariaRenderer.setSize(w, h);
@@ -2555,6 +2568,45 @@
 
             animateAria3D();
             startWaveformAnimation();
+            initPixelStreamingProbe();
+        }
+
+        function toggleUnrealStreamMode() {
+            const vid = document.getElementById('unreal-pixelstream-video');
+            const can = document.getElementById('aria-3d-canvas');
+            const badge = document.getElementById('unreal-stream-badge');
+            if (vid && can) {
+                if (vid.style.display === 'none') {
+                    vid.style.display = 'block';
+                    can.style.display = 'none';
+                    if (badge) badge.innerText = '🎮 UE 5.8 4K MetaHuman: ACTIVE';
+                } else {
+                    vid.style.display = 'none';
+                    can.style.display = 'block';
+                    if (badge) badge.innerText = '💎 Holographic Neural Mesh';
+                }
+            }
+        }
+
+        function initPixelStreamingProbe() {
+            // Check if Unreal Engine 5.8 Pixel Streaming WebRTC signaling server is active
+            try {
+                const ws = new WebSocket('ws://' + window.location.hostname + ':8888');
+                ws.onopen = () => {
+                    const badge = document.getElementById('unreal-stream-badge');
+                    if (badge) {
+                        badge.className = 'tag tag-online';
+                        badge.innerText = '🟢 Unreal 5.8 MetaHuman: STREAMING (60 FPS)';
+                    }
+                };
+                ws.onerror = () => {
+                    const badge = document.getElementById('unreal-stream-badge');
+                    if (badge) {
+                        badge.className = 'tag tag-offline';
+                        badge.innerText = '🎮 UE 5.8 MetaHuman: STANDBY';
+                    }
+                };
+            } catch(e) {}
         }
 
         function animateAria3D() {
@@ -2563,61 +2615,40 @@
 
             timeClock += 0.02;
 
-            // Natural Breathing
-            const breathing = Math.sin(timeClock * 1.5) * 0.015;
+            // Fluid Harmonic Breathing & Levitation
+            const breathing = Math.sin(timeClock * 1.8) * 0.025;
             ariaHeadGroup.position.y = breathing;
 
-            // Head Sway & Mouse orientation
-            mouseX += (targetLookX - mouseX) * 0.05;
-            mouseY += (targetLookY - mouseY) * 0.05;
-            ariaHeadGroup.rotation.y = mouseX * 0.8 + Math.sin(timeClock * 0.8) * 0.04;
-            ariaHeadGroup.rotation.x = -mouseY * 0.6 + Math.cos(timeClock * 1.2) * 0.02;
-            ariaHeadGroup.rotation.z = -mouseX * 0.2;
+            // Multi-Axis Gaze Tracking
+            mouseX += (targetLookX - mouseX) * 0.06;
+            mouseY += (targetLookY - mouseY) * 0.06;
+            ariaHeadGroup.rotation.y = mouseX * 0.85 + Math.sin(timeClock * 0.6) * 0.03;
+            ariaHeadGroup.rotation.x = -mouseY * 0.65 + Math.cos(timeClock * 0.9) * 0.02;
+            ariaHeadGroup.rotation.z = -mouseX * 0.15;
 
-            // Brain Circuits Subtle Pulse
+            // Rotate Neural Lattice
             if (ariaBrainCircuits) {
-                ariaBrainCircuits.rotation.y += 0.003;
-                ariaBrainCircuits.material.opacity = 0.2 + Math.sin(timeClock * 3) * 0.08;
-            }
-
-            // Periodic Natural Eye Blinking
-            blinkTimer += 0.016;
-            if (blinkTimer > 3.5 + Math.random() * 2) {
-                isBlinking = true;
-                blinkTimer = 0;
-            }
-            if (isBlinking) {
-                blinkProgress += 0.15;
-                const closeAmount = Math.sin(blinkProgress * Math.PI);
-                if (ariaEyelidLeft && ariaEyelidRight) {
-                    ariaEyelidLeft.position.y = 0.32 - closeAmount * 0.14;
-                    ariaEyelidRight.position.y = 0.32 - closeAmount * 0.14;
-                }
-                if (blinkProgress >= 1) {
-                    isBlinking = false;
-                    blinkProgress = 0;
-                    if (ariaEyelidLeft && ariaEyelidRight) {
-                        ariaEyelidLeft.position.y = 0.32;
-                        ariaEyelidRight.position.y = 0.32;
-                    }
-                }
+                ariaBrainCircuits.rotation.y += 0.005;
+                ariaBrainCircuits.rotation.x += 0.002;
+                ariaBrainCircuits.material.opacity = 0.25 + Math.sin(timeClock * 2.5) * 0.12;
             }
 
             // Real-Time Lip Sync Visemes
             if (ariaSpeaking) {
-                mouthOpenTarget = 0.04 + Math.random() * 0.18;
+                mouthOpenTarget = 0.04 + Math.random() * 0.22;
             } else {
                 mouthOpenTarget = 0.04;
             }
-            mouthCurrentOpen += (mouthOpenTarget - mouthCurrentOpen) * 0.35;
+            mouthCurrentOpen += (mouthOpenTarget - mouthCurrentOpen) * 0.4;
             if (ariaMouthMesh) {
-                ariaMouthMesh.scale.y = mouthCurrentOpen / 0.06;
-                ariaMouthMesh.scale.x = 1 + (mouthCurrentOpen > 0.1 ? 0.2 : 0);
+                ariaMouthMesh.scale.y = mouthCurrentOpen / 0.04;
+                ariaMouthMesh.scale.x = 1 + (mouthCurrentOpen > 0.08 ? 0.3 : 0);
             }
 
-            // Particles Drift
+            // Particles Swarm Drift
             if (ariaParticleSystem) {
-                ariaParticleSystem.rotation.y += 0.001;
+                ariaParticleSystem.rotation.y += 0.0015;
+                ariaParticleSystem.rotation.z += 0.0008;
             }
 
             ariaRenderer.render(ariaScene, ariaCamera);

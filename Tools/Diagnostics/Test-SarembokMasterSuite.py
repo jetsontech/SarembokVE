@@ -403,11 +403,11 @@ async def test_digital_human_lifecycle(ws_url: str, auth_token: str) -> bool:
             if not close_ok:
                 all_ok = False
 
-            # 6. ARIA Neural Conversational Dialogue
+            # 6. Conversational Dialogue (Sarembok / ARIA)
             aria_chat_resp = await send_rpc(ws, "AriaChat", {"prompt": "What is Sarembok VE?"}, auth_token=auth_token)
             ac_res = aria_chat_resp.get("result", {})
-            chat_ok = bool(ac_res.get("response")) and bool(ac_res.get("audioText")) and ac_res.get("agentId") == "aria-prime"
-            record_result("DIGITAL_HUMAN", "ARIA Conversational Dialogue (AriaChat)", chat_ok, f"replyPreview={ac_res.get('response', '')[:40]}...")
+            chat_ok = bool(ac_res.get("response")) and bool(ac_res.get("audioText")) and ac_res.get("agentId") in ("sarembok-prime", "aria-prime")
+            record_result("DIGITAL_HUMAN", "Frontier Conversational Dialogue", chat_ok, f"replyPreview={ac_res.get('response', '')[:40]}...")
             if not chat_ok:
                 all_ok = False
 

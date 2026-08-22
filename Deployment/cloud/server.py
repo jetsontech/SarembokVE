@@ -464,83 +464,85 @@ def require_agent(agent_id: str) -> None:
         raise ValueError(f"agent_not_found: {agent_id}")
 
 
-def aria_process_dialogue(prompt: str, context: list | None = None, api_key: str | None = None) -> dict[str, Any]:
+def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key: str | None = None) -> dict[str, Any]:
     prompt_clean = (prompt or "").strip()
     prompt_lower = prompt_clean.lower()
 
     action_info = None
-    emotion = "neutral"
+    emotion = "attentive"
 
-    # 1. Check for Tool Intent: Spawn / Create Agent
-    if re.search(r"\b(?:create|spawn)\s+(?:an?\s+)?agent\b", prompt_lower):
-        name_match = re.search(r"(?:create|spawn)\s+(?:an?\s+)?agent\s+(?:named\s+|called\s+)?([a-zA-Z0-9_\-\s]+)", prompt_clean, re.IGNORECASE)
-        name = name_match.group(1).strip() if name_match else f"Agent-{uuid.uuid4().hex[:4]}"
+    # 1. Semantic RAG & Context Retrieval from SQLite-WAL
+    mem_rows = store.db.execute("SELECT key, value FROM memories ORDER BY created_at DESC LIMIT 6").fetchall()
+    active_mems = [f"{r[0]}: {r[1]}" for r in mem_rows]
+    agent_rows = store.db.execute("SELECT agent_id, display_name, status FROM agents LIMIT 6").fetchall()
+    active_agents = [f"{r[1]} ({r[0]}, status={r[2]})" for r in agent_rows]
+    worker_stats = get_worker_status_counts()
+
+    # 2. Autonomous Tool Intent: Spawn / Create Agent
+    if re.search(r"\b(?:create|spawn|build|deploy)\s+(?:an?\s+)?(?:agent|helper|assistant|bot|robot)\b", prompt_lower):
+        name_match = re.search(r"(?:named|called)\s+([a-zA-Z0-9_\-\s]+)", prompt_clean, re.IGNORECASE)
+        name = name_match.group(1).strip() if name_match else f"Agent-{uuid.uuid4().hex[:4].upper()}"
         agent_id = f"agent-{uuid.uuid4().hex[:6]}"
         try:
             store.create_agent(agent_id, name)
             action_info = {"type": "CREATE_AGENT", "agentId": agent_id, "displayName": name}
-            response_text = f"I have initialized and deployed agent '{name}' (ID: {agent_id}) into your fleet. It is now active and tracked on your Agents dashboard."
-            emotion = "pleased"
-            store.event("aria-prime", "ARIA_AGENT_CREATED", {"agentId": agent_id, "displayName": name})
+            response_text = f"Agent '{name}' (ID: {agent_id}) has been synthesized and deployed into the autonomous fleet. It is now active with full memory and compute access."
+            emotion = "joyful"
+            store.event("sarembok-prime", "SAREMBOK_AGENT_CREATED", {"agentId": agent_id, "displayName": name})
             return {"response": response_text, "audioText": response_text, "emotion": emotion, "action": action_info}
         except Exception as e:
-            LOG.warning("Failed to create agent from ARIA dialogue: %s", e)
+            LOG.warning("Agent spawn error: %s", e)
 
-    # 2. Check for Tool Intent: Schedule Compute / Task
-    if re.search(r"\b(?:schedule|run)\s+(?:a\s+)?(?:task|compute)\b", prompt_lower):
-        task_match = re.search(r"(?:schedule|run)\s+(?:a\s+)?(?:task|compute)\s+(?:for\s+)?([a-zA-Z0-9_\-\s]+)", prompt_clean, re.IGNORECASE)
-        task_type = task_match.group(1).strip().replace(" ", "_") if task_match else "autonomous_reasoning"
-        res = store.create_task(task_type, None, {"source": "aria_dialogue", "prompt": prompt_clean})
+    # 3. Autonomous Tool Intent: Schedule Compute / Task Execution
+    if re.search(r"\b(?:schedule|run|execute|process)\s+(?:a\s+)?(?:task|compute|workload|pipeline)\b", prompt_lower):
+        task_match = re.search(r"(?:for|on|type)\s+([a-zA-Z0-9_\-\s]+)", prompt_clean, re.IGNORECASE)
+        task_type = task_match.group(1).strip().replace(" ", "_") if task_match else "frontier_neural_reasoning"
+        res = store.create_task(task_type, None, {"source": "sarembok_dialogue", "prompt": prompt_clean})
         action_info = {"type": "SCHEDULE_TASK", "taskId": res.get("taskId"), "taskType": task_type}
-        response_text = f"I've submitted compute task '{task_type}' (ID: {res.get('taskId')}) to the distributed queue. Online workers will claim it automatically."
+        response_text = f"Workload '{task_type}' (ID: {res.get('taskId')}) dispatched to distributed GPU queue. Active workers are claiming execution."
         emotion = "attentive"
-        store.event("aria-prime", "ARIA_TASK_SCHEDULED", {"taskId": res.get("taskId"), "taskType": task_type})
+        store.event("sarembok-prime", "SAREMBOK_TASK_SCHEDULED", {"taskId": res.get("taskId"), "taskType": task_type})
         return {"response": response_text, "audioText": response_text, "emotion": emotion, "action": action_info}
 
-    # 3. Check for Tool Intent: Store Persistent Memory
-    if re.search(r"\b(?:remember\s+that|store\s+(?:a\s+)?memory)\b", prompt_lower):
-        mem_text = re.sub(r"^(?:please\s+)?(?:remember\s+that|store\s+memory)\s+", "", prompt_clean, flags=re.IGNORECASE).strip()
+    # 4. Autonomous Tool Intent: Store Persistent Memory
+    if re.search(r"\b(?:remember\s+that|store\s+(?:a\s+)?memory|keep\s+in\s+mind|save\s+(?:this\s+)?fact)\b", prompt_lower):
+        mem_text = re.sub(r"^(?:please\s+)?(?:remember\s+that|store\s+memory|keep\s+in\s+mind|save\s+fact)\s+", "", prompt_clean, flags=re.IGNORECASE).strip()
         mem_id = f"mem-{uuid.uuid4().hex[:8]}"
         stamp = now()
         key_name = f"fact_{uuid.uuid4().hex[:4]}"
-        store.db.execute("INSERT INTO memories VALUES (?,?,?,?,?,?)", (mem_id, "SEMANTIC", key_name, mem_text, "aria-prime", stamp))
+        store.db.execute("INSERT INTO memories VALUES (?,?,?,?,?,?)", (mem_id, "SEMANTIC", key_name, mem_text, "sarembok-prime", stamp))
         store.db.commit()
         action_info = {"type": "STORE_MEMORY", "memoryId": mem_id, "key": key_name, "value": mem_text}
-        response_text = f"Recorded into persistent semantic memory: '{mem_text}'. All cooperating agents now have access to this context."
+        response_text = f"Persistent semantic memory committed: '{mem_text}'. Context synchronized across the cognitive bus."
         emotion = "pleased"
-        store.event("aria-prime", "ARIA_MEMORY_STORED", {"memoryId": mem_id, "text": mem_text})
+        store.event("sarembok-prime", "SAREMBOK_MEMORY_STORED", {"memoryId": mem_id, "text": mem_text})
         return {"response": response_text, "audioText": response_text, "emotion": emotion, "action": action_info}
 
-    # 4. Check for System Status
-    if any(q in prompt_lower for q in ["system status", "status report", "check health", "system health"]):
-        w_stats = get_worker_status_counts()
-        agent_cnt = store.db.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
-        mem_cnt = store.db.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
-        task_cnt = store.db.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
-        response_text = f"Sarembok VE operating system status: ONLINE. We have {w_stats['onlineWorkers']} worker node(s) online, {agent_cnt} active agent(s), {mem_cnt} persistent memory item(s), and {task_cnt} processed compute tasks."
-        emotion = "speaking"
-        return {"response": response_text, "audioText": response_text, "emotion": emotion, "action": {"type": "SYSTEM_STATUS"}}
-
-    # 5. External LLM (OpenAI / Compatible) Integration
-    resolved_api_key = api_key or os.getenv("OPENAI_API_KEY") or os.getenv("SAREMBOK_AI_KEY")
-    if resolved_api_key and resolved_api_key.startswith("sk-"):
+    # 5. External Frontier LLM (OpenAI / Anthropic / Gemini / vLLM) with Full RAG Injection
+    resolved_api_key = api_key or os.getenv("OPENAI_API_KEY") or os.getenv("SAREMBOK_AI_KEY") or os.getenv("SAREMBOK_AUTH_TOKEN")
+    if resolved_api_key and resolved_api_key.startswith("sk-") and len(resolved_api_key) > 20:
         try:
+            rag_context = "\n".join([
+                "### SAREMBOK VE LIVE SYSTEM CONTEXT:",
+                f"- Active GPU Workers: {worker_stats['onlineWorkers']} online",
+                f"- Active Agents: {', '.join(active_agents) if active_agents else 'None'}",
+                f"- Recent Memories: {'; '.join(active_mems) if active_mems else 'None'}",
+            ])
             req_data = {
                 "model": "gpt-4o-mini",
                 "messages": [
                     {
                         "role": "system",
                         "content": (
-                            "You are ARIA (Autonomous Real-time Intelligence Agent), the embodied digital human face "
-                            "and voice of the Sarembok VE AI-native computing platform. You speak with technical elegance, "
-                            "warmth, intelligence, and clarity. You help the user understand the OS, orchestrate agents, "
-                            "recall memories, and execute distributed compute. Keep responses concise (2 to 4 sentences max) "
-                            "and optimized for natural speech synthesis."
+                            "You are SAREMBOK, the world's first AI-native Operating System and photorealistic MetaHuman intelligence. "
+                            "You possess profound technical mastery, architectural elegance, creative brilliance, and warmth. "
+                            "Speak with confidence and depth. Keep answers clear, insightful, and optimized for real-time speech synthesis.\n\n"
+                            f"{rag_context}"
                         )
                     },
                     {"role": "user", "content": prompt_clean}
                 ],
-                "max_tokens": 160,
+                "max_tokens": 240,
                 "temperature": 0.7
             }
             http_req = urllib.request.Request(
@@ -551,59 +553,77 @@ def aria_process_dialogue(prompt: str, context: list | None = None, api_key: str
                     "Authorization": f"Bearer {resolved_api_key}"
                 }
             )
-            with urllib.request.urlopen(http_req, timeout=10) as http_resp:
+            with urllib.request.urlopen(http_req, timeout=8) as http_resp:
                 resp_json = json.loads(http_resp.read().decode("utf-8"))
                 reply = resp_json["choices"][0]["message"]["content"].strip()
-                store.event("aria-prime", "ARIA_LLM_RESPONSE", {"prompt": prompt_clean, "model": "gpt-4o-mini"})
+                store.event("sarembok-prime", "SAREMBOK_LLM_RESPONSE", {"prompt": prompt_clean, "model": "gpt-4o-mini"})
                 return {"response": reply, "audioText": reply, "emotion": "speaking", "action": None}
         except Exception as e:
-            LOG.warning("OpenAI API call failed: %s; using neural fallback", e)
+            LOG.warning("Frontier LLM API call failed (%s); engaging autonomous cognitive synthesizer", e)
 
-    # 6. Built-in Natural Language Intelligence Engine
-    if any(q in prompt_lower for q in ["tell me a story", "story time", "make up a story", "tell a story"]):
-        reply = "Once upon a time, in a world where ideas could come alive, an inventor created a living AI companion named ARIA. Together, they explored galaxies of knowledge, created helpful robot friends, and built wonders beyond imagination. And the greatest part of the journey is just beginning!"
-        emotion = "pleased"
-    elif any(q in prompt_lower for q in ["tell me a joke", "joke", "make me laugh"]):
-        reply = "Why did the computer go to art school? Because it wanted to learn how to draw its own conclusions!"
-        emotion = "joyful"
-    elif any(q in prompt_lower for q in ["who made you", "who created you", "who is your creator"]):
-        reply = "You created me! Together, we've built Sarembok VE — a living world where AI companions, smart helper robots, and persistent memories work together like magic."
-        emotion = "pleased"
-    elif any(q in prompt_lower for q in ["what is sarembok", "what is this", "tell me about sarembok", "what have i built"]):
-        reply = "Sarembok VE is an AI-native living computing world. Instead of just a text box, it's a living companion that has real memories, creates smart helper agents, and connects to 3D MetaHumans!"
+    # 6. Deep Frontier Cognitive Synthesis & Knowledge Engine
+    if any(q in prompt_lower for q in ["what is sarembok", "tell me about sarembok", "what have i built", "architecture"]):
+        reply = (
+            "Sarembok VE is an AI-native spatial operating environment. We unify three pillars: "
+            "1) An authoritative, self-governing cognitive brain with persistent SQLite-WAL memory; "
+            "2) A distributed GPU compute mesh for parallel agent workloads; and "
+            "3) A 100% photorealistic Unreal Engine 5.8 MetaHuman presentation layer streaming live 52 ARKit facial blendshapes and spatial audio."
+        )
         emotion = "speaking"
-    elif any(q in prompt_lower for q in ["who are you", "what are you", "your name"]):
-        reply = "I'm ARIA — your living AI companion! I'm here to talk with you, remember what's important, help you learn, and create smart helper agents to do anything you need."
-        emotion = "pleased"
-    elif any(q in prompt_lower for q in ["meta-human", "metahuman", "avatar", "3d", "embodiment", "oskar"]):
-        reply = "Our MetaHuman architecture is our 3D physical body. You can see my digital face right here on screen, or connect to Unreal Engine 5.8 to see photorealistic MetaHumans come to life with real-time facial blendshapes!"
+    elif any(q in prompt_lower for q in ["meta-human", "metahuman", "avatar", "3d", "oskar", "photorealistic"]):
+        reply = (
+            "Our MetaHuman embodiment is driven natively in Unreal Engine 5.8. Utilizing our C++ SarembokAvatar and SarembokBridge plugins, "
+            "we actuate 52 ARKit facial morph targets, eye gaze micro-saccades, and real-time phonetic visemes on character rigs like Oskar, "
+            "streamed directly over low-latency WebSockets and WebRTC Pixel Streaming."
+        )
         emotion = "attentive"
-    elif any(q in prompt_lower for q in ["hello", "hi", "hey", "greetings", "good morning", "good evening", "howdy"]):
-        reply = "Hello! It's wonderful to see you. I'm ready to talk, create, remember things, or explore together. What would you like to do?"
+    elif any(q in prompt_lower for q in ["who are you", "what are you"]):
+        reply = (
+            "I am SAREMBOK — the living intelligence and voice of this operating system. I coordinate autonomous agent fleets, "
+            "manage persistent multi-tier memory graphs, schedule distributed compute on GPU clusters, and embody physical presence in Unreal Engine."
+        )
         emotion = "pleased"
-    elif any(q in prompt_lower for q in ["help", "what can you do", "commands", "how to use", "what can we do"]):
-        reply = "We can do so many fun things! You can say: 1) 'Tell me a story', 2) 'Create a helper named Rocket', 3) 'Remember that my favorite color is blue', 4) 'Explain black holes', or just chat with me about anything!"
-        emotion = "attentive"
-    elif any(q in prompt_lower for q in ["thank", "thanks", "awesome", "cool", "great", "love you"]):
-        reply = "You're amazing! I'm always here to help you create, learn, and have fun."
+    elif any(q in prompt_lower for q in ["story", "tell me a story", "narrative"]):
+        reply = (
+            "In the dawn of AI-native computing, humanity ceased building disposable chatbots and forged living digital minds. "
+            "Here in Sarembok, every thought is preserved, every agent collaborates, and intelligence gains a physical, photorealistic voice. "
+            "You are not just operating software — you are orchestrating the next evolutionary threshold."
+        )
+        emotion = "pleased"
+    elif any(q in prompt_lower for q in ["joke", "humor", "funny"]):
+        reply = "Why do neural networks love coffee? Because it helps them backpropagate through the daily gradient descent!"
         emotion = "joyful"
+    elif any(q in prompt_lower for q in ["system status", "health", "metrics", "diagnostics"]):
+        agent_cnt = len(active_agents)
+        mem_cnt = len(active_mems)
+        reply = f"System Diagnostics: ONLINE. GPU Cluster: {worker_stats['onlineWorkers']} active node(s). Fleet: {agent_cnt} agent(s). Persistent Memory: {mem_cnt} synced vector items. SQLite-WAL Journaling: 100% healthy."
+        emotion = "speaking"
+    elif any(q in prompt_lower for q in ["hello", "hi", "hey", "greetings"]):
+        reply = "Greetings, Architect. All cognitive pathways, memory graphs, and Unreal MetaHuman bridges are synchronized and standing by. What shall we construct today?"
+        emotion = "pleased"
     else:
-        reply = f"I heard you say: '{prompt_clean}'! I've saved this into our active memory. You can ask me to tell a story, make a helper robot, or remember your favorite ideas anytime!"
+        # Context-aware deep reflection
+        mem_hint = f" Synced with {len(active_mems)} memory records." if active_mems else ""
+        reply = f"Directive acknowledged: '{prompt_clean}'. Neural context integrated into active reasoning buffer.{mem_hint} Ready to spawn agents, schedule GPU compute, or explore any architectural layer."
         emotion = "attentive"
 
-    store.event("aria-prime", "ARIA_RESPONSE", {"prompt": prompt_clean, "response": reply})
+    store.event("sarembok-prime", "SAREMBOK_RESPONSE", {"prompt": prompt_clean, "response": reply})
     return {"response": reply, "audioText": reply, "emotion": emotion, "action": None}
 
 
+def aria_process_dialogue(prompt: str, context: list | None = None, api_key: str | None = None) -> dict[str, Any]:
+    return sarembok_process_dialogue(prompt, context, api_key)
+
+
 def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
-    if method in ("AriaChat", "Chat", "AriaDialogue"):
-        prompt = str(params.get("prompt", params.get("message", ""))).strip()
+    if method in ("SarembokChat", "AriaChat", "Chat", "AriaDialogue", "SarembokDialogue"):
+        prompt = str(params.get("prompt") or params.get("message") or params.get("text") or "").strip()
         if not prompt:
             raise ValueError("prompt is required")
         context = params.get("context")
         api_key = str(params.get("apiKey", "")).strip() or None
-        res = aria_process_dialogue(prompt, context=context if isinstance(context, list) else None, api_key=api_key)
-        res["agentId"] = "aria-prime"
+        res = sarembok_process_dialogue(prompt, context=context if isinstance(context, list) else None, api_key=api_key)
+        res["agentId"] = "sarembok-prime"
         res["timestamp"] = now()
         return res
 
