@@ -241,12 +241,30 @@ except Exception:
         ProactiveOmniDaemon = None
         SwarmCompiler = None
 
-evolver = AutonomousEvolver(store.db) if AutonomousEvolver else None
-proactive_daemon = ProactiveOmniDaemon(store.db, scan_interval_sec=30.0) if ProactiveOmniDaemon else None
-if proactive_daemon:
-    proactive_daemon.start()
-swarm_compiler = SwarmCompiler(store.db) if SwarmCompiler else None
-STOP = asyncio.Event()
+DB_LOCK: asyncio.Lock | None = None
+CONNECTIONS: asyncio.Semaphore | None = None
+STOP: asyncio.Event | None = None
+
+
+def get_db_lock() -> asyncio.Lock:
+    global DB_LOCK
+    if DB_LOCK is None:
+        DB_LOCK = asyncio.Lock()
+    return DB_LOCK
+
+
+def get_connections() -> asyncio.Semaphore:
+    global CONNECTIONS
+    if CONNECTIONS is None:
+        CONNECTIONS = asyncio.Semaphore(MAX_CONNECTIONS)
+    return CONNECTIONS
+
+
+def get_stop_event() -> asyncio.Event:
+    global STOP
+    if STOP is None:
+        STOP = asyncio.Event()
+    return STOP
 
 
 
@@ -1911,7 +1929,7 @@ async def handler(websocket) -> None:
                     raise ValueError("request_too_large")
                 request = json.loads(raw)
                 method, params = validate_request(request)
-                async with DB_LOCK:
+                async with get_db_lock():
                     result = dispatch(method, params)
                 response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}
                 LOG.info("rpc_success method=%s request_id=%s", method, request.get("id"))
@@ -1977,10 +1995,11 @@ async def process_http_request(connection: Any, request: Any) -> Any:
 
 async def worker_lifecycle_loop() -> None:
     LOG.info("worker lifecycle monitor started interval=%ss", WORKER_LIFECYCLE_INTERVAL_SECONDS)
+    stop_evt = get_stop_event()
     try:
-        while not STOP.is_set():
+        while not stop_evt.is_set():
             try:
-                async with DB_LOCK:
+                async with get_db_lock():
                     evaluate_worker_liveness()
             except Exception as exc:
                 LOG.error("error in worker lifecycle loop: %s", exc)
@@ -2011,7 +2030,7 @@ async def serve() -> None:
             process_request=process_http_request,
         ) as server:
             LOG.info("listening address=0.0.0.0:%s", PORT)
-            await STOP.wait()
+            await get_stop_event().wait()
             LOG.info("shutdown_requested")
             server.close()
             await server.wait_closed()
@@ -2025,20 +2044,21 @@ async def serve() -> None:
 
 
 async def CONNECTIONS_guard(websocket) -> None:
+    sem = get_connections()
     try:
-        await asyncio.wait_for(CONNECTIONS.acquire(), timeout=5)
+        await asyncio.wait_for(sem.acquire(), timeout=5)
     except TimeoutError:
         await websocket.close(code=1013, reason="server_busy")
         return
     try:
         await handler(websocket)
     finally:
-        CONNECTIONS.release()
+        sem.release()
 
 
 def request_shutdown() -> None:
     LOG.info("shutdown_signal")
-    STOP.set()
+    get_stop_event().set()
 
 
 async def main() -> None:
