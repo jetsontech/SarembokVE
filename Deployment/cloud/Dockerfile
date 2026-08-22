@@ -12,9 +12,8 @@ RUN pip install --no-cache-dir -r /app/Runtime/requirements.txt \
     && rm -rf /root/.cache
 
 COPY Runtime /app/Runtime
-COPY Deployment/cloud/server.py /app/server.py
-COPY Deployment/cloud/worker_client.py /app/worker_client.py
-COPY Deployment/cloud/knowledge_rpc_server.py /app/knowledge_rpc_server.py
+COPY Deployment/cloud/*.py /app/
+COPY Deployment/cloud /app/Deployment/cloud
 COPY frontend /app/frontend
 
 RUN useradd --create-home --uid 10001 sarembok \

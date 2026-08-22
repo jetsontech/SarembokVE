@@ -220,26 +220,32 @@ DB_LOCK = asyncio.Lock()
 CONNECTIONS = asyncio.Semaphore(MAX_CONNECTIONS)
 
 # Prometheus Super-Engine Subsystems
-try:
-    from Deployment.cloud.evolver import AutonomousEvolver
-    from Deployment.cloud.proactive_daemon import ProactiveOmniDaemon
-    from Deployment.cloud.swarm_compiler import SwarmCompiler
-except ImportError:
-    try:
-        from evolver import AutonomousEvolver
-        from proactive_daemon import ProactiveOmniDaemon
-        from swarm_compiler import SwarmCompiler
-    except ImportError:
-        import sys
-        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-        from evolver import AutonomousEvolver
-        from proactive_daemon import ProactiveOmniDaemon
-        from swarm_compiler import SwarmCompiler
+import sys
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+for _p in ["/app", "/app/Deployment/cloud", _current_dir, os.path.join(_current_dir, "Deployment", "cloud")]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
-evolver = AutonomousEvolver(store.db)
-proactive_daemon = ProactiveOmniDaemon(store.db, scan_interval_sec=30.0)
-proactive_daemon.start()
-swarm_compiler = SwarmCompiler(store.db)
+try:
+    from evolver import AutonomousEvolver
+    from proactive_daemon import ProactiveOmniDaemon
+    from swarm_compiler import SwarmCompiler
+except Exception:
+    try:
+        from Deployment.cloud.evolver import AutonomousEvolver
+        from Deployment.cloud.proactive_daemon import ProactiveOmniDaemon
+        from Deployment.cloud.swarm_compiler import SwarmCompiler
+    except Exception as e:
+        LOG.warning("Prometheus import fallback: %s", e)
+        AutonomousEvolver = None
+        ProactiveOmniDaemon = None
+        SwarmCompiler = None
+
+evolver = AutonomousEvolver(store.db) if AutonomousEvolver else None
+proactive_daemon = ProactiveOmniDaemon(store.db, scan_interval_sec=30.0) if ProactiveOmniDaemon else None
+if proactive_daemon:
+    proactive_daemon.start()
+swarm_compiler = SwarmCompiler(store.db) if SwarmCompiler else None
 STOP = asyncio.Event()
 
 
