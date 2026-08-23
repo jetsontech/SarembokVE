@@ -36,9 +36,13 @@ Sarembok-dxdiag.txt
 # Environment & Secrets
 .env
 .env.*
+*.env
+*.env.*
+provider.env
 secrets/
 credentials/
 Tools/*.txt
+
 
 # Large Unreal Engine Assets
 Content/

@@ -3,6 +3,13 @@ services:
     ports: !reset []
     environment:
       SAREMBOK_AUTH_TOKEN: ${SAREMBOK_AUTH_TOKEN:-}
+      # Intelligence Provider Interface
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      LLM_ENDPOINT_URL: ${LLM_ENDPOINT_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+
 
   sarembok-edge:
     build:
