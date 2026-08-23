@@ -38,4 +38,11 @@ Sarembok-dxdiag.txt
 .env.*
 secrets/
 credentials/
-Tools/*.txt
+Tools/*.txt
+
+# Large Unreal Engine Assets
+Content/
+*.uasset
+*.umap
+*.dna
+

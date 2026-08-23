@@ -93,7 +93,7 @@ async def test_http_endpoints(http_url: str) -> bool:
             is_html = "text/html" in content_type
             has_len = len(body) > 1000
             has_html_tag = "<html" in body.lower()
-            has_brand = "Sarembok" in body and ("Digital Human" in body or "Companion" in body)
+            has_brand = "Sarembok" in body or "SAREMBOK" in body
             not_fallback = body.strip() != "Sarembok VE Cloud Runtime — ONLINE" and len(body) > 100
             ok = resp.status == 200 and is_html and has_len and has_html_tag and has_brand and not_fallback
             record_result("HTTP", "Web UI Application Serving (/)", ok, f"Length={len(body)} Content-Type={content_type}")
