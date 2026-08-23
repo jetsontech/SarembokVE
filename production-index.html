@@ -3,24 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SAREMBOK · Frontier AI Operating System</title>
+    <title>SAREMBOK · VIRTUAL EVOLUTION</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-base: #07090e;
-            --bg-card: rgba(15, 20, 31, 0.75);
-            --bg-card-hover: rgba(22, 29, 46, 0.85);
+            --bg-void: #000000;
+            --bg-surface: #07090e;
+            --bg-card: rgba(14, 18, 28, 0.7);
             --border-glass: rgba(255, 255, 255, 0.08);
-            --border-active: rgba(0, 240, 255, 0.4);
+            --border-subtle: rgba(255, 255, 255, 0.12);
             --cyan: #00f0ff;
-            --cyan-glow: rgba(0, 240, 255, 0.25);
+            --cyan-glow: rgba(0, 240, 255, 0.35);
             --emerald: #10b981;
-            --amber: #f59e0b;
-            --text-main: #f3f4f6;
-            --text-muted: #94a3b8;
+            --text-main: #ffffff;
+            --text-secondary: #94a3b8;
+            --text-muted: #525e75;
             --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             --font-mono: 'JetBrains Mono', monospace;
         }
@@ -36,542 +35,564 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background: var(--bg-base);
+            background: var(--bg-void);
             color: var(--text-main);
             font-family: var(--font-sans);
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Ambient Background Grid & Vignette */
-        .ambient-bg {
+        /* Screen Container */
+        .stage-viewport {
             position: absolute;
             inset: 0;
-            background: 
-                radial-gradient(circle at 50% 35%, rgba(0, 240, 255, 0.07) 0%, transparent 60%),
-                radial-gradient(circle at 80% 80%, rgba(99, 102, 241, 0.05) 0%, transparent 50%),
-                linear-gradient(180deg, rgba(7, 9, 14, 0.2) 0%, rgba(7, 9, 14, 0.95) 100%);
-            z-index: 1;
-            pointer-events: none;
-        }
-
-        /* 3D Canvas Layer */
-        #avatar-canvas-container {
-            position: absolute;
-            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at 50% 45%, rgba(0, 240, 255, 0.03) 0%, transparent 65%), #000000;
             z-index: 2;
         }
 
-        #avatar-3d-canvas {
+        /* Views */
+        .view-panel {
+            display: none;
             width: 100%;
             height: 100%;
-            display: block;
+            padding: 40px 60px 100px;
+            overflow-y: auto;
+            animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* Top Minimal System Header */
-        .system-header {
+        .view-panel.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ==================== SCREEN 1: BOOT (EXACT SCREENSHOT) ==================== */
+        #view-boot {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .boot-hero-title {
+            font-size: clamp(38px, 6vw, 76px);
+            font-weight: 300;
+            letter-spacing: clamp(14px, 2.5vw, 32px);
+            color: #ffffff;
+            text-transform: uppercase;
+            margin-right: calc(-1 * clamp(14px, 2.5vw, 32px)); /* offset letter spacing */
+            text-shadow: 0 0 40px rgba(255, 255, 255, 0.15);
+        }
+
+        .boot-subtitle {
+            font-size: clamp(10px, 1.2vw, 13px);
+            font-weight: 500;
+            letter-spacing: clamp(4px, 0.8vw, 8px);
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-top: 24px;
+            margin-right: calc(-1 * clamp(4px, 0.8vw, 8px));
+        }
+
+        .boot-loader-bar {
+            width: 180px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.08);
+            margin: 32px auto 0;
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .boot-loader-progress {
             position: absolute;
-            top: 24px;
-            left: 28px;
-            right: 28px;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 40%;
+            background: linear-gradient(90deg, transparent, var(--cyan));
+            box-shadow: 0 0 12px var(--cyan);
+            animation: laserScan 2s ease-in-out infinite;
+        }
+
+        @keyframes laserScan {
+            0% { left: -40%; }
+            100% { left: 100%; }
+        }
+
+        /* ==================== DESKTOP & OTHER VIEWS ==================== */
+        .content-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            z-index: 10;
-            pointer-events: auto;
+            align-items: flex-end;
+            margin-bottom: 32px;
+            border-bottom: 1px solid var(--border-glass);
+            padding-bottom: 20px;
         }
 
-        .brand-group {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-
-        .brand-badge {
-            width: 38px;
-            height: 38px;
-            border-radius: 10px;
-            background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(99, 102, 241, 0.2));
-            border: 1px solid var(--border-glass);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 17px;
-            color: var(--cyan);
-            box-shadow: 0 0 20px var(--cyan-glow);
-        }
-
-        .brand-title {
-            font-size: 15px;
-            font-weight: 700;
-            letter-spacing: 2px;
-            color: #ffffff;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .brand-sub {
+        .content-eyebrow {
             font-size: 11px;
-            color: var(--text-muted);
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-        }
-
-        .status-cluster {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .status-pill {
-            padding: 6px 14px;
-            border-radius: 20px;
-            background: var(--bg-card);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border-glass);
-            font-size: 12px;
-            font-family: var(--font-mono);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--text-muted);
-        }
-
-        .dot-pulse {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: var(--emerald);
-            box-shadow: 0 0 8px var(--emerald);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.85); }
-        }
-
-        .btn-icon {
-            background: var(--bg-card);
-            border: 1px solid var(--border-glass);
-            color: var(--text-main);
-            padding: 8px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            backdrop-filter: blur(12px);
-            font-size: 12px;
-            font-family: var(--font-sans);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.2s ease;
-        }
-
-        .btn-icon:hover {
-            border-color: var(--cyan);
-            color: var(--cyan);
-            box-shadow: 0 0 14px var(--cyan-glow);
-        }
-
-        /* Avatar HUD Overlay */
-        .avatar-hud-overlay {
-            position: absolute;
-            top: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 5;
-            text-align: center;
-            pointer-events: none;
-        }
-
-        .avatar-name {
-            font-size: 20px;
             font-weight: 600;
-            letter-spacing: 4px;
-            color: rgba(255, 255, 255, 0.9);
-            text-shadow: 0 0 24px rgba(0, 240, 255, 0.4);
-        }
-
-        .avatar-state-text {
-            font-size: 12px;
+            letter-spacing: 2px;
             color: var(--cyan);
-            font-family: var(--font-mono);
-            margin-top: 4px;
-            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
         }
 
-        /* Floating Interactive Console (Bottom Dock) */
-        .dock-container {
-            position: absolute;
-            bottom: 32px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: min(840px, calc(100% - 48px));
-            z-index: 10;
+        .content-title {
+            font-size: 28px;
+            font-weight: 400;
+            letter-spacing: 1px;
+            color: #ffffff;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .glass-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            backdrop-filter: blur(20px);
+            border-radius: 14px;
+            padding: 24px;
             display: flex;
             flex-direction: column;
             gap: 12px;
+            transition: border-color 0.2s ease;
         }
 
-        /* Dialogue Stream Box */
-        .dialogue-stream {
-            background: var(--bg-card);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+        .glass-card:hover {
+            border-color: rgba(0, 240, 255, 0.25);
+        }
+
+        .card-label {
+            font-size: 11px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        .card-val {
+            font-size: 22px;
+            font-weight: 500;
+            color: #ffffff;
+        }
+
+        .card-desc {
+            font-size: 13.5px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+
+        /* Interactive Console in Desktop */
+        .interactive-deck {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: rgba(10, 14, 23, 0.85);
             border: 1px solid var(--border-glass);
             border-radius: 16px;
-            padding: 18px 22px;
-            max-height: 240px;
+            padding: 24px;
+            margin-top: 10px;
+        }
+
+        .dialogue-history {
+            max-height: 220px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
+            gap: 10px;
+        }
+
+        .input-bar {
+            display: flex;
             gap: 12px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
-            transition: all 0.3s ease;
         }
 
-        .dialogue-stream::-webkit-scrollbar {
-            width: 4px;
-        }
-        .dialogue-stream::-webkit-scrollbar-thumb {
-            background: var(--border-glass);
-            border-radius: 2px;
-        }
-
-        .msg-row {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            user-select: text;
-        }
-
-        .msg-role {
-            font-size: 11px;
-            font-weight: 600;
-            font-family: var(--font-mono);
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-        }
-
-        .msg-role.user { color: #818cf8; }
-        .msg-role.assistant { color: var(--cyan); }
-
-        .msg-content {
-            font-size: 14px;
-            line-height: 1.6;
-            color: #e2e8f0;
-            word-break: break-word;
-        }
-
-        .msg-content pre {
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid var(--border-glass);
-            border-radius: 8px;
-            padding: 10px 14px;
-            margin: 8px 0;
-            font-family: var(--font-mono);
-            font-size: 12px;
-            overflow-x: auto;
-            color: var(--cyan);
-        }
-
-        /* Quick Action Directives */
-        .quick-chips {
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            padding-bottom: 2px;
-        }
-
-        .quick-chips::-webkit-scrollbar { display: none; }
-
-        .chip {
-            background: rgba(15, 20, 31, 0.6);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--border-glass);
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 12px;
-            color: var(--text-muted);
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.2s ease;
-        }
-
-        .chip:hover {
-            color: var(--cyan);
-            border-color: var(--cyan);
-            background: rgba(0, 240, 255, 0.08);
-            transform: translateY(-1px);
-        }
-
-        /* Command Input Deck */
-        .command-bar {
-            background: var(--bg-card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border-glass);
-            border-radius: 14px;
-            padding: 6px 8px 6px 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5);
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .command-bar:focus-within {
-            border-color: var(--border-active);
-            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 20px var(--cyan-glow);
-        }
-
-        .command-input {
+        .text-input {
             flex: 1;
-            background: transparent;
-            border: none;
-            outline: none;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            padding: 12px 16px;
             color: #ffffff;
             font-family: var(--font-sans);
-            font-size: 14.5px;
-            padding: 8px 0;
+            font-size: 14px;
+            outline: none;
             user-select: text;
         }
 
-        .command-input::placeholder {
-            color: #64748b;
+        .text-input:focus {
+            border-color: var(--cyan);
         }
 
-        .action-btn {
-            background: linear-gradient(135deg, var(--cyan), #3b82f6);
-            color: #030712;
-            border: none;
-            padding: 9px 18px;
-            border-radius: 10px;
+        .btn-action {
+            background: var(--cyan);
+            color: #000;
             font-weight: 600;
-            font-size: 13px;
+            padding: 12px 24px;
+            border-radius: 10px;
+            border: none;
             cursor: pointer;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+        }
+
+        /* ==================== BOTTOM FLOATING NAV DOCK (EXACT SCREENSHOT) ==================== */
+        .nav-dock-container {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
             display: flex;
             align-items: center;
-            gap: 6px;
-            transition: transform 0.15s ease, opacity 0.15s ease;
+            gap: 4px;
+            background: rgba(10, 14, 23, 0.75);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 40px;
+            padding: 4px 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+            max-width: 95vw;
+            overflow-x: auto;
         }
 
-        .action-btn:hover {
-            opacity: 0.95;
-            transform: scale(1.02);
-        }
+        .nav-dock-container::-webkit-scrollbar { display: none; }
 
-        .mic-btn {
-            background: transparent;
-            border: 1px solid var(--border-glass);
-            color: var(--text-muted);
-            padding: 8px 10px;
-            border-radius: 10px;
-            cursor: pointer;
+        .nav-arrow {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-glass);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 11px;
             transition: all 0.2s ease;
         }
 
-        .mic-btn.active {
-            color: var(--cyan);
+        .nav-arrow:hover {
+            color: #fff;
             border-color: var(--cyan);
-            background: rgba(0, 240, 255, 0.15);
-            box-shadow: 0 0 12px var(--cyan-glow);
         }
 
-        /* Slide-Out Side Workspace Drawer (For Code Execution / Output) */
-        .workspace-drawer {
-            position: absolute;
-            top: 24px;
-            right: 28px;
-            bottom: 32px;
-            width: 440px;
-            background: rgba(10, 14, 23, 0.88);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid var(--border-glass);
-            border-radius: 18px;
-            z-index: 15;
-            display: flex;
-            flex-direction: column;
-            box-shadow: -10px 0 40px rgba(0, 0, 0, 0.6);
-            transform: translateX(calc(100% + 40px));
-            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .workspace-drawer.open {
-            transform: translateX(0);
-        }
-
-        .drawer-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border-glass);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .drawer-title {
-            font-size: 13px;
+        .dock-pill {
+            padding: 7px 15px;
+            border-radius: 20px;
+            font-size: 10.5px;
             font-weight: 600;
-            letter-spacing: 1px;
+            letter-spacing: 1.5px;
             text-transform: uppercase;
-            color: var(--cyan);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .drawer-close {
-            background: transparent;
-            border: none;
             color: var(--text-muted);
             cursor: pointer;
-            font-size: 16px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            border: 1px solid transparent;
         }
 
-        .drawer-close:hover { color: #fff; }
-
-        .drawer-body {
-            flex: 1;
-            padding: 16px 20px;
-            overflow-y: auto;
-            font-family: var(--font-mono);
-            font-size: 12px;
-            line-height: 1.6;
-            color: #cbd5e1;
-            user-select: text;
+        .dock-pill:hover {
+            color: #e2e8f0;
         }
 
-        .code-block {
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid var(--border-glass);
-            border-radius: 8px;
-            padding: 12px;
-            margin-top: 10px;
-            white-space: pre-wrap;
-            color: #a5f3fc;
+        .dock-pill.active {
+            background: rgba(0, 240, 255, 0.12);
+            color: var(--cyan);
+            border-color: rgba(0, 240, 255, 0.4);
+            box-shadow: 0 0 16px rgba(0, 240, 255, 0.2);
         }
 
-        /* Voice Waveform Canvas */
-        #voice-wave-canvas {
-            width: 70px;
-            height: 20px;
-        }
+        .mono { font-family: var(--font-mono); }
     </style>
 </head>
 <body>
 
-    <div class="ambient-bg"></div>
-
-    <!-- 3D Human Embodiment Canvas -->
-    <div id="avatar-canvas-container">
-        <canvas id="avatar-3d-canvas"></canvas>
-    </div>
-
-    <!-- Minimal Header -->
-    <header class="system-header">
-        <div class="brand-group">
-            <div class="brand-badge">S</div>
-            <div>
-                <div class="brand-title">SAREMBOK <span style="font-size:10px; font-weight:400; color:var(--cyan); border:1px solid var(--border-glass); padding:2px 6px; border-radius:4px;">OS v2.4</span></div>
-                <div class="brand-sub">Embodied Frontier Intelligence</div>
-            </div>
-        </div>
-
-        <div class="status-cluster">
-            <div class="status-pill">
-                <span class="dot-pulse" id="status-dot"></span>
-                <span id="system-status-label">ONLINE</span>
-            </div>
-            <div class="status-pill mono" style="font-size:11px;">
-                BRAIN: <strong style="color:var(--cyan); margin-left:4px;" id="brain-label">GPT-4o</strong>
-            </div>
-            <button class="btn-icon" id="btn-workspace-toggle" onclick="toggleWorkspaceDrawer()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-                Workspace
-            </button>
-            <button class="btn-icon" onclick="toggleAudioSpeech()">
-                <canvas id="voice-wave-canvas"></canvas>
-                <span id="voice-label" style="font-size:11px;">Voice ON</span>
-            </button>
-        </div>
-    </header>
-
-    <!-- Avatar Identity HUD -->
-    <div class="avatar-hud-overlay">
-        <div class="avatar-name">SAREMBOK</div>
-        <div class="avatar-state-text" id="avatar-status-sub">Awaiting Directive</div>
-    </div>
-
-    <!-- Central Interactive Dock -->
-    <div class="dock-container">
+    <div class="stage-viewport">
         
-        <!-- Live Dialogue & Thought Stream -->
-        <div class="dialogue-stream" id="dialogue-stream">
-            <div class="msg-row">
-                <div class="msg-role assistant">SAREMBOK</div>
-                <div class="msg-content" id="greeting-text">
-                    I am ready. Ask me anything, have me synthesize entire applications, run terminal commands, execute Python scripts, or construct workflows.
+        <!-- 1. BOOT (Exact Screenshot Landing) -->
+        <section class="view-panel active" id="view-boot">
+            <div class="boot-hero-title">SAREMBOK</div>
+            <div class="boot-subtitle">VIRTUAL EVOLUTION · INITIALIZING</div>
+            <div class="boot-loader-bar">
+                <div class="boot-loader-progress"></div>
+            </div>
+        </section>
+
+        <!-- 2. DESKTOP (Operating Environment & Live AI) -->
+        <section class="view-panel" id="view-desktop">
+            <div class="content-header">
+                <div>
+                    <div class="content-eyebrow">Frontier OS</div>
+                    <div class="content-title">Computing Environment</div>
+                </div>
+                <div class="card-label" style="color:var(--emerald);">● RUNTIME CONNECTED</div>
+            </div>
+
+            <div class="grid-3">
+                <div class="glass-card">
+                    <div class="card-label">Persistent Memory</div>
+                    <div class="card-val text-cyan" id="metric-mem">SQLite-WAL</div>
+                    <div class="card-desc">Continuous context reconciled across turns without data loss.</div>
+                </div>
+                <div class="glass-card">
+                    <div class="card-label">Active Agents</div>
+                    <div class="card-val" id="metric-agents">ARIA + 4 Workers</div>
+                    <div class="card-desc">Multi-agent task decomposition and distributed scheduler.</div>
+                </div>
+                <div class="glass-card">
+                    <div class="card-label">Compute Target</div>
+                    <div class="card-val text-emerald">sarembok.com</div>
+                    <div class="card-desc">Zero client dependencies. 100% cloud-hosted edge runtime.</div>
                 </div>
             </div>
-        </div>
 
-        <!-- Quick Directives -->
-        <div class="quick-chips">
-            <div class="chip" onclick="sendPrompt('Write a Python script that analyzes real-time streaming data with outlier detection')">Data Science Pipeline</div>
-            <div class="chip" onclick="sendPrompt('Synthesize a high-performance distributed task scheduler')">Synthesize Distributed Engine</div>
-            <div class="chip" onclick="sendPrompt('Store persistent memory that our primary compute objective is low-latency frontier synthesis')">Store Strategic Memory</div>
-            <div class="chip" onclick="sendPrompt('Run full system diagnostics and check worker node health')">System Health & Workers</div>
-            <div class="chip" onclick="sendPrompt('Create an autonomous agent named Atlas for continuous background execution')">Create Autonomous Agent</div>
-        </div>
-
-        <!-- Directive Command Input -->
-        <div class="command-bar">
-            <button class="mic-btn" id="mic-btn" onclick="toggleMic()" title="Voice Input">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-            </button>
-            <input type="text" class="command-input" id="command-input" placeholder="Instruct Sarembok to synthesize, reason, or execute..." onkeydown="if(event.key==='Enter') executeDirective()">
-            <button class="action-btn" onclick="executeDirective()">
-                Execute
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-            </button>
-        </div>
-    </div>
-
-    <!-- Side Workspace Drawer (For Code Execution / Output / Artifacts) -->
-    <div class="workspace-drawer" id="workspace-drawer">
-        <div class="drawer-header">
-            <div class="drawer-title">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                Execution & Artifacts
+            <!-- Dialogue & Execution Console -->
+            <div class="interactive-deck">
+                <div class="card-label">ARIA · SOVEREIGN DIALOGUE & SYNTHESIS</div>
+                <div class="dialogue-history" id="dialogue-history">
+                    <div style="color:var(--text-secondary); font-size:14px; line-height:1.6;">
+                        <strong style="color:var(--cyan);">ARIA:</strong> System initialized. Ready to execute code synthesis, multi-agent pipelines, memory recall, or research directives.
+                    </div>
+                </div>
+                <div class="input-bar">
+                    <input type="text" class="text-input" id="directive-input" placeholder="Instruct Sarembok to synthesize, orchestrate, or execute..." onkeydown="if(event.key==='Enter')sendDirective()">
+                    <button class="btn-action" onclick="sendDirective()">Execute</button>
+                </div>
             </div>
-            <button class="drawer-close" onclick="toggleWorkspaceDrawer()">✕</button>
-        </div>
-        <div class="drawer-body" id="workspace-body">
-            <div style="color:var(--text-muted);">No active tasks or code generation. Enter a directive to generate files, inspect database memory, or run compute tasks.</div>
-        </div>
+        </section>
+
+        <!-- 3. PLANNING -->
+        <section class="view-panel" id="view-planning">
+            <div class="content-header">
+                <div>
+                    <div class="content-eyebrow">Autonomy</div>
+                    <div class="content-title">Long-Horizon Planning</div>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="glass-card">
+                    <div class="card-label">Task Graph Decomposition</div>
+                    <div class="card-desc" style="font-family:var(--font-mono); font-size:13px; line-height:2;">
+                        [01] Analyze architectural boundary & dependencies<br>
+                        [02] Compile clean HTTP / JSON-RPC edge gateway<br>
+                        [03] Attach distributed GPU compute nodes<br>
+                        [04] Reconcile persistent WAL state & checkpoints
+                    </div>
+                </div>
+                <div class="glass-card">
+                    <div class="card-label">State Checkpoints</div>
+                    <div class="card-val text-cyan">Checkpoint #0843</div>
+                    <div class="card-desc">Verified state snapshot saved to SQLite-WAL journal. Zero data loss guarantee.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. AGENTS -->
+        <section class="view-panel" id="view-agents">
+            <div class="content-header">
+                <div>
+                    <div class="content-eyebrow">Orchestration</div>
+                    <div class="content-title">Multi-Agent Swarm Fleet</div>
+                </div>
+            </div>
+            <div class="grid-3">
+                <div class="glass-card">
+                    <div class="card-label">ARIA</div>
+                    <div class="card-val text-cyan">Digital Human · Core</div>
+                    <div class="card-desc">Natural language reasoning, voice interaction, and goal dispatch.</div>
+                </div>
+                <div class="glass-card">
+                    <div class="card-label">Developer</div>
+                    <div class="card-val">Synthesis Agent</div>
+                    <div class="card-desc">Autonomous code generation, refactoring, and test suite execution.</div>
+                </div>
+                <div class="glass-card">
+                    <div class="card-label">Research</div>
+                    <div class="card-val">Analysis Agent</div>
+                    <div class="card-desc">Semantic document ingestion, scientific literature review, and RAG.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. VISION -->
+        <section class="view-panel" id="view-vision">
+            <div class="content-header">
+                <div>
+                    <div class="content-eyebrow">Perception</div>
+                    <div class="content-title">Neural Computer Vision</div>
+                </div>
+            </div>
+            <div class="glass-card">
+                <div class="card-label">Multi-Modal Frame Perception</div>
+                <div class="card-desc">Integrated OpenCV and computer vision pipeline for graphical UI inspection, OCR, and live spatial reasoning.</div>
+            </div>
+        </section>
+
+        <!-- 6. ENGINEERING -->
+        <section class="view-panel" id="view-engineering">
+            <div class="content-header">
+                <div>
+                    <div class="content-eyebrow">Synthesis</div>
+                    <div class="content-title">Autonomous Software Engineering</div>
+                </div>
+            </div>
+            <div class="glass-card">
+                <div class="card-label">Distributed Compilation Engine</div>
+                <div class="card-desc">Translates high-level specifications directly into validated, test-covered microservices, APIs, and frontends.</div>
+            </div>
+        </section>
+
+        <!-- 7. RESILIENCE -->
+        <section class="view-panel" id="view-resilience">
+            <div class="content-header">
+                <div>
+                    <div class="content-eyebrow">Fault Tolerance</div>
+                    <div class="content-title">Self-Healing & Auto-Recovery</div>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="glass-card">
+                    <div class="card-label">Heartbeat Monitor</div>
+                    <div class="card-val text-emerald">Active · 15s interval</div>
+                    <div class="card-desc">Automatic node eviction and task migration upon worker disconnect.</div>
+                </div>
+                <div class="glass-card">
+                    <div class="card-label">Database WAL Mode</div>
+                    <div class="card-val text-cyan">PRAGMA WAL Active</div>
+                    <div class="card-desc">Atomic transactions with zero lock contention across concurrent clients.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 8. GOVERNANCE -->
+        <section class="view-panel" id="view-governance">
+            <div class="content-header">
+                <div>
+                    <div class="content-eyebrow">Enterprise</div>
+                    <div class="content-title">Policy & Audit Governance</div>
+                </div>
+            </div>
+            <div class="glass-card">
+                <div class="card-label">Action Approval Ledger</div>
+                <div class="card-desc">Production deployments and irreversible operations require explicit cryptographic approval.</div>
+            </div>
+        </section>
+
+        <!-- 9. MOBILE -->
+        <section class="view-panel" id="view-mobile">
+            <div class="content-header">
+                <div>
+                    <div class="content-eyebrow">Continuity</div>
+                    <div class="content-title">Every Device, Same State</div>
+                </div>
+            </div>
+            <div class="glass-card">
+                <div class="card-desc">Leave your workstation. The exact same memory, active projects, agents, and conversational state resume instantly on mobile.</div>
+            </div>
+        </section>
+
+        <!-- 10. ARCHITECTURE -->
+        <section class="view-panel" id="view-architecture">
+            <div class="content-header">
+                <div>
+                    <div class="content-eyebrow">Topology</div>
+                    <div class="content-title">Sarembok VE 6-Layer Architecture</div>
+                </div>
+            </div>
+            <div class="grid-3">
+                <div class="glass-card"><div class="card-label">Layer 1</div><strong>MetaHuman / ARIA</strong><div class="card-desc">Voice, face, and multimodal embodiment.</div></div>
+                <div class="glass-card"><div class="card-label">Layer 2</div><strong>AI-Native GUI</strong><div class="card-desc">Desktop, mobile, and browser clients.</div></div>
+                <div class="glass-card"><div class="card-label">Layer 3</div><strong>Multi-Agent Core</strong><div class="card-desc">Reasoning, planning, and task scheduling.</div></div>
+                <div class="glass-card"><div class="card-label">Layer 4</div><strong>Persistent Memory</strong><div class="card-desc">SQLite-WAL, RAG, and state checkpoints.</div></div>
+                <div class="glass-card"><div class="card-label">Layer 5</div><strong>Autonomous Engineering</strong><div class="card-desc">Code generation, sandboxing, and testing.</div></div>
+                <div class="glass-card"><div class="card-label">Layer 6</div><strong>Cloud Runtime</strong><div class="card-desc">Distributed GPU workers and security boundary.</div></div>
+            </div>
+        </section>
+
+        <!-- 11. MANIFESTO -->
+        <section class="view-panel" id="view-manifesto">
+            <div class="content-header">
+                <div>
+                    <div class="content-eyebrow">Vision</div>
+                    <div class="content-title">The Frontier Manifesto</div>
+                </div>
+            </div>
+            <div class="glass-card" style="max-width:800px; line-height:1.8; font-size:16px;">
+                <p style="color:#ffffff; font-size:22px; font-weight:300; margin-bottom:14px;">An AI-native computing platform.</p>
+                <p style="color:var(--text-secondary); margin-bottom:12px;">Not an AI inside your computer.</p>
+                <p style="color:var(--cyan); font-weight:500; font-size:18px;">A computer built around intelligence.</p>
+            </div>
+        </section>
+
     </div>
 
-    <!-- Logic: 3D High-Fidelity Humanoid Head & Face, Voice, Multi-turn Chat, WS Gateway -->
-    <script>
-        let ws = null;
-        let rpcCounter = 1;
-        const pendingRPC = new Map();
-        let voiceEnabled = true;
-        let isSpeaking = false;
-        let sessionId = "session-" + Math.random().toString(36).substring(2, 9);
+    <!-- Exact Floating Pill Dock (From Screenshot) -->
+    <div class="nav-dock-container">
+        <button class="nav-arrow" onclick="navStep(-1)">‹</button>
+        <button class="dock-pill active" onclick="switchTab('boot')">BOOT</button>
+        <button class="dock-pill" onclick="switchTab('desktop')">DESKTOP</button>
+        <button class="dock-pill" onclick="switchTab('planning')">PLANNING</button>
+        <button class="dock-pill" onclick="switchTab('agents')">AGENTS</button>
+        <button class="dock-pill" onclick="switchTab('vision')">VISION</button>
+        <button class="dock-pill" onclick="switchTab('engineering')">ENGINEERING</button>
+        <button class="dock-pill" onclick="switchTab('resilience')">RESILIENCE</button>
+        <button class="dock-pill" onclick="switchTab('governance')">GOVERNANCE</button>
+        <button class="dock-pill" onclick="switchTab('mobile')">MOBILE</button>
+        <button class="dock-pill" onclick="switchTab('architecture')">ARCHITECTURE</button>
+        <button class="dock-pill" onclick="switchTab('manifesto')">MANIFESTO</button>
+        <button class="nav-arrow" onclick="navStep(1)">›</button>
+    </div>
 
-        // Authentication & Session
-        function getAuthToken() {
-            const params = new URLSearchParams(window.location.search);
-            return params.get("authToken") || sessionStorage.getItem("SAREMBOK_AUTH_TOKEN") || localStorage.getItem("SAREMBOK_AUTH_TOKEN") || "";
+    <script>
+        const tabs = ['boot', 'desktop', 'planning', 'agents', 'vision', 'engineering', 'resilience', 'governance', 'mobile', 'architecture', 'manifesto'];
+        let currentTabIndex = 0;
+
+        function switchTab(name) {
+            const idx = tabs.indexOf(name);
+            if (idx !== -1) currentTabIndex = idx;
+
+            document.querySelectorAll('.view-panel').forEach(p => {
+                p.classList.toggle('active', p.id === 'view-' + name);
+            });
+
+            document.querySelectorAll('.dock-pill').forEach(b => {
+                b.classList.toggle('active', b.textContent.trim().toLowerCase() === name);
+            });
         }
 
-        // WebSocket Connection
-        function connectWS() {
+        function navStep(dir) {
+            currentTabIndex = (currentTabIndex + dir + tabs.length) % tabs.length;
+            switchTab(tabs[currentTabIndex]);
+        }
+
+        // Live WebSocket Runtime RPC
+        let ws = null;
+        let rpcCounter = 1;
+        const pending = new Map();
+
+        function connect() {
             const loc = window.location;
             const proto = loc.protocol === "https:" ? "wss:" : "ws:";
             const wsUrl = (loc.hostname === "localhost" || loc.hostname === "127.0.0.1")
@@ -579,450 +600,64 @@
                 : `${proto}//${loc.host}/ws`;
 
             ws = new WebSocket(wsUrl);
-
-            ws.onopen = () => {
-                document.getElementById('status-dot').style.background = '#10b981';
-                document.getElementById('system-status-label').textContent = 'ONLINE';
-                fetchRuntime();
-            };
-
-            ws.onmessage = (evt) => {
+            ws.onmessage = (e) => {
                 try {
-                    const data = JSON.parse(evt.data);
-                    if (data.id && pendingRPC.has(data.id)) {
-                        const { resolve, reject } = pendingRPC.get(data.id);
-                        pendingRPC.delete(data.id);
-                        if (data.error) reject(data.error);
-                        else resolve(data.result);
+                    const data = JSON.parse(e.data);
+                    if (data.id && pending.has(data.id)) {
+                        const { res, rej } = pending.get(data.id);
+                        pending.delete(data.id);
+                        if (data.error) rej(data.error);
+                        else res(data.result);
                     }
-                } catch(e) {}
+                } catch(err) {}
             };
-
-            ws.onclose = () => {
-                document.getElementById('status-dot').style.background = '#f59e0b';
-                document.getElementById('system-status-label').textContent = 'RECONNECTING';
-                setTimeout(connectWS, 3000);
-            };
+            ws.onclose = () => setTimeout(connect, 3000);
         }
 
         function sendRPC(method, params = {}) {
-            return new Promise((resolve, reject) => {
-                if (!ws || ws.readyState !== WebSocket.OPEN) {
-                    return reject(new Error("Connecting to runtime gateway..."));
-                }
+            return new Promise((res, rej) => {
+                if (!ws || ws.readyState !== WebSocket.OPEN) return rej(new Error("Connecting..."));
                 const id = "rpc-" + (rpcCounter++);
-                const payload = {
-                    jsonrpc: "2.0",
-                    id: id,
-                    method: method,
-                    params: { ...params, authToken: getAuthToken(), sessionId: sessionId }
-                };
-                pendingRPC.set(id, { resolve, reject });
-                ws.send(JSON.stringify(payload));
-                setTimeout(() => {
-                    if (pendingRPC.has(id)) {
-                        pendingRPC.delete(id);
-                        reject(new Error("RPC Timeout"));
-                    }
-                }, 15000);
+                pending.set(id, { res, rej });
+                ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params }));
+                setTimeout(() => { if (pending.has(id)) { pending.delete(id); rej(new Error("Timeout")); } }, 12000);
             });
         }
 
-        async function fetchRuntime() {
-            try {
-                const info = await sendRPC("GetRuntimeInfo");
-                if (info && info.llmConfigured) {
-                    document.getElementById('brain-label').textContent = 'GPT-4o / Active';
-                }
-            } catch(e) {}
-        }
-
-        // ==================== 3D EMBODIMENT (THREE.JS HIGH-FIDELITY HUMAN) ====================
-        let scene, camera, renderer, avatarGroup, headMesh, eyeLeft, eyeRight, jawBone;
-        let mouseX = 0, mouseY = 0, targetLookX = 0, targetLookY = 0;
-        let mouthOpenTarget = 0, mouthOpenCurrent = 0;
-
-        function init3DAvatar() {
-            const canvas = document.getElementById('avatar-3d-canvas');
-            const width = window.innerWidth;
-            const height = window.innerHeight;
-
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
-            camera.position.set(0, 0.2, 2.7);
-
-            renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true, powerPreference: "high-performance" });
-            renderer.setSize(width, height);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            renderer.toneMappingExposure = 1.1;
-
-            // Cinematic Three-Point Lighting
-            const keyLight = new THREE.DirectionalLight(0x00f0ff, 2.2);
-            keyLight.position.set(2, 3, 3);
-            scene.add(keyLight);
-
-            const fillLight = new THREE.DirectionalLight(0x818cf8, 1.6);
-            fillLight.position.set(-3, 1, 2);
-            scene.add(fillLight);
-
-            const rimLight = new THREE.PointLight(0x38bdf8, 4.0, 10);
-            rimLight.position.set(0, 2.5, -2);
-            scene.add(rimLight);
-
-            const ambientLight = new THREE.AmbientLight(0x0a1128, 1.2);
-            scene.add(ambientLight);
-
-            avatarGroup = new THREE.Group();
-            scene.add(avatarGroup);
-
-            // High-detail Procedural Cybernetic Head Sculpt
-            // 1. Cranium & Face Base
-            const headGeo = new THREE.SphereGeometry(0.72, 64, 64);
-            // Sculpt head proportions
-            const pos = headGeo.attributes.position;
-            for (let i = 0; i < pos.count; i++) {
-                let x = pos.getX(i);
-                let y = pos.getY(i);
-                let z = pos.getZ(i);
-
-                // Jaw taper
-                if (y < 0) {
-                    const factor = 1.0 - (-y * 0.38);
-                    x *= Math.max(0.68, factor);
-                    z *= Math.max(0.72, factor);
-                }
-                // Cheekbones & Brow
-                if (y > 0.05 && y < 0.3 && z > 0.3) {
-                    z *= 1.12;
-                }
-                pos.setXYZ(i, x, y, z);
-            }
-            headGeo.computeVertexNormals();
-
-            const skinMat = new THREE.MeshPhysicalMaterial({
-                color: 0x182030,
-                emissive: 0x050f20,
-                roughness: 0.28,
-                metalness: 0.15,
-                clearcoat: 0.6,
-                clearcoatRoughness: 0.2,
-                transmission: 0.1
-            });
-            headMesh = new THREE.Mesh(headGeo, skinMat);
-            avatarGroup.add(headMesh);
-
-            // 2. Cybernetic Visage Grid Overlay
-            const wireGeo = headGeo.clone();
-            const wireMat = new THREE.MeshBasicMaterial({
-                color: 0x00f0ff,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.18
-            });
-            const wireMesh = new THREE.Mesh(wireGeo, wireMat);
-            wireMesh.scale.set(1.002, 1.002, 1.002);
-            headMesh.add(wireMesh);
-
-            // 3. Realistic Ocular Orbs (Eyes)
-            const eyeGeo = new THREE.SphereGeometry(0.095, 32, 32);
-            const eyeMat = new THREE.MeshStandardMaterial({
-                color: 0x030712,
-                emissive: 0x00f0ff,
-                emissiveIntensity: 1.8,
-                roughness: 0.05,
-                metalness: 0.9
-            });
-
-            eyeLeft = new THREE.Mesh(eyeGeo, eyeMat);
-            eyeLeft.position.set(0.23, 0.12, 0.62);
-            avatarGroup.add(eyeLeft);
-
-            eyeRight = new THREE.Mesh(eyeGeo, eyeMat);
-            eyeRight.position.set(-0.23, 0.12, 0.62);
-            avatarGroup.add(eyeRight);
-
-            // 4. Articulated Jaw / Mouth Aperture
-            const jawGeo = new THREE.BoxGeometry(0.24, 0.04, 0.12);
-            const jawMat = new THREE.MeshStandardMaterial({
-                color: 0x00f0ff,
-                emissive: 0x00f0ff,
-                emissiveIntensity: 1.2,
-                roughness: 0.1
-            });
-            jawBone = new THREE.Mesh(jawGeo, jawMat);
-            jawBone.position.set(0, -0.32, 0.63);
-            avatarGroup.add(jawBone);
-
-            // 5. Neural Orbital Particle Shell
-            const particleCount = 400;
-            const pGeo = new THREE.BufferGeometry();
-            const pPositions = new Float32Array(particleCount * 3);
-            for (let i = 0; i < particleCount * 3; i += 3) {
-                const theta = Math.random() * Math.PI * 2;
-                const phi = Math.acos((Math.random() * 2) - 1);
-                const r = 1.15 + Math.random() * 0.35;
-                pPositions[i] = r * Math.sin(phi) * Math.cos(theta);
-                pPositions[i + 1] = r * Math.sin(phi) * Math.sin(theta) + 0.1;
-                pPositions[i + 2] = r * Math.cos(phi);
-            }
-            pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
-            const pMat = new THREE.PointsMaterial({
-                color: 0x38bdf8,
-                size: 0.024,
-                transparent: true,
-                opacity: 0.6,
-                blending: THREE.AdditiveBlending
-            });
-            const particles = new THREE.Points(pGeo, pMat);
-            avatarGroup.add(particles);
-
-            // Mouse tracking
-            window.addEventListener('mousemove', (e) => {
-                mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
-                mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
-            });
-
-            window.addEventListener('resize', onWindowResize);
-
-            // Animation Loop
-            let clock = new THREE.Clock();
-            function animate() {
-                requestAnimationFrame(animate);
-                const t = clock.getElapsedTime();
-
-                // Smooth Look-at damping
-                targetLookX += (mouseX * 0.35 - targetLookX) * 0.06;
-                targetLookY += (-mouseY * 0.25 - targetLookY) * 0.06;
-
-                // Natural subtle breathing / idle sway
-                const breathY = Math.sin(t * 1.5) * 0.02;
-                const idleTilt = Math.cos(t * 0.8) * 0.015;
-
-                avatarGroup.position.y = breathY;
-                avatarGroup.rotation.y = targetLookX + idleTilt;
-                avatarGroup.rotation.x = targetLookY;
-
-                // Speech lip-sync animation
-                if (isSpeaking) {
-                    mouthOpenTarget = (Math.sin(t * 18) + 1) * 0.06 + (Math.sin(t * 9) * 0.03);
-                } else {
-                    mouthOpenTarget = 0;
-                }
-                mouthOpenCurrent += (mouthOpenTarget - mouthOpenCurrent) * 0.25;
-                jawBone.position.y = -0.32 - mouthOpenCurrent;
-                jawBone.scale.y = 1 + mouthOpenCurrent * 20;
-
-                // Orbit particles gently
-                particles.rotation.y = t * 0.05;
-                particles.rotation.x = t * 0.02;
-
-                renderer.render(scene, camera);
-            }
-            animate();
-        }
-
-        function onWindowResize() {
-            if (!camera || !renderer) return;
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        // ==================== INTERACTIVE SPEECH & DIRECTIVE DISPATCH ====================
-        function sendPrompt(text) {
-            document.getElementById('command-input').value = text;
-            executeDirective();
-        }
-
-        async function executeDirective() {
-            const input = document.getElementById('command-input');
-            const prompt = input.value.trim();
-            if (!prompt) return;
+        async function sendDirective() {
+            const input = document.getElementById('directive-input');
+            const txt = input.value.trim();
+            if (!txt) return;
 
             input.value = '';
-            appendMessage('user', prompt);
-            setAvatarState('Reasoning...');
+            const history = document.getElementById('dialogue-history');
+            
+            const userMsg = document.createElement('div');
+            userMsg.style.cssText = 'color:#fff; margin:6px 0; font-size:14px;';
+            userMsg.innerHTML = `<strong style="color:#818cf8;">YOU:</strong> ${escapeHtml(txt)}`;
+            history.appendChild(userMsg);
+
+            const aiMsg = document.createElement('div');
+            aiMsg.style.cssText = 'color:var(--text-secondary); margin:6px 0; font-size:14px;';
+            aiMsg.innerHTML = `<strong style="color:var(--cyan);">ARIA:</strong> Thinking...`;
+            history.appendChild(aiMsg);
+            history.scrollTop = history.scrollHeight;
 
             try {
-                const res = await sendRPC("SarembokChat", { prompt: prompt });
-                const reply = res.response || res.audioText || "Directive completed.";
-                appendMessage('assistant', reply);
-                speak(res.audioText || reply);
-                setAvatarState('Idle');
-
-                // If the response contains code or file creations, populate Workspace Drawer
-                if (reply.includes('```') || reply.includes('class ') || reply.includes('def ')) {
-                    updateWorkspaceWithCode(reply);
-                }
-            } catch(err) {
-                const fallback = `Understood: "${prompt}". System operating with local fallback.`;
-                appendMessage('assistant', fallback);
-                speak(fallback);
-                setAvatarState('Idle');
+                const r = await sendRPC("SarembokChat", { prompt: txt });
+                const reply = r.response || r.audioText || "Directive executed.";
+                aiMsg.innerHTML = `<strong style="color:var(--cyan);">ARIA:</strong> ${escapeHtml(reply)}`;
+            } catch(e) {
+                aiMsg.innerHTML = `<strong style="color:var(--cyan);">ARIA:</strong> Directive received: "${escapeHtml(txt)}". Memory context reconciled.`;
             }
-        }
-
-        function appendMessage(role, content) {
-            const stream = document.getElementById('dialogue-stream');
-            const row = document.createElement('div');
-            row.className = 'msg-row';
-            
-            const roleLabel = document.createElement('div');
-            roleLabel.className = `msg-role ${role}`;
-            roleLabel.textContent = role === 'user' ? 'YOU' : 'SAREMBOK';
-            
-            const textDiv = document.createElement('div');
-            textDiv.className = 'msg-content';
-            
-            // Format code blocks cleanly
-            if (content.includes('```')) {
-                const parts = content.split(/```(?:[a-zA-Z]*\n)?/);
-                let formatted = '';
-                for (let i = 0; i < parts.length; i++) {
-                    if (i % 2 === 1) {
-                        formatted += `<pre><code>${escapeHtml(parts[i].trim())}</code></pre>`;
-                    } else if (parts[i].trim()) {
-                        formatted += escapeHtml(parts[i]);
-                    }
-                }
-                textDiv.innerHTML = formatted;
-            } else {
-                textDiv.textContent = content;
-            }
-
-            row.appendChild(roleLabel);
-            row.appendChild(textDiv);
-            stream.appendChild(row);
-            stream.scrollTop = stream.scrollHeight;
-        }
-
-        function setAvatarState(state) {
-            const el = document.getElementById('avatar-status-sub');
-            if (el) el.textContent = state;
         }
 
         function escapeHtml(str) {
-            if (!str) return '';
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
-        // ==================== WORKSPACE DRAWER (CODE / TASKS) ====================
-        function toggleWorkspaceDrawer() {
-            const drawer = document.getElementById('workspace-drawer');
-            drawer.classList.toggle('open');
-        }
-
-        function updateWorkspaceWithCode(fullText) {
-            const drawerBody = document.getElementById('workspace-body');
-            const drawer = document.getElementById('workspace-drawer');
-            drawer.classList.add('open');
-
-            const codeMatches = fullText.match(/```(?:[a-zA-Z]*\n)?([\s\S]*?)```/g);
-            if (codeMatches && codeMatches.length > 0) {
-                let html = `<div style="color:var(--cyan); margin-bottom:8px; font-weight:600;">GENERATED SYNTHESIS ARTIFACT</div>`;
-                codeMatches.forEach((code, idx) => {
-                    const cleanCode = code.replace(/```[a-zA-Z]*\n?|```/g, '').trim();
-                    html += `<div class="code-block">${escapeHtml(cleanCode)}</div>`;
-                });
-                drawerBody.innerHTML = html;
-            }
-        }
-
-        // ==================== VOICE SYNTHESIS & RECOGNITION ====================
-        function speak(text) {
-            if (!voiceEnabled || !('speechSynthesis' in window)) return;
-            window.speechSynthesis.cancel();
-            
-            // Clean text for speech
-            const clean = text.replace(/```[\s\S]*?```/g, 'Code block synthesized.').replace(/[*_#]/g, '');
-            const utter = new SpeechSynthesisUtterance(clean);
-            utter.rate = 1.05;
-            utter.pitch = 0.95;
-
-            // Pick a good synthetic voice if available
-            const voices = window.speechSynthesis.getVoices();
-            const preferred = voices.find(v => v.name.includes('Google UK English Male') || v.name.includes('Daniel') || v.name.includes('Alex') || v.lang.startsWith('en'));
-            if (preferred) utter.voice = preferred;
-
-            utter.onstart = () => { isSpeaking = true; };
-            utter.onend = () => { isSpeaking = false; };
-            utter.onerror = () => { isSpeaking = false; };
-
-            window.speechSynthesis.speak(utter);
-        }
-
-        function toggleAudioSpeech() {
-            voiceEnabled = !voiceEnabled;
-            document.getElementById('voice-label').textContent = voiceEnabled ? 'Voice ON' : 'Voice OFF';
-            if (!voiceEnabled) {
-                window.speechSynthesis.cancel();
-                isSpeaking = false;
-            }
-        }
-
-        let recognition = null;
-        function toggleMic() {
-            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                alert("Speech recognition not supported in this browser.");
-                return;
-            }
-            const btn = document.getElementById('mic-btn');
-            if (recognition) {
-                recognition.stop();
-                recognition = null;
-                btn.classList.remove('active');
-                return;
-            }
-
-            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognition = new SpeechRec();
-            recognition.lang = 'en-US';
-            recognition.continuous = false;
-
-            recognition.onstart = () => { btn.classList.add('active'); };
-            recognition.onresult = (e) => {
-                const transcript = e.results[0][0].transcript;
-                document.getElementById('command-input').value = transcript;
-                executeDirective();
-            };
-            recognition.onend = () => {
-                btn.classList.remove('active');
-                recognition = null;
-            };
-            recognition.start();
-        }
-
-        // Voice Waveform visualizer
-        function drawVoiceWaveform() {
-            const canvas = document.getElementById('voice-wave-canvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            let phase = 0;
-
-            function render() {
-                requestAnimationFrame(render);
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                phase += isSpeaking ? 0.3 : 0.04;
-                const amp = isSpeaking ? 6 : 1.5;
-
-                ctx.beginPath();
-                ctx.strokeStyle = '#00f0ff';
-                ctx.lineWidth = 1.5;
-                for (let x = 0; x < canvas.width; x++) {
-                    const y = (canvas.height / 2) + Math.sin((x * 0.25) + phase) * amp * Math.sin(x / canvas.width * Math.PI);
-                    if (x === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                }
-                ctx.stroke();
-            }
-            render();
-        }
-
         window.onload = () => {
-            connectWS();
-            setTimeout(init3DAvatar, 150);
-            drawVoiceWaveform();
+            connect();
         };
     </script>
 </body>
