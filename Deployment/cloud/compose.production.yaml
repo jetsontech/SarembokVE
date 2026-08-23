@@ -2,7 +2,7 @@ services:
   sarembok-runtime:
     ports: !reset []
     environment:
-      SAREMBOK_AUTH_TOKEN: ${SAREMBOK_AUTH_TOKEN:?Set SAREMBOK_AUTH_TOKEN before starting production}
+      SAREMBOK_AUTH_TOKEN: ${SAREMBOK_AUTH_TOKEN:-}
 
   sarembok-edge:
     build:
@@ -16,7 +16,8 @@ services:
         condition: service_healthy
     environment:
       SAREMBOK_SITE_ADDRESS: ${SAREMBOK_PUBLIC_HOST:-${SAREMBOK_SITE_ADDRESS:-sarembok.com}}
-      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?Set CLOUDFLARE_API_TOKEN before starting production}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+
     ports:
       - "80:80"
       - "443:443"
