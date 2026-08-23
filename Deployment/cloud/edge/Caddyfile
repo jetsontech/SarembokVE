@@ -1,13 +1,13 @@
 {
-    auto_https off
+    email admin@sarembok.com
+}
+
+sarembok.com, www.sarembok.com {
+    reverse_proxy sarembok-runtime:9000
 }
 
 :80 {
     reverse_proxy sarembok-runtime:9000
 }
 
-:443 {
-    tls internal
-    reverse_proxy sarembok-runtime:9000
-}
 
