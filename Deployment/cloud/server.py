@@ -603,7 +603,7 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
     llm_source = None
     providers = []
 
-    openai_key = os.getenv("OPENAI_API_KEY") or os.getenv("SAREMBOK_AUTH_TOKEN") or api_key
+    openai_key = os.getenv("OPENAI_API_KEY") or api_key
     if openai_key and openai_key.startswith("sk-") and len(openai_key) > 20:
         providers.append(("GPT-4o", "https://api.openai.com/v1/chat/completions", openai_key, "gpt-4o"))
 
@@ -1884,7 +1884,24 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
     raise ValueError(f"unknown_method: {method}")
 
 
-def authenticate(request: dict[str, Any]) -> None:
+PUBLIC_METHODS = {
+    "Health",
+    "RuntimeInfo",
+    "ListWorkers",
+    "ListProjects",
+    "ListMemories",
+    "ListFiles",
+    "ListCheckpoints",
+    "ListGovernanceApprovals",
+    "ListDigitalHumanSessions",
+    "ListEvents",
+    "QueryCognitiveGraph",
+}
+
+
+def authenticate(request: dict[str, Any], method: str | None = None) -> None:
+    if method in PUBLIC_METHODS:
+        return
     if not AUTH_TOKEN:
         return
     params = request.get("params")
@@ -1904,7 +1921,7 @@ def validate_request(request: Any) -> tuple[str, dict[str, Any]]:
     params = request.get("params") or {}
     if not isinstance(params, dict):
         raise ValueError("params must be an object")
-    authenticate(request)
+    authenticate(request, method)
     return method, params
 
 

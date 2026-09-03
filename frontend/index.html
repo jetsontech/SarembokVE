@@ -347,23 +347,23 @@
                     <div class="content-eyebrow">Frontier OS</div>
                     <div class="content-title">Computing Environment</div>
                 </div>
-                <div class="card-label" style="color:var(--emerald);">● RUNTIME CONNECTED</div>
+                <div class="card-label" id="runtime-status" style="color:var(--text-muted);">● CONNECTING TO RUNTIME</div>
             </div>
 
             <div class="grid-3">
                 <div class="glass-card">
                     <div class="card-label">Persistent Memory</div>
-                    <div class="card-val text-cyan" id="metric-mem">SQLite-WAL</div>
+                    <div class="card-val text-cyan" id="metric-mem">—</div>
                     <div class="card-desc">Continuous context reconciled across turns without data loss.</div>
                 </div>
                 <div class="glass-card">
                     <div class="card-label">Active Agents</div>
-                    <div class="card-val" id="metric-agents">ARIA + 4 Workers</div>
+                    <div class="card-val" id="metric-agents">—</div>
                     <div class="card-desc">Multi-agent task decomposition and distributed scheduler.</div>
                 </div>
                 <div class="glass-card">
                     <div class="card-label">Compute Target</div>
-                    <div class="card-val text-emerald">sarembok.com</div>
+                    <div class="card-val text-emerald" id="metric-workers">—</div>
                     <div class="card-desc">Zero client dependencies. 100% cloud-hosted edge runtime.</div>
                 </div>
             </div>
@@ -373,7 +373,7 @@
                 <div class="card-label">ARIA · SOVEREIGN DIALOGUE & SYNTHESIS</div>
                 <div class="dialogue-history" id="dialogue-history">
                     <div style="color:var(--text-secondary); font-size:14px; line-height:1.6;">
-                        <strong style="color:var(--cyan);">ARIA:</strong> System initialized. Ready to execute code synthesis, multi-agent pipelines, memory recall, or research directives.
+                        <strong style="color:var(--cyan);">ARIA:</strong> Runtime connection established when the cloud gateway is available. Commands execute only when the backend confirms execution.
                     </div>
                 </div>
                 <div class="input-bar">
@@ -592,6 +592,24 @@
         let rpcCounter = 1;
         const pending = new Map();
 
+        function setRuntimeStatus(online, detail = "") {
+            const el = document.getElementById('runtime-status');
+            if (!el) return;
+            el.textContent = online ? '● RUNTIME ONLINE' : '● RUNTIME OFFLINE';
+            el.style.color = online ? 'var(--emerald)' : 'var(--text-muted)';
+            if (detail) el.title = detail;
+        }
+
+        function applyRuntimeInfo(info) {
+            if (!info) return;
+            const mem = document.getElementById('metric-mem');
+            const agents = document.getElementById('metric-agents');
+            const workers = document.getElementById('metric-workers');
+            if (mem) mem.textContent = info.storage || '—';
+            if (agents) agents.textContent = String(info.activeAgents ?? 0);
+            if (workers) workers.textContent = `${info.onlineWorkers ?? 0} / ${info.registeredWorkers ?? 0} workers online`;
+        }
+
         function connect() {
             const loc = window.location;
             const proto = loc.protocol === "https:" ? "wss:" : "ws:";
@@ -600,6 +618,15 @@
                 : `${proto}//${loc.host}/ws`;
 
             ws = new WebSocket(wsUrl);
+            ws.onopen = async () => {
+                setRuntimeStatus(true);
+                try {
+                    const info = await sendRPC("RuntimeInfo");
+                    applyRuntimeInfo(info);
+                } catch (err) {
+                    setRuntimeStatus(false, 'Runtime RPC unavailable');
+                }
+            };
             ws.onmessage = (e) => {
                 try {
                     const data = JSON.parse(e.data);
@@ -611,7 +638,11 @@
                     }
                 } catch(err) {}
             };
-            ws.onclose = () => setTimeout(connect, 3000);
+            ws.onerror = () => setRuntimeStatus(false, 'WebSocket error');
+            ws.onclose = () => {
+                setRuntimeStatus(false, 'Connection closed');
+                setTimeout(connect, 3000);
+            };
         }
 
         function sendRPC(method, params = {}) {
@@ -648,7 +679,7 @@
                 const reply = r.response || r.audioText || "Directive executed.";
                 aiMsg.innerHTML = `<strong style="color:var(--cyan);">ARIA:</strong> ${escapeHtml(reply)}`;
             } catch(e) {
-                aiMsg.innerHTML = `<strong style="color:var(--cyan);">ARIA:</strong> Directive received: "${escapeHtml(txt)}". Memory context reconciled.`;
+                aiMsg.innerHTML = `<strong style="color:#f59e0b;">RUNTIME:</strong> ${escapeHtml(e.message || 'The Sarembok runtime is unavailable. No action was executed.')}`;
             }
         }
 
