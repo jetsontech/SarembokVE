@@ -65,16 +65,18 @@ old_injection = '''        elif AUTH_TOKEN:
                 html_str = token_injection + html_str
 '''
 if old_injection not in text:
-    # Also fail closed if the exact historical block changes unexpectedly.
     if 'window.__SAREMBOK_DEFAULT_TOKEN__' in text:
         raise SystemExit('refusing to leave browser auth-token injection in place')
 else:
     text = text.replace(old_injection, '''        # AUTH_TOKEN is server-side only and must never be exposed to the browser.
 ''', 1)
 
-# Add a small, sanitized runtime status method if one is not already present.
-if 'if method == "RuntimeInfo":' not in text:
-    marker = '    raise ValueError(f"unknown_method: {method}")\n'
+# Sanitize RuntimeInfo because this method is intentionally public.
+start = text.find('    if method == "RuntimeInfo":')
+if start >= 0:
+    end = text.find('    if method == "ListProjects":', start)
+    if end < 0:
+        raise SystemExit('RuntimeInfo end marker not found')
     runtime_info = '''    if method == "RuntimeInfo":
         worker_stats = get_worker_status_counts()
         active_agents = store.db.execute("SELECT COUNT(*) FROM agents WHERE status='ONLINE'").fetchone()[0]
@@ -91,9 +93,9 @@ if 'if method == "RuntimeInfo":' not in text:
         }
 
 '''
-    if marker not in text:
-        raise SystemExit('runtime dispatch marker not found')
-    text = text.replace(marker, runtime_info + marker, 1)
+    text = text[:start] + runtime_info + text[end:]
+else:
+    raise SystemExit('RuntimeInfo method not found')
 
 server.write_text(text, encoding='utf-8')
 
