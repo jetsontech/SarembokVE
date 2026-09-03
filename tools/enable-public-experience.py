@@ -3,13 +3,98 @@ from pathlib import Path
 server = Path('Deployment/cloud/server.py')
 text = server.read_text(encoding='utf-8')
 
-old = '''def authenticate(request: dict[str, Any]) -> None:\n    if not AUTH_TOKEN:\n        return\n    params = request.get("params")\n    supplied = params.get("authToken") if isinstance(params, dict) else None\n    if not isinstance(supplied, str) or not hmac.compare_digest(supplied, AUTH_TOKEN):\n        raise PermissionError("authentication_required")\n'''
-new = '''PUBLIC_METHODS = {\n    "Health",\n    "RuntimeInfo",\n    "ListWorkers",\n    "ListProjects",\n    "ListMemories",\n    "ListFiles",\n    "ListCheckpoints",\n    "ListGovernanceApprovals",\n    "ListDigitalHumanSessions",\n    "ListEvents",\n    "QueryCognitiveGraph",\n}\n\n\ndef authenticate(request: dict[str, Any], method: str | None = None) -> None:\n    if method in PUBLIC_METHODS:\n        return\n    if not AUTH_TOKEN:\n        return\n    params = request.get("params")\n    supplied = params.get("authToken") if isinstance(params, dict) else None\n    if not isinstance(supplied, str) or not hmac.compare_digest(supplied, AUTH_TOKEN):\n        raise PermissionError("authentication_required")\n'''
-if old not in text:
-    raise SystemExit('authenticate block not found')
-text = text.replace(old, new, 1)
-text = text.replace('''    authenticate(request)\n    return method, params\n''', '''    authenticate(request, method)\n    return method, params\n''', 1)
-text = text.replace('''    openai_key = os.getenv("OPENAI_API_KEY") or os.getenv("SAREMBOK_AUTH_TOKEN") or api_key\n''', '''    openai_key = os.getenv("OPENAI_API_KEY") or api_key\n''', 1)
+# Keep the public surface intentionally small. Internal state APIs remain authenticated.
+old = '''PUBLIC_METHODS = {
+    "Health",
+    "RuntimeInfo",
+    "ListWorkers",
+    "ListProjects",
+    "ListMemories",
+    "ListFiles",
+    "ListCheckpoints",
+    "ListGovernanceApprovals",
+    "ListDigitalHumanSessions",
+    "ListEvents",
+    "QueryCognitiveGraph",
+}
+'''
+new = '''PUBLIC_METHODS = {
+    "Health",
+    "RuntimeInfo",
+}
+'''
+if old in text:
+    text = text.replace(old, new, 1)
+
+old_auth = '''def authenticate(request: dict[str, Any]) -> None:
+    if not AUTH_TOKEN:
+        return
+    params = request.get("params")
+    supplied = params.get("authToken") if isinstance(params, dict) else None
+    if not isinstance(supplied, str) or not hmac.compare_digest(supplied, AUTH_TOKEN):
+        raise PermissionError("authentication_required")
+'''
+new_auth = '''def authenticate(request: dict[str, Any], method: str | None = None) -> None:
+    if method in PUBLIC_METHODS:
+        return
+    if not AUTH_TOKEN:
+        return
+    params = request.get("params")
+    supplied = params.get("authToken") if isinstance(params, dict) else None
+    if not isinstance(supplied, str) or not hmac.compare_digest(supplied, AUTH_TOKEN):
+        raise PermissionError("authentication_required")
+'''
+if old_auth in text:
+    text = text.replace(old_auth, new_auth, 1)
+
+text = text.replace('''    authenticate(request)
+    return method, params
+''', '''    authenticate(request, method)
+    return method, params
+''', 1)
+text = text.replace('''    openai_key = os.getenv("OPENAI_API_KEY") or os.getenv("SAREMBOK_AUTH_TOKEN") or api_key
+''', '''    openai_key = os.getenv("OPENAI_API_KEY") or api_key
+''', 1)
+
+# Never inject the server authentication secret into browser HTML.
+old_injection = '''        elif AUTH_TOKEN:
+            token_injection = f'<script>window.__SAREMBOK_DEFAULT_TOKEN__ = "{AUTH_TOKEN}";</script>'
+            if "<head>" in html_str:
+                html_str = html_str.replace("<head>", f"<head>\n    {token_injection}", 1)
+            else:
+                html_str = token_injection + html_str
+'''
+if old_injection not in text:
+    # Also fail closed if the exact historical block changes unexpectedly.
+    if 'window.__SAREMBOK_DEFAULT_TOKEN__' in text:
+        raise SystemExit('refusing to leave browser auth-token injection in place')
+else:
+    text = text.replace(old_injection, '''        # AUTH_TOKEN is server-side only and must never be exposed to the browser.
+''', 1)
+
+# Add a small, sanitized runtime status method if one is not already present.
+if 'if method == "RuntimeInfo":' not in text:
+    marker = '    raise ValueError(f"unknown_method: {method}")\n'
+    runtime_info = '''    if method == "RuntimeInfo":
+        worker_stats = get_worker_status_counts()
+        active_agents = store.db.execute("SELECT COUNT(*) FROM agents WHERE status='ONLINE'").fetchone()[0]
+        active_sessions = store.db.execute("SELECT COUNT(*) FROM digital_human_sessions WHERE status='ACTIVE'").fetchone()[0]
+        return {
+            "status": "ONLINE",
+            "service": "sarembok-ve-cloud-runtime",
+            "uptimeSeconds": int(time.time() - STARTED),
+            "storage": "sqlite-wal",
+            "registeredWorkers": worker_stats["registeredWorkers"],
+            "onlineWorkers": worker_stats["onlineWorkers"],
+            "activeAgents": active_agents,
+            "activeDigitalHumanSessions": active_sessions,
+        }
+
+'''
+    if marker not in text:
+        raise SystemExit('runtime dispatch marker not found')
+    text = text.replace(marker, runtime_info + marker, 1)
+
 server.write_text(text, encoding='utf-8')
 
 html = Path('frontend/index.html')
@@ -18,15 +103,95 @@ h = h.replace('''<div class="card-label" style="color:var(--emerald);">● RUNTI
 h = h.replace('''<div class="card-val text-cyan" id="metric-mem">SQLite-WAL</div>''', '''<div class="card-val text-cyan" id="metric-mem">—</div>''', 1)
 h = h.replace('''<div class="card-val" id="metric-agents">ARIA + 4 Workers</div>''', '''<div class="card-val" id="metric-agents">—</div>''', 1)
 h = h.replace('''<div class="card-val text-emerald">sarembok.com</div>''', '''<div class="card-val text-emerald" id="metric-workers">—</div>''', 1)
-old_js = '''        function connect() {\n            const loc = window.location;\n            const proto = loc.protocol === "https:" ? "wss:" : "ws:";\n            const wsUrl = (loc.hostname === "localhost" || loc.hostname === "127.0.0.1")\n                ? "ws://127.0.0.1:9120"\n                : `${proto}//${loc.host}/ws`;\n\n            ws = new WebSocket(wsUrl);\n            ws.onmessage = (e) => {\n                try {\n                    const data = JSON.parse(e.data);\n                    if (data.id && pending.has(data.id)) {\n                        const { res, rej } = pending.get(data.id);\n                        pending.delete(data.id);\n                        if (data.error) rej(data.error);\n                        else res(data.result);\n                    }\n                } catch(err) {}\n            };\n            ws.onclose = () => setTimeout(connect, 3000);\n        }\n'''
-new_js = '''        function setRuntimeStatus(online, detail = "") {\n            const el = document.getElementById('runtime-status');\n            if (!el) return;\n            el.textContent = online ? '● RUNTIME ONLINE' : '● RUNTIME OFFLINE';\n            el.style.color = online ? 'var(--emerald)' : 'var(--text-muted)';\n            if (detail) el.title = detail;\n        }\n\n        function applyRuntimeInfo(info) {\n            if (!info) return;\n            const mem = document.getElementById('metric-mem');\n            const agents = document.getElementById('metric-agents');\n            const workers = document.getElementById('metric-workers');\n            if (mem) mem.textContent = info.storage || '—';\n            if (agents) agents.textContent = String(info.activeAgents ?? 0);\n            if (workers) workers.textContent = `${info.onlineWorkers ?? 0} / ${info.registeredWorkers ?? 0} workers online`;\n        }\n\n        function connect() {\n            const loc = window.location;\n            const proto = loc.protocol === "https:" ? "wss:" : "ws:";\n            const wsUrl = (loc.hostname === "localhost" || loc.hostname === "127.0.0.1")\n                ? "ws://127.0.0.1:9120"\n                : `${proto}//${loc.host}/ws`;\n\n            ws = new WebSocket(wsUrl);\n            ws.onopen = async () => {\n                setRuntimeStatus(true);\n                try {\n                    const info = await sendRPC("RuntimeInfo");\n                    applyRuntimeInfo(info);\n                } catch (err) {\n                    setRuntimeStatus(false, 'Runtime RPC unavailable');\n                }\n            };\n            ws.onmessage = (e) => {\n                try {\n                    const data = JSON.parse(e.data);\n                    if (data.id && pending.has(data.id)) {\n                        const { res, rej } = pending.get(data.id);\n                        pending.delete(data.id);\n                        if (data.error) rej(data.error);\n                        else res(data.result);\n                    }\n                } catch(err) {}\n            };\n            ws.onerror = () => setRuntimeStatus(false, 'WebSocket error');\n            ws.onclose = () => {\n                setRuntimeStatus(false, 'Connection closed');\n                setTimeout(connect, 3000);\n            };\n        }\n'''
-if old_js not in h:
-    raise SystemExit('connect block not found')
-h = h.replace(old_js, new_js, 1)
-old_catch = '''            } catch(e) {\n                aiMsg.innerHTML = `<strong style="color:var(--cyan);">ARIA:</strong> Directive received: "${escapeHtml(txt)}". Memory context reconciled.`;\n            }\n'''
-new_catch = '''            } catch(e) {\n                aiMsg.innerHTML = `<strong style="color:#f59e0b;">RUNTIME:</strong> ${escapeHtml(e.message || 'The Sarembok runtime is unavailable. No action was executed.')}`;\n            }\n'''
-if old_catch not in h:
-    raise SystemExit('fake fallback block not found')
-h = h.replace(old_catch, new_catch, 1)
+
+old_js = '''        function connect() {
+            const loc = window.location;
+            const proto = loc.protocol === "https:" ? "wss:" : "ws:";
+            const wsUrl = (loc.hostname === "localhost" || loc.hostname === "127.0.0.1")
+                ? "ws://127.0.0.1:9120"
+                : `${proto}//${loc.host}/ws`;
+
+            ws = new WebSocket(wsUrl);
+            ws.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.id && pending.has(data.id)) {
+                        const { res, rej } = pending.get(data.id);
+                        pending.delete(data.id);
+                        if (data.error) rej(data.error);
+                        else res(data.result);
+                    }
+                } catch(err) {}
+            };
+            ws.onclose = () => setTimeout(connect, 3000);
+        }
+'''
+new_js = '''        function setRuntimeStatus(online, detail = "") {
+            const el = document.getElementById('runtime-status');
+            if (!el) return;
+            el.textContent = online ? '● RUNTIME ONLINE' : '● RUNTIME OFFLINE';
+            el.style.color = online ? 'var(--emerald)' : 'var(--text-muted)';
+            if (detail) el.title = detail;
+        }
+
+        function applyRuntimeInfo(info) {
+            if (!info) return;
+            const mem = document.getElementById('metric-mem');
+            const agents = document.getElementById('metric-agents');
+            const workers = document.getElementById('metric-workers');
+            if (mem) mem.textContent = info.storage || '—';
+            if (agents) agents.textContent = String(info.activeAgents ?? 0);
+            if (workers) workers.textContent = `${info.onlineWorkers ?? 0} / ${info.registeredWorkers ?? 0} workers online`;
+        }
+
+        function connect() {
+            const loc = window.location;
+            const proto = loc.protocol === "https:" ? "wss:" : "ws:";
+            const wsUrl = (loc.hostname === "localhost" || loc.hostname === "127.0.0.1")
+                ? "ws://127.0.0.1:9120"
+                : `${proto}//${loc.host}/ws`;
+
+            ws = new WebSocket(wsUrl);
+            ws.onopen = async () => {
+                setRuntimeStatus(true);
+                try {
+                    const info = await sendRPC("RuntimeInfo");
+                    applyRuntimeInfo(info);
+                } catch (err) {
+                    setRuntimeStatus(false, 'Runtime RPC unavailable');
+                }
+            };
+            ws.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.id && pending.has(data.id)) {
+                        const { res, rej } = pending.get(data.id);
+                        pending.delete(data.id);
+                        if (data.error) rej(data.error);
+                        else res(data.result);
+                    }
+                } catch(err) {}
+            };
+            ws.onerror = () => setRuntimeStatus(false, 'WebSocket error');
+            ws.onclose = () => {
+                setRuntimeStatus(false, 'Connection closed');
+                setTimeout(connect, 3000);
+            };
+        }
+'''
+if old_js in h:
+    h = h.replace(old_js, new_js, 1)
+
+old_catch = '''            } catch(e) {
+                aiMsg.innerHTML = `<strong style="color:var(--cyan);">ARIA:</strong> Directive received: "${escapeHtml(txt)}". Memory context reconciled.`;
+            }
+'''
+new_catch = '''            } catch(e) {
+                aiMsg.innerHTML = `<strong style="color:#f59e0b;">RUNTIME:</strong> ${escapeHtml(e.message || 'The Sarembok runtime is unavailable. No action was executed.')}`;
+            }
+'''
+if old_catch in h:
+    h = h.replace(old_catch, new_catch, 1)
+
 h = h.replace('''<strong style="color:var(--cyan);">ARIA:</strong> System initialized. Ready to execute code synthesis, multi-agent pipelines, memory recall, or research directives.''', '''<strong style="color:var(--cyan);">ARIA:</strong> Runtime connection established when the cloud gateway is available. Commands execute only when the backend confirms execution.''', 1)
 html.write_text(h, encoding='utf-8')
