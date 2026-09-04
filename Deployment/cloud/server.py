@@ -21,6 +21,10 @@ import time
 import urllib.request
 import urllib.error
 import uuid
+
+from provider_router import ProviderRouter
+from capability_registry import CapabilityRegistry
+from structured_response import build_structured_response
 from datetime import datetime, timezone
 from typing import Any
 
@@ -38,6 +42,8 @@ BROWSER_SESSION_TTL_SECONDS = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_T
 BROWSER_ALLOWED_METHODS = {"SarembokChat", "GetRuntimeInfo"}
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
+PROVIDER_ROUTER = ProviderRouter()
+CAPABILITY_REGISTRY = CapabilityRegistry()
 
 logging.basicConfig(
     level=os.getenv("SAREMBOK_LOG_LEVEL", "INFO").upper(),
@@ -235,6 +241,8 @@ class CloudStore:
 
 store = CloudStore(DB_PATH)
 STARTED = time.time()
+PROVIDER_ROUTER = ProviderRouter()
+CAPABILITY_REGISTRY = CapabilityRegistry()
 DB_LOCK = asyncio.Lock()
 CONNECTIONS = asyncio.Semaphore(MAX_CONNECTIONS)
 
@@ -629,54 +637,24 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
     reply = None
     source = None
     model = None
-    provider_deadline = time.monotonic() + LLM_TOTAL_TIMEOUT_SECONDS
-    for name, url, key, mdl in providers:
-        remaining = provider_deadline - time.monotonic()
-        if remaining <= 0:
-            LOG.warning("LLM total timeout reached before provider %s", name)
-            break
-        try:
-            if name == "Gemini":
-                data = {"contents": [{"role": "user", "parts": [{"text": system_prompt + "\n\nUser: " + prompt_clean}]}]}
-                headers = {"Content-Type": "application/json", "x-goog-api-key": key}
-            else:
-                data = {"model": mdl, "messages": messages, "max_tokens": 800, "temperature": 0.7}
-                headers = {"Content-Type": "application/json", "Authorization": f"Bearer {key}"}
-                if name == "OpenRouter":
-                    headers.update({"HTTP-Referer": "https://sarembok.com", "X-Title": "Sarembok VE"})
-            req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers)
-            timeout = min(LLM_PROVIDER_TIMEOUT_SECONDS, max(1, remaining))
-            attempts = 2 if name == "Gemini" else 1
-            payload = None
-            for attempt in range(attempts):
-                try:
-                    with urllib.request.urlopen(req, timeout=timeout) as r:
-                        payload = json.loads(r.read().decode("utf-8"))
-                    break
-                except urllib.error.HTTPError as http_exc:
-                    if name != "Gemini" or http_exc.code not in (429, 500, 502, 503, 504) or attempt + 1 >= attempts:
-                        raise
-                    retry_delay = min(2.0, 0.75 * (2 ** attempt))
-                    remaining = provider_deadline - time.monotonic()
-                    if remaining <= retry_delay + 1:
-                        raise
-                    LOG.warning("Gemini returned HTTP %s; retrying once after %.2fs", http_exc.code, retry_delay)
-                    time.sleep(retry_delay)
-                    remaining = provider_deadline - time.monotonic()
-                    timeout = min(LLM_PROVIDER_TIMEOUT_SECONDS, max(1, remaining))
-            if payload is None:
-                raise RuntimeError(f"{name} returned no payload")
-            reply = (payload["candidates"][0]["content"]["parts"][0]["text"] if name == "Gemini" else payload["choices"][0]["message"]["content"]).strip()
-            source = name
-            model = mdl
-            break
-        except Exception as exc:
-            LOG.warning("LLM provider %s failed; trying next: %s", name, exc)
+    provider_latency_ms = None
+    provider_api = None
+    provider_usage = {}
+    try:
+        provider_result = PROVIDER_ROUTER.generate(system_prompt, prompt_clean, messages)
+        reply = provider_result.text
+        source = provider_result.provider
+        model = provider_result.model
+        provider_latency_ms = provider_result.latency_ms
+        provider_api = provider_result.api
+        provider_usage = provider_result.usage
+    except Exception as exc:
+        LOG.warning("LLM provider fabric failed: %s", exc)
 
     if reply is not None:
         _save_conversation(session_id, prompt_clean, reply)
         store.event("sarembok-prime", "CHAT_RESPONSE", {"prompt": prompt_clean[:200], "model": model, "provider": source})
-        return {"response": reply, "audioText": reply[:300].replace("*", "").replace("`", "").replace("#", ""), "source": source, "model": model, "action": None}
+        return {"response": reply, "audioText": reply[:300].replace("*", "").replace("`", "").replace("#", ""), "source": source, "model": model, "action": None, "structuredResponse": build_structured_response(reply, provider=source, model=model, latency_ms=provider_latency_ms), "metadata": {"provider": source, "model": model, "latency_ms": provider_latency_ms, "provider_api": provider_api, "usage": provider_usage}}
 
     reply = "I can't reach a language model right now. The runtime has no responding provider available. Local runtime capabilities remain available."
     _save_conversation(session_id, prompt_clean, reply)
@@ -705,6 +683,8 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         api_key = str(params.get("apiKey", "")).strip() or None
         session_id = str(params.get("sessionId", "default")).strip() or "default"
         res = sarembok_process_dialogue(prompt, context=context if isinstance(context, list) else None, api_key=api_key, session_id=session_id)
+        if "structuredResponse" not in res:
+            res["structuredResponse"] = build_structured_response(res.get("response", ""), action=res.get("action"), provider=res.get("source"), model=res.get("model"), latency_ms=res.get("metadata", {}).get("latency_ms") if isinstance(res.get("metadata"), dict) else None)
         res["agentId"] = "sarembok-prime"
         res["timestamp"] = now()
         return res
@@ -718,6 +698,14 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         ).fetchall()
         messages = [{"role": r[0], "content": r[1], "createdAt": r[2]} for r in reversed(rows)]
         return {"sessionId": session_id, "messages": messages, "count": len(messages)}
+
+    if method == "GetCapabilities":
+        worker_stats = get_worker_status_counts()
+        runtime_state = {"onlineWorkers": worker_stats["onlineWorkers"], "registeredWorkers": worker_stats["registeredWorkers"], "llmConfigured": bool(PROVIDER_ROUTER.configured())}
+        return CAPABILITY_REGISTRY.snapshot(runtime_state)
+
+    if method == "GetProviderMetrics":
+        return PROVIDER_ROUTER.metrics()
 
     if method == "GetRuntimeInfo":
         worker_stats = get_worker_status_counts()
