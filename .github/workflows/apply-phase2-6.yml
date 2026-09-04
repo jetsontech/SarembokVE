@@ -22,7 +22,7 @@ jobs:
       - name: Syntax validation
         run: python3 -m py_compile Deployment/cloud/server.py Deployment/cloud/provider_router.py Deployment/cloud/capability_registry.py Deployment/cloud/structured_response.py
       - name: Contract tests
-        run: python3 -m pytest Deployment/cloud/test_phase2_6.py -q
+        run: python3 -m pip install --user pytest && python3 -m pytest Deployment/cloud/test_phase2_6.py -q
       - name: Commit implementation
         run: |
           git config user.name "github-actions[bot]"
