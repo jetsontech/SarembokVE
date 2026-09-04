@@ -590,7 +590,16 @@
         // Live WebSocket Runtime RPC
         let ws = null;
         let rpcCounter = 1;
+        let browserSessionToken = null;
         const pending = new Map();
+
+        async function initializeBrowserSession() {
+            const response = await fetch('/session', { cache: 'no-store' });
+            if (!response.ok) throw new Error('Unable to establish Sarembok browser session');
+            const data = await response.json();
+            if (!data.sessionToken) throw new Error('Browser session token missing');
+            browserSessionToken = data.sessionToken;
+        }
 
         function connect() {
             const loc = window.location;
@@ -619,7 +628,11 @@
                 if (!ws || ws.readyState !== WebSocket.OPEN) return rej(new Error("Connecting..."));
                 const id = "rpc-" + (rpcCounter++);
                 pending.set(id, { res, rej });
-                ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params }));
+                const rpcParams = { ...params };
+                if (browserSessionToken && !rpcParams.authToken) {
+                    rpcParams.sessionToken = browserSessionToken;
+                }
+                ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params: rpcParams }));
                 setTimeout(() => { if (pending.has(id)) { pending.delete(id); rej(new Error("Runtime request timeout")); } }, 45000);
             });
         }
@@ -656,8 +669,13 @@
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
-        window.onload = () => {
-            connect();
+        window.onload = async () => {
+            try {
+                await initializeBrowserSession();
+                connect();
+            } catch (err) {
+                console.error('Sarembok browser session initialization failed:', err);
+            }
         };
     </script>
 <!-- SAREMBOK_RESPONSE_UI_V3 -->

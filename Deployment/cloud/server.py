@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import re
+import secrets
 import signal
 import sqlite3
 import time
@@ -31,6 +32,9 @@ MAX_CONNECTIONS = max(1, int(os.getenv("SAREMBOK_MAX_CONNECTIONS", "100")))
 MAX_REQUEST_BYTES = max(1024, int(os.getenv("SAREMBOK_MAX_REQUEST_BYTES", str(1024 * 1024))))
 MAX_METHOD_LENGTH = max(32, int(os.getenv("SAREMBOK_MAX_METHOD_LENGTH", "128")))
 LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "10")))
+BROWSER_SESSION_TTL_SECONDS = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_TTL_SECONDS", "3600")))
+BROWSER_ALLOWED_METHODS = {"SarembokChat", "RuntimeInfo", "Health"}
+BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
 
 logging.basicConfig(
@@ -1870,13 +1874,46 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
     raise ValueError(f"unknown_method: {method}")
 
 
-def authenticate(request: dict[str, Any]) -> None:
-    if not AUTH_TOKEN:
-        return
+def issue_browser_session() -> str:
+    now_ts = time.time()
+    # Prune expired sessions opportunistically.
+    expired = [token for token, expiry in BROWSER_SESSIONS.items() if expiry <= now_ts]
+    for token in expired:
+        BROWSER_SESSIONS.pop(token, None)
+    token = secrets.token_urlsafe(32)
+    BROWSER_SESSIONS[token] = now_ts + BROWSER_SESSION_TTL_SECONDS
+    return token
+
+
+def browser_session_valid(token: Any) -> bool:
+    if not isinstance(token, str) or not token:
+        return False
+    expiry = BROWSER_SESSIONS.get(token)
+    if expiry is None:
+        return False
+    if expiry <= time.time():
+        BROWSER_SESSIONS.pop(token, None)
+        return False
+    return True
+
+
+def authenticate(request: dict[str, Any], method: str) -> None:
+    # Server-to-server/admin clients may continue using the master token.
     params = request.get("params")
-    supplied = params.get("authToken") if isinstance(params, dict) else None
-    if not isinstance(supplied, str) or not hmac.compare_digest(supplied, AUTH_TOKEN):
+    if not isinstance(params, dict):
         raise PermissionError("authentication_required")
+
+    supplied = params.get("authToken")
+    if AUTH_TOKEN and isinstance(supplied, str) and hmac.compare_digest(supplied, AUTH_TOKEN):
+        return
+
+    # Browser clients receive a short-lived, scoped session token. The master
+    # runtime credential is never sent to or rendered into browser HTML.
+    session_token = params.get("sessionToken")
+    if browser_session_valid(session_token) and method in BROWSER_ALLOWED_METHODS:
+        return
+
+    raise PermissionError("authentication_required")
 
 
 def validate_request(request: Any) -> tuple[str, dict[str, Any]]:
@@ -1890,7 +1927,7 @@ def validate_request(request: Any) -> tuple[str, dict[str, Any]]:
     params = request.get("params") or {}
     if not isinstance(params, dict):
         raise ValueError("params must be an object")
-    authenticate(request)
+    authenticate(request, method)
     return method, params
 
 
@@ -1934,6 +1971,23 @@ async def process_http_request(connection: Any, request: Any) -> Any:
         if hasattr(connection, "respond"):
             return connection.respond(200, "OK\n")
         return (200, [("Content-Type", "text/plain; charset=utf-8")], b"OK\n")
+    if path == "/session":
+        session_token = issue_browser_session()
+        body = json.dumps({
+            "sessionToken": session_token,
+            "expiresIn": BROWSER_SESSION_TTL_SECONDS,
+            "scope": sorted(BROWSER_ALLOWED_METHODS),
+        }, separators=(",", ":"))
+        if hasattr(connection, "respond"):
+            resp = connection.respond(200, body)
+            try:
+                del resp.headers["Content-Type"]
+            except Exception:
+                pass
+            resp.headers["Content-Type"] = "application/json; charset=utf-8"
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
+        return (200, [("Content-Type", "application/json; charset=utf-8"), ("Cache-Control", "no-store")], body.encode("utf-8"))
     if path in ("/", "/index.html"):
         base_dir = os.path.dirname(os.path.abspath(__file__))
         candidates = [
@@ -1955,13 +2009,6 @@ async def process_http_request(connection: Any, request: Any) -> Any:
                     LOG.error("Failed to read frontend index.html: %s", exc)
         if not html_str:
             html_str = "<!DOCTYPE html><html><body><h1>Sarembok VE Cloud Runtime</h1><p>Status: ONLINE</p></body></html>\n"
-        elif AUTH_TOKEN:
-            token_injection = f'<script>window.__SAREMBOK_DEFAULT_TOKEN__ = "{AUTH_TOKEN}";</script>'
-            if "<head>" in html_str:
-                html_str = html_str.replace("<head>", f"<head>\n    {token_injection}", 1)
-            else:
-                html_str = token_injection + html_str
-        
         if hasattr(connection, "respond"):
             resp = connection.respond(200, html_str)
             try:
