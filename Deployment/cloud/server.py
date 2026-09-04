@@ -33,7 +33,7 @@ MAX_REQUEST_BYTES = max(1024, int(os.getenv("SAREMBOK_MAX_REQUEST_BYTES", str(10
 MAX_METHOD_LENGTH = max(32, int(os.getenv("SAREMBOK_MAX_METHOD_LENGTH", "128")))
 LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "10")))
 BROWSER_SESSION_TTL_SECONDS = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_TTL_SECONDS", "3600")))
-BROWSER_ALLOWED_METHODS = {"SarembokChat", "RuntimeInfo", "Health"}
+BROWSER_ALLOWED_METHODS = {"SarembokChat", "GetRuntimeInfo"}
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
 
