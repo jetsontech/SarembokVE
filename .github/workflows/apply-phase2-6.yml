@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - Tools/Engineering/phase2_6_implementation.py
+      - .github/workflows/apply-phase2-6.yml
 
 permissions:
   contents: write
