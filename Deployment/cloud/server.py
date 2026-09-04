@@ -19,6 +19,7 @@ import signal
 import sqlite3
 import time
 import urllib.request
+import urllib.error
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -31,8 +32,8 @@ AUTH_TOKEN = os.getenv("SAREMBOK_AUTH_TOKEN", "").strip()
 MAX_CONNECTIONS = max(1, int(os.getenv("SAREMBOK_MAX_CONNECTIONS", "100")))
 MAX_REQUEST_BYTES = max(1024, int(os.getenv("SAREMBOK_MAX_REQUEST_BYTES", str(1024 * 1024))))
 MAX_METHOD_LENGTH = max(32, int(os.getenv("SAREMBOK_MAX_METHOD_LENGTH", "128")))
-LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "10")))
-LLM_TOTAL_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS", "15")))
+LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "20")))
+LLM_TOTAL_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS", "30")))
 BROWSER_SESSION_TTL_SECONDS = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_TTL_SECONDS", "3600")))
 BROWSER_ALLOWED_METHODS = {"SarembokChat", "GetRuntimeInfo"}
 BROWSER_SESSIONS: dict[str, float] = {}
@@ -645,8 +646,26 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
                     headers.update({"HTTP-Referer": "https://sarembok.com", "X-Title": "Sarembok VE"})
             req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers)
             timeout = min(LLM_PROVIDER_TIMEOUT_SECONDS, max(1, remaining))
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                payload = json.loads(r.read().decode("utf-8"))
+            attempts = 2 if name == "Gemini" else 1
+            payload = None
+            for attempt in range(attempts):
+                try:
+                    with urllib.request.urlopen(req, timeout=timeout) as r:
+                        payload = json.loads(r.read().decode("utf-8"))
+                    break
+                except urllib.error.HTTPError as http_exc:
+                    if name != "Gemini" or http_exc.code not in (429, 500, 502, 503, 504) or attempt + 1 >= attempts:
+                        raise
+                    retry_delay = min(2.0, 0.75 * (2 ** attempt))
+                    remaining = provider_deadline - time.monotonic()
+                    if remaining <= retry_delay + 1:
+                        raise
+                    LOG.warning("Gemini returned HTTP %s; retrying once after %.2fs", http_exc.code, retry_delay)
+                    time.sleep(retry_delay)
+                    remaining = provider_deadline - time.monotonic()
+                    timeout = min(LLM_PROVIDER_TIMEOUT_SECONDS, max(1, remaining))
+            if payload is None:
+                raise RuntimeError(f"{name} returned no payload")
             reply = (payload["candidates"][0]["content"]["parts"][0]["text"] if name == "Gemini" else payload["choices"][0]["message"]["content"]).strip()
             source = name
             model = mdl
