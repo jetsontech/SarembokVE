@@ -605,19 +605,27 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
     llm_source = None
     providers = []
 
-    openai_key = os.getenv("OPENAI_API_KEY") or os.getenv("SAREMBOK_AUTH_TOKEN") or api_key
-    if openai_key and openai_key.startswith("sk-") and len(openai_key) > 20:
-        providers.append(("GPT-4o", "https://api.openai.com/v1/chat/completions", openai_key, "gpt-4o"))
+openai_key = os.getenv("OPENAI_API_KEY") or (api_key if (api_key or "").startswith("sk-") else None)
+if openai_key and len(openai_key) > 20:
+    providers.append(("OpenAI", "https://api.openai.com/v1/chat/completions", openai_key, os.getenv("OPENAI_MODEL", "gpt-4o")))
 
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    if gemini_key:
-        providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}", gemini_key, "gemini-1.5-flash"))
+openrouter_key = os.getenv("OPENROUTER_API_KEY")
+if openrouter_key:
+    providers.append(("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", openrouter_key, os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b")))
 
-    custom_llm_url = os.getenv("LLM_ENDPOINT_URL")
-    custom_llm_key = os.getenv("LLM_API_KEY", "dummy")
-    if custom_llm_url:
-        providers.append(("Custom", custom_llm_url, custom_llm_key, os.getenv("LLM_MODEL", "llama-3.1-8b")))
+groq_key = os.getenv("GROQ_API_KEY")
+if groq_key:
+    providers.append(("Groq", "https://api.groq.com/openai/v1/chat/completions", groq_key, os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")))
 
+gemini_key = os.getenv("GEMINI_API_KEY")
+if gemini_key:
+    gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_key}", gemini_key, gemini_model))
+
+custom_llm_url = os.getenv("LLM_ENDPOINT_URL")
+custom_llm_key = os.getenv("LLM_API_KEY", "dummy")
+if custom_llm_url:
+    providers.append(("Custom", custom_llm_url, custom_llm_key, os.getenv("LLM_MODEL", "llama-3.1-8b")))
     for p_name, p_url, p_key, p_model in providers:
         try:
             if p_name in ("OpenAI", "OpenRouter", "Groq", "Custom"):
