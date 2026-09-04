@@ -67,3 +67,4 @@ jobs:
           git add .github/workflows/fix-provider-fallback.yml
           git commit -m "chore: remove one-shot provider workflow"
           git push
+          # trigger
