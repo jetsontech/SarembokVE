@@ -11,6 +11,7 @@ import sys
 import websockets
 
 from provider_router import reset_stream_callback, set_stream_callback
+from runtime_authority import snapshot as runtime_authority_snapshot
 
 CLOUD_SERVER_PATH = "/app/server.py"
 spec = importlib.util.spec_from_file_location("sarembok_cloud_server", CLOUD_SERVER_PATH)
@@ -31,6 +32,12 @@ _original_process_http_request = cloud_server.process_http_request
 
 
 def dispatch(method: str, params: dict) -> dict:
+    if method == "GetRuntimeInfo":
+        return runtime_authority_snapshot(
+            cloud_server.store,
+            cloud_server.PROVIDER_ROUTER,
+            cloud_server.STARTED,
+        )
     if method in KnowledgeRuntimeAPI.METHODS:
         return knowledge_api.dispatch(method, params)
     return _original_dispatch(method, params)
