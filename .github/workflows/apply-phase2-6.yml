@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Apply implementation without modifying source
-        run: python3 -c "p='Tools/Engineering/phase2_6_implementation.py'; s=open(p,encoding='utf-8').read().replace('\\nPY\\n','\\n'); exec(compile(s,p,'exec'))"
+        run: python3 -c "p='Tools/Engineering/phase2_6_implementation.py'; s=open(p,encoding='utf-8').read().replace('\\nPY\\n','\\n'); exec(compile(s,p,'exec'), {'__file__':p,'__name__':'__main__'})"
       - name: Syntax validation
         run: python3 -m py_compile Deployment/cloud/server.py Deployment/cloud/provider_router.py Deployment/cloud/capability_registry.py Deployment/cloud/structured_response.py
       - name: Contract tests
