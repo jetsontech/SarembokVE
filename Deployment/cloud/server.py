@@ -30,6 +30,7 @@ AUTH_TOKEN = os.getenv("SAREMBOK_AUTH_TOKEN", "").strip()
 MAX_CONNECTIONS = max(1, int(os.getenv("SAREMBOK_MAX_CONNECTIONS", "100")))
 MAX_REQUEST_BYTES = max(1024, int(os.getenv("SAREMBOK_MAX_REQUEST_BYTES", str(1024 * 1024))))
 MAX_METHOD_LENGTH = max(32, int(os.getenv("SAREMBOK_MAX_METHOD_LENGTH", "128")))
+LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "10")))
 STARTED = time.time()
 
 logging.basicConfig(
@@ -578,9 +579,10 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
 
     system_context_parts = [
         "You are Sarembok, an AI assistant running on the Sarembok VE platform.",
-        "You have access to persistent memory, agent management, and task scheduling.",
+        "You have access only to capabilities exposed by this runtime. Describe capabilities from actual runtime state; never invent tools or integrations.",
         "Answer questions directly and honestly. If you don't know something, say so.",
-        "Do not claim capabilities you don't have.",
+        "Do not claim capabilities you do not have. Provider/model details are implementation metadata, not your primary identity.",
+        "Never ask users to store passwords, API keys, private keys, access tokens, or other secrets in conversational memory. If a user provides a secret, do not repeat it; recommend secure secret storage.",
         "",
         f"System state: {worker_stats['onlineWorkers']} workers online, "
         f"{len(agent_rows)} agents registered, {len(mem_rows)} memories stored.",
@@ -618,7 +620,7 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
 
     for p_name, p_url, p_key, p_model in providers:
         try:
-            if p_name in ("GPT-4o", "Custom"):
+            if p_name in ("OpenAI", "OpenRouter", "Groq", "Custom"):
                 req_data = {
                     "model": p_model,
                     "messages": messages,
@@ -628,9 +630,9 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
                 http_req = urllib.request.Request(
                     p_url,
                     data=json.dumps(req_data).encode("utf-8"),
-                    headers={"Content-Type": "application/json", "Authorization": f"Bearer {p_key}"}
+                    headers={"Content-Type": "application/json", "Authorization": f"Bearer {p_key}", **({"HTTP-Referer": "https://sarembok.com", "X-Title": "Sarembok VE"} if p_name == "OpenRouter" else {})}
                 )
-                with urllib.request.urlopen(http_req, timeout=12) as http_resp:
+                with urllib.request.urlopen(http_req, timeout=LLM_PROVIDER_TIMEOUT_SECONDS) as http_resp:
                     resp_json = json.loads(http_resp.read().decode("utf-8"))
                     reply = resp_json["choices"][0]["message"]["content"].strip()
                     llm_source = p_name
@@ -642,7 +644,7 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
                     data=json.dumps(req_data).encode("utf-8"),
                     headers={"Content-Type": "application/json"}
                 )
-                with urllib.request.urlopen(http_req, timeout=12) as http_resp:
+                with urllib.request.urlopen(http_req, timeout=LLM_PROVIDER_TIMEOUT_SECONDS) as http_resp:
                     resp_json = json.loads(http_resp.read().decode("utf-8"))
                     reply = resp_json["candidates"][0]["content"]["parts"][0]["text"].strip()
                     llm_source = p_name
