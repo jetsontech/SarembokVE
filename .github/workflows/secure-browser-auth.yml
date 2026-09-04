@@ -1,0 +1,101 @@
+name: Secure browser authentication
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/secure-browser-auth.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch browser authentication
+        shell: python
+        run: |
+          from pathlib import Path
+
+          server = Path('Deployment/cloud/server.py')
+          text = server.read_text(encoding='utf-8')
+
+          text = text.replace(
+              'import re\nimport signal',
+              'import re\nimport secrets\nimport signal',
+              1,
+          )
+
+          text = text.replace(
+              'LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "10")))\nSTARTED = time.time()',
+              'LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "10")))\nBROWSER_SESSION_TTL_SECONDS = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_TTL_SECONDS", "3600")))\nBROWSER_ALLOWED_METHODS = {"SarembokChat", "RuntimeInfo", "Health"}\nBROWSER_SESSIONS: dict[str, float] = {}\nSTARTED = time.time()',
+              1,
+          )
+
+          old = '''def authenticate(request: dict[str, Any]) -> None:\n    if not AUTH_TOKEN:\n        return\n    params = request.get("params")\n    supplied = params.get("authToken") if isinstance(params, dict) else None\n    if not isinstance(supplied, str) or not hmac.compare_digest(supplied, AUTH_TOKEN):\n        raise PermissionError("authentication_required")\n\n\ndef validate_request(request: Any) -> tuple[str, dict[str, Any]]:\n    if not isinstance(request, dict):\n        raise ValueError("request must be a JSON object")\n    if request.get("jsonrpc") != "2.0":\n        raise ValueError("jsonrpc must be 2.0")\n    method = request.get("method")\n    if not isinstance(method, str) or not method or len(method) > MAX_METHOD_LENGTH:\n        raise ValueError("invalid method")\n    params = request.get("params") or {}\n    if not isinstance(params, dict):\n        raise ValueError("params must be an object")\n    authenticate(request)\n    return method, params\n'''
+
+          new = '''def issue_browser_session() -> str:\n    now_ts = time.time()\n    # Prune expired sessions opportunistically.\n    expired = [token for token, expiry in BROWSER_SESSIONS.items() if expiry <= now_ts]\n    for token in expired:\n        BROWSER_SESSIONS.pop(token, None)\n    token = secrets.token_urlsafe(32)\n    BROWSER_SESSIONS[token] = now_ts + BROWSER_SESSION_TTL_SECONDS\n    return token\n\n\ndef browser_session_valid(token: Any) -> bool:\n    if not isinstance(token, str) or not token:\n        return False\n    expiry = BROWSER_SESSIONS.get(token)\n    if expiry is None:\n        return False\n    if expiry <= time.time():\n        BROWSER_SESSIONS.pop(token, None)\n        return False\n    return True\n\n\ndef authenticate(request: dict[str, Any], method: str) -> None:\n    # Server-to-server/admin clients may continue using the master token.\n    params = request.get("params")\n    if not isinstance(params, dict):\n        raise PermissionError("authentication_required")\n\n    supplied = params.get("authToken")\n    if AUTH_TOKEN and isinstance(supplied, str) and hmac.compare_digest(supplied, AUTH_TOKEN):\n        return\n\n    # Browser clients receive a short-lived, scoped session token. The master\n    # runtime credential is never sent to or rendered into browser HTML.\n    session_token = params.get("sessionToken")\n    if browser_session_valid(session_token) and method in BROWSER_ALLOWED_METHODS:\n        return\n\n    raise PermissionError("authentication_required")\n\n\ndef validate_request(request: Any) -> tuple[str, dict[str, Any]]:\n    if not isinstance(request, dict):\n        raise ValueError("request must be a JSON object")\n    if request.get("jsonrpc") != "2.0":\n        raise ValueError("jsonrpc must be 2.0")\n    method = request.get("method")\n    if not isinstance(method, str) or not method or len(method) > MAX_METHOD_LENGTH:\n        raise ValueError("invalid method")\n    params = request.get("params") or {}\n    if not isinstance(params, dict):\n        raise ValueError("params must be an object")\n    authenticate(request, method)\n    return method, params\n'''
+
+          if old not in text:
+              raise SystemExit('server authentication block not found')
+          text = text.replace(old, new, 1)
+
+          old = '''    if path in ("/health", "/healthz"):\n        if hasattr(connection, "respond"):\n            return connection.respond(200, "OK\\n")\n        return (200, [("Content-Type", "text/plain; charset=utf-8")], b"OK\\n")\n    if path in ("/", "/index.html"):\n'''
+
+          new = '''    if path in ("/health", "/healthz"):\n        if hasattr(connection, "respond"):\n            return connection.respond(200, "OK\\n")\n        return (200, [("Content-Type", "text/plain; charset=utf-8")], b"OK\\n")\n    if path == "/session":\n        session_token = issue_browser_session()\n        body = json.dumps({\n            "sessionToken": session_token,\n            "expiresIn": BROWSER_SESSION_TTL_SECONDS,\n            "scope": sorted(BROWSER_ALLOWED_METHODS),\n        }, separators=(",", ":"))\n        if hasattr(connection, "respond"):\n            resp = connection.respond(200, body)\n            try:\n                del resp.headers["Content-Type"]\n            except Exception:\n                pass\n            resp.headers["Content-Type"] = "application/json; charset=utf-8"\n            resp.headers["Cache-Control"] = "no-store"\n            return resp\n        return (200, [("Content-Type", "application/json; charset=utf-8"), ("Cache-Control", "no-store")], body.encode("utf-8"))\n    if path in ("/", "/index.html"):\n'''
+
+          if old not in text:
+              raise SystemExit('server HTTP block not found')
+          text = text.replace(old, new, 1)
+
+          old = '''        elif AUTH_TOKEN:\n            token_injection = f'<script>window.__SAREMBOK_DEFAULT_TOKEN__ = "{AUTH_TOKEN}";</script>'\n            if "<head>" in html_str:\n                html_str = html_str.replace("<head>", f"<head>\\n    {token_injection}", 1)\n            else:\n                html_str = token_injection + html_str\n        \n'''
+
+          if old not in text:
+              raise SystemExit('master token injection block not found')
+          text = text.replace(old, '', 1)
+
+          server.write_text(text, encoding='utf-8')
+
+          frontend = Path('frontend/index.html')
+          ftext = frontend.read_text(encoding='utf-8')
+
+          old = '''        let ws = null;\n        let rpcCounter = 1;\n        const pending = new Map();\n\n        function connect() {\n'''
+          new = '''        let ws = null;\n        let rpcCounter = 1;\n        let browserSessionToken = null;\n        const pending = new Map();\n\n        async function initializeBrowserSession() {\n            const response = await fetch('/session', { cache: 'no-store' });\n            if (!response.ok) throw new Error('Unable to establish Sarembok browser session');\n            const data = await response.json();\n            if (!data.sessionToken) throw new Error('Browser session token missing');\n            browserSessionToken = data.sessionToken;\n        }\n\n        function connect() {\n'''
+          if old not in ftext:
+              raise SystemExit('frontend state block not found')
+          ftext = ftext.replace(old, new, 1)
+
+          old = '''                ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params }));\n'''
+          new = '''                const rpcParams = { ...params };\n                if (browserSessionToken && !rpcParams.authToken) {\n                    rpcParams.sessionToken = browserSessionToken;\n                }\n                ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params: rpcParams }));\n'''
+          if old not in ftext:
+              raise SystemExit('frontend sendRPC line not found')
+          ftext = ftext.replace(old, new, 1)
+
+          old = '''        window.onload = () => {\n            connect();\n        };\n'''
+          new = '''        window.onload = async () => {\n            try {\n                await initializeBrowserSession();\n                connect();\n            } catch (err) {\n                console.error('Sarembok browser session initialization failed:', err);\n            }\n        };\n'''
+          if old not in ftext:
+              raise SystemExit('frontend onload block not found')
+          ftext = ftext.replace(old, new, 1)
+
+          frontend.write_text(ftext, encoding='utf-8')
+
+      - name: Verify patch
+        run: |
+          python -m py_compile Deployment/cloud/server.py
+          ! grep -R "__SAREMBOK_DEFAULT_TOKEN__" -n frontend Deployment/cloud/server.py
+          grep -n "path == \"/session\"\|BROWSER_ALLOWED_METHODS\|sessionToken" Deployment/cloud/server.py frontend/index.html
+
+      - name: Commit patch and remove workflow
+        run: |
+          git config user.name "Sarembok Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add Deployment/cloud/server.py frontend/index.html
+          git rm .github/workflows/secure-browser-auth.yml
+          git commit -m "security: use scoped browser sessions without exposing runtime token"
+          git push origin main
