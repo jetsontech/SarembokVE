@@ -18,6 +18,7 @@ jobs:
           fetch-depth: 1
 
       - name: Patch runtime
+        shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -25,18 +26,22 @@ jobs:
           p = Path("Deployment/cloud/server.py")
           s = p.read_text()
 
-          old = 'LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "10")))'
-          new = '''LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "10")))
-          LLM_TOTAL_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS", "15")))'''
-          assert old in s
-          s = s.replace(old, new, 1)
+          s = s.replace(
+              'LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "10")))',
+              'LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "10")))\nLLM_TOTAL_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS", "15")))',
+              1,
+          )
 
-          old = '''                gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-                providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_key}", gemini_key, gemini_model))'''
-          new = '''                gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-                providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent", gemini_key, gemini_model))'''
-          assert old in s
-          s = s.replace(old, new, 1)
+          s = s.replace(
+              'gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")',
+              'gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")',
+              1,
+          )
+          s = s.replace(
+              'providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_key}", gemini_key, gemini_model))',
+              'providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent", gemini_key, gemini_model))',
+              1,
+          )
 
           old = '''    reply = None
     source = None
@@ -60,6 +65,7 @@ jobs:
             break
         except Exception as exc:
             LOG.warning("LLM provider %s failed; trying next: %s", name, exc)'''
+
           new = '''    reply = None
     source = None
     model = None
@@ -88,58 +94,54 @@ jobs:
             break
         except Exception as exc:
             LOG.warning("LLM provider %s failed; trying next: %s", name, exc)'''
-          assert old in s
+
+          if old not in s:
+              raise SystemExit("provider block not found")
           s = s.replace(old, new, 1)
 
-          old = '''            "llmConfigured": bool(os.getenv("OPENAI_API_KEY") or os.getenv("SAREMBOK_AUTH_TOKEN", "").startswith("sk-")),'''
-          new = '''            "llmConfigured": bool(
+          s = s.replace(
+              '            "llmConfigured": bool(os.getenv("OPENAI_API_KEY") or os.getenv("SAREMBOK_AUTH_TOKEN", "").startswith("sk-")),',
+              '''            "llmConfigured": bool(
                 os.getenv("OPENAI_API_KEY")
                 or os.getenv("OPENROUTER_API_KEY")
                 or os.getenv("GROQ_API_KEY")
                 or os.getenv("GEMINI_API_KEY")
                 or os.getenv("LLM_ENDPOINT_URL")
-            ),'''
-          assert old in s
-          s = s.replace(old, new, 1)
+            ),''',
+              1,
+          )
 
-          old = '''                async with get_db_lock():
-                    result = dispatch(method, params)'''
-          new = '''                # dispatch() contains synchronous SQLite and provider I/O. Run it
-                # off the event loop so a slow provider cannot freeze the WebSocket.
-                async with get_db_lock():
-                    result = await asyncio.to_thread(dispatch, method, params)'''
-          assert old in s
-          s = s.replace(old, new, 1)
+          s = s.replace(
+              '                    result = dispatch(method, params)',
+              '''                    # Keep synchronous SQLite/provider I/O off the asyncio event loop.
+                    result = await asyncio.to_thread(dispatch, method, params)''',
+              1,
+          )
 
           p.write_text(s)
 
           compose = Path("Deployment/cloud/compose.production.yaml")
           if compose.exists():
               c = compose.read_text()
-              needle = '      GEMINI_API_KEY: ${GEMINI_API_KEY:-}\n'
+              needle = '      GEMINI_API_KEY: ${GEMINI_API_KEY:-}\\n'
               if needle in c and '      GEMINI_MODEL:' not in c:
-                  c = c.replace(needle, needle + '      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}\n', 1)
+                  c = c.replace(needle, needle + '      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}\\n', 1)
                   compose.write_text(c)
-
-          # One-shot workflow cleanup marker.
-          Path("Deployment/cloud/REPAIR_TRIGGER").unlink()
-          Path(".github/workflows/repair-gemini-runtime.yml").unlink()
           PY
 
       - name: Validate
         run: |
           python -m py_compile Deployment/cloud/server.py
-          test "$(grep -c 'gemini-3.8-flash' Deployment/cloud/server.py)" -ge 1
-          test "$(grep -c 'x-goog-api-key' Deployment/cloud/server.py)" -ge 1
-          test "$(grep -c 'LLM_TOTAL_TIMEOUT_SECONDS' Deployment/cloud/server.py)" -ge 1
-          test "$(grep -c 'asyncio.to_thread(dispatch' Deployment/cloud/server.py)" -ge 1
-          if grep -q 'gemini-2.5-flash' Deployment/cloud/server.py; then exit 1; fi
+          grep -q 'gemini-3.8-flash' Deployment/cloud/server.py
+          grep -q 'x-goog-api-key' Deployment/cloud/server.py
+          grep -q 'LLM_TOTAL_TIMEOUT_SECONDS' Deployment/cloud/server.py
+          grep -q 'asyncio.to_thread(dispatch' Deployment/cloud/server.py
+          ! grep -q 'gemini-2.5-flash' Deployment/cloud/server.py
 
       - name: Commit repair
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Deployment/cloud/server.py Deployment/cloud/compose.production.yaml Deployment/cloud/REPAIR_TRIGGER .github/workflows/repair-gemini-runtime.yml
-          git diff --cached --quiet && exit 0
+          git add Deployment/cloud/server.py Deployment/cloud/compose.production.yaml
           git commit -m "fix: repair Gemini provider and dialogue execution"
           git push
