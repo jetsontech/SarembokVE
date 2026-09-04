@@ -1,4 +1,4 @@
-"""Sarembok provider routing and latency telemetry."""
+"""Sarembok provider routing, streaming, and latency telemetry."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -8,7 +8,7 @@ import time
 import urllib.error
 import urllib.request
 from collections import deque
-from typing import Any
+from typing import Any, Callable
 
 
 TRANSIENT_HTTP = {408, 429, 500, 502, 503, 504}
@@ -30,6 +30,7 @@ class ProviderResult:
     attempts: int
     api: str
     usage: dict[str, Any] = field(default_factory=dict)
+    ttft_ms: float | None = None
 
 class ProviderRouter:
     def __init__(self) -> None:
@@ -72,7 +73,6 @@ class ProviderRouter:
                 if block.get('type') == 'text' and block.get('text'):
                     parts.append(block['text'])
         if not parts:
-            # Compatibility with generateContent-shaped responses.
             for cand in payload.get('candidates', []) or []:
                 for part in cand.get('content', {}).get('parts', []) or []:
                     if part.get('text'):
@@ -80,6 +80,36 @@ class ProviderRouter:
         if not parts:
             raise RuntimeError('Gemini returned no model output')
         return ''.join(parts).strip(), payload.get('usage', {}) or {}
+
+    @staticmethod
+    def _sse_events(response) -> Any:
+        event_name = None
+        data_lines: list[str] = []
+        for raw_line in response:
+            line = raw_line.decode('utf-8', errors='replace').rstrip('\r\n')
+            if line.startswith('event:'):
+                event_name = line[6:].strip()
+            elif line.startswith('data:'):
+                data_lines.append(line[5:].lstrip())
+            elif not line:
+                if data_lines:
+                    raw_data = '\n'.join(data_lines)
+                    if raw_data == '[DONE]':
+                        yield event_name or 'done', None
+                    else:
+                        try:
+                            yield event_name or 'message', json.loads(raw_data)
+                        except json.JSONDecodeError:
+                            pass
+                event_name = None
+                data_lines = []
+        if data_lines:
+            raw_data = '\n'.join(data_lines)
+            if raw_data != '[DONE]':
+                try:
+                    yield event_name or 'message', json.loads(raw_data)
+                except json.JSONDecodeError:
+                    pass
 
     def _request(self, spec: ProviderSpec, system_prompt: str, prompt: str, messages: list[dict[str, str]], deadline: float) -> tuple[str, dict[str, Any], str]:
         if spec.kind == 'gemini':
@@ -124,6 +154,89 @@ class ProviderRouter:
                 if deadline - time.monotonic() <= delay + 1:
                     raise
                 time.sleep(delay)
+
+    def _request_stream(self, spec: ProviderSpec, system_prompt: str, prompt: str, messages: list[dict[str, str]], deadline: float, on_delta: Callable[[str], None]) -> tuple[str, dict[str, Any], str, float]:
+        if spec.kind != 'gemini' or self.gemini_api != 'interactions':
+            raise RuntimeError('streaming is currently supported for Gemini Interactions only')
+        data = {
+            'model': spec.model,
+            'system_instruction': system_prompt,
+            'input': prompt,
+            'store': False,
+            'stream': True,
+            'generation_config': {
+                'thinking_level': self.gemini_thinking,
+                'max_output_tokens': self.max_output_tokens,
+            },
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            'x-goog-api-key': spec.key,
+        }
+        req = urllib.request.Request(spec.endpoint, data=json.dumps(data).encode('utf-8'), headers=headers)
+        attempts = 0
+        while True:
+            attempts += 1
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError('provider deadline exceeded')
+            timeout = min(self.provider_timeout, max(1, remaining))
+            started = time.monotonic()
+            try:
+                text_parts: list[str] = []
+                usage: dict[str, Any] = {}
+                ttft_ms: float | None = None
+                with urllib.request.urlopen(req, timeout=timeout) as response:
+                    for event_name, event in self._sse_events(response):
+                        if not isinstance(event, dict):
+                            continue
+                        if event_name == 'step.delta' or event.get('event_type') == 'step.delta':
+                            delta = event.get('delta') or {}
+                            if delta.get('type') == 'text' and delta.get('text'):
+                                chunk = str(delta['text'])
+                                if ttft_ms is None:
+                                    ttft_ms = round((time.monotonic() - started) * 1000, 1)
+                                text_parts.append(chunk)
+                                on_delta(chunk)
+                        elif event_name == 'interaction.completed' or event.get('event_type') == 'interaction.completed':
+                            interaction = event.get('interaction') or {}
+                            usage = interaction.get('usage') or event.get('usage') or {}
+                if not text_parts:
+                    raise RuntimeError('Gemini stream returned no model output')
+                return ''.join(text_parts).strip(), usage, 'interactions', ttft_ms or round((time.monotonic() - started) * 1000, 1)
+            except urllib.error.HTTPError as exc:
+                if exc.code not in TRANSIENT_HTTP or attempts >= 2:
+                    raise
+                delay = min(1.5, 0.35 * (2 ** (attempts - 1)))
+                if deadline - time.monotonic() <= delay + 1:
+                    raise
+                time.sleep(delay)
+
+    def generate_stream(self, system_prompt: str, prompt: str, messages: list[dict[str, str]], on_delta: Callable[[str], None]) -> ProviderResult:
+        providers = self.configured()
+        if not providers:
+            raise RuntimeError('no language-model provider configured')
+        deadline = time.monotonic() + self.total_timeout
+        failures: list[str] = []
+        for spec in providers:
+            started = time.monotonic()
+            try:
+                if spec.kind == 'gemini' and self.gemini_api == 'interactions':
+                    text, usage, api_name, ttft_ms = self._request_stream(spec, system_prompt, prompt, messages, deadline, on_delta)
+                else:
+                    text, usage, api_name = self._request(spec, system_prompt, prompt, messages, deadline)
+                    ttft_ms = round((time.monotonic() - started) * 1000, 1)
+                    on_delta(text)
+                latency_ms = round((time.monotonic() - started) * 1000, 1)
+                record = {'provider': spec.name, 'model': spec.model, 'latency_ms': latency_ms, 'ttft_ms': ttft_ms, 'attempts': 1, 'api': api_name, 'ok': True, 'timestamp': time.time()}
+                self._history.append(record)
+                return ProviderResult(text, spec.name, spec.model, latency_ms, 1, api_name, usage, ttft_ms)
+            except Exception as exc:
+                latency_ms = round((time.monotonic() - started) * 1000, 1)
+                failures.append(f'{spec.name}:{type(exc).__name__}')
+                self._history.append({'provider': spec.name, 'model': spec.model, 'latency_ms': latency_ms, 'attempts': 1, 'api': self.gemini_api if spec.kind == 'gemini' else 'chat.completions', 'ok': False, 'error': type(exc).__name__, 'timestamp': time.time()})
+        raise RuntimeError('all providers failed: ' + ','.join(failures))
 
     def generate(self, system_prompt: str, prompt: str, messages: list[dict[str, str]]) -> ProviderResult:
         providers = self.configured()
