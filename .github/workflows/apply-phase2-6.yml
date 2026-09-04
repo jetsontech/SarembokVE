@@ -15,10 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Remove heredoc sentinel from implementation script
-        run: sed -i '/^PY$/d' Tools/Engineering/phase2_6_implementation.py
-      - name: Apply implementation
-        run: python3 Tools/Engineering/phase2_6_implementation.py
+      - name: Apply implementation without modifying source
+        run: python3 -c "p='Tools/Engineering/phase2_6_implementation.py'; s=open(p,encoding='utf-8').read().replace('\\nPY\\n','\\n'); exec(compile(s,p,'exec'))"
       - name: Syntax validation
         run: python3 -m py_compile Deployment/cloud/server.py Deployment/cloud/provider_router.py Deployment/cloud/capability_registry.py Deployment/cloud/structured_response.py
       - name: Contract tests
@@ -29,6 +27,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Deployment/cloud/server.py Deployment/cloud/provider_router.py Deployment/cloud/capability_registry.py Deployment/cloud/structured_response.py Deployment/cloud/compose.production.yaml Deployment/cloud/test_phase2_6.py
           git commit -m "feat: implement latency provider and capability architecture"
-          git rm Tools/Engineering/phase2_6_implementation.py .github/workflows/apply-phase2-6.yml Tools/Engineering/TRIGGER_PHASE2_6
+          git rm -f Tools/Engineering/phase2_6_implementation.py .github/workflows/apply-phase2-6.yml Tools/Engineering/TRIGGER_PHASE2_6
           git commit -m "chore: remove temporary architecture implementation tooling"
           git push
