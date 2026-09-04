@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Remove heredoc sentinel from implementation script
+        run: sed -i '/^PY$/d' Tools/Engineering/phase2_6_implementation.py
       - name: Apply implementation
         run: python3 Tools/Engineering/phase2_6_implementation.py
       - name: Syntax validation
