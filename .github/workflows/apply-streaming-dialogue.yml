@@ -1,0 +1,164 @@
+name: Apply streaming dialogue implementation
+
+on:
+  push:
+    branches:
+      - feature/streaming-dialogue-v1
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.head_commit.message != 'ci: apply streaming dialogue implementation'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch runtime and browser for streaming
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          server = Path('Deployment/cloud/server.py')
+          s = server.read_text()
+          s = s.replace('from typing import Any\n', 'from typing import Any, Callable\n', 1)
+          s = s.replace(
+              'def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key: str | None = None, session_id: str = "default") -> dict[str, Any]:',
+              'def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key: str | None = None, session_id: str = "default", on_delta: Callable[[str], None] | None = None) -> dict[str, Any]:'
+          )
+          old = 'provider_result = PROVIDER_ROUTER.generate(system_prompt, prompt_clean, messages)'
+          new = 'provider_result = (PROVIDER_ROUTER.generate_stream(system_prompt, prompt_clean, messages, on_delta) if on_delta is not None else PROVIDER_ROUTER.generate(system_prompt, prompt_clean, messages))'
+          if old not in s:
+              raise SystemExit('server provider call anchor not found')
+          s = s.replace(old, new, 1)
+          old = '"usage": provider_usage}}'
+          new = '"usage": provider_usage, "ttft_ms": provider_result.ttft_ms if on_delta is not None else None, "streamed": on_delta is not None}}'
+          if old not in s:
+              raise SystemExit('server metadata anchor not found')
+          s = s.replace(old, new, 1)
+          old = 'def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:'
+          new = 'def dispatch(method: str, params: dict[str, Any], stream_callback: Callable[[str], None] | None = None) -> dict[str, Any]:'
+          if old not in s:
+              raise SystemExit('dispatch anchor not found')
+          s = s.replace(old, new, 1)
+          old = 'res = sarembok_process_dialogue(prompt, context=context if isinstance(context, list) else None, api_key=api_key, session_id=session_id)'
+          new = 'res = sarembok_process_dialogue(prompt, context=context if isinstance(context, list) else None, api_key=api_key, session_id=session_id, on_delta=stream_callback)'
+          if old not in s:
+              raise SystemExit('dispatch dialogue anchor not found')
+          s = s.replace(old, new, 1)
+
+          old = '''                async with get_db_lock():
+                    # Keep synchronous SQLite/provider I/O off the asyncio event loop.
+                    result = await asyncio.to_thread(dispatch, method, params)
+                response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}'''
+          new = '''                if params.get("stream") and method in ("SarembokChat", "AriaChat", "Chat", "AriaDialogue", "SarembokDialogue"):
+                    loop = asyncio.get_running_loop()
+                    request_id = request.get("id")
+                    def emit_delta(text: str) -> None:
+                        event = {"jsonrpc": "2.0", "method": "SarembokChat.delta", "params": {"id": request_id, "text": text}}
+                        future = asyncio.run_coroutine_threadsafe(websocket.send(json.dumps(event, separators=(",", ":"))), loop)
+                        try:
+                            future.result(timeout=10)
+                        except Exception as stream_exc:
+                            LOG.warning("stream_delta_send_failed request_id=%s error=%s", request_id, stream_exc)
+                            raise
+                    async with get_db_lock():
+                        # Keep synchronous SQLite/provider I/O off the asyncio event loop while
+                        # forwarding provider deltas back through the same WebSocket.
+                        result = await asyncio.to_thread(dispatch, method, params, emit_delta)
+                else:
+                    async with get_db_lock():
+                        # Keep synchronous SQLite/provider I/O off the asyncio event loop.
+                        result = await asyncio.to_thread(dispatch, method, params)
+                response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}'''
+          if old not in s:
+              raise SystemExit('handler anchor not found')
+          s = s.replace(old, new, 1)
+          server.write_text(s)
+
+          probe = Path('Deployment/cloud/production_latency_probe.py')
+          p = probe.read_text()
+          old = 'with urllib.request.urlopen(HOST + \'/session\', timeout=15) as r:'
+          new = '''req = urllib.request.Request(
+            HOST + '/session',
+            headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0 Safari/537.36'}
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:'''
+          if old in p:
+              p = p.replace(old, new, 1)
+          probe.write_text(p)
+
+          front = Path('frontend/index.html')
+          f = front.read_text()
+          old = '''        const pending = new Map();'''
+          new = '''        const pending = new Map();
+        const streamHandlers = new Map();'''
+          if old not in f:
+              raise SystemExit('frontend pending anchor not found')
+          f = f.replace(old, new, 1)
+          old = '''                    const data = JSON.parse(e.data);
+                    if (data.id && pending.has(data.id)) {'''
+          new = '''                    const data = JSON.parse(e.data);
+                    if (data.method === "SarembokChat.delta" && data.params && data.params.id) {
+                        const handler = streamHandlers.get(data.params.id);
+                        if (handler && typeof handler.onDelta === "function") handler.onDelta(String(data.params.text || ""));
+                        return;
+                    }
+                    if (data.id && pending.has(data.id)) {'''
+          if old not in f:
+              raise SystemExit('frontend onmessage anchor not found')
+          f = f.replace(old, new, 1)
+          anchor = '''        async function sendDirective() {'''
+          if anchor not in f:
+              raise SystemExit('frontend sendDirective anchor not found')
+          streaming_fn = '''        function sendStreamingRPC(method, params = {}, onDelta) {
+            return new Promise((res, rej) => {
+                if (!ws || ws.readyState !== WebSocket.OPEN) return rej(new Error("Connecting..."));
+                const id = "rpc-" + (rpcCounter++);
+                streamHandlers.set(id, { onDelta });
+                const rpcParams = { ...params, stream: true };
+                if (browserSessionToken && !rpcParams.authToken) rpcParams.sessionToken = browserSessionToken;
+                pending.set(id, { res: (value) => { streamHandlers.delete(id); res(value); }, rej: (err) => { streamHandlers.delete(id); rej(err); } });
+                ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params: rpcParams }));
+                setTimeout(() => {
+                    if (pending.has(id)) {
+                        pending.delete(id);
+                        streamHandlers.delete(id);
+                        rej(new Error("Runtime request timeout"));
+                    }
+                }, 45000);
+            });
+        }
+
+'''
+          f = f.replace(anchor, streaming_fn + anchor, 1)
+          old = 'const r = await sendRPC("SarembokChat", { prompt: txt });\n                const reply = r.response || r.audioText || "Directive executed.";\n                aiMsg.innerHTML = `<strong style="color:var(--cyan);">ARIA:</strong> ${escapeHtml(reply)}`;'
+          new = '''let streamedText = "";
+                aiMsg.innerHTML = `<strong style="color:var(--cyan);">ARIA:</strong> <span class="srbk-thinking"><i></i><i></i><i></i></span>`;
+                const r = await sendStreamingRPC("SarembokChat", { prompt: txt }, (delta) => {
+                    streamedText += delta;
+                    aiMsg.innerHTML = `<strong style="color:var(--cyan);">ARIA:</strong> ${escapeHtml(streamedText)}`;
+                    history.scrollTop = history.scrollHeight;
+                });
+                const reply = r.response || r.audioText || streamedText || "Directive executed.";
+                aiMsg.innerHTML = `<strong style="color:var(--cyan);">ARIA:</strong> ${escapeHtml(reply)}`;'''
+          if old not in f:
+              raise SystemExit('frontend sendDirective call anchor not found')
+          f = f.replace(old, new, 1)
+          front.write_text(f)
+          PY
+
+          python3 -m py_compile Deployment/cloud/provider_router.py Deployment/cloud/server.py Deployment/cloud/production_latency_probe.py
+
+      - name: Commit implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Deployment/cloud/provider_router.py Deployment/cloud/server.py Deployment/cloud/production_latency_probe.py frontend/index.html
+          git diff --cached --check
+          git diff --cached --quiet && exit 0
+          git commit -m "ci: apply streaming dialogue implementation"
+          git push origin HEAD:feature/streaming-dialogue-v1
