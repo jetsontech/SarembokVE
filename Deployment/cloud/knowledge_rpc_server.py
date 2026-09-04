@@ -11,6 +11,7 @@ import sys
 import websockets
 
 from provider_router import reset_stream_callback, set_stream_callback
+from runtime_authority import render_markdown as render_runtime_diagnostic
 from runtime_authority import snapshot as runtime_authority_snapshot
 
 CLOUD_SERVER_PATH = "/app/server.py"
@@ -31,6 +32,20 @@ _original_dispatch = cloud_server.dispatch
 _original_process_http_request = cloud_server.process_http_request
 
 
+def _is_runtime_diagnostic(prompt: str) -> bool:
+    text = prompt.lower()
+    markers = (
+        "system diagnostic",
+        "runtime diagnostic",
+        "registered workers",
+        "compute capabilities",
+        "persistent memory status",
+        "scheduler status",
+        "provider currently serving",
+    )
+    return sum(1 for marker in markers if marker in text) >= 2
+
+
 def dispatch(method: str, params: dict) -> dict:
     if method == "GetRuntimeInfo":
         return runtime_authority_snapshot(
@@ -38,6 +53,30 @@ def dispatch(method: str, params: dict) -> dict:
             cloud_server.PROVIDER_ROUTER,
             cloud_server.STARTED,
         )
+    if method in {"SarembokChat", "Chat", "SarembokDialogue"}:
+        prompt = str(params.get("prompt") or params.get("message") or params.get("text") or "").strip()
+        if _is_runtime_diagnostic(prompt):
+            diagnostic = runtime_authority_snapshot(
+                cloud_server.store,
+                cloud_server.PROVIDER_ROUTER,
+                cloud_server.STARTED,
+            )
+            response = render_runtime_diagnostic(diagnostic)
+            return {
+                **diagnostic,
+                "response": response,
+                "audioText": response.replace("*", "").replace("`", "").replace("#", "")[:1200],
+                "source": "runtime_authority",
+                "model": "runtime-authority",
+                "action": None,
+                "structuredResponse": cloud_server.build_structured_response(
+                    response,
+                    provider="runtime_authority",
+                    model="runtime-authority",
+                ),
+                "agentId": "sarembok-prime",
+                "timestamp": cloud_server.now(),
+            }
     if method in KnowledgeRuntimeAPI.METHODS:
         return knowledge_api.dispatch(method, params)
     return _original_dispatch(method, params)
