@@ -1,0 +1,464 @@
+name: Sarembok UI presentation upgrade
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade-response-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch response presentation layer
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('frontend/index.html')
+          text = path.read_text(encoding='utf-8')
+
+          marker = '<!-- SAREMBOK_RESPONSE_UI_V2 -->'
+          if marker in text:
+              print('response UI already installed')
+          else:
+              injection = r'''<!-- SAREMBOK_RESPONSE_UI_V2 -->
+          <style>
+              /* Response presentation layer: keeps the Sarembok cinematic identity while making ARIA output readable. */
+              .dialogue-history {
+                  max-height: 460px;
+                  min-height: 280px;
+                  overflow-y: auto;
+                  overflow-x: hidden;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 14px;
+                  padding: 4px 6px 10px 2px;
+                  scroll-behavior: smooth;
+                  scrollbar-width: thin;
+                  scrollbar-color: rgba(0,240,255,.28) transparent;
+              }
+
+              .dialogue-history::-webkit-scrollbar { width: 6px; }
+              .dialogue-history::-webkit-scrollbar-track { background: transparent; }
+              .dialogue-history::-webkit-scrollbar-thumb { background: rgba(0,240,255,.22); border-radius: 99px; }
+
+              .srbk-message {
+                  width: 100%;
+                  display: flex;
+                  gap: 10px;
+                  align-items: flex-start;
+                  animation: srbkMessageIn .28s cubic-bezier(.16,1,.3,1);
+              }
+
+              .srbk-message.user { justify-content: flex-end; }
+
+              .srbk-avatar {
+                  width: 30px;
+                  height: 30px;
+                  flex: 0 0 30px;
+                  display: grid;
+                  place-items: center;
+                  border: 1px solid rgba(0,240,255,.32);
+                  border-radius: 50%;
+                  color: var(--cyan);
+                  background: rgba(0,240,255,.06);
+                  font-family: var(--font-mono);
+                  font-size: 9px;
+                  letter-spacing: .5px;
+                  box-shadow: 0 0 18px rgba(0,240,255,.08);
+              }
+
+              .srbk-avatar.user-avatar {
+                  order: 2;
+                  color: #dbeafe;
+                  border-color: rgba(255,255,255,.15);
+                  background: rgba(255,255,255,.05);
+              }
+
+              .srbk-bubble {
+                  min-width: 0;
+                  max-width: min(88%, 920px);
+                  padding: 13px 16px;
+                  border: 1px solid var(--border-glass);
+                  border-radius: 15px;
+                  background: rgba(15,20,31,.72);
+                  box-shadow: 0 8px 30px rgba(0,0,0,.18);
+              }
+
+              .srbk-message.user .srbk-bubble {
+                  background: rgba(0,240,255,.055);
+                  border-color: rgba(0,240,255,.16);
+                  border-bottom-right-radius: 5px;
+              }
+
+              .srbk-message.ai .srbk-bubble {
+                  border-bottom-left-radius: 5px;
+              }
+
+              .srbk-meta {
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                  margin-bottom: 7px;
+                  color: var(--text-muted);
+                  font-family: var(--font-mono);
+                  font-size: 9px;
+                  letter-spacing: 1.2px;
+                  text-transform: uppercase;
+              }
+
+              .srbk-meta strong { color: var(--cyan); font-weight: 500; }
+              .srbk-message.user .srbk-meta { justify-content: flex-end; }
+              .srbk-message.user .srbk-meta strong { color: #dbeafe; }
+
+              .srbk-content {
+                  color: #e8edf5;
+                  font-size: 14px;
+                  line-height: 1.72;
+                  user-select: text;
+                  overflow-wrap: anywhere;
+              }
+
+              .srbk-content > :first-child { margin-top: 0; }
+              .srbk-content > :last-child { margin-bottom: 0; }
+              .srbk-content p { margin: 0 0 .9em; }
+              .srbk-content h1, .srbk-content h2, .srbk-content h3 {
+                  color: #fff;
+                  font-weight: 500;
+                  line-height: 1.3;
+                  letter-spacing: .2px;
+                  margin: 1.15em 0 .55em;
+              }
+              .srbk-content h1 { font-size: 20px; }
+              .srbk-content h2 { font-size: 17px; }
+              .srbk-content h3 { font-size: 15px; color: var(--cyan); }
+
+              .srbk-content ul, .srbk-content ol { margin: .35em 0 1em 1.25em; padding-left: 1em; }
+              .srbk-content li { margin: .28em 0; padding-left: .2em; }
+              .srbk-content li::marker { color: var(--cyan); }
+              .srbk-content strong { color: #fff; font-weight: 650; }
+              .srbk-content em { color: #cbd5e1; }
+              .srbk-content a { color: var(--cyan); text-decoration: none; border-bottom: 1px solid rgba(0,240,255,.25); }
+              .srbk-content a:hover { border-bottom-color: var(--cyan); }
+              .srbk-content blockquote {
+                  margin: .9em 0;
+                  padding: .55em .9em;
+                  border-left: 2px solid var(--cyan);
+                  background: rgba(0,240,255,.035);
+                  color: #b8c3d5;
+              }
+              .srbk-content hr { border: 0; border-top: 1px solid var(--border-glass); margin: 1.2em 0; }
+              .srbk-content code {
+                  padding: .14em .38em;
+                  border-radius: 5px;
+                  background: rgba(255,255,255,.065);
+                  color: #d8fbff;
+                  font-family: var(--font-mono);
+                  font-size: .88em;
+              }
+
+              .srbk-code {
+                  margin: .95em 0;
+                  overflow: hidden;
+                  border: 1px solid rgba(255,255,255,.09);
+                  border-radius: 10px;
+                  background: #05070b;
+                  box-shadow: inset 0 0 0 1px rgba(0,240,255,.025);
+              }
+
+              .srbk-code-head {
+                  display: flex;
+                  align-items: center;
+                  justify-content: space-between;
+                  padding: 7px 10px;
+                  border-bottom: 1px solid rgba(255,255,255,.07);
+                  background: rgba(255,255,255,.025);
+                  color: var(--text-muted);
+                  font-family: var(--font-mono);
+                  font-size: 9px;
+                  letter-spacing: 1px;
+                  text-transform: uppercase;
+              }
+
+              .srbk-copy {
+                  border: 0;
+                  background: transparent;
+                  color: var(--text-muted);
+                  cursor: pointer;
+                  font: inherit;
+                  text-transform: uppercase;
+              }
+              .srbk-copy:hover { color: var(--cyan); }
+
+              .srbk-code pre {
+                  margin: 0;
+                  padding: 13px 14px;
+                  overflow-x: auto;
+                  color: #d7e3ef;
+                  font: 12px/1.65 var(--font-mono);
+                  user-select: text;
+              }
+
+              .srbk-table-wrap { overflow-x: auto; margin: .9em 0; }
+              .srbk-table { width: 100%; border-collapse: collapse; min-width: 420px; font-size: 12px; }
+              .srbk-table th, .srbk-table td { padding: 8px 10px; border: 1px solid rgba(255,255,255,.07); text-align: left; vertical-align: top; }
+              .srbk-table th { color: var(--cyan); background: rgba(0,240,255,.045); font-family: var(--font-mono); font-size: 10px; letter-spacing: .5px; }
+              .srbk-table td { color: #cbd5e1; }
+
+              .srbk-thinking {
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 5px;
+                  color: var(--text-secondary);
+              }
+              .srbk-thinking i { width: 5px; height: 5px; border-radius: 50%; background: var(--cyan); animation: srbkPulse 1.1s infinite ease-in-out; }
+              .srbk-thinking i:nth-child(2) { animation-delay: .15s; }
+              .srbk-thinking i:nth-child(3) { animation-delay: .3s; }
+
+              .srbk-status {
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                  margin-top: 9px;
+                  color: var(--text-muted);
+                  font: 9px var(--font-mono);
+                  letter-spacing: .9px;
+                  text-transform: uppercase;
+              }
+              .srbk-status::before { content: '✓'; color: var(--emerald); }
+
+              @keyframes srbkMessageIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+              @keyframes srbkPulse { 0%,80%,100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
+
+              @media (max-width: 700px) {
+                  .dialogue-history { min-height: 240px; max-height: 52vh; }
+                  .srbk-bubble { max-width: 94%; padding: 11px 13px; }
+                  .srbk-content { font-size: 13.5px; line-height: 1.65; }
+                  .input-bar { flex-direction: column; }
+                  .btn-action { width: 100%; }
+              }
+          </style>
+          <script>
+          (() => {
+              const escape = (value) => String(value ?? '')
+                  .replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;')
+                  .replace(/"/g, '&quot;')
+                  .replace(/'/g, '&#039;');
+
+              const safeUrl = (value) => /^https?:\/\//i.test(value) ? value : '';
+
+              function renderTable(lines) {
+                  if (lines.length < 2 || !/^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[1])) return null;
+                  const parse = (line) => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(v => v.trim());
+                  const headers = parse(lines[0]);
+                  const rows = lines.slice(2).map(parse);
+                  let html = '<div class="srbk-table-wrap"><table class="srbk-table"><thead><tr>';
+                  html += headers.map(h => `<th>${h}</th>`).join('');
+                  html += '</tr></thead><tbody>';
+                  html += rows.map(row => '<tr>' + headers.map((_, i) => `<td>${row[i] ?? ''}</td>`).join('') + '</tr>').join('');
+                  return html + '</tbody></table></div>';
+              }
+
+              function renderMarkdown(source) {
+                  let text = String(source ?? '').replace(/\r\n?/g, '\n').trim();
+                  const blocks = [];
+                  text = text.replace(/```([\w.+#-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
+                      const token = `@@SAREMBOK_CODE_${blocks.length}@@`;
+                      blocks.push(`<div class="srbk-code"><div class="srbk-code-head"><span>${escape(lang || 'code')}</span><button class="srbk-copy" type="button" data-copy="${encodeURIComponent(code)}">Copy</button></div><pre><code>${escape(code.replace(/\n$/, ''))}</code></pre></div>`);
+                      return token;
+                  });
+
+                  const lines = text.split('\n');
+                  const out = [];
+                  let i = 0;
+                  while (i < lines.length) {
+                      const line = lines[i];
+                      if (!line.trim()) { i++; continue; }
+
+                      if (i + 1 < lines.length && /\|/.test(line) && /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[i + 1])) {
+                          const tableLines = [line, lines[i + 1]];
+                          i += 2;
+                          while (i < lines.length && lines[i].trim() && /\|/.test(lines[i])) { tableLines.push(lines[i]); i++; }
+                          const table = renderTable(tableLines);
+                          if (table) { out.push(table); continue; }
+                      }
+
+                      const heading = line.match(/^\s{0,3}(#{1,3})\s+(.+?)\s*#*$/);
+                      if (heading) { out.push(`<h${heading[1].length}>${inline(heading[2])}</h${heading[1].length}>`); i++; continue; }
+                      if (/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(line)) { out.push('<hr>'); i++; continue; }
+
+                      if (/^\s*[-*+]\s+/.test(line) || /^\s*\d+[.)]\s+/.test(line)) {
+                          const ordered = /^\s*\d+[.)]\s+/.test(line);
+                          const items = [];
+                          while (i < lines.length) {
+                              const match = lines[i].match(ordered ? /^\s*\d+[.)]\s+(.+)$/ : /^\s*[-*+]\s+(.+)$/);
+                              if (!match) break;
+                              items.push(`<li>${inline(match[1])}</li>`); i++;
+                          }
+                          out.push(`<${ordered ? 'ol' : 'ul'}>${items.join('')}</${ordered ? 'ol' : 'ul'}>`);
+                          continue;
+                      }
+
+                      if (/^\s*>/.test(line)) {
+                          const quote = [];
+                          while (i < lines.length && /^\s*>/.test(lines[i])) { quote.push(lines[i].replace(/^\s*>\s?/, '')); i++; }
+                          out.push(`<blockquote>${quote.map(inline).join('<br>')}</blockquote>`); continue;
+                      }
+
+                      const paragraph = [];
+                      while (i < lines.length && lines[i].trim() && !/^\s{0,3}#{1,3}\s+/.test(lines[i]) && !/^\s*[-*+]\s+/.test(lines[i]) && !/^\s*\d+[.)]\s+/.test(lines[i]) && !/^\s*>/.test(lines[i])) { paragraph.push(lines[i]); i++; }
+                      out.push(`<p>${paragraph.map(inline).join('<br>')}</p>`);
+                  }
+
+                  return out.join(' ').replace(/@@SAREMBOK_CODE_(\d+)@@/g, (_, n) => blocks[Number(n)] || '');
+
+                  function inline(value) {
+                      let html = escape(value);
+                      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+                      html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                      html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+                      html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+                      html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+                      html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/gi, (_, label, url) => {
+                          const safe = safeUrl(url);
+                          return safe ? `<a href="${safe}" target="_blank" rel="noopener noreferrer">${label}</a>` : label;
+                      });
+                      return html;
+                  }
+              }
+
+              function scrollHistory() {
+                  const el = document.getElementById('dialogue-history');
+                  if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+              }
+
+              function makeMessage(role, content, thinking = false) {
+                  const row = document.createElement('div');
+                  row.className = `srbk-message ${role}`;
+                  const avatar = document.createElement('div');
+                  avatar.className = `srbk-avatar ${role === 'user' ? 'user-avatar' : ''}`;
+                  avatar.textContent = role === 'user' ? 'YOU' : 'ARIA';
+                  const bubble = document.createElement('div');
+                  bubble.className = 'srbk-bubble';
+                  const meta = document.createElement('div');
+                  meta.className = 'srbk-meta';
+                  meta.innerHTML = `<strong>${role === 'user' ? 'YOU' : 'ARIA'}</strong><span>${role === 'user' ? 'DIRECTIVE' : 'SYNTHESIS'}</span>`;
+                  const body = document.createElement('div');
+                  body.className = 'srbk-content';
+                  body.innerHTML = thinking ? '<span class="srbk-thinking">Processing <i></i><i></i><i></i></span>' : renderMarkdown(content);
+                  bubble.append(meta, body);
+                  row.append(role === 'user' ? bubble : avatar, role === 'user' ? avatar : bubble);
+                  return { row, body };
+              }
+
+              function wireCopyButtons(root) {
+                  root.querySelectorAll('.srbk-copy').forEach(button => {
+                      if (button.dataset.wired) return;
+                      button.dataset.wired = '1';
+                      button.addEventListener('click', async () => {
+                          try {
+                              await navigator.clipboard.writeText(decodeURIComponent(button.dataset.copy || ''));
+                              button.textContent = 'Copied';
+                              setTimeout(() => button.textContent = 'Copy', 1200);
+                          } catch (_) {
+                              button.textContent = 'Unavailable';
+                              setTimeout(() => button.textContent = 'Copy', 1200);
+                          }
+                      });
+                  });
+              }
+
+              window.sendDirective = async function() {
+                  const input = document.getElementById('directive-input');
+                  const history = document.getElementById('dialogue-history');
+                  if (!input || !history) return;
+                  const txt = input.value.trim();
+                  if (!txt) return;
+
+                  input.value = '';
+                  input.disabled = true;
+                  const user = makeMessage('user', txt);
+                  history.appendChild(user.row);
+                  scrollHistory();
+
+                  const ai = makeMessage('ai', '', true);
+                  history.appendChild(ai.row);
+                  scrollHistory();
+
+                  try {
+                      const r = await sendRPC('SarembokChat', { prompt: txt });
+                      const reply = typeof (r && r.response) === 'string'
+                          ? r.response
+                          : typeof (r && r.audioText) === 'string'
+                              ? r.audioText
+                              : (r ? JSON.stringify(r, null, 2) : 'Directive executed.');
+                      ai.body.innerHTML = renderMarkdown(reply);
+                      const status = document.createElement('div');
+                      status.className = 'srbk-status';
+                      status.textContent = 'Synthesis complete';
+                      ai.body.appendChild(status);
+                      wireCopyButtons(ai.row);
+                  } catch (err) {
+                      ai.body.innerHTML = renderMarkdown(`Unable to complete the directive.\\n\\n\`${String(err?.message || err)}\``);
+                  } finally {
+                      input.disabled = false;
+                      input.focus();
+                      scrollHistory();
+                  }
+              };
+
+              const history = document.getElementById('dialogue-history');
+              if (history) {
+                  const initial = history.firstElementChild;
+                  if (initial && !initial.classList.contains('srbk-message')) {
+                      const welcome = initial.textContent.replace(/^ARIA:\s*/i, '').trim();
+                      history.innerHTML = '';
+                      history.appendChild(makeMessage('ai', welcome).row);
+                  }
+                  wireCopyButtons(history);
+              }
+          })();
+          </script>
+          '''
+              text = text.replace('</body>', injection + '\n</body>', 1)
+              path.write_text(text, encoding='utf-8')
+              print('installed response UI v2')
+          PY
+
+      - name: Validate HTML and JavaScript markers
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('frontend/index.html').read_text(encoding='utf-8')
+          required = [
+              'SAREMBOK_RESPONSE_UI_V2',
+              'window.sendDirective = async function()',
+              'renderMarkdown(source)',
+              '.srbk-code',
+              '.srbk-table',
+          ]
+          missing = [item for item in required if item not in text]
+          if missing:
+              raise SystemExit(f'Missing UI markers: {missing}')
+          if text.count('SAREMBOK_RESPONSE_UI_V2') != 1:
+              raise SystemExit('Response UI marker is not unique')
+          print('UI validation passed')
+          PY
+
+      - name: Commit upgraded frontend and remove staging workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/index.html
+          git rm .github/workflows/sarembok-ui-presentation-upgrade.yml
+          git commit -m "feat: upgrade Sarembok response presentation"
+          git push
