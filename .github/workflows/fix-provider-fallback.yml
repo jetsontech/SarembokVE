@@ -1,0 +1,69 @@
+name: Fix provider fallback
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch provider configuration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('Deployment/cloud/server.py')
+          s=p.read_text(encoding='utf-8')
+          old='''    openai_key = os.getenv("OPENAI_API_KEY") or os.getenv("SAREMBOK_AUTH_TOKEN") or api_key
+          if openai_key and openai_key.startswith("sk-") and len(openai_key) > 20:
+              providers.append(("GPT-4o", "https://api.openai.com/v1/chat/completions", openai_key, "gpt-4o"))
+
+          gemini_key = os.getenv("GEMINI_API_KEY")
+          if gemini_key:
+              providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}", gemini_key, "gemini-1.5-flash"))
+
+          custom_llm_url = os.getenv("LLM_ENDPOINT_URL")
+          custom_llm_key = os.getenv("LLM_API_KEY", "dummy")
+          if custom_llm_url:
+              providers.append(("Custom", custom_llm_url, custom_llm_key, os.getenv("LLM_MODEL", "llama-3.1-8b")))
+          '''
+          new='''    openai_key = os.getenv("OPENAI_API_KEY") or (api_key if (api_key or "").startswith("sk-") else None)
+          if openai_key and len(openai_key) > 20:
+              providers.append(("OpenAI", "https://api.openai.com/v1/chat/completions", openai_key, os.getenv("OPENAI_MODEL", "gpt-4o")))
+
+          openrouter_key = os.getenv("OPENROUTER_API_KEY")
+          if openrouter_key:
+              providers.append(("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", openrouter_key, os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b")))
+
+          groq_key = os.getenv("GROQ_API_KEY")
+          if groq_key:
+              providers.append(("Groq", "https://api.groq.com/openai/v1/chat/completions", groq_key, os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")))
+
+          gemini_key = os.getenv("GEMINI_API_KEY")
+          if gemini_key:
+              gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+              providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_key}", gemini_key, gemini_model))
+
+          custom_llm_url = os.getenv("LLM_ENDPOINT_URL")
+          custom_llm_key = os.getenv("LLM_API_KEY", "dummy")
+          if custom_llm_url:
+              providers.append(("Custom", custom_llm_url, custom_llm_key, os.getenv("LLM_MODEL", "llama-3.1-8b")))
+          '''
+          if old not in s:
+              raise SystemExit('expected provider block not found')
+          s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          print('provider chain patched')
+          PY
+      - name: Commit and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Deployment/cloud/server.py
+          git commit -m "fix: enable configured provider fallback chain"
+          rm .github/workflows/fix-provider-fallback.yml
+          git add .github/workflows/fix-provider-fallback.yml
+          git commit -m "chore: remove one-shot provider workflow"
+          git push
