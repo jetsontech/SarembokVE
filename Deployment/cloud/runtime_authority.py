@@ -98,7 +98,7 @@ def _memory_snapshot(db: sqlite3.Connection) -> dict[str, Any]:
 
 def _scheduler_snapshot(db: sqlite3.Connection) -> dict[str, Any]:
     if not _table_exists(db, "tasks"):
-        return {"status": "UNAVAILABLE", "queueDepth": 0, "running": 0, "completed": 0, "failed": 0}
+        return {"status": "UNAVAILABLE", "queueDepth": 0, "running": 0, "completed": 0, "failed": 0, "authority": "tasks_table"}
     rows = db.execute("SELECT status, COUNT(*) FROM tasks GROUP BY status").fetchall()
     counts = {str(row[0]).upper(): int(row[1]) for row in rows}
     return {
@@ -189,3 +189,73 @@ def snapshot(store: Any, provider_router: Any, started_at: float) -> dict[str, A
         "provider": provider,
         "state": {"tasks": tasks, "events": events, "conversations": conversations},
     }
+
+
+def render_markdown(data: dict[str, Any]) -> str:
+    """Render a human-readable diagnostic directly from the authoritative snapshot."""
+    runtime = data["runtime"]
+    workers = data["workers"]
+    agents = data["agents"]
+    compute = data["compute"]
+    memory = data["memory"]
+    scheduler = data["scheduler"]
+    provider = data["provider"]
+    lines = [
+        "## Sarembok Runtime Diagnostic", "",
+        f"**Observed:** `{data['observedAt']}`",
+        f"**Authority:** `{data['source']}`", "",
+        "### Runtime",
+        f"- Status: **{runtime['status']}**",
+        f"- Service: `{runtime['service']}`",
+        f"- Port: `{runtime['port']}`",
+        f"- Domain: `{runtime['domain']}`",
+        f"- Uptime: `{runtime['uptimeSeconds']}s`", "",
+        "### Registered Workers",
+        f"- Registered: **{workers['registered']}**",
+        f"- Online: **{workers['online']}**",
+        f"- Stale: **{workers['stale']}**",
+        f"- Offline: **{workers['offline']}**",
+    ]
+    for worker in workers["workers"]:
+        gpu = f" — {worker['gpuModel']} / {worker['vramMb']} MB" if worker.get("gpuModel") else ""
+        caps = ", ".join(worker["capabilities"]) or "none"
+        lines.append(f"- `{worker['workerId']}` — **{worker['status']}** — capabilities: `{caps}`{gpu}")
+    lines += [
+        "", "### Compute",
+        f"- Online GPU workers: **{compute['onlineGpuWorkers']}**",
+        f"- Online worker capabilities: `{', '.join(compute['onlineWorkerCapabilities']) or 'none'}`",
+        f"- Configured model providers: **{len(compute['configuredModelProviders'])}**", "",
+        "### Agents",
+        f"- Registered: **{agents['registered']}**",
+        f"- Online: **{agents['online']}**",
+    ]
+    for agent in agents["agents"]:
+        lines.append(f"- `{agent['agentId']}` — {agent['displayName']} — **{agent['status']}**")
+    lines += [
+        "", "### Persistent Memory",
+        f"- Backend: **{memory['backend']}**",
+        f"- Status: **{memory['status']}**",
+        f"- Entries: **{memory['entries']}**",
+        f"- Integrity: `{memory['integrity']}`", "",
+        "### Scheduler",
+        f"- State: **{scheduler['status']}**",
+        f"- Queue depth: **{scheduler['queueDepth']}**",
+        f"- Running: **{scheduler['running']}**",
+        f"- Completed: **{scheduler['completed']}**",
+        f"- Failed: **{scheduler['failed']}**",
+        f"- Authority: `{scheduler['authority']}`", "",
+        "### Model Provider",
+    ]
+    last = provider.get("lastSuccessful")
+    if last:
+        lines += [
+            f"- Last successful provider: **{last['provider']}**",
+            f"- Model: `{last['model']}`",
+            f"- API: `{last['api']}`",
+            f"- Latency: `{last['latencyMs']} ms`",
+            f"- TTFT: `{last['ttftMs']} ms`" if last.get("ttftMs") is not None else "- TTFT: `not recorded`",
+        ]
+    else:
+        lines.append("- No successful provider call is recorded in the current process telemetry.")
+    lines += ["", "**Truth boundary:** this report is generated from runtime-observed state. It does not infer or invent unavailable infrastructure facts."]
+    return "\n".join(lines)
