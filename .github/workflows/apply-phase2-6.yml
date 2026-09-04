@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - Tools/Engineering/phase2_6_implementation.py
+      - Tools/Engineering/TRIGGER_PHASE2_6
       - .github/workflows/apply-phase2-6.yml
 
 permissions:
@@ -28,6 +29,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Deployment/cloud/server.py Deployment/cloud/provider_router.py Deployment/cloud/capability_registry.py Deployment/cloud/structured_response.py Deployment/cloud/compose.production.yaml Deployment/cloud/test_phase2_6.py
           git commit -m "feat: implement latency provider and capability architecture"
-          git rm Tools/Engineering/phase2_6_implementation.py .github/workflows/apply-phase2-6.yml
+          git rm Tools/Engineering/phase2_6_implementation.py .github/workflows/apply-phase2-6.yml Tools/Engineering/TRIGGER_PHASE2_6
           git commit -m "chore: remove temporary architecture implementation tooling"
           git push
