@@ -59,6 +59,9 @@ class ProviderRouter:
         self.gemini_thinking = os.getenv('SAREMBOK_GEMINI_THINKING_LEVEL', 'low').strip().lower()
         if self.gemini_thinking not in {'low', 'medium', 'high'}:
             self.gemini_thinking = 'low'
+        self.openrouter_reasoning = os.getenv('SAREMBOK_OPENROUTER_REASONING_EFFORT', 'low').strip().lower()
+        if self.openrouter_reasoning not in {'minimal', 'low', 'medium', 'high', 'xhigh'}:
+            self.openrouter_reasoning = 'low'
         self.max_output_tokens = max(64, int(os.getenv('SAREMBOK_LLM_MAX_OUTPUT_TOKENS', '8192')))
         self._history: deque[dict[str, Any]] = deque(maxlen=200)
 
@@ -198,6 +201,26 @@ class ProviderRouter:
             headers.update({'HTTP-Referer': 'https://sarembok.com', 'X-Title': 'Sarembok VE'})
         return headers
 
+    def _openai_payload(self, spec: ProviderSpec, messages: list[dict[str, str]], streaming: bool = False) -> dict[str, Any]:
+        data: dict[str, Any] = {
+            'model': spec.model,
+            'messages': messages,
+            'max_tokens': self.max_output_tokens,
+            'temperature': 0.7,
+        }
+        if streaming:
+            data['stream'] = True
+        if spec.name == 'OpenRouter':
+            # gpt-oss-120b is a reasoning model. Keep reasoning internal and
+            # bound its effort so interactive Sarembok requests reach visible
+            # assistant content promptly. OpenRouter documents reasoning.effort
+            # for this model; reasoning is never forwarded to the client.
+            data['reasoning'] = {
+                'effort': self.openrouter_reasoning,
+                'exclude': True,
+            }
+        return data
+
     def _handle_http_error(self, spec: ProviderSpec, exc: urllib.error.HTTPError, attempts: int, deadline: float) -> None:
         body = self._http_error_body(exc)
         classification = self._classify_http_error(body)
@@ -227,7 +250,7 @@ class ProviderRouter:
                 api_name = 'interactions'
         else:
             url = spec.endpoint
-            data = {'model': spec.model, 'messages': messages, 'max_tokens': self.max_output_tokens, 'temperature': 0.7}
+            data = self._openai_payload(spec, messages)
             headers = self._openai_headers(spec)
             api_name = 'chat.completions'
         req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers)
@@ -264,7 +287,7 @@ class ProviderRouter:
             }
             headers = {'Content-Type': 'application/json', 'Accept': 'text/event-stream', 'x-goog-api-key': spec.key}
         elif spec.kind == 'openai':
-            data = {'model': spec.model, 'messages': messages, 'max_tokens': self.max_output_tokens, 'temperature': 0.7, 'stream': True}
+            data = self._openai_payload(spec, messages, streaming=True)
             headers = self._openai_headers(spec, streaming=True)
         else:
             raise RuntimeError('streaming is unsupported for this provider')
@@ -285,6 +308,8 @@ class ProviderRouter:
                 finish_reason: str | None = None
                 with urllib.request.urlopen(req, timeout=timeout) as response:
                     for event_name, event in self._sse_events(response):
+                        if event_name == 'done' or event is None:
+                            continue
                         if not isinstance(event, dict):
                             continue
                         if spec.kind == 'gemini':
@@ -300,8 +325,6 @@ class ProviderRouter:
                                 interaction = event.get('interaction') or {}
                                 usage = interaction.get('usage') or event.get('usage') or {}
                         else:
-                            # OpenAI-compatible SSE. Capture assistant content only;
-                            # never forward reasoning/reasoning_details to the client.
                             choices = event.get('choices') or []
                             if choices:
                                 choice = choices[0] or {}
@@ -340,8 +363,6 @@ class ProviderRouter:
                 continue
             started = time.monotonic()
             try:
-                # All OpenAI-compatible providers use native SSE streaming;
-                # Gemini Interactions uses its native SSE stream as well.
                 if (spec.kind == 'gemini' and self.gemini_api == 'interactions') or spec.kind == 'openai':
                     text, usage, api_name, ttft_ms = self._request_stream(spec, system_prompt, prompt, messages, deadline, on_delta)
                 else:
