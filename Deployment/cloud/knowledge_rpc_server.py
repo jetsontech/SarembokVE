@@ -13,6 +13,7 @@ import websockets
 from provider_router import reset_stream_callback, set_stream_callback
 from runtime_authority import render_markdown as render_runtime_diagnostic
 from runtime_authority import snapshot as runtime_authority_snapshot
+from runtime_response_composer import build_runtime_context, is_self_state_query, render_identity
 
 CLOUD_SERVER_PATH = "/app/server.py"
 spec = importlib.util.spec_from_file_location("sarembok_cloud_server", CLOUD_SERVER_PATH)
@@ -55,10 +56,57 @@ def _is_runtime_diagnostic(prompt: str) -> bool:
     return sum(1 for marker in markers if marker in text) >= 2
 
 
+def _dispatch_chat_with_authority(params: dict) -> dict:
+    """Run the normal dialogue path with a live, authoritative system context."""
+    prompt = str(params.get("prompt") or params.get("message") or params.get("text") or "").strip()
+    diagnostic = _authoritative_snapshot()
+
+    if is_self_state_query(prompt):
+        response = render_identity(diagnostic)
+        return {
+            **diagnostic,
+            "response": response,
+            "audioText": response.replace("*", "").replace("`", "").replace("#", "")[:1200],
+            "source": "runtime_authority",
+            "model": "runtime-authority",
+            "action": None,
+            "structuredResponse": cloud_server.build_structured_response(
+                response,
+                provider="runtime_authority",
+                model="runtime-authority",
+            ),
+            "agentId": "sarembok-prime",
+            "timestamp": cloud_server.now(),
+        }
+
+    # The existing cloud dialogue implementation owns provider selection and
+    # conversation persistence. Inject authority at that boundary instead of
+    # duplicating provider logic here.
+    runtime_context = build_runtime_context(diagnostic)
+    original_generate = cloud_server.PROVIDER_ROUTER.generate
+
+    def generate_with_authority(system_prompt, user_prompt, messages):
+        authoritative_prompt = (
+            runtime_context
+            + "\n\nDIALOGUE RULE: When describing Sarembok, prefer these observed facts over model assumptions. "
+              "You may explain or contextualize them, but never contradict them.\n\n"
+            + str(system_prompt or "")
+        )
+        return original_generate(authoritative_prompt, user_prompt, messages)
+
+    cloud_server.PROVIDER_ROUTER.generate = generate_with_authority
+    try:
+        return _original_dispatch(params.get("_method", "SarembokChat"), params)
+    finally:
+        cloud_server.PROVIDER_ROUTER.generate = original_generate
+
+
 def dispatch(method: str, params: dict) -> dict:
     if method == "GetRuntimeInfo":
         return _authoritative_snapshot()
     if method in {"SarembokChat", "Chat", "SarembokDialogue"}:
+        chat_params = dict(params)
+        chat_params["_method"] = method
         prompt = str(params.get("prompt") or params.get("message") or params.get("text") or "").strip()
         if _is_runtime_diagnostic(prompt):
             diagnostic = _authoritative_snapshot()
@@ -78,6 +126,7 @@ def dispatch(method: str, params: dict) -> dict:
                 "agentId": "sarembok-prime",
                 "timestamp": cloud_server.now(),
             }
+        return _dispatch_chat_with_authority(chat_params)
     if method in KnowledgeRuntimeAPI.METHODS:
         return knowledge_api.dispatch(method, params)
     return _original_dispatch(method, params)
