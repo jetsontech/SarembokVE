@@ -1,0 +1,145 @@
+name: Repair Gemini runtime
+
+on:
+  push:
+    paths:
+      - Deployment/cloud/REPAIR_TRIGGER
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Patch runtime
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path("Deployment/cloud/server.py")
+          s = p.read_text()
+
+          old = 'LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "10")))'
+          new = '''LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "10")))
+          LLM_TOTAL_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS", "15")))'''
+          assert old in s
+          s = s.replace(old, new, 1)
+
+          old = '''                gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+                providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_key}", gemini_key, gemini_model))'''
+          new = '''                gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+                providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent", gemini_key, gemini_model))'''
+          assert old in s
+          s = s.replace(old, new, 1)
+
+          old = '''    reply = None
+    source = None
+    model = None
+    for name, url, key, mdl in providers:
+        try:
+            if name == "Gemini":
+                data = {"contents": [{"parts": [{"text": system_prompt + "\\n\\nUser: " + prompt_clean}]}]}
+                headers = {"Content-Type": "application/json"}
+            else:
+                data = {"model": mdl, "messages": messages, "max_tokens": 800, "temperature": 0.7}
+                headers = {"Content-Type": "application/json", "Authorization": f"Bearer {key}"}
+                if name == "OpenRouter":
+                    headers.update({"HTTP-Referer": "https://sarembok.com", "X-Title": "Sarembok VE"})
+            req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers)
+            with urllib.request.urlopen(req, timeout=LLM_PROVIDER_TIMEOUT_SECONDS) as r:
+                payload = json.loads(r.read().decode("utf-8"))
+            reply = (payload["candidates"][0]["content"]["parts"][0]["text"] if name == "Gemini" else payload["choices"][0]["message"]["content"]).strip()
+            source = name
+            model = mdl
+            break
+        except Exception as exc:
+            LOG.warning("LLM provider %s failed; trying next: %s", name, exc)'''
+          new = '''    reply = None
+    source = None
+    model = None
+    provider_deadline = time.monotonic() + LLM_TOTAL_TIMEOUT_SECONDS
+    for name, url, key, mdl in providers:
+        remaining = provider_deadline - time.monotonic()
+        if remaining <= 0:
+            LOG.warning("LLM total timeout reached before provider %s", name)
+            break
+        try:
+            if name == "Gemini":
+                data = {"contents": [{"role": "user", "parts": [{"text": system_prompt + "\\n\\nUser: " + prompt_clean}]}]}
+                headers = {"Content-Type": "application/json", "x-goog-api-key": key}
+            else:
+                data = {"model": mdl, "messages": messages, "max_tokens": 800, "temperature": 0.7}
+                headers = {"Content-Type": "application/json", "Authorization": f"Bearer {key}"}
+                if name == "OpenRouter":
+                    headers.update({"HTTP-Referer": "https://sarembok.com", "X-Title": "Sarembok VE"})
+            req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers)
+            timeout = min(LLM_PROVIDER_TIMEOUT_SECONDS, max(1, remaining))
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                payload = json.loads(r.read().decode("utf-8"))
+            reply = (payload["candidates"][0]["content"]["parts"][0]["text"] if name == "Gemini" else payload["choices"][0]["message"]["content"]).strip()
+            source = name
+            model = mdl
+            break
+        except Exception as exc:
+            LOG.warning("LLM provider %s failed; trying next: %s", name, exc)'''
+          assert old in s
+          s = s.replace(old, new, 1)
+
+          old = '''            "llmConfigured": bool(os.getenv("OPENAI_API_KEY") or os.getenv("SAREMBOK_AUTH_TOKEN", "").startswith("sk-")),'''
+          new = '''            "llmConfigured": bool(
+                os.getenv("OPENAI_API_KEY")
+                or os.getenv("OPENROUTER_API_KEY")
+                or os.getenv("GROQ_API_KEY")
+                or os.getenv("GEMINI_API_KEY")
+                or os.getenv("LLM_ENDPOINT_URL")
+            ),'''
+          assert old in s
+          s = s.replace(old, new, 1)
+
+          old = '''                async with get_db_lock():
+                    result = dispatch(method, params)'''
+          new = '''                # dispatch() contains synchronous SQLite and provider I/O. Run it
+                # off the event loop so a slow provider cannot freeze the WebSocket.
+                async with get_db_lock():
+                    result = await asyncio.to_thread(dispatch, method, params)'''
+          assert old in s
+          s = s.replace(old, new, 1)
+
+          p.write_text(s)
+
+          compose = Path("Deployment/cloud/compose.production.yaml")
+          if compose.exists():
+              c = compose.read_text()
+              needle = '      GEMINI_API_KEY: ${GEMINI_API_KEY:-}\n'
+              if needle in c and '      GEMINI_MODEL:' not in c:
+                  c = c.replace(needle, needle + '      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}\n', 1)
+                  compose.write_text(c)
+
+          # One-shot workflow cleanup marker.
+          Path("Deployment/cloud/REPAIR_TRIGGER").unlink()
+          Path(".github/workflows/repair-gemini-runtime.yml").unlink()
+          PY
+
+      - name: Validate
+        run: |
+          python -m py_compile Deployment/cloud/server.py
+          test "$(grep -c 'gemini-3.8-flash' Deployment/cloud/server.py)" -ge 1
+          test "$(grep -c 'x-goog-api-key' Deployment/cloud/server.py)" -ge 1
+          test "$(grep -c 'LLM_TOTAL_TIMEOUT_SECONDS' Deployment/cloud/server.py)" -ge 1
+          test "$(grep -c 'asyncio.to_thread(dispatch' Deployment/cloud/server.py)" -ge 1
+          if grep -q 'gemini-2.5-flash' Deployment/cloud/server.py; then exit 1; fi
+
+      - name: Commit repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Deployment/cloud/server.py Deployment/cloud/compose.production.yaml Deployment/cloud/REPAIR_TRIGGER .github/workflows/repair-gemini-runtime.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: repair Gemini provider and dialogue execution"
+          git push
