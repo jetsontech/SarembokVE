@@ -37,7 +37,7 @@ def dispatch(method: str, params: dict) -> dict:
 
 
 cloud_server.dispatch = dispatch
-CHAT_METHODS = {"SarembokChat", "AriaChat", "Chat", "AriaDialogue", "SarembokDialogue"}
+CHAT_METHODS = {"SarembokChat", "Chat", "SarembokDialogue"}
 
 
 async def handler(websocket) -> None:
@@ -118,33 +118,9 @@ async def process_http_request(connection, request):
             except Exception as exc: cloud_server.LOG.error("Failed to read frontend index.html: %s", exc)
     if not html_str:
         html_str = "<!DOCTYPE html><html><body><h1>Sarembok VE Cloud Runtime</h1><p>Status: ONLINE</p></body></html>\n"
-    streaming_script = r'''<script id="sarembok-streaming-v1">
-(()=>{
-  const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-  const waitOpen=ws=>new Promise((resolve,reject)=>{if(ws.readyState===WebSocket.OPEN)return resolve();const ok=()=>{cleanup();resolve()};const bad=()=>{cleanup();reject(new Error('WebSocket connection failed'))};const cleanup=()=>{ws.removeEventListener('open',ok);ws.removeEventListener('error',bad);ws.removeEventListener('close',bad)};ws.addEventListener('open',ok);ws.addEventListener('error',bad);ws.addEventListener('close',bad)});
-  window.sendDirective=async function(){
-    const input=document.getElementById('directive-input'), history=document.getElementById('dialogue-history'); if(!input||!history)return;
-    const txt=input.value.trim(); if(!txt)return; input.value='';
-    const user=document.createElement('div'); user.className='srbk-message user'; user.innerHTML='<div class="srbk-bubble"><div class="srbk-meta"><strong>YOU</strong></div><div class="srbk-content">'+esc(txt)+'</div></div><div class="srbk-avatar user-avatar">YOU</div>'; history.appendChild(user);
-    const ai=document.createElement('div'); ai.className='srbk-message ai'; ai.innerHTML='<div class="srbk-avatar">ARIA</div><div class="srbk-bubble"><div class="srbk-meta"><strong>ARIA</strong><span>STREAMING</span></div><div class="srbk-content"><span class="srbk-thinking"><i></i><i></i><i></i></span></div><div class="srbk-status">Generating</div></div>'; history.appendChild(ai); history.scrollTop=history.scrollHeight;
-    const content=ai.querySelector('.srbk-content'), status=ai.querySelector('.srbk-status'); let text=''; const id='stream-'+Date.now()+'-'+Math.random().toString(16).slice(2); let settled=false;
-    try{
-      const session=await fetch('/session',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('Unable to establish browser session');return r.json()});
-      if(!session.sessionToken)throw new Error('Browser session token missing');
-      const proto=location.protocol==='https:'?'wss:':'ws:'; const socket=new WebSocket(proto+'//'+location.host+'/ws'); await waitOpen(socket);
-      const done=new Promise((resolve,reject)=>{
-        socket.addEventListener('message',e=>{try{const d=JSON.parse(e.data); if(d.method==='SarembokChat.delta'&&d.params&&d.params.id===id){text+=String(d.params.text||'');content.textContent=text;history.scrollTop=history.scrollHeight;return} if(d.id===id){settled=true;if(d.error)reject(new Error(d.error.message||'Runtime error'));else resolve(d.result)}}catch(err){reject(err)}});
-        socket.addEventListener('error',()=>reject(new Error('Streaming connection error')));
-        socket.addEventListener('close',()=>{if(!settled)reject(new Error('Streaming connection closed'))});
-      });
-      socket.send(JSON.stringify({jsonrpc:'2.0',id,method:'SarembokChat',params:{sessionToken:session.sessionToken,prompt:txt,stream:true}}));
-      const result=await Promise.race([done,new Promise((_,reject)=>setTimeout(()=>reject(new Error('Runtime request timeout')),45000))]);
-      const reply=result&&result.response?result.response:text; content.textContent=reply||'Directive executed.'; status.textContent='Complete'; socket.close();
-    }catch(err){content.textContent=text||('Unable to complete directive: '+String(err.message||err)); status.textContent='Error'; status.classList.add('srbk-error')}
-  };
-})();
-</script>'''
-    html_str = html_str.replace("</body>", streaming_script + "</body>", 1)
+    # The authoritative browser UI lives in frontend/index.html.
+    # Do not inject a second sendDirective implementation here.
+    # The frontend's WebSocket dispatcher consumes SarembokChat.delta.
     if hasattr(connection, "respond"):
         resp = connection.respond(200, html_str)
         try: del resp.headers["Content-Type"]
