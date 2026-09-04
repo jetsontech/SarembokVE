@@ -32,6 +32,7 @@ MAX_CONNECTIONS = max(1, int(os.getenv("SAREMBOK_MAX_CONNECTIONS", "100")))
 MAX_REQUEST_BYTES = max(1024, int(os.getenv("SAREMBOK_MAX_REQUEST_BYTES", str(1024 * 1024))))
 MAX_METHOD_LENGTH = max(32, int(os.getenv("SAREMBOK_MAX_METHOD_LENGTH", "128")))
 LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "10")))
+LLM_TOTAL_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS", "15")))
 BROWSER_SESSION_TTL_SECONDS = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_TTL_SECONDS", "3600")))
 BROWSER_ALLOWED_METHODS = {"SarembokChat", "GetRuntimeInfo"}
 BROWSER_SESSIONS: dict[str, float] = {}
@@ -618,8 +619,8 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
         providers.append(("Groq", "https://api.groq.com/openai/v1/chat/completions", groq_key, os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")))
     gemini_key = os.getenv("GEMINI_API_KEY")
     if gemini_key:
-        gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-        providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_key}", gemini_key, gemini_model))
+        gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+        providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent", gemini_key, gemini_model))
     custom_url = os.getenv("LLM_ENDPOINT_URL")
     if custom_url:
         providers.append(("Custom", custom_url, os.getenv("LLM_API_KEY", "dummy"), os.getenv("LLM_MODEL", "llama-3.1-8b")))
@@ -627,18 +628,24 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
     reply = None
     source = None
     model = None
+    provider_deadline = time.monotonic() + LLM_TOTAL_TIMEOUT_SECONDS
     for name, url, key, mdl in providers:
+        remaining = provider_deadline - time.monotonic()
+        if remaining <= 0:
+            LOG.warning("LLM total timeout reached before provider %s", name)
+            break
         try:
             if name == "Gemini":
-                data = {"contents": [{"parts": [{"text": system_prompt + "\n\nUser: " + prompt_clean}]}]}
-                headers = {"Content-Type": "application/json"}
+                data = {"contents": [{"role": "user", "parts": [{"text": system_prompt + "\n\nUser: " + prompt_clean}]}]}
+                headers = {"Content-Type": "application/json", "x-goog-api-key": key}
             else:
                 data = {"model": mdl, "messages": messages, "max_tokens": 800, "temperature": 0.7}
                 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {key}"}
                 if name == "OpenRouter":
                     headers.update({"HTTP-Referer": "https://sarembok.com", "X-Title": "Sarembok VE"})
             req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers)
-            with urllib.request.urlopen(req, timeout=LLM_PROVIDER_TIMEOUT_SECONDS) as r:
+            timeout = min(LLM_PROVIDER_TIMEOUT_SECONDS, max(1, remaining))
+            with urllib.request.urlopen(req, timeout=timeout) as r:
                 payload = json.loads(r.read().decode("utf-8"))
             reply = (payload["candidates"][0]["content"]["parts"][0]["text"] if name == "Gemini" else payload["choices"][0]["message"]["content"]).strip()
             source = name
@@ -704,7 +711,13 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "agentCount": agent_count,
             "memoryCount": memory_count,
             "conversationCount": conv_count,
-            "llmConfigured": bool(os.getenv("OPENAI_API_KEY") or os.getenv("SAREMBOK_AUTH_TOKEN", "").startswith("sk-")),
+            "llmConfigured": bool(
+                os.getenv("OPENAI_API_KEY")
+                or os.getenv("OPENROUTER_API_KEY")
+                or os.getenv("GROQ_API_KEY")
+                or os.getenv("GEMINI_API_KEY")
+                or os.getenv("LLM_ENDPOINT_URL")
+            ),
         }
 
 
@@ -1943,7 +1956,8 @@ async def handler(websocket) -> None:
                 request = json.loads(raw)
                 method, params = validate_request(request)
                 async with get_db_lock():
-                    result = dispatch(method, params)
+                    # Keep synchronous SQLite/provider I/O off the asyncio event loop.
+                    result = await asyncio.to_thread(dispatch, method, params)
                 response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}
                 LOG.info("rpc_success method=%s request_id=%s", method, request.get("id"))
             except PermissionError as exc:
