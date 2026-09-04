@@ -601,78 +601,54 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
             messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": prompt_clean})
 
-    # 6. Try LLM providers
-    llm_source = None
+    # 6. Try configured LLM providers in deterministic fallback order.
     providers = []
+    openai_key = os.getenv("OPENAI_API_KEY") or (api_key if (api_key or "").startswith("sk-") else None)
+    if openai_key and len(openai_key) > 20:
+        providers.append(("OpenAI", "https://api.openai.com/v1/chat/completions", openai_key, os.getenv("OPENAI_MODEL", "gpt-4o")))
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    if openrouter_key:
+        providers.append(("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", openrouter_key, os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b")))
+    groq_key = os.getenv("GROQ_API_KEY")
+    if groq_key:
+        providers.append(("Groq", "https://api.groq.com/openai/v1/chat/completions", groq_key, os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")))
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if gemini_key:
+        gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_key}", gemini_key, gemini_model))
+    custom_url = os.getenv("LLM_ENDPOINT_URL")
+    if custom_url:
+        providers.append(("Custom", custom_url, os.getenv("LLM_API_KEY", "dummy"), os.getenv("LLM_MODEL", "llama-3.1-8b")))
 
-openai_key = os.getenv("OPENAI_API_KEY") or (api_key if (api_key or "").startswith("sk-") else None)
-if openai_key and len(openai_key) > 20:
-    providers.append(("OpenAI", "https://api.openai.com/v1/chat/completions", openai_key, os.getenv("OPENAI_MODEL", "gpt-4o")))
-
-openrouter_key = os.getenv("OPENROUTER_API_KEY")
-if openrouter_key:
-    providers.append(("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", openrouter_key, os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b")))
-
-groq_key = os.getenv("GROQ_API_KEY")
-if groq_key:
-    providers.append(("Groq", "https://api.groq.com/openai/v1/chat/completions", groq_key, os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")))
-
-gemini_key = os.getenv("GEMINI_API_KEY")
-if gemini_key:
-    gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-    providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_key}", gemini_key, gemini_model))
-
-custom_llm_url = os.getenv("LLM_ENDPOINT_URL")
-custom_llm_key = os.getenv("LLM_API_KEY", "dummy")
-if custom_llm_url:
-    providers.append(("Custom", custom_llm_url, custom_llm_key, os.getenv("LLM_MODEL", "llama-3.1-8b")))
-    for p_name, p_url, p_key, p_model in providers:
+    reply = None
+    source = None
+    model = None
+    for name, url, key, mdl in providers:
         try:
-            if p_name in ("OpenAI", "OpenRouter", "Groq", "Custom"):
-                req_data = {
-                    "model": p_model,
-                    "messages": messages,
-                    "max_tokens": 800,
-                    "temperature": 0.7
-                }
-                http_req = urllib.request.Request(
-                    p_url,
-                    data=json.dumps(req_data).encode("utf-8"),
-                    headers={"Content-Type": "application/json", "Authorization": f"Bearer {p_key}", **({"HTTP-Referer": "https://sarembok.com", "X-Title": "Sarembok VE"} if p_name == "OpenRouter" else {})}
-                )
-                with urllib.request.urlopen(http_req, timeout=LLM_PROVIDER_TIMEOUT_SECONDS) as http_resp:
-                    resp_json = json.loads(http_resp.read().decode("utf-8"))
-                    reply = resp_json["choices"][0]["message"]["content"].strip()
-                    llm_source = p_name
-            elif p_name == "Gemini":
-                gemini_messages = [{"parts": [{"text": system_prompt + "\n\nUser: " + prompt_clean}]}]
-                req_data = {"contents": gemini_messages}
-                http_req = urllib.request.Request(
-                    p_url,
-                    data=json.dumps(req_data).encode("utf-8"),
-                    headers={"Content-Type": "application/json"}
-                )
-                with urllib.request.urlopen(http_req, timeout=LLM_PROVIDER_TIMEOUT_SECONDS) as http_resp:
-                    resp_json = json.loads(http_resp.read().decode("utf-8"))
-                    reply = resp_json["candidates"][0]["content"]["parts"][0]["text"].strip()
-                    llm_source = p_name
+            if name == "Gemini":
+                data = {"contents": [{"parts": [{"text": system_prompt + "\n\nUser: " + prompt_clean}]}]}
+                headers = {"Content-Type": "application/json"}
             else:
-                continue
+                data = {"model": mdl, "messages": messages, "max_tokens": 800, "temperature": 0.7}
+                headers = {"Content-Type": "application/json", "Authorization": f"Bearer {key}"}
+                if name == "OpenRouter":
+                    headers.update({"HTTP-Referer": "https://sarembok.com", "X-Title": "Sarembok VE"})
+            req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers)
+            with urllib.request.urlopen(req, timeout=LLM_PROVIDER_TIMEOUT_SECONDS) as r:
+                payload = json.loads(r.read().decode("utf-8"))
+            reply = (payload["candidates"][0]["content"]["parts"][0]["text"] if name == "Gemini" else payload["choices"][0]["message"]["content"]).strip()
+            source = name
+            model = mdl
+            break
+        except Exception as exc:
+            LOG.warning("LLM provider %s failed; trying next: %s", name, exc)
 
-            _save_conversation(session_id, prompt_clean, reply)
-            store.event("sarembok-prime", "CHAT_RESPONSE", {"prompt": prompt_clean[:200], "model": p_model, "provider": p_name})
-            audio_text = reply[:300].replace("*", "").replace("`", "").replace("#", "")
-            return {"response": reply, "audioText": audio_text, "source": p_name, "action": None}
+    if reply is not None:
+        _save_conversation(session_id, prompt_clean, reply)
+        store.event("sarembok-prime", "CHAT_RESPONSE", {"prompt": prompt_clean[:200], "model": model, "provider": source})
+        return {"response": reply, "audioText": reply[:300].replace("*", "").replace("`", "").replace("#", ""), "source": source, "model": model, "action": None}
 
-        except Exception as e:
-            LOG.warning("LLM provider %s failed: %s", p_name, e)
-
-    # 7. No LLM available — honest fallback
-    reply = (
-        "I can't reach my language model right now. "
-        "I can still create agents, store memories, and manage tasks — "
-        "try commands like 'create an agent named Scout' or 'remember that the deployment uses port 9000'."
-    )
+    reply = "I can't reach a language model right now. The runtime has no responding provider available. Local runtime capabilities remain available."
     _save_conversation(session_id, prompt_clean, reply)
     return {"response": reply, "audioText": reply, "source": "offline", "action": None}
 
