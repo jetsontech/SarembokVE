@@ -32,6 +32,15 @@ _original_dispatch = cloud_server.dispatch
 _original_process_http_request = cloud_server.process_http_request
 
 
+def _authoritative_snapshot() -> dict:
+    cloud_server.evaluate_worker_liveness()
+    return runtime_authority_snapshot(
+        cloud_server.store,
+        cloud_server.PROVIDER_ROUTER,
+        cloud_server.STARTED,
+    )
+
+
 def _is_runtime_diagnostic(prompt: str) -> bool:
     text = prompt.lower()
     markers = (
@@ -48,19 +57,11 @@ def _is_runtime_diagnostic(prompt: str) -> bool:
 
 def dispatch(method: str, params: dict) -> dict:
     if method == "GetRuntimeInfo":
-        return runtime_authority_snapshot(
-            cloud_server.store,
-            cloud_server.PROVIDER_ROUTER,
-            cloud_server.STARTED,
-        )
+        return _authoritative_snapshot()
     if method in {"SarembokChat", "Chat", "SarembokDialogue"}:
         prompt = str(params.get("prompt") or params.get("message") or params.get("text") or "").strip()
         if _is_runtime_diagnostic(prompt):
-            diagnostic = runtime_authority_snapshot(
-                cloud_server.store,
-                cloud_server.PROVIDER_ROUTER,
-                cloud_server.STARTED,
-            )
+            diagnostic = _authoritative_snapshot()
             response = render_runtime_diagnostic(diagnostic)
             return {
                 **diagnostic,
