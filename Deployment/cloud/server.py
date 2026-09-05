@@ -22,6 +22,8 @@ import urllib.request
 import urllib.error
 import uuid
 
+from runtime_authority import snapshot as runtime_authority_snapshot
+from runtime_response_composer import build_runtime_context
 from provider_router import ProviderRouter
 from capability_registry import CapabilityRegistry
 from structured_response import build_structured_response
@@ -537,6 +539,18 @@ def require_agent(agent_id: str) -> None:
         raise ValueError(f"agent_not_found: {agent_id}")
 
 
+def _is_model_identity_query(prompt: str) -> bool:
+    markers = (
+        "what model is this",
+        "what model are you",
+        "what model do you use",
+        "what model is running",
+        "what model is active",
+        "what model are you running",
+    )
+    prompt_lower = prompt.lower()
+    return any(marker in prompt_lower for marker in markers)
+
 def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key: str | None = None, session_id: str = "default") -> dict[str, Any]:
     prompt_clean = (prompt or "").strip()
     prompt_lower = prompt_clean.lower()
@@ -591,21 +605,26 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
     # Reverse to chronological order
     conv_history = list(reversed(conv_rows))
 
-    system_context_parts = [
-        "You are Sarembok, an AI assistant running on the Sarembok VE platform.",
-        "You have access only to capabilities exposed by this runtime. Describe capabilities from actual runtime state; never invent tools or integrations.",
-        "Answer questions directly and honestly. If you don't know something, say so.",
-        "Do not claim capabilities you do not have. Provider/model details are implementation metadata, not your primary identity.",
-        "Never ask users to store passwords, API keys, private keys, access tokens, or other secrets in conversational memory. If a user provides a secret, do not repeat it; recommend secure secret storage.",
-        "",
-        f"System state: {worker_stats['onlineWorkers']} workers online, "
-        f"{len(agent_rows)} agents registered, {len(mem_rows)} memories stored.",
-    ]
-    if mem_rows:
-        system_context_parts.append("Stored memories: " + "; ".join(f"{r[0]}={r[1]}" for r in mem_rows[:5]))
-    if agent_rows:
-        system_context_parts.append("Active agents: " + ", ".join(f"{r[0]} ({r[1]})" for r in agent_rows))
+    # Runtime Authority is the source of truth for live Sarembok platform state.
+    # The dialogue engine supplies that authoritative state to the model.
+    # ProviderRouter remains responsible for provider/model selection and execution.
+    authority_snapshot = runtime_authority_snapshot(
+        store,
+        PROVIDER_ROUTER,
+        STARTED,
+    )
 
+    authoritative_context = build_runtime_context(authority_snapshot)
+
+    system_context_parts = [
+        authoritative_context,
+        "",
+        "You are Sarembok, an AI assistant running on the Sarembok VE platform.",
+        "Answer questions directly and honestly. If you don't know something, say so.",
+        "Do not claim capabilities that are not exposed by the current runtime.",
+        "Provider/model details describe the execution route for a response; they do not define Sarembok's identity.",
+        "Never ask users to store passwords, API keys, private keys, access tokens, or other secrets in conversational memory. If a user provides a secret, do not repeat it; recommend secure secret storage.",
+    ]
     system_prompt = "\n".join(system_context_parts)
 
     # 5. Build message list with real conversation history
@@ -615,25 +634,6 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
             messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": prompt_clean})
 
-    # 6. Try configured LLM providers in deterministic fallback order.
-    providers = []
-    openai_key = os.getenv("OPENAI_API_KEY") or (api_key if (api_key or "").startswith("sk-") else None)
-    if openai_key and len(openai_key) > 20:
-        providers.append(("OpenAI", "https://api.openai.com/v1/chat/completions", openai_key, os.getenv("OPENAI_MODEL", "gpt-4o")))
-    openrouter_key = os.getenv("OPENROUTER_API_KEY")
-    if openrouter_key:
-        providers.append(("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", openrouter_key, os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b")))
-    groq_key = os.getenv("GROQ_API_KEY")
-    if groq_key:
-        providers.append(("Groq", "https://api.groq.com/openai/v1/chat/completions", groq_key, os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")))
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    if gemini_key:
-        gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-        providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent", gemini_key, gemini_model))
-    custom_url = os.getenv("LLM_ENDPOINT_URL")
-    if custom_url:
-        providers.append(("Custom", custom_url, os.getenv("LLM_API_KEY", "dummy"), os.getenv("LLM_MODEL", "llama-3.1-8b")))
-
     reply = None
     source = None
     model = None
@@ -642,12 +642,19 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
     provider_usage = {}
     try:
         provider_result = PROVIDER_ROUTER.generate(system_prompt, prompt_clean, messages)
-        reply = provider_result.text
         source = provider_result.provider
         model = provider_result.model
         provider_latency_ms = provider_result.latency_ms
         provider_api = provider_result.api
         provider_usage = provider_result.usage
+
+        if _is_model_identity_query(prompt_clean):
+            reply = (
+                f"This response is being generated by **{source}** "
+                f"using **{model}** via **{provider_api}**."
+            )
+        else:
+            reply = provider_result.text
     except Exception as exc:
         LOG.warning("LLM provider fabric failed: %s", exc)
 
@@ -1980,6 +1987,14 @@ async def handler(websocket) -> None:
         LOG.info("connection_close peer=%s", peer)
 
 
+def process_http_response(connection: Any, request: Any, response: Any) -> Any:
+    path = getattr(request, "path", "") or ""
+    if path == "/session":
+        response.headers["Content-Type"] = "application/json; charset=utf-8"
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 async def process_http_request(connection: Any, request: Any) -> Any:
     # If the request is a WebSocket upgrade attempt, return None to continue handshake
     headers = getattr(request, "headers", {})
@@ -2000,15 +2015,16 @@ async def process_http_request(connection: Any, request: Any) -> Any:
             "scope": sorted(BROWSER_ALLOWED_METHODS),
         }, separators=(",", ":"))
         if hasattr(connection, "respond"):
-            resp = connection.respond(200, body)
-            try:
-                del resp.headers["Content-Type"]
-            except Exception:
-                pass
-            resp.headers["Content-Type"] = "application/json; charset=utf-8"
-            resp.headers["Cache-Control"] = "no-store"
-            return resp
-        return (200, [("Content-Type", "application/json; charset=utf-8"), ("Cache-Control", "no-store")], body.encode("utf-8"))
+            return connection.respond(200, body)
+        return (
+            200,
+            [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Cache-Control", "no-store"),
+                ("Content-Length", str(len(body.encode("utf-8")))),
+            ],
+            body.encode("utf-8"),
+        )
     if path in ("/", "/index.html"):
         base_dir = os.path.dirname(os.path.abspath(__file__))
         candidates = [
@@ -2078,6 +2094,7 @@ async def serve() -> None:
             close_timeout=5,
             compression=None,
             process_request=process_http_request,
+            process_response=process_http_response,
         ) as server:
             LOG.info("listening address=0.0.0.0:%s", PORT)
             await get_stop_event().wait()

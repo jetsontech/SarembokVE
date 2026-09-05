@@ -9,7 +9,7 @@ import urllib.request
 import websockets
 
 HOST = __import__('os').environ.get('SAREMBOK_PROBE_HOST', 'https://sarembok.com').rstrip('/')
-WS = HOST.replace('https://', 'wss://').replace('http://', 'ws://')
+WS = HOST.replace('https://', 'wss://').replace('http://', 'ws://') + '/ws'
 PROMPT = __import__('os').environ.get('SAREMBOK_PROBE_PROMPT', 'Respond with exactly: SAREMBOK LATENCY PROBE OK')
 SAMPLES = max(1, int(__import__('os').environ.get('SAREMBOK_PROBE_SAMPLES', '3')))
 UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0 Safari/537.36'
@@ -26,7 +26,7 @@ async def one(token, i):
     async with websockets.connect(WS, open_timeout=15, close_timeout=5, ping_interval=20, ping_timeout=20, compression=None) as ws:
         connected = (time.perf_counter() - started) * 1000
         request_id = f'probe-{i}'
-        payload = {'jsonrpc': '2.0', 'id': request_id, 'method': 'SarembokChat', 'params': {'sessionToken': token, 'prompt': PROMPT, 'sessionId': f'latency-probe-{i}', 'stream': True}}
+        payload = {'jsonrpc': '2.0', 'id': request_id, 'method': 'SarembokChat', 'params': {'sessionToken': token, 'message': PROMPT, 'sessionId': f'latency-probe-{i}', 'stream': True}}
         await ws.send(json.dumps(payload, separators=(',', ':')))
         first_delta_ms = None
         text_parts = []

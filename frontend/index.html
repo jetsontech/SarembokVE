@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAREMBOK · VIRTUAL EVOLUTION</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
     <style>
         :root {
             --bg-void: #000000;
@@ -28,10 +30,10 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            user-select: none;
         }
 
-        body, html {
+        html,
+        body {
             width: 100%;
             height: 100%;
             overflow: hidden;
@@ -41,7 +43,15 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Screen Container */
+        button,
+        .btn-action,
+        .dock-pill,
+        .nav-arrow,
+        .srbk-copy {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
         .stage-viewport {
             position: absolute;
             inset: 0;
@@ -49,11 +59,16 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background: radial-gradient(circle at 50% 45%, rgba(0, 240, 255, 0.03) 0%, transparent 65%), #000000;
+            background:
+                radial-gradient(
+                    circle at 50% 45%,
+                    rgba(0, 240, 255, 0.03) 0%,
+                    transparent 65%
+                ),
+                #000000;
             z-index: 2;
         }
 
-        /* Views */
         .view-panel {
             display: none;
             width: 100%;
@@ -69,11 +84,19 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
-        /* ==================== SCREEN 1: BOOT (EXACT SCREENSHOT) ==================== */
+        /* ==================== BOOT ==================== */
+
         #view-boot {
             justify-content: center;
             align-items: center;
@@ -86,7 +109,7 @@
             letter-spacing: clamp(14px, 2.5vw, 32px);
             color: #ffffff;
             text-transform: uppercase;
-            margin-right: calc(-1 * clamp(14px, 2.5vw, 32px)); /* offset letter spacing */
+            margin-right: calc(-1 * clamp(14px, 2.5vw, 32px));
             text-shadow: 0 0 40px rgba(255, 255, 255, 0.15);
         }
 
@@ -122,11 +145,17 @@
         }
 
         @keyframes laserScan {
-            0% { left: -40%; }
-            100% { left: 100%; }
+            0% {
+                left: -40%;
+            }
+
+            100% {
+                left: 100%;
+            }
         }
 
-        /* ==================== DESKTOP & OTHER VIEWS ==================== */
+        /* ==================== CONTENT ==================== */
+
         .content-header {
             display: flex;
             justify-content: space-between;
@@ -202,7 +231,20 @@
             color: var(--text-secondary);
         }
 
-        /* Interactive Console in Desktop */
+        .text-cyan {
+            color: var(--cyan);
+        }
+
+        .text-emerald {
+            color: var(--emerald);
+        }
+
+        .mono {
+            font-family: var(--font-mono);
+        }
+
+        /* ==================== INTERACTIVE CONSOLE ==================== */
+
         .interactive-deck {
             display: flex;
             flex-direction: column;
@@ -215,11 +257,21 @@
         }
 
         .dialogue-history {
-            max-height: 220px;
+            max-height: 420px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 14px;
+            padding-right: 4px;
+        }
+
+        .dialogue-history::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .dialogue-history::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 6px;
         }
 
         .input-bar {
@@ -238,6 +290,7 @@
             font-size: 14px;
             outline: none;
             user-select: text;
+            -webkit-user-select: text;
         }
 
         .text-input:focus {
@@ -256,7 +309,207 @@
             letter-spacing: 0.5px;
         }
 
-        /* ==================== BOTTOM FLOATING NAV DOCK (EXACT SCREENSHOT) ==================== */
+        .btn-action:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ==================== RESPONSE UI ==================== */
+
+        .srbk-bubble {
+            color: var(--text-secondary);
+            line-height: 1.65;
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
+        .srbk-content {
+            margin-top: 8px;
+            color: var(--text-secondary);
+            cursor: text;
+            overflow-wrap: anywhere;
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
+        .srbk-content * {
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
+        .srbk-content h1,
+        .srbk-content h2,
+        .srbk-content h3 {
+            color: #ffffff;
+            font-weight: 500;
+            line-height: 1.3;
+            margin: 18px 0 10px;
+        }
+
+        .srbk-content h1 {
+            font-size: 22px;
+        }
+
+        .srbk-content h2 {
+            font-size: 19px;
+        }
+
+        .srbk-content h3 {
+            font-size: 16px;
+        }
+
+        .srbk-content p {
+            margin: 8px 0;
+        }
+
+        .srbk-content strong {
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .srbk-content em {
+            color: #dbeafe;
+        }
+
+        .srbk-content a {
+            color: var(--cyan);
+            text-decoration: underline;
+        }
+
+        .srbk-content ul,
+        .srbk-content ol {
+            margin: 10px 0 10px 22px;
+        }
+
+        .srbk-content li {
+            margin: 5px 0;
+        }
+
+        .srbk-content blockquote {
+            margin: 12px 0;
+            padding: 10px 14px;
+            border-left: 3px solid var(--cyan);
+            background: rgba(0, 240, 255, 0.04);
+            color: var(--text-secondary);
+        }
+
+        .srbk-content hr {
+            border: 0;
+            border-top: 1px solid var(--border-subtle);
+            margin: 18px 0;
+        }
+
+        .srbk-inline-code {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #e2e8f0;
+            font-family: var(--font-mono);
+            font-size: 0.9em;
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
+        .srbk-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            margin: 12px 0;
+        }
+
+        .srbk-table-wrap table {
+            width: 100%;
+            min-width: 520px;
+            border-collapse: collapse;
+        }
+
+        .srbk-table-wrap th,
+        .srbk-table-wrap td {
+            padding: 9px 11px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            vertical-align: top;
+            text-align: left;
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
+        .srbk-table-wrap th {
+            color: #ffffff;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .srbk-table-wrap td {
+            color: var(--text-secondary);
+        }
+
+        .srbk-code-block {
+            margin: 14px 0;
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.45);
+        }
+
+        .srbk-code-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 7px 10px;
+            border-bottom: 1px solid var(--border-glass);
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .srbk-copy {
+            padding: 5px 9px;
+            border: 1px solid var(--border-glass);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-family: var(--font-sans);
+            font-size: 11px;
+        }
+
+        .srbk-copy:hover {
+            border-color: var(--cyan);
+            color: var(--cyan);
+        }
+
+        .srbk-code-block pre {
+            margin: 0;
+            padding: 14px;
+            overflow-x: auto;
+            white-space: pre;
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
+        .srbk-code-block code {
+            color: #e2e8f0;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            line-height: 1.6;
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
+        .srbk-streaming {
+            opacity: 0.95;
+        }
+
+        .srbk-thinking {
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-size: 12px;
+        }
+
+        /* ==================== NAVIGATION ==================== */
+
         .nav-dock-container {
             position: absolute;
             bottom: 24px;
@@ -277,11 +530,14 @@
             overflow-x: auto;
         }
 
-        .nav-dock-container::-webkit-scrollbar { display: none; }
+        .nav-dock-container::-webkit-scrollbar {
+            display: none;
+        }
 
         .nav-arrow {
             width: 28px;
             height: 28px;
+            flex: 0 0 auto;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -311,6 +567,7 @@
             transition: all 0.2s ease;
             white-space: nowrap;
             border: 1px solid transparent;
+            background: transparent;
         }
 
         .dock-pill:hover {
@@ -324,394 +581,1602 @@
             box-shadow: 0 0 16px rgba(0, 240, 255, 0.2);
         }
 
-        .mono { font-family: var(--font-mono); }
+        /* ==================== RESPONSIVE ==================== */
+
+        @media (max-width: 800px) {
+            .view-panel {
+                padding: 28px 20px 100px;
+            }
+
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+
+            .grid-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .content-header {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .input-bar {
+                flex-direction: column;
+            }
+
+            .btn-action {
+                width: 100%;
+            }
+        }
     </style>
 </head>
+
 <body>
 
     <div class="stage-viewport">
-        
-        <!-- 1. BOOT (Exact Screenshot Landing) -->
+
+        <!-- ==================== 1. BOOT ==================== -->
+
         <section class="view-panel active" id="view-boot">
             <div class="boot-hero-title">SAREMBOK</div>
             <div class="boot-subtitle">VIRTUAL EVOLUTION · INITIALIZING</div>
+
             <div class="boot-loader-bar">
                 <div class="boot-loader-progress"></div>
             </div>
         </section>
 
-        <!-- 2. DESKTOP (Operating Environment & Live AI) -->
+        <!-- ==================== 2. DESKTOP ==================== -->
+
         <section class="view-panel" id="view-desktop">
+
             <div class="content-header">
                 <div>
                     <div class="content-eyebrow">Frontier OS</div>
                     <div class="content-title">Computing Environment</div>
                 </div>
-                <div class="card-label" style="color:var(--emerald);">● RUNTIME CONNECTED</div>
+
+                <div class="card-label" style="color:var(--emerald);">
+                    ● RUNTIME LOADING
+                </div>
             </div>
 
             <div class="grid-3">
+
                 <div class="glass-card">
                     <div class="card-label">Persistent Memory</div>
-                    <div class="card-val text-cyan" id="metric-mem">SQLite-WAL</div>
-                    <div class="card-desc">Continuous context reconciled across turns without data loss.</div>
-                </div>
-                <div class="glass-card">
-                    <div class="card-label">Active Agents</div>
-                    <div class="card-val" id="metric-agents">ARIA + 4 Workers</div>
-                    <div class="card-desc">Multi-agent task decomposition and distributed scheduler.</div>
-                </div>
-                <div class="glass-card">
-                    <div class="card-label">Compute Target</div>
-                    <div class="card-val text-emerald">sarembok.com</div>
-                    <div class="card-desc">Zero client dependencies. 100% cloud-hosted edge runtime.</div>
-                </div>
-            </div>
-
-            <!-- Dialogue & Execution Console -->
-            <div class="interactive-deck">
-                <div class="card-label">ARIA · SOVEREIGN DIALOGUE & SYNTHESIS</div>
-                <div class="dialogue-history" id="dialogue-history">
-                    <div style="color:var(--text-secondary); font-size:14px; line-height:1.6;">
-                        <strong style="color:var(--cyan);">ARIA:</strong> System initialized. Ready to execute code synthesis, multi-agent pipelines, memory recall, or research directives.
+                    <div class="card-val text-cyan" id="metric-mem">
+                        Loading…
+                    </div>
+                    <div class="card-desc">
+                        Live persistent-memory state reported by Runtime Authority.
                     </div>
                 </div>
-                <div class="input-bar">
-                    <input type="text" class="text-input" id="directive-input" placeholder="Instruct Sarembok to synthesize, orchestrate, or execute..." onkeydown="if(event.key==='Enter')sendDirective()">
-                    <button class="btn-action" onclick="sendDirective()">Execute</button>
+
+                <div class="glass-card">
+                    <div class="card-label">Active Agents</div>
+                    <div class="card-val" id="metric-agents">
+                        Loading…
+                    </div>
+                    <div class="card-desc">
+                        Live agent and worker state reported by Runtime Authority.
+                    </div>
                 </div>
+
+                                <div class="glass-card">
+                    <div class="card-label">Runtime Endpoint</div>
+                    <div class="card-val text-emerald">
+                        sarembok.com
+                    </div>
+
+                    <div class="card-label" style="margin-top:12px;">Compute</div>
+                    <div class="card-val text-cyan" id="metric-compute">
+                        Loading…
+                    </div>
+
+                    <div class="card-desc">
+                        Endpoint and live compute state reported by Runtime Authority.
+                    </div>
+                </div>
+
             </div>
+
+
+            <!-- Dialogue & Execution Console -->
+
+            <div class="interactive-deck">
+
+                <div class="card-label">
+                    Sarembok · SOVEREIGN DIALOGUE & SYNTHESIS
+                </div>
+
+                <div class="dialogue-history" id="dialogue-history">
+
+                    <div class="srbk-bubble">
+                        <strong style="color:var(--cyan);">
+                            Sarembok:
+                        </strong>
+
+                        <div class="srbk-content">
+                            System initialized. Ready to execute code synthesis,
+                            multi-agent pipelines, memory recall, or research directives.
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="input-bar">
+
+                    <input
+                        type="text"
+                        class="text-input"
+                        id="directive-input"
+                        placeholder="Instruct Sarembok to synthesize, orchestrate, or execute..."
+                        autocomplete="off"
+                        onkeydown="if(event.key==='Enter')sendDirective()"
+                    >
+
+                    <button
+                        class="btn-action"
+                        id="execute-button"
+                        type="button"
+                        onclick="sendDirective()"
+                    >
+                        Execute
+                    </button>
+
+                </div>
+
+            </div>
+
         </section>
 
-        <!-- 3. PLANNING -->
+        <!-- ==================== 3. PLANNING ==================== -->
+
         <section class="view-panel" id="view-planning">
+
             <div class="content-header">
                 <div>
                     <div class="content-eyebrow">Autonomy</div>
                     <div class="content-title">Long-Horizon Planning</div>
                 </div>
             </div>
+
             <div class="grid-2">
+
                 <div class="glass-card">
                     <div class="card-label">Task Graph Decomposition</div>
-                    <div class="card-desc" style="font-family:var(--font-mono); font-size:13px; line-height:2;">
+
+                    <div
+                        class="card-desc"
+                        style="font-family:var(--font-mono);font-size:13px;line-height:2;"
+                    >
                         [01] Analyze architectural boundary & dependencies<br>
                         [02] Compile clean HTTP / JSON-RPC edge gateway<br>
                         [03] Attach distributed GPU compute nodes<br>
                         [04] Reconcile persistent WAL state & checkpoints
                     </div>
                 </div>
+
                 <div class="glass-card">
-                    <div class="card-label">State Checkpoints</div>
-                    <div class="card-val text-cyan">Checkpoint #0843</div>
-                    <div class="card-desc">Verified state snapshot saved to SQLite-WAL journal. Zero data loss guarantee.</div>
+                    <div class="card-label">Runtime State</div>
+
+                    <div class="card-val text-cyan">
+                        Loading…
+                    </div>
+
+                    <div class="card-desc">
+                        Live scheduler state reported by Runtime Authority.
+                    </div>
                 </div>
+
             </div>
+
         </section>
 
-        <!-- 4. AGENTS -->
+        <!-- ==================== 4. AGENTS ==================== -->
+
         <section class="view-panel" id="view-agents">
+
             <div class="content-header">
                 <div>
                     <div class="content-eyebrow">Orchestration</div>
                     <div class="content-title">Multi-Agent Swarm Fleet</div>
                 </div>
             </div>
+
             <div class="grid-3">
+
                 <div class="glass-card">
-                    <div class="card-label">ARIA</div>
-                    <div class="card-val text-cyan">Digital Human · Core</div>
-                    <div class="card-desc">Natural language reasoning, voice interaction, and goal dispatch.</div>
+                    <div class="card-label">Sarembok</div>
+                    <div class="card-val text-cyan">
+                        Digital Human · Core
+                    </div>
+                    <div class="card-desc">
+                        Natural language reasoning, voice interaction, and goal dispatch.
+                    </div>
                 </div>
+
                 <div class="glass-card">
                     <div class="card-label">Developer</div>
-                    <div class="card-val">Synthesis Agent</div>
-                    <div class="card-desc">Autonomous code generation, refactoring, and test suite execution.</div>
+                    <div class="card-val">
+                        Synthesis Agent
+                    </div>
+                    <div class="card-desc">
+                        Autonomous code generation, refactoring, and test suite execution.
+                    </div>
                 </div>
+
                 <div class="glass-card">
                     <div class="card-label">Research</div>
-                    <div class="card-val">Analysis Agent</div>
-                    <div class="card-desc">Semantic document ingestion, scientific literature review, and RAG.</div>
+                    <div class="card-val">
+                        Analysis Agent
+                    </div>
+                    <div class="card-desc">
+                        Semantic document ingestion, scientific literature review, and RAG.
+                    </div>
                 </div>
+
             </div>
+
         </section>
 
-        <!-- 5. VISION -->
+        <!-- ==================== 5. VISION ==================== -->
+
         <section class="view-panel" id="view-vision">
+
             <div class="content-header">
                 <div>
                     <div class="content-eyebrow">Perception</div>
                     <div class="content-title">Neural Computer Vision</div>
                 </div>
             </div>
+
             <div class="glass-card">
-                <div class="card-label">Multi-Modal Frame Perception</div>
-                <div class="card-desc">Integrated OpenCV and computer vision pipeline for graphical UI inspection, OCR, and live spatial reasoning.</div>
+                <div class="card-label">
+                    Multi-Modal Frame Perception
+                </div>
+
+                <div class="card-desc">
+                    Integrated OpenCV and computer vision pipeline for graphical UI
+                    inspection, OCR, and live spatial reasoning.
+                </div>
             </div>
+
         </section>
 
-        <!-- 6. ENGINEERING -->
+        <!-- ==================== 6. ENGINEERING ==================== -->
+
         <section class="view-panel" id="view-engineering">
+
             <div class="content-header">
                 <div>
                     <div class="content-eyebrow">Synthesis</div>
-                    <div class="content-title">Autonomous Software Engineering</div>
+                    <div class="content-title">
+                        Autonomous Software Engineering
+                    </div>
                 </div>
             </div>
+
             <div class="glass-card">
-                <div class="card-label">Distributed Compilation Engine</div>
-                <div class="card-desc">Translates high-level specifications directly into validated, test-covered microservices, APIs, and frontends.</div>
+
+                <div class="card-label">
+                    Distributed Compilation Engine
+                </div>
+
+                <div class="card-desc">
+                    Translates high-level specifications directly into validated,
+                    test-covered microservices, APIs, and frontends.
+                </div>
+
             </div>
+
         </section>
 
-        <!-- 7. RESILIENCE -->
+        <!-- ==================== 7. RESILIENCE ==================== -->
+
         <section class="view-panel" id="view-resilience">
+
             <div class="content-header">
                 <div>
                     <div class="content-eyebrow">Fault Tolerance</div>
-                    <div class="content-title">Self-Healing & Auto-Recovery</div>
+                    <div class="content-title">
+                        Self-Healing & Auto-Recovery
+                    </div>
                 </div>
             </div>
+
             <div class="grid-2">
+
                 <div class="glass-card">
                     <div class="card-label">Heartbeat Monitor</div>
-                    <div class="card-val text-emerald">Active · 15s interval</div>
-                    <div class="card-desc">Automatic node eviction and task migration upon worker disconnect.</div>
+
+                    <div class="card-val text-emerald">
+                        Active · 15s interval
+                    </div>
+
+                    <div class="card-desc">
+                        Automatic node eviction and task migration upon worker disconnect.
+                    </div>
                 </div>
+
                 <div class="glass-card">
                     <div class="card-label">Database WAL Mode</div>
-                    <div class="card-val text-cyan">PRAGMA WAL Active</div>
-                    <div class="card-desc">Atomic transactions with zero lock contention across concurrent clients.</div>
+
+                    <div class="card-val text-cyan">
+                        PRAGMA WAL Active
+                    </div>
+
+                    <div class="card-desc">
+                        Atomic transactions with zero lock contention across concurrent clients.
+                    </div>
                 </div>
+
             </div>
+
         </section>
 
-        <!-- 8. GOVERNANCE -->
+        <!-- ==================== 8. GOVERNANCE ==================== -->
+
         <section class="view-panel" id="view-governance">
+
             <div class="content-header">
                 <div>
                     <div class="content-eyebrow">Enterprise</div>
-                    <div class="content-title">Policy & Audit Governance</div>
+                    <div class="content-title">
+                        Policy & Audit Governance
+                    </div>
                 </div>
             </div>
+
             <div class="glass-card">
-                <div class="card-label">Action Approval Ledger</div>
-                <div class="card-desc">Production deployments and irreversible operations require explicit cryptographic approval.</div>
+
+                <div class="card-label">
+                    Action Approval Ledger
+                </div>
+
+                <div class="card-desc">
+                    Production deployments and irreversible operations require
+                    explicit cryptographic approval.
+                </div>
+
             </div>
+
         </section>
 
-        <!-- 9. MOBILE -->
+        <!-- ==================== 9. MOBILE ==================== -->
+
         <section class="view-panel" id="view-mobile">
+
             <div class="content-header">
                 <div>
                     <div class="content-eyebrow">Continuity</div>
-                    <div class="content-title">Every Device, Same State</div>
+                    <div class="content-title">
+                        Every Device, Same State
+                    </div>
                 </div>
             </div>
+
             <div class="glass-card">
-                <div class="card-desc">Leave your workstation. The exact same memory, active projects, agents, and conversational state resume instantly on mobile.</div>
+
+                <div class="card-desc">
+                    Leave your workstation. The exact same memory, active projects,
+                    agents, and conversational state resume instantly on mobile.
+                </div>
+
             </div>
+
         </section>
 
-        <!-- 10. ARCHITECTURE -->
+        <!-- ==================== 10. ARCHITECTURE ==================== -->
+
         <section class="view-panel" id="view-architecture">
+
             <div class="content-header">
                 <div>
                     <div class="content-eyebrow">Topology</div>
-                    <div class="content-title">Sarembok VE 6-Layer Architecture</div>
+                    <div class="content-title">
+                        Sarembok VE 6-Layer Architecture
+                    </div>
                 </div>
             </div>
+
             <div class="grid-3">
-                <div class="glass-card"><div class="card-label">Layer 1</div><strong>MetaHuman / ARIA</strong><div class="card-desc">Voice, face, and multimodal embodiment.</div></div>
-                <div class="glass-card"><div class="card-label">Layer 2</div><strong>AI-Native GUI</strong><div class="card-desc">Desktop, mobile, and browser clients.</div></div>
-                <div class="glass-card"><div class="card-label">Layer 3</div><strong>Multi-Agent Core</strong><div class="card-desc">Reasoning, planning, and task scheduling.</div></div>
-                <div class="glass-card"><div class="card-label">Layer 4</div><strong>Persistent Memory</strong><div class="card-desc">SQLite-WAL, RAG, and state checkpoints.</div></div>
-                <div class="glass-card"><div class="card-label">Layer 5</div><strong>Autonomous Engineering</strong><div class="card-desc">Code generation, sandboxing, and testing.</div></div>
-                <div class="glass-card"><div class="card-label">Layer 6</div><strong>Cloud Runtime</strong><div class="card-desc">Distributed GPU workers and security boundary.</div></div>
+
+                <div class="glass-card">
+                    <div class="card-label">Layer 1</div>
+                    <strong>MetaHuman / Sarembok</strong>
+                    <div class="card-desc">
+                        Voice, face, and multimodal embodiment.
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <div class="card-label">Layer 2</div>
+                    <strong>AI-Native GUI</strong>
+                    <div class="card-desc">
+                        Desktop, mobile, and browser clients.
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <div class="card-label">Layer 3</div>
+                    <strong>Multi-Agent Core</strong>
+                    <div class="card-desc">
+                        Reasoning, planning, and task scheduling.
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <div class="card-label">Layer 4</div>
+                    <strong>Persistent Memory</strong>
+                    <div class="card-desc">
+                        SQLite-WAL, RAG, and state checkpoints.
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <div class="card-label">Layer 5</div>
+                    <strong>Autonomous Engineering</strong>
+                    <div class="card-desc">
+                        Code generation, sandboxing, and testing.
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <div class="card-label">Layer 6</div>
+                    <strong>Cloud Runtime</strong>
+                    <div class="card-desc">
+                        Distributed GPU workers and security boundary.
+                    </div>
+                </div>
+
             </div>
+
         </section>
 
-        <!-- 11. MANIFESTO -->
+        <!-- ==================== 11. MANIFESTO ==================== -->
+
         <section class="view-panel" id="view-manifesto">
+
             <div class="content-header">
                 <div>
                     <div class="content-eyebrow">Vision</div>
-                    <div class="content-title">The Frontier Manifesto</div>
+                    <div class="content-title">
+                        The Frontier Manifesto
+                    </div>
                 </div>
             </div>
-            <div class="glass-card" style="max-width:800px; line-height:1.8; font-size:16px;">
-                <p style="color:#ffffff; font-size:22px; font-weight:300; margin-bottom:14px;">An AI-native computing platform.</p>
-                <p style="color:var(--text-secondary); margin-bottom:12px;">Not an AI inside your computer.</p>
-                <p style="color:var(--cyan); font-weight:500; font-size:18px;">A computer built around intelligence.</p>
+
+            <div
+                class="glass-card"
+                style="max-width:800px;line-height:1.8;font-size:16px;"
+            >
+                <p
+                    style="color:#ffffff;font-size:22px;font-weight:300;margin-bottom:14px;"
+                >
+                    An AI-native computing platform.
+                </p>
+
+                <p
+                    style="color:var(--text-secondary);margin-bottom:12px;"
+                >
+                    Not an AI inside your computer.
+                </p>
+
+                <p
+                    style="color:var(--cyan);font-weight:500;font-size:18px;"
+                >
+                    A computer built around intelligence.
+                </p>
             </div>
+
         </section>
 
     </div>
 
-    <!-- Exact Floating Pill Dock (From Screenshot) -->
+    <!-- ==================== NAVIGATION DOCK ==================== -->
+
     <div class="nav-dock-container">
-        <button class="nav-arrow" onclick="navStep(-1)">‹</button>
-        <button class="dock-pill active" onclick="switchTab('boot')">BOOT</button>
-        <button class="dock-pill" onclick="switchTab('desktop')">DESKTOP</button>
-        <button class="dock-pill" onclick="switchTab('planning')">PLANNING</button>
-        <button class="dock-pill" onclick="switchTab('agents')">AGENTS</button>
-        <button class="dock-pill" onclick="switchTab('vision')">VISION</button>
-        <button class="dock-pill" onclick="switchTab('engineering')">ENGINEERING</button>
-        <button class="dock-pill" onclick="switchTab('resilience')">RESILIENCE</button>
-        <button class="dock-pill" onclick="switchTab('governance')">GOVERNANCE</button>
-        <button class="dock-pill" onclick="switchTab('mobile')">MOBILE</button>
-        <button class="dock-pill" onclick="switchTab('architecture')">ARCHITECTURE</button>
-        <button class="dock-pill" onclick="switchTab('manifesto')">MANIFESTO</button>
-        <button class="nav-arrow" onclick="navStep(1)">›</button>
+
+        <button
+            class="nav-arrow"
+            type="button"
+            aria-label="Previous view"
+            onclick="navStep(-1)"
+        >
+            ‹
+        </button>
+
+        <button class="dock-pill active" type="button" onclick="switchTab('boot')">
+            BOOT
+        </button>
+
+        <button class="dock-pill" type="button" onclick="switchTab('desktop')">
+            DESKTOP
+        </button>
+
+        <button class="dock-pill" type="button" onclick="switchTab('planning')">
+            PLANNING
+        </button>
+
+        <button class="dock-pill" type="button" onclick="switchTab('agents')">
+            AGENTS
+        </button>
+
+        <button class="dock-pill" type="button" onclick="switchTab('vision')">
+            VISION
+        </button>
+
+        <button class="dock-pill" type="button" onclick="switchTab('engineering')">
+            ENGINEERING
+        </button>
+
+        <button class="dock-pill" type="button" onclick="switchTab('resilience')">
+            RESILIENCE
+        </button>
+
+        <button class="dock-pill" type="button" onclick="switchTab('governance')">
+            GOVERNANCE
+        </button>
+
+        <button class="dock-pill" type="button" onclick="switchTab('mobile')">
+            MOBILE
+        </button>
+
+        <button class="dock-pill" type="button" onclick="switchTab('architecture')">
+            ARCHITECTURE
+        </button>
+
+        <button class="dock-pill" type="button" onclick="switchTab('manifesto')">
+            MANIFESTO
+        </button>
+
+        <button
+            class="nav-arrow"
+            type="button"
+            aria-label="Next view"
+            onclick="navStep(1)"
+        >
+            ›
+        </button>
+
     </div>
 
     <script>
-        const tabs = ['boot', 'desktop', 'planning', 'agents', 'vision', 'engineering', 'resilience', 'governance', 'mobile', 'architecture', 'manifesto'];
+        /* ============================================================
+           SAREMBOK VE FRONTEND RUNTIME
+           ============================================================ */
+
+        const tabs = [
+            "boot",
+            "desktop",
+            "planning",
+            "agents",
+            "vision",
+            "engineering",
+            "resilience",
+            "governance",
+            "mobile",
+            "architecture",
+            "manifesto"
+        ];
+
         let currentTabIndex = 0;
 
         function switchTab(name) {
             const idx = tabs.indexOf(name);
-            if (idx !== -1) currentTabIndex = idx;
 
-            document.querySelectorAll('.view-panel').forEach(p => {
-                p.classList.toggle('active', p.id === 'view-' + name);
+            if (idx !== -1) {
+                currentTabIndex = idx;
+            }
+
+            document.querySelectorAll(".view-panel").forEach(panel => {
+                panel.classList.toggle(
+                    "active",
+                    panel.id === "view-" + name
+                );
             });
 
-            document.querySelectorAll('.dock-pill').forEach(b => {
-                b.classList.toggle('active', b.textContent.trim().toLowerCase() === name);
+            document.querySelectorAll(".dock-pill").forEach(button => {
+                button.classList.toggle(
+                    "active",
+                    button.textContent.trim().toLowerCase() === name
+                );
             });
         }
 
-        function navStep(dir) {
-            currentTabIndex = (currentTabIndex + dir + tabs.length) % tabs.length;
+        function navStep(direction) {
+            currentTabIndex =
+                (currentTabIndex + direction + tabs.length) % tabs.length;
+
             switchTab(tabs[currentTabIndex]);
         }
 
-        // Live WebSocket Runtime RPC
+        /* ============================================================
+           HTML ESCAPING
+           ============================================================ */
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        /* ============================================================
+           MARKDOWN RENDERER
+           ============================================================ */
+
+        function renderInlineMarkdown(value) {
+            let text = escapeHtml(value);
+
+            text = text.replace(
+                /`([^`]+)`/g,
+                '<code class="srbk-inline-code">$1</code>'
+            );
+
+            text = text.replace(
+                /\*\*([^*]+)\*\*/g,
+                "<strong>$1</strong>"
+            );
+
+            text = text.replace(
+                /__([^_]+)__/g,
+                "<strong>$1</strong>"
+            );
+
+            text = text.replace(
+                /(^|[^\*])\*([^*]+)\*(?!\*)/g,
+                "$1<em>$2</em>"
+            );
+
+            text = text.replace(
+                /(^|[^_])_([^_]+)_(?!_)/g,
+                "$1<em>$2</em>"
+            );
+
+            text = text.replace(
+                /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
+                '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+            );
+
+            text = text.replace(
+                /&lt;br\s*\/?&gt;/gi,
+                "<br>"
+            );
+
+            return text;
+        }
+
+        function renderCodeBlock(code, language, complete) {
+            const lang = language
+                ? escapeHtml(language.trim())
+                : "";
+
+            return `
+                <div class="srbk-code-block ${complete ? "complete" : "streaming"}">
+                    <div class="srbk-code-head">
+                        <span>${lang || "code"}</span>
+
+                        ${
+                            complete
+                                ? '<button class="srbk-copy" type="button" onclick="copySarembokCode(this)">Copy</button>'
+                                : ""
+                        }
+                    </div>
+
+                    <pre><code>${escapeHtml(code)}</code></pre>
+                </div>
+            `;
+        }
+
+        function renderTable(lines) {
+            const normalized = lines
+                .map(line => line.trim())
+                .filter(Boolean);
+
+            if (normalized.length < 2) {
+                return "";
+            }
+
+            const separatorPattern =
+                /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/;
+
+            const headerLine = normalized[0];
+            const separatorLine = normalized[1];
+
+            if (!separatorPattern.test(separatorLine)) {
+                return "";
+            }
+
+            function cells(row) {
+                let value = row.trim();
+
+                if (value.startsWith("|")) {
+                    value = value.slice(1);
+                }
+
+                if (value.endsWith("|")) {
+                    value = value.slice(0, -1);
+                }
+
+                return value
+                    .split("|")
+                    .map(cell => cell.trim());
+            }
+
+            const header = cells(headerLine);
+
+            let html =
+                '<div class="srbk-table-wrap">' +
+                "<table>" +
+                "<thead><tr>";
+
+            for (const cell of header) {
+                html += `<th>${renderInlineMarkdown(cell)}</th>`;
+            }
+
+            html += "</tr></thead><tbody>";
+
+            for (const row of normalized.slice(2)) {
+                const values = cells(row);
+
+                html += "<tr>";
+
+                for (let index = 0; index < header.length; index++) {
+                    html += `
+                        <td>
+                            ${renderInlineMarkdown(values[index] ?? "")}
+                        </td>
+                    `;
+                }
+
+                html += "</tr>";
+            }
+
+            html += "</tbody></table></div>";
+
+            return html;
+        }
+
+        function md(source) {
+            if (!source) {
+                return "";
+            }
+
+            const text = String(source)
+                .replace(/\r\n/g, "\n")
+                .replace(/\r/g, "\n")
+                .replace(/\u00a0/g, " ");
+
+            const lines = text.split("\n");
+            const output = [];
+
+            let index = 0;
+
+            while (index < lines.length) {
+                const line = lines[index];
+
+                if (!line.trim()) {
+                    index++;
+                    continue;
+                }
+
+                /* Fenced code block */
+
+                const fence = line.match(/^\s*```(\w*)\s*$/);
+
+                if (fence) {
+                    const language = fence[1] || "";
+                    const code = [];
+
+                    index++;
+
+                    while (
+                        index < lines.length &&
+                        !/^\s*```\s*$/.test(lines[index])
+                    ) {
+                        code.push(lines[index]);
+                        index++;
+                    }
+
+                    const complete =
+                        index < lines.length &&
+                        /^\s*```\s*$/.test(lines[index]);
+
+                    if (complete) {
+                        index++;
+                    }
+
+                    output.push(
+                        renderCodeBlock(
+                            code.join("\n"),
+                            language,
+                            complete
+                        )
+                    );
+
+                    continue;
+                }
+
+                /* Markdown table */
+
+                if (
+                    line.includes("|") &&
+                    index + 1 < lines.length &&
+                    /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(
+                        lines[index + 1]
+                    )
+                ) {
+                    const tableLines = [
+                        line,
+                        lines[index + 1]
+                    ];
+
+                    index += 2;
+
+                    while (
+                        index < lines.length &&
+                        lines[index].trim() &&
+                        lines[index].includes("|")
+                    ) {
+                        tableLines.push(lines[index]);
+                        index++;
+                    }
+
+                    output.push(renderTable(tableLines));
+
+                    continue;
+                }
+
+                /* Headings */
+
+                const heading = line.match(
+                    /^\s*(#{1,6})\s+(.+?)\s*#*\s*$/
+                );
+
+                if (heading) {
+                    const level =
+                        Math.min(3, heading[1].length);
+
+                    output.push(
+                        `<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`
+                    );
+
+                    index++;
+                    continue;
+                }
+
+                /* Horizontal rule */
+
+                if (
+                    /^\s*(---+|\*\*\*+|___+)\s*$/.test(line)
+                ) {
+                    output.push("<hr>");
+                    index++;
+                    continue;
+                }
+
+                /* Blockquote */
+
+                if (/^\s*>\s?/.test(line)) {
+                    const quote = [];
+
+                    while (
+                        index < lines.length &&
+                        /^\s*>\s?/.test(lines[index])
+                    ) {
+                        quote.push(
+                            lines[index].replace(
+                                /^\s*>\s?/,
+                                ""
+                            )
+                        );
+
+                        index++;
+                    }
+
+                    output.push(
+                        `<blockquote>${quote
+                            .map(renderInlineMarkdown)
+                            .join("<br>")}</blockquote>`
+                    );
+
+                    continue;
+                }
+
+                /* Ordered list */
+
+                if (/^\s*\d+\.\s+/.test(line)) {
+                    const items = [];
+
+                    while (
+                        index < lines.length &&
+                        /^\s*\d+\.\s+/.test(lines[index])
+                    ) {
+                        items.push(
+                            lines[index].replace(
+                                /^\s*\d+\.\s+/,
+                                ""
+                            )
+                        );
+
+                        index++;
+                    }
+
+                    output.push(
+                        `<ol>${items
+                            .map(
+                                item =>
+                                    `<li>${renderInlineMarkdown(item)}</li>`
+                            )
+                            .join("")}</ol>`
+                    );
+
+                    continue;
+                }
+
+                /* Unordered list */
+
+                if (/^\s*[-*+]\s+/.test(line)) {
+                    const items = [];
+
+                    while (
+                        index < lines.length &&
+                        /^\s*[-*+]\s+/.test(lines[index])
+                    ) {
+                        items.push(
+                            lines[index].replace(
+                                /^\s*[-*+]\s+/,
+                                ""
+                            )
+                        );
+
+                        index++;
+                    }
+
+                    output.push(
+                        `<ul>${items
+                            .map(
+                                item =>
+                                    `<li>${renderInlineMarkdown(item)}</li>`
+                            )
+                            .join("")}</ul>`
+                    );
+
+                    continue;
+                }
+
+                /* Paragraph */
+
+                const paragraph = [line];
+
+                index++;
+
+                while (
+                    index < lines.length &&
+                    lines[index].trim() &&
+                    !/^\s*```/.test(lines[index]) &&
+                    !/^\s*#{1,6}\s+/.test(lines[index]) &&
+                    !/^\s*[-*+]\s+/.test(lines[index]) &&
+                    !/^\s*\d+\.\s+/.test(lines[index]) &&
+                    !/^\s*>/.test(lines[index]) &&
+                    !(
+                        lines[index].includes("|") &&
+                        index + 1 < lines.length &&
+                        /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(
+                            lines[index + 1]
+                        )
+                    )
+                ) {
+                    paragraph.push(lines[index]);
+                    index++;
+                }
+
+                output.push(
+                    `<p>${paragraph
+                        .map(renderInlineMarkdown)
+                        .join("<br>")}</p>`
+                );
+            }
+
+            return output.join("");
+        }
+
+        /* ============================================================
+           CODE COPY
+           ============================================================ */
+
+        async function copySarembokCode(button) {
+            const block =
+                button.closest(".srbk-code-block");
+
+            const code =
+                block?.querySelector("pre code")?.innerText ?? "";
+
+            if (!code) {
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(code);
+
+                const previous = button.textContent;
+
+                button.textContent = "Copied";
+
+                setTimeout(() => {
+                    button.textContent = previous;
+                }, 1200);
+
+            } catch (error) {
+                console.error(
+                    "Sarembok clipboard error:",
+                    error
+                );
+
+                button.textContent = "Copy failed";
+
+                setTimeout(() => {
+                    button.textContent = "Copy";
+                }, 1500);
+            }
+        }
+
+        /* ============================================================
+           WEBSOCKET RPC
+           ============================================================ */
+
         let ws = null;
         let rpcCounter = 1;
-        let browserSessionToken = null;
+
         const pending = new Map();
 
-        async function initializeBrowserSession() {
-            const response = await fetch('/session', { cache: 'no-store' });
-            if (!response.ok) throw new Error('Unable to establish Sarembok browser session');
-            const data = await response.json();
-            if (!data.sessionToken) throw new Error('Browser session token missing');
-            browserSessionToken = data.sessionToken;
-        }
-
         function connect() {
-            const loc = window.location;
-            const proto = loc.protocol === "https:" ? "wss:" : "ws:";
-            const wsUrl = (loc.hostname === "localhost" || loc.hostname === "127.0.0.1")
-                ? "ws://127.0.0.1:9120"
-                : `${proto}//${loc.host}/ws`;
+            const locationInfo = window.location;
+
+            const protocol =
+                locationInfo.protocol === "https:"
+                    ? "wss:"
+                    : "ws:";
+
+            function applyRuntimeAuthority(snapshot) {
+    if (!snapshot) return;
+
+    const workers = snapshot.workers || {};
+    const agents = snapshot.agents || {};
+    const memory = snapshot.memory || {};
+    const runtime = snapshot.runtime || {};
+    const compute = snapshot.compute || {};
+
+    const metricAgents = document.getElementById("metric-agents");
+    const metricMemory = document.getElementById("metric-mem");
+
+    if (metricAgents) {
+        metricAgents.textContent =
+            `${agents.online || 0} Agents · ${workers.online || 0} Workers`;
+    }
+
+    if (metricMemory) {
+        const memoryStatus = String(memory.status || "UNKNOWN").toUpperCase();
+        const memoryBackend = memory.backend || "Unknown";
+        const memoryEntries = Number(memory.entries || 0);
+
+        metricMemory.textContent =
+            `${memoryBackend} · ${memoryEntries} entries`;
+
+        metricMemory.title =
+            `Memory status: ${memoryStatus}`;
+    }
+
+    const runtimeIndicator = document.querySelector(
+        ".content-header .card-label[style*='emerald']"
+    );
+
+    if (runtimeIndicator) {
+        runtimeIndicator.textContent =
+            `● RUNTIME ${String(runtime.status || "UNKNOWN").toUpperCase()}`;
+    }
+
+    const computeTarget =
+        document.getElementById("metric-compute");
+
+    if (computeTarget) {
+        computeTarget.textContent =
+            `${compute.onlineGpuWorkers || 0} GPU Workers`;
+    }
+
+    const runtimeTarget = document.getElementById("metric-runtime");
+
+    if (runtimeTarget) {
+        runtimeTarget.textContent =
+            runtime.domain || "Unknown";
+    }
+
+    const schedulerTarget = document.getElementById("metric-scheduler");
+    const schedulerStatus =
+        String(scheduler.status || "UNKNOWN").toUpperCase();
+    const queueDepth = Number(scheduler.queueDepth || 0);
+    const running = Number(scheduler.running || 0);
+
+    if (schedulerTarget) {
+        schedulerTarget.textContent =
+            `${schedulerStatus} · ${queueDepth} queued · ${running} running`;
+    }
+}
+const wsUrl = `${protocol}//${locationInfo.host}/ws`;
 
             ws = new WebSocket(wsUrl);
-            ws.onmessage = (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    if (data.id && pending.has(data.id)) {
-                        const { res, rej } = pending.get(data.id);
-                        pending.delete(data.id);
-                        if (data.error) rej(data.error);
-                        else res(data.result);
-                    }
-                } catch(err) {}
+
+            ws.onopen = () => {
+                sendRPC("GetRuntimeInfo")
+                    .then(applyRuntimeAuthority)
+                    .catch(error => {
+                        console.warn("Runtime Authority refresh failed:", error);
+                    });
+
+                console.log(
+                    "Sarembok runtime WebSocket connected."
+                );
             };
-            ws.onclose = () => setTimeout(connect, 3000);
+
+            ws.onmessage = event => {
+                try {
+                    const data =
+                        JSON.parse(event.data);
+
+                    /*
+                     * Streaming notification:
+                     *
+                     * {
+                     *   "method": "SarembokChat.delta",
+                     *   "params": {
+                     *      "id": "...",
+                     *      "text": "..."
+                     *   }
+                     * }
+                     */
+
+                    if (
+                        data.method === "SarembokChat.delta"
+                    ) {
+                        const params =
+                            data.params || {};
+
+                        const requestId =
+                            params.id || data.id;
+
+                        const text =
+                            params.text ??
+                            params.delta ??
+                            "";
+
+                        const entry =
+                            pending.get(requestId);
+
+                        if (
+                            entry &&
+                            text &&
+                            typeof entry.onDelta === "function"
+                        ) {
+                            entry.touch?.();
+                            entry.onDelta(text);
+                        }
+
+                        return;
+                    }
+
+                    /* Standard JSON-RPC response */
+
+                    if (
+                        data.id &&
+                        pending.has(data.id)
+                    ) {
+                        const entry =
+                            pending.get(data.id);
+
+                        pending.delete(data.id);
+
+                        if (data.error) {
+                            entry.rej(data.error);
+                        } else {
+                            entry.res(data.result);
+                        }
+                    }
+
+                } catch (error) {
+                    console.error(
+                        "Sarembok WebSocket message error:",
+                        error
+                    );
+                }
+            };
+
+            ws.onerror = error => {
+                console.error(
+                    "Sarembok WebSocket error:",
+                    error
+                );
+            };
+
+            ws.onclose = () => {
+                console.warn(
+                    "Sarembok runtime disconnected. Reconnecting..."
+                );
+
+                setTimeout(connect, 3000);
+            };
         }
 
-        function sendRPC(method, params = {}) {
-            return new Promise((res, rej) => {
-                if (!ws || ws.readyState !== WebSocket.OPEN) return rej(new Error("Connecting..."));
-                const id = "rpc-" + (rpcCounter++);
-                pending.set(id, { res, rej });
-                const rpcParams = { ...params };
-                if (browserSessionToken && !rpcParams.authToken) {
-                    rpcParams.sessionToken = browserSessionToken;
+        function sendRPC(
+            method,
+            params = {},
+            onDelta = null
+        ) {
+            return new Promise((resolve, reject) => {
+
+                if (
+                    !ws ||
+                    ws.readyState !== WebSocket.OPEN
+                ) {
+                    reject(
+                        new Error("Connecting...")
+                    );
+
+                    return;
                 }
-                ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params: rpcParams }));
-                setTimeout(() => { if (pending.has(id)) { pending.delete(id); rej(new Error("Runtime request timeout")); } }, 45000);
+
+                const id =
+                    "rpc-" +
+                    rpcCounter++;
+
+                const totalTimeoutMs = 100000;
+                const idleTimeoutMs = 30000;
+
+                let totalTimer = null;
+                let idleTimer = null;
+
+                function cleanup() {
+                    if (totalTimer) {
+                        clearTimeout(totalTimer);
+                    }
+
+                    if (idleTimer) {
+                        clearTimeout(idleTimer);
+                    }
+
+                    totalTimer = null;
+                    idleTimer = null;
+                }
+
+                function armIdleTimer() {
+                    if (idleTimer) {
+                        clearTimeout(idleTimer);
+                    }
+
+                    idleTimer = setTimeout(() => {
+                        if (pending.has(id)) {
+                            pending.delete(id);
+                            cleanup();
+
+                            reject(
+                                new Error(
+                                    "Runtime response stalled"
+                                )
+                            );
+                        }
+                    }, idleTimeoutMs);
+                }
+
+                pending.set(id, {
+                    res: value => {
+                        cleanup();
+                        resolve(value);
+                    },
+
+                    rej: error => {
+                        cleanup();
+                        reject(error);
+                    },
+
+                    onDelta,
+
+                    touch: armIdleTimer
+                });
+
+                const rpcParams = {
+                    ...params
+                };
+
+                /*
+                 * Browser session authentication is intentionally
+                 * scoped. The master runtime token must never be
+                 * embedded in this frontend.
+                 */
+
+                if (
+                    window.browserSessionToken &&
+                    !rpcParams.authToken &&
+                    !rpcParams.sessionToken
+                ) {
+                    rpcParams.sessionToken =
+                        window.browserSessionToken;
+                }
+
+                try {
+                    ws.send(
+                        JSON.stringify({
+                            jsonrpc: "2.0",
+                            id,
+                            method,
+                            params: rpcParams
+                        })
+                    );
+
+                } catch (error) {
+                    pending.delete(id);
+                    cleanup();
+                    reject(error);
+
+                    return;
+                }
+
+                totalTimer = setTimeout(() => {
+                    if (pending.has(id)) {
+                        pending.delete(id);
+                        cleanup();
+
+                        reject(
+                            new Error(
+                                "Runtime request timeout"
+                            )
+                        );
+                    }
+                }, totalTimeoutMs);
+
+                armIdleTimer();
             });
         }
 
+        /* ============================================================
+           DIALOGUE UI
+           ============================================================ */
+
+        function appendUserMessage(text) {
+            const history =
+                document.getElementById(
+                    "dialogue-history"
+                );
+
+            const message =
+                document.createElement("div");
+
+            message.className = "srbk-bubble";
+
+            message.innerHTML = `
+                <strong style="color:#818cf8;">
+                    YOU:
+                </strong>
+
+                <div class="srbk-content">
+                    ${escapeHtml(text)}
+                </div>
+            `;
+
+            history.appendChild(message);
+
+            return message;
+        }
+
+        function createSarembokMessage() {
+            const history =
+                document.getElementById(
+                    "dialogue-history"
+                );
+
+            const message =
+                document.createElement("div");
+
+            message.className =
+                "srbk-bubble srbk-streaming";
+
+            message.innerHTML = `
+                <strong style="color:var(--cyan);">
+                    Sarembok:
+                </strong>
+
+                <div class="srbk-content">
+                    <span class="srbk-thinking">
+                        Thinking...
+                    </span>
+                </div>
+            `;
+
+            history.appendChild(message);
+
+            return message;
+        }
+
+        function scrollDialogueToBottom() {
+            const history =
+                document.getElementById(
+                    "dialogue-history"
+                );
+
+            history.scrollTop =
+                history.scrollHeight;
+        }
+
+        /* ============================================================
+           DIRECTIVE EXECUTION
+           ============================================================ */
+
         async function sendDirective() {
-            const input = document.getElementById('directive-input');
-            const txt = input.value.trim();
-            if (!txt) return;
+            const input =
+                document.getElementById(
+                    "directive-input"
+                );
 
-            input.value = '';
-            const history = document.getElementById('dialogue-history');
-            
-            const userMsg = document.createElement('div');
-            userMsg.style.cssText = 'color:#fff; margin:6px 0; font-size:14px;';
-            userMsg.innerHTML = `<strong style="color:#818cf8;">YOU:</strong> ${escapeHtml(txt)}`;
-            history.appendChild(userMsg);
+            const executeButton =
+                document.getElementById(
+                    "execute-button"
+                );
 
-            const aiMsg = document.createElement('div');
-            aiMsg.style.cssText = 'color:var(--text-secondary); margin:6px 0; font-size:14px;';
-            aiMsg.innerHTML = `<strong style="color:var(--cyan);">ARIA:</strong> Thinking...`;
-            history.appendChild(aiMsg);
-            history.scrollTop = history.scrollHeight;
+            const text =
+                input.value.trim();
+
+            if (!text) {
+                return;
+            }
+
+            input.value = "";
+
+            appendUserMessage(text);
+
+            const aiMessage =
+                createSarembokMessage();
+
+            const content =
+                aiMessage.querySelector(
+                    ".srbk-content"
+                );
+
+            let streamedText = "";
+
+            executeButton.disabled = true;
 
             try {
-                const r = await sendRPC("SarembokChat", { prompt: txt });
-                const reply = r.response || r.audioText || "Directive executed.";
-                aiMsg.innerHTML = `<strong style="color:var(--cyan);">ARIA:</strong> ${escapeHtml(reply)}`;
-            } catch(e) {
-                aiMsg.innerHTML = `<strong style="color:var(--cyan);">ARIA:</strong> Directive received: "${escapeHtml(txt)}". Memory context reconciled.`;
+                const result =
+                    await sendRPC(
+                        "SarembokChat",
+                        {
+                            prompt: text
+                        },
+                        delta => {
+                            streamedText += delta;
+
+                            content.innerHTML =
+                                md(streamedText);
+
+                            scrollDialogueToBottom();
+                        }
+                    );
+
+                const finalText =
+                    result?.response ||
+                    result?.audioText ||
+                    streamedText ||
+                    "Directive executed.";
+
+                /*
+                 * Always render the final authoritative response.
+                 * This also ensures the final output contains complete
+                 * code blocks and Copy controls.
+                 */
+
+                content.innerHTML =
+                    md(finalText);
+
+                aiMessage.classList.remove(
+                    "srbk-streaming"
+                );
+
+                scrollDialogueToBottom();
+
+            } catch (error) {
+
+                console.error(
+                    "Sarembok directive error:",
+                    error
+                );
+
+                /*
+                 * If streaming produced partial content before the
+                 * connection failed, preserve that content instead of
+                 * replacing it with a generic error.
+                 */
+
+                if (streamedText) {
+                    content.innerHTML =
+                        md(streamedText);
+                } else {
+                    content.innerHTML = `
+                        <p>
+                            Runtime error:
+                            ${escapeHtml(
+                                error?.message ||
+                                "Unable to complete the directive."
+                            )}
+                        </p>
+                    `;
+                }
+
+                aiMessage.classList.remove(
+                    "srbk-streaming"
+                );
+
+                scrollDialogueToBottom();
+
+            } finally {
+                executeButton.disabled = false;
+                input.focus();
             }
         }
 
-        function escapeHtml(str) {
-            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        /* ============================================================
+           BROWSER SESSION BOOTSTRAP
+           ============================================================ */
+
+        async function initializeBrowserSession() {
+            /*
+             * The production runtime is responsible for issuing a
+             * scoped browser session token through /session.
+             *
+             * Keep this optional so local development can connect
+             * without requiring the production session endpoint.
+             */
+
+            try {
+                const response =
+                    await fetch("/session", {
+                        method: "GET",
+                        cache: "no-store"
+                    });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const data =
+                    await response.json();
+
+                if (data.sessionToken) {
+                    window.browserSessionToken =
+                        data.sessionToken;
+                }
+
+            } catch (error) {
+                console.debug(
+                    "Browser session bootstrap skipped:",
+                    error
+                );
+            }
         }
+
+        /* ============================================================
+           STARTUP
+           ============================================================ */
 
         window.onload = async () => {
-            try {
-                await initializeBrowserSession();
-                connect();
-            } catch (err) {
-                console.error('Sarembok browser session initialization failed:', err);
-            }
+            await initializeBrowserSession();
+            connect();
         };
     </script>
-<!-- SAREMBOK_RESPONSE_UI_V3 -->
-<style>
-  .dialogue-history{max-height:460px;min-height:280px;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:14px;padding:4px 6px 10px 2px;scroll-behavior:smooth;scrollbar-width:thin;scrollbar-color:rgba(0,240,255,.28) transparent}
-  .dialogue-history::-webkit-scrollbar{width:6px}.dialogue-history::-webkit-scrollbar-track{background:transparent}.dialogue-history::-webkit-scrollbar-thumb{background:rgba(0,240,255,.22);border-radius:99px}
-  .srbk-message{width:100%;display:flex;gap:10px;align-items:flex-start;animation:srbkMessageIn .28s cubic-bezier(.16,1,.3,1)}
-  .srbk-message.user{justify-content:flex-end}
-  .srbk-avatar{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border:1px solid rgba(0,240,255,.32);border-radius:50%;color:var(--cyan);background:rgba(0,240,255,.06);font-family:var(--font-mono);font-size:9px;letter-spacing:.5px;box-shadow:0 0 18px rgba(0,240,255,.08)}
-  .srbk-avatar.user-avatar{order:2;color:#dbeafe;border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.05)}
-  .srbk-bubble{min-width:0;max-width:min(88%,920px);padding:13px 16px;border:1px solid var(--border-glass);border-radius:15px;background:rgba(15,20,31,.72);box-shadow:0 8px 30px rgba(0,0,0,.18)}
-  .srbk-message.user .srbk-bubble{background:rgba(0,240,255,.055);border-color:rgba(0,240,255,.16);border-bottom-right-radius:5px}.srbk-message.ai .srbk-bubble{border-bottom-left-radius:5px}
-  .srbk-meta{display:flex;align-items:center;gap:8px;margin-bottom:7px;color:var(--text-muted);font-family:var(--font-mono);font-size:9px;letter-spacing:1.2px;text-transform:uppercase}.srbk-meta strong{color:var(--cyan);font-weight:500}.srbk-message.user .srbk-meta{justify-content:flex-end}.srbk-message.user .srbk-meta strong{color:#dbeafe}
-  .srbk-content{color:#e8edf5;font-size:14px;line-height:1.72;user-select:text;overflow-wrap:anywhere}.srbk-content>:first-child{margin-top:0}.srbk-content>:last-child{margin-bottom:0}.srbk-content p{margin:0 0 .9em}.srbk-content h1,.srbk-content h2,.srbk-content h3{color:#fff;font-weight:500;line-height:1.3;letter-spacing:.2px;margin:1.15em 0 .55em}.srbk-content h1{font-size:20px}.srbk-content h2{font-size:17px}.srbk-content h3{font-size:15px;color:var(--cyan)}
-  .srbk-content ul,.srbk-content ol{margin:.35em 0 1em 1.25em;padding-left:1em}.srbk-content li{margin:.28em 0;padding-left:.2em}.srbk-content li::marker{color:var(--cyan)}.srbk-content strong{color:#fff;font-weight:650}.srbk-content em{color:#cbd5e1}.srbk-content a{color:var(--cyan);text-decoration:none;border-bottom:1px solid rgba(0,240,255,.25)}.srbk-content a:hover{border-bottom-color:var(--cyan)}.srbk-content blockquote{margin:.9em 0;padding:.55em .9em;border-left:2px solid var(--cyan);background:rgba(0,240,255,.035);color:#b8c3d5}.srbk-content hr{border:0;border-top:1px solid var(--border-glass);margin:1.2em 0}.srbk-content code{padding:.14em .38em;border-radius:5px;background:rgba(255,255,255,.065);color:#d8fbff;font-family:var(--font-mono);font-size:.88em}
-  .srbk-code{margin:.95em 0;overflow:hidden;border:1px solid rgba(255,255,255,.09);border-radius:10px;background:#05070b}.srbk-code-head{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.025);color:var(--text-muted);font-family:var(--font-mono);font-size:9px;letter-spacing:1px;text-transform:uppercase}.srbk-copy{border:0;background:transparent;color:var(--text-muted);cursor:pointer;font:inherit;text-transform:uppercase}.srbk-copy:hover{color:var(--cyan)}.srbk-code pre{margin:0;padding:13px 14px;overflow-x:auto;color:#d7e3ef;font:12px/1.65 var(--font-mono);user-select:text}
-  .srbk-table-wrap{overflow-x:auto;margin:.9em 0}.srbk-table{width:100%;border-collapse:collapse;min-width:420px;font-size:12px}.srbk-table th,.srbk-table td{padding:8px 10px;border:1px solid rgba(255,255,255,.07);text-align:left;vertical-align:top}.srbk-table th{color:var(--cyan);background:rgba(0,240,255,.045);font-family:var(--font-mono);font-size:10px;letter-spacing:.5px}.srbk-table td{color:#cbd5e1}
-  .srbk-thinking{display:inline-flex;align-items:center;gap:5px;color:var(--text-secondary)}.srbk-thinking i{width:5px;height:5px;border-radius:50%;background:var(--cyan);animation:srbkPulse 1.1s infinite ease-in-out}.srbk-thinking i:nth-child(2){animation-delay:.15s}.srbk-thinking i:nth-child(3){animation-delay:.3s}
-  .srbk-status{display:flex;align-items:center;gap:6px;margin-top:9px;color:var(--text-muted);font:9px var(--font-mono);letter-spacing:.9px;text-transform:uppercase}.srbk-status::before{content:'✓';color:var(--emerald)}.srbk-error{color:#fda4af}.srbk-error::before{content:'!';color:#fb7185}
-  @keyframes srbkMessageIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}@keyframes srbkPulse{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
-  @media(max-width:700px){.dialogue-history{min-height:240px;max-height:52vh}.srbk-bubble{max-width:94%;padding:11px 13px}.srbk-content{font-size:13.5px;line-height:1.65}.input-bar{flex-direction:column}.btn-action{width:100%}}
-</style>
-<script>
-(()=>{
-  const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-  const url=v=>/^https?:\/\//i.test(v)?v:'';
-  const inline=v=>{let h=esc(v);h=h.replace(/`([^`]+)`/g,'<code>$1</code>');h=h.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');h=h.replace(/__([^_]+)__/g,'<strong>$1</strong>');h=h.replace(/\*([^*]+)\*/g,'<em>$1</em>');h=h.replace(/_([^_]+)_/g,'<em>$1</em>');h=h.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/gi,(_,l,u)=>{const s=url(u);return s?`<a href="${s}" target="_blank" rel="noopener noreferrer">${l}</a>`:l});h=h.replace(/&lt;br\s*\/?&gt;/gi,'<br>');return h};
-  const table=lines=>{if(lines.length<2||!/^[|\s]*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[1]))return null;const parse=x=>x.trim().replace(/^\|/,'').replace(/\|$/,'').split('|').map(s=>s.trim());const hs=parse(lines[0]);let h='<div class="srbk-table-wrap"><table class="srbk-table"><thead><tr>'+hs.map(x=>`<th>${inline(x)}</th>`).join('')+'</tr></thead><tbody>';for(const r of lines.slice(2).map(parse))h+='<tr>'+hs.map((_,i)=>`<td>${inline(r[i]??'')}</td>`).join('')+'</tr>';return h+'</tbody></table></div>'};
-  function md(src){let t=String(src??'').replace(/\r\n?/g,'\n').trim();const blocks=[];t=t.replace(/```([\w.+#-]*)\n([\s\S]*?)```/g,(_,lang,code)=>{const k=`@@CODE${blocks.length}@@`;blocks.push(`<div class="srbk-code"><div class="srbk-code-head"><span>${esc(lang||'code')}</span><button class="srbk-copy" type="button" data-copy="${encodeURIComponent(code)}">Copy</button></div><pre><code>${esc(code.replace(/\n$/,''))}</code></pre></div>`);return k});const ls=t.split('\n'),out=[];let i=0;while(i<ls.length){let l=ls[i];if(!l.trim()){i++;continue}if(i+1<ls.length&&/\|/.test(l)){const a=[l,ls[i+1]];if(table(a)){i+=2;while(i<ls.length&&ls[i].trim()&&/\|/.test(ls[i]))a.push(ls[i++]);out.push(table(a));continue}}let m=l.match(/^\s{0,3}(#{1,3})\s+(.+?)\s*#*$/);if(m){out.push(`<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`);i++;continue}if(/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(l)){out.push('<hr>');i++;continue}if(/^\s*[-*+]\s+/.test(l)||/^\s*\d+[.)]\s+/.test(l)){const ord=/^\s*\d+[.)]\s+/.test(l),items=[];while(i<ls.length){const m2=ls[i].match(ord?/^\s*\d+[.)]\s+(.+)$/:/^\s*[-*+]\s+(.+)$/);if(!m2)break;items.push(`<li>${inline(m2[1])}</li>`);i++}out.push(`<${ord?'ol':'ul'}>${items.join('')}</${ord?'ol':'ul'}>`);continue}if(/^\s*>/.test(l)){const q=[];while(i<ls.length&&/^\s*>/.test(ls[i]))q.push(ls[i++].replace(/^\s*>\s?/,''));out.push(`<blockquote>${q.map(inline).join('<br>')}</blockquote>`);continue}const para=[];while(i<ls.length&&ls[i].trim()&&!/^\s{0,3}#{1,3}\s+/.test(ls[i])&&!/^\s*[-*+]\s+/.test(ls[i])&&!/^\s*\d+[.)]\s+/.test(ls[i])&&!/^\s*>/.test(ls[i]))para.push(ls[i++]);out.push(`<p>${para.map(inline).join('<br>')}</p>`)}return out.join('').replace(/@@CODE(\d+)@@/g,(_,n)=>blocks[+n]||'')}
-  const scroll=()=>{const h=document.getElementById('dialogue-history');if(h)requestAnimationFrame(()=>h.scrollTop=h.scrollHeight)};
-  const msg=(role,body,thinking=false)=>{const row=document.createElement('div');row.className=`srbk-message ${role}`;const av=document.createElement('div');av.className=`srbk-avatar ${role==='user'?'user-avatar':''}`;av.textContent=role==='user'?'YOU':'ARIA';const b=document.createElement('div');b.className='srbk-bubble';const meta=document.createElement('div');meta.className='srbk-meta';meta.innerHTML=`<strong>${role==='user'?'YOU':'ARIA'}</strong><span>${role==='user'?'DIRECTIVE':'SYNTHESIS'}</span>`;const c=document.createElement('div');c.className='srbk-content';c.innerHTML=thinking?'<span class="srbk-thinking">Processing <i></i><i></i><i></i></span>':md(body);b.append(meta,c);row.append(role==='user'?b:av,role==='user'?av:b);return{row,body:c}};
-  const copy=root=>root.querySelectorAll('.srbk-copy').forEach(x=>{if(x.dataset.wired)return;x.dataset.wired='1';x.onclick=async()=>{try{await navigator.clipboard.writeText(decodeURIComponent(x.dataset.copy||''));x.textContent='Copied';setTimeout(()=>x.textContent='Copy',1200)}catch(_){x.textContent='Unavailable';setTimeout(()=>x.textContent='Copy',1200)}}});
-  window.sendDirective=async()=>{const input=document.getElementById('directive-input'),history=document.getElementById('dialogue-history');if(!input||!history)return;const txt=input.value.trim();if(!txt)return;input.value='';input.disabled=true;const u=msg('user',txt);history.appendChild(u.row);scroll();const a=msg('ai','',true);history.appendChild(a.row);scroll();try{const r=await sendRPC('SarembokChat',{prompt:txt});const reply=typeof r?.response==='string'?r.response:typeof r?.audioText==='string'?r.audioText:(r?JSON.stringify(r,null,2):'Directive executed.');a.body.innerHTML=md(reply);const s=document.createElement('div');s.className='srbk-status';s.textContent='Synthesis complete';a.body.appendChild(s);copy(a.row)}catch(e){a.body.innerHTML=md('Unable to complete the directive.\\n\\n`'+String(e?.message||e)+'`');const s=document.createElement('div');s.className='srbk-status srbk-error';s.textContent='Runtime request failed';a.body.appendChild(s)}finally{input.disabled=false;input.focus();scroll()}};
-  const h=document.getElementById('dialogue-history');if(h){const first=h.firstElementChild;if(first&&!first.classList.contains('srbk-message')){const welcome=first.textContent.replace(/^ARIA:\s*/i,'').trim();h.innerHTML='';h.appendChild(msg('ai',welcome).row)}copy(h)}
-})();
-</script>
 
 </body>
 </html>

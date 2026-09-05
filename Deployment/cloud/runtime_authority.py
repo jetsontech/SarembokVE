@@ -259,3 +259,4 @@ def render_markdown(data: dict[str, Any]) -> str:
         lines.append("- No successful provider call is recorded in the current process telemetry.")
     lines += ["", "**Truth boundary:** this report is generated from runtime-observed state. It does not infer or invent unavailable infrastructure facts."]
     return "\n".join(lines)
+

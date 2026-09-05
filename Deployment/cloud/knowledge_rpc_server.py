@@ -13,7 +13,12 @@ import websockets
 from provider_router import reset_stream_callback, set_stream_callback
 from runtime_authority import render_markdown as render_runtime_diagnostic
 from runtime_authority import snapshot as runtime_authority_snapshot
-from runtime_response_composer import build_runtime_context, is_self_state_query, render_identity
+from runtime_response_composer import (
+    build_runtime_context,
+    is_self_state_query,
+    render_identity,
+    render_model_inventory,
+)
 
 CLOUD_SERVER_PATH = "/app/server.py"
 spec = importlib.util.spec_from_file_location("sarembok_cloud_server", CLOUD_SERVER_PATH)
@@ -42,29 +47,45 @@ def _authoritative_snapshot() -> dict:
     )
 
 
-def _is_runtime_diagnostic(prompt: str) -> bool:
-    text = prompt.lower()
-    markers = (
-        "system diagnostic",
-        "runtime diagnostic",
-        "registered workers",
-        "compute capabilities",
-        "persistent memory status",
-        "scheduler status",
-        "provider currently serving",
-    )
-    return sum(1 for marker in markers if marker in text) >= 2
-
-
 def _dispatch_chat_with_authority(params: dict) -> dict:
-    """Run the normal dialogue path with a live, authoritative system context."""
-    prompt = str(params.get("prompt") or params.get("message") or params.get("text") or "").strip()
-    diagnostic = _authoritative_snapshot()
+    snapshot = _authoritative_snapshot()
 
-    if is_self_state_query(prompt):
-        response = render_identity(diagnostic)
+    prompt = str(
+        params.get("prompt")
+        or params.get("message")
+        or params.get("text")
+        or ""
+    ).strip()
+
+    # Sarembok inventory/state questions that do not require an LLM
+    # are answered directly from Runtime Authority.
+    inventory_query_markers = (
+        "what models are available",
+        "what other models",
+        "other models",
+        "which models are available",
+        "which models can i use",
+        "what models can i use",
+        "what llms are available",
+        "what llms can i use",
+        "what language models are available",
+        "what language models can i use",
+        "what models are configured",
+        "which models are configured",
+        "model availability",
+        "available models",
+        "configured models",
+    )
+
+    prompt_lower = prompt.lower()
+
+    if is_self_state_query(prompt) and any(
+        marker in prompt_lower for marker in inventory_query_markers
+    ):
+        response = render_model_inventory(snapshot)
+
         return {
-            **diagnostic,
+            **snapshot,
             "response": response,
             "audioText": response.replace("*", "").replace("`", "").replace("#", "")[:1200],
             "source": "runtime_authority",
@@ -79,34 +100,30 @@ def _dispatch_chat_with_authority(params: dict) -> dict:
             "timestamp": cloud_server.now(),
         }
 
-    # The existing cloud dialogue implementation owns provider selection and
-    # conversation persistence. Inject authority at that boundary instead of
-    # duplicating provider logic here.
-    runtime_context = build_runtime_context(diagnostic)
-    original_generate = cloud_server.PROVIDER_ROUTER.generate
+    # Ordinary dialogue goes directly through the existing cloud
+    # dialogue engine and Provider Router. Runtime Authority facts
+    # are supplied by the dialogue path itself; no monkey-patching
+    # of ProviderRouter.generate() is required here.
+    return _original_dispatch("SarembokChat", params)
 
-    def generate_with_authority(system_prompt, user_prompt, messages):
-        authoritative_prompt = (
-            runtime_context
-            + "\n\nDIALOGUE RULE: When describing Sarembok, prefer these observed facts over model assumptions. "
-              "You may explain or contextualize them, but never contradict them.\n\n"
-            + str(system_prompt or "")
-        )
-        return original_generate(authoritative_prompt, user_prompt, messages)
-
-    cloud_server.PROVIDER_ROUTER.generate = generate_with_authority
-    try:
-        return _original_dispatch(params.get("_method", "SarembokChat"), params)
-    finally:
-        cloud_server.PROVIDER_ROUTER.generate = original_generate
+def _is_runtime_diagnostic(prompt: str) -> bool:
+    text = prompt.lower()
+    markers = (
+        "system diagnostic",
+        "runtime diagnostic",
+        "registered workers",
+        "compute capabilities",
+        "persistent memory status",
+        "scheduler status",
+        "provider currently serving",
+    )
+    return sum(1 for marker in markers if marker in text) >= 2
 
 
 def dispatch(method: str, params: dict) -> dict:
     if method == "GetRuntimeInfo":
         return _authoritative_snapshot()
     if method in {"SarembokChat", "Chat", "SarembokDialogue"}:
-        chat_params = dict(params)
-        chat_params["_method"] = method
         prompt = str(params.get("prompt") or params.get("message") or params.get("text") or "").strip()
         if _is_runtime_diagnostic(prompt):
             diagnostic = _authoritative_snapshot()
@@ -126,7 +143,9 @@ def dispatch(method: str, params: dict) -> dict:
                 "agentId": "sarembok-prime",
                 "timestamp": cloud_server.now(),
             }
-        return _dispatch_chat_with_authority(chat_params)
+
+        return _dispatch_chat_with_authority(params)
+
     if method in KnowledgeRuntimeAPI.METHODS:
         return knowledge_api.dispatch(method, params)
     return _original_dispatch(method, params)
@@ -148,7 +167,20 @@ async def handler(websocket) -> None:
                     raise ValueError("request_too_large")
                 request = json.loads(raw)
                 method, params = cloud_server.validate_request(request)
-                stream_requested = bool(params.get("stream")) and method in CHAT_METHODS
+                prompt_for_stream_check = str(
+                    params.get("prompt")
+                    or params.get("message")
+                    or params.get("text")
+                    or ""
+                ).strip()
+
+                model_identity_query = _is_model_identity_query(prompt_for_stream_check)
+
+                stream_requested = (
+                    bool(params.get("stream"))
+                    and method in CHAT_METHODS
+                    and not model_identity_query
+                )
                 first_delta_at = [None]
                 started_at = time.perf_counter()
                 if stream_requested:
@@ -173,7 +205,7 @@ async def handler(websocket) -> None:
                             metadata["ttft_ms"] = round((first_delta_at[0] - started_at) * 1000, 1) if first_delta_at[0] is not None else None
                 response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}
                 cloud_server.LOG.info("rpc_success method=%s request_id=%s streamed=%s", method, request.get("id"), stream_requested)
-            except cloud_server.PermissionError as exc:
+            except PermissionError as exc:
                 response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32001, "message": str(exc)}}
                 cloud_server.LOG.warning("rpc_auth_failed peer=%s", peer)
             except Exception as exc:
@@ -188,6 +220,18 @@ async def handler(websocket) -> None:
     finally:
         cloud_server.LOG.info("connection_close peer=%s", peer)
 
+
+def _is_model_identity_query(prompt: str) -> bool:
+    markers = (
+        "what model is this",
+        "what model are you",
+        "what model do you use",
+        "what model is running",
+        "what model is active",
+        "what model are you running",
+    )
+    prompt_lower = prompt.lower()
+    return any(marker in prompt_lower for marker in markers)
 
 cloud_server.handler = handler
 

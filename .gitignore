@@ -49,4 +49,6 @@ Content/
 *.uasset
 *.umap
 *.dna
-
+
+# Local secrets
+Deployment/cloud/.env
