@@ -14,11 +14,19 @@ import json
 import logging
 import os
 import re
+import secrets
 import signal
 import sqlite3
 import time
 import urllib.request
+import urllib.error
 import uuid
+
+from runtime_authority import snapshot as runtime_authority_snapshot
+from runtime_response_composer import build_runtime_context
+from provider_router import ProviderRouter
+from capability_registry import CapabilityRegistry
+from structured_response import build_structured_response
 from datetime import datetime, timezone
 from typing import Any
 
@@ -30,7 +38,14 @@ AUTH_TOKEN = os.getenv("SAREMBOK_AUTH_TOKEN", "").strip()
 MAX_CONNECTIONS = max(1, int(os.getenv("SAREMBOK_MAX_CONNECTIONS", "100")))
 MAX_REQUEST_BYTES = max(1024, int(os.getenv("SAREMBOK_MAX_REQUEST_BYTES", str(1024 * 1024))))
 MAX_METHOD_LENGTH = max(32, int(os.getenv("SAREMBOK_MAX_METHOD_LENGTH", "128")))
+LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "20")))
+LLM_TOTAL_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS", "30")))
+BROWSER_SESSION_TTL_SECONDS = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_TTL_SECONDS", "3600")))
+BROWSER_ALLOWED_METHODS = {"SarembokChat", "GetRuntimeInfo"}
+BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
+PROVIDER_ROUTER = ProviderRouter()
+CAPABILITY_REGISTRY = CapabilityRegistry()
 
 logging.basicConfig(
     level=os.getenv("SAREMBOK_LOG_LEVEL", "INFO").upper(),
@@ -228,6 +243,8 @@ class CloudStore:
 
 store = CloudStore(DB_PATH)
 STARTED = time.time()
+PROVIDER_ROUTER = ProviderRouter()
+CAPABILITY_REGISTRY = CapabilityRegistry()
 DB_LOCK = asyncio.Lock()
 CONNECTIONS = asyncio.Semaphore(MAX_CONNECTIONS)
 
@@ -522,6 +539,18 @@ def require_agent(agent_id: str) -> None:
         raise ValueError(f"agent_not_found: {agent_id}")
 
 
+def _is_model_identity_query(prompt: str) -> bool:
+    markers = (
+        "what model is this",
+        "what model are you",
+        "what model do you use",
+        "what model is running",
+        "what model is active",
+        "what model are you running",
+    )
+    prompt_lower = prompt.lower()
+    return any(marker in prompt_lower for marker in markers)
+
 def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key: str | None = None, session_id: str = "default") -> dict[str, Any]:
     prompt_clean = (prompt or "").strip()
     prompt_lower = prompt_clean.lower()
@@ -576,20 +605,26 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
     # Reverse to chronological order
     conv_history = list(reversed(conv_rows))
 
-    system_context_parts = [
-        "You are Sarembok, an AI assistant running on the Sarembok VE platform.",
-        "You have access to persistent memory, agent management, and task scheduling.",
-        "Answer questions directly and honestly. If you don't know something, say so.",
-        "Do not claim capabilities you don't have.",
-        "",
-        f"System state: {worker_stats['onlineWorkers']} workers online, "
-        f"{len(agent_rows)} agents registered, {len(mem_rows)} memories stored.",
-    ]
-    if mem_rows:
-        system_context_parts.append("Stored memories: " + "; ".join(f"{r[0]}={r[1]}" for r in mem_rows[:5]))
-    if agent_rows:
-        system_context_parts.append("Active agents: " + ", ".join(f"{r[0]} ({r[1]})" for r in agent_rows))
+    # Runtime Authority is the source of truth for live Sarembok platform state.
+    # The dialogue engine supplies that authoritative state to the model.
+    # ProviderRouter remains responsible for provider/model selection and execution.
+    authority_snapshot = runtime_authority_snapshot(
+        store,
+        PROVIDER_ROUTER,
+        STARTED,
+    )
 
+    authoritative_context = build_runtime_context(authority_snapshot)
+
+    system_context_parts = [
+        authoritative_context,
+        "",
+        "You are Sarembok, an AI assistant running on the Sarembok VE platform.",
+        "Answer questions directly and honestly. If you don't know something, say so.",
+        "Do not claim capabilities that are not exposed by the current runtime.",
+        "Provider/model details describe the execution route for a response; they do not define Sarembok's identity.",
+        "Never ask users to store passwords, API keys, private keys, access tokens, or other secrets in conversational memory. If a user provides a secret, do not repeat it; recommend secure secret storage.",
+    ]
     system_prompt = "\n".join(system_context_parts)
 
     # 5. Build message list with real conversation history
@@ -599,70 +634,36 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
             messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": prompt_clean})
 
-    # 6. Try LLM providers
-    llm_source = None
-    providers = []
+    reply = None
+    source = None
+    model = None
+    provider_latency_ms = None
+    provider_api = None
+    provider_usage = {}
+    try:
+        provider_result = PROVIDER_ROUTER.generate(system_prompt, prompt_clean, messages)
+        source = provider_result.provider
+        model = provider_result.model
+        provider_latency_ms = provider_result.latency_ms
+        provider_api = provider_result.api
+        provider_usage = provider_result.usage
 
-    openai_key = os.getenv("OPENAI_API_KEY") or os.getenv("SAREMBOK_AUTH_TOKEN") or api_key
-    if openai_key and openai_key.startswith("sk-") and len(openai_key) > 20:
-        providers.append(("GPT-4o", "https://api.openai.com/v1/chat/completions", openai_key, "gpt-4o"))
+        if _is_model_identity_query(prompt_clean):
+            reply = (
+                f"This response is being generated by **{source}** "
+                f"using **{model}** via **{provider_api}**."
+            )
+        else:
+            reply = provider_result.text
+    except Exception as exc:
+        LOG.warning("LLM provider fabric failed: %s", exc)
 
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    if gemini_key:
-        providers.append(("Gemini", f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}", gemini_key, "gemini-1.5-flash"))
+    if reply is not None:
+        _save_conversation(session_id, prompt_clean, reply)
+        store.event("sarembok-prime", "CHAT_RESPONSE", {"prompt": prompt_clean[:200], "model": model, "provider": source})
+        return {"response": reply, "audioText": reply[:300].replace("*", "").replace("`", "").replace("#", ""), "source": source, "model": model, "action": None, "structuredResponse": build_structured_response(reply, provider=source, model=model, latency_ms=provider_latency_ms), "metadata": {"provider": source, "model": model, "latency_ms": provider_latency_ms, "provider_api": provider_api, "usage": provider_usage}}
 
-    custom_llm_url = os.getenv("LLM_ENDPOINT_URL")
-    custom_llm_key = os.getenv("LLM_API_KEY", "dummy")
-    if custom_llm_url:
-        providers.append(("Custom", custom_llm_url, custom_llm_key, os.getenv("LLM_MODEL", "llama-3.1-8b")))
-
-    for p_name, p_url, p_key, p_model in providers:
-        try:
-            if p_name in ("GPT-4o", "Custom"):
-                req_data = {
-                    "model": p_model,
-                    "messages": messages,
-                    "max_tokens": 800,
-                    "temperature": 0.7
-                }
-                http_req = urllib.request.Request(
-                    p_url,
-                    data=json.dumps(req_data).encode("utf-8"),
-                    headers={"Content-Type": "application/json", "Authorization": f"Bearer {p_key}"}
-                )
-                with urllib.request.urlopen(http_req, timeout=12) as http_resp:
-                    resp_json = json.loads(http_resp.read().decode("utf-8"))
-                    reply = resp_json["choices"][0]["message"]["content"].strip()
-                    llm_source = p_name
-            elif p_name == "Gemini":
-                gemini_messages = [{"parts": [{"text": system_prompt + "\n\nUser: " + prompt_clean}]}]
-                req_data = {"contents": gemini_messages}
-                http_req = urllib.request.Request(
-                    p_url,
-                    data=json.dumps(req_data).encode("utf-8"),
-                    headers={"Content-Type": "application/json"}
-                )
-                with urllib.request.urlopen(http_req, timeout=12) as http_resp:
-                    resp_json = json.loads(http_resp.read().decode("utf-8"))
-                    reply = resp_json["candidates"][0]["content"]["parts"][0]["text"].strip()
-                    llm_source = p_name
-            else:
-                continue
-
-            _save_conversation(session_id, prompt_clean, reply)
-            store.event("sarembok-prime", "CHAT_RESPONSE", {"prompt": prompt_clean[:200], "model": p_model, "provider": p_name})
-            audio_text = reply[:300].replace("*", "").replace("`", "").replace("#", "")
-            return {"response": reply, "audioText": audio_text, "source": p_name, "action": None}
-
-        except Exception as e:
-            LOG.warning("LLM provider %s failed: %s", p_name, e)
-
-    # 7. No LLM available — honest fallback
-    reply = (
-        "I can't reach my language model right now. "
-        "I can still create agents, store memories, and manage tasks — "
-        "try commands like 'create an agent named Scout' or 'remember that the deployment uses port 9000'."
-    )
+    reply = "I can't reach a language model right now. The runtime has no responding provider available. Local runtime capabilities remain available."
     _save_conversation(session_id, prompt_clean, reply)
     return {"response": reply, "audioText": reply, "source": "offline", "action": None}
 
@@ -689,6 +690,8 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         api_key = str(params.get("apiKey", "")).strip() or None
         session_id = str(params.get("sessionId", "default")).strip() or "default"
         res = sarembok_process_dialogue(prompt, context=context if isinstance(context, list) else None, api_key=api_key, session_id=session_id)
+        if "structuredResponse" not in res:
+            res["structuredResponse"] = build_structured_response(res.get("response", ""), action=res.get("action"), provider=res.get("source"), model=res.get("model"), latency_ms=res.get("metadata", {}).get("latency_ms") if isinstance(res.get("metadata"), dict) else None)
         res["agentId"] = "sarembok-prime"
         res["timestamp"] = now()
         return res
@@ -703,6 +706,14 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         messages = [{"role": r[0], "content": r[1], "createdAt": r[2]} for r in reversed(rows)]
         return {"sessionId": session_id, "messages": messages, "count": len(messages)}
 
+    if method == "GetCapabilities":
+        worker_stats = get_worker_status_counts()
+        runtime_state = {"onlineWorkers": worker_stats["onlineWorkers"], "registeredWorkers": worker_stats["registeredWorkers"], "llmConfigured": bool(PROVIDER_ROUTER.configured())}
+        return CAPABILITY_REGISTRY.snapshot(runtime_state)
+
+    if method == "GetProviderMetrics":
+        return PROVIDER_ROUTER.metrics()
+
     if method == "GetRuntimeInfo":
         worker_stats = get_worker_status_counts()
         agent_count = store.db.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
@@ -714,7 +725,13 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "agentCount": agent_count,
             "memoryCount": memory_count,
             "conversationCount": conv_count,
-            "llmConfigured": bool(os.getenv("OPENAI_API_KEY") or os.getenv("SAREMBOK_AUTH_TOKEN", "").startswith("sk-")),
+            "llmConfigured": bool(
+                os.getenv("OPENAI_API_KEY")
+                or os.getenv("OPENROUTER_API_KEY")
+                or os.getenv("GROQ_API_KEY")
+                or os.getenv("GEMINI_API_KEY")
+                or os.getenv("LLM_ENDPOINT_URL")
+            ),
         }
 
 
@@ -1884,13 +1901,46 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
     raise ValueError(f"unknown_method: {method}")
 
 
-def authenticate(request: dict[str, Any]) -> None:
-    if not AUTH_TOKEN:
-        return
+def issue_browser_session() -> str:
+    now_ts = time.time()
+    # Prune expired sessions opportunistically.
+    expired = [token for token, expiry in BROWSER_SESSIONS.items() if expiry <= now_ts]
+    for token in expired:
+        BROWSER_SESSIONS.pop(token, None)
+    token = secrets.token_urlsafe(32)
+    BROWSER_SESSIONS[token] = now_ts + BROWSER_SESSION_TTL_SECONDS
+    return token
+
+
+def browser_session_valid(token: Any) -> bool:
+    if not isinstance(token, str) or not token:
+        return False
+    expiry = BROWSER_SESSIONS.get(token)
+    if expiry is None:
+        return False
+    if expiry <= time.time():
+        BROWSER_SESSIONS.pop(token, None)
+        return False
+    return True
+
+
+def authenticate(request: dict[str, Any], method: str) -> None:
+    # Server-to-server/admin clients may continue using the master token.
     params = request.get("params")
-    supplied = params.get("authToken") if isinstance(params, dict) else None
-    if not isinstance(supplied, str) or not hmac.compare_digest(supplied, AUTH_TOKEN):
+    if not isinstance(params, dict):
         raise PermissionError("authentication_required")
+
+    supplied = params.get("authToken")
+    if AUTH_TOKEN and isinstance(supplied, str) and hmac.compare_digest(supplied, AUTH_TOKEN):
+        return
+
+    # Browser clients receive a short-lived, scoped session token. The master
+    # runtime credential is never sent to or rendered into browser HTML.
+    session_token = params.get("sessionToken")
+    if browser_session_valid(session_token) and method in BROWSER_ALLOWED_METHODS:
+        return
+
+    raise PermissionError("authentication_required")
 
 
 def validate_request(request: Any) -> tuple[str, dict[str, Any]]:
@@ -1904,7 +1954,7 @@ def validate_request(request: Any) -> tuple[str, dict[str, Any]]:
     params = request.get("params") or {}
     if not isinstance(params, dict):
         raise ValueError("params must be an object")
-    authenticate(request)
+    authenticate(request, method)
     return method, params
 
 
@@ -1920,7 +1970,8 @@ async def handler(websocket) -> None:
                 request = json.loads(raw)
                 method, params = validate_request(request)
                 async with get_db_lock():
-                    result = dispatch(method, params)
+                    # Keep synchronous SQLite/provider I/O off the asyncio event loop.
+                    result = await asyncio.to_thread(dispatch, method, params)
                 response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}
                 LOG.info("rpc_success method=%s request_id=%s", method, request.get("id"))
             except PermissionError as exc:
@@ -1936,6 +1987,14 @@ async def handler(websocket) -> None:
         LOG.info("connection_close peer=%s", peer)
 
 
+def process_http_response(connection: Any, request: Any, response: Any) -> Any:
+    path = getattr(request, "path", "") or ""
+    if path == "/session":
+        response.headers["Content-Type"] = "application/json; charset=utf-8"
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 async def process_http_request(connection: Any, request: Any) -> Any:
     # If the request is a WebSocket upgrade attempt, return None to continue handshake
     headers = getattr(request, "headers", {})
@@ -1948,6 +2007,24 @@ async def process_http_request(connection: Any, request: Any) -> Any:
         if hasattr(connection, "respond"):
             return connection.respond(200, "OK\n")
         return (200, [("Content-Type", "text/plain; charset=utf-8")], b"OK\n")
+    if path == "/session":
+        session_token = issue_browser_session()
+        body = json.dumps({
+            "sessionToken": session_token,
+            "expiresIn": BROWSER_SESSION_TTL_SECONDS,
+            "scope": sorted(BROWSER_ALLOWED_METHODS),
+        }, separators=(",", ":"))
+        if hasattr(connection, "respond"):
+            return connection.respond(200, body)
+        return (
+            200,
+            [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Cache-Control", "no-store"),
+                ("Content-Length", str(len(body.encode("utf-8")))),
+            ],
+            body.encode("utf-8"),
+        )
     if path in ("/", "/index.html"):
         base_dir = os.path.dirname(os.path.abspath(__file__))
         candidates = [
@@ -1969,13 +2046,6 @@ async def process_http_request(connection: Any, request: Any) -> Any:
                     LOG.error("Failed to read frontend index.html: %s", exc)
         if not html_str:
             html_str = "<!DOCTYPE html><html><body><h1>Sarembok VE Cloud Runtime</h1><p>Status: ONLINE</p></body></html>\n"
-        elif AUTH_TOKEN:
-            token_injection = f'<script>window.__SAREMBOK_DEFAULT_TOKEN__ = "{AUTH_TOKEN}";</script>'
-            if "<head>" in html_str:
-                html_str = html_str.replace("<head>", f"<head>\n    {token_injection}", 1)
-            else:
-                html_str = token_injection + html_str
-        
         if hasattr(connection, "respond"):
             resp = connection.respond(200, html_str)
             try:
@@ -2024,6 +2094,7 @@ async def serve() -> None:
             close_timeout=5,
             compression=None,
             process_request=process_http_request,
+            process_response=process_http_response,
         ) as server:
             LOG.info("listening address=0.0.0.0:%s", PORT)
             await get_stop_event().wait()
