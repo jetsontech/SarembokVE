@@ -217,9 +217,9 @@ def render_markdown(data: dict[str, Any]) -> str:
         f"- Offline: **{workers['offline']}**",
     ]
     for worker in workers["workers"]:
-        gpu = f" ÔÇö {worker['gpuModel']} / {worker['vramMb']} MB" if worker.get("gpuModel") else ""
+        gpu = f" — {worker['gpuModel']} / {worker['vramMb']} MB" if worker.get("gpuModel") else ""
         caps = ", ".join(worker["capabilities"]) or "none"
-        lines.append(f"- `{worker['workerId']}` ÔÇö **{worker['status']}** ÔÇö capabilities: `{caps}`{gpu}")
+        lines.append(f"- `{worker['workerId']}` — **{worker['status']}** — capabilities: `{caps}`{gpu}")
     lines += [
         "", "### Compute",
         f"- Online GPU workers: **{compute['onlineGpuWorkers']}**",
@@ -230,7 +230,7 @@ def render_markdown(data: dict[str, Any]) -> str:
         f"- Online: **{agents['online']}**",
     ]
     for agent in agents["agents"]:
-        lines.append(f"- `{agent['agentId']}` ÔÇö {agent['displayName']} ÔÇö **{agent['status']}**")
+        lines.append(f"- `{agent['agentId']}` — {agent['displayName']} — **{agent['status']}**")
     lines += [
         "", "### Persistent Memory",
         f"- Backend: **{memory['backend']}**",
@@ -259,3 +259,4 @@ def render_markdown(data: dict[str, Any]) -> str:
         lines.append("- No successful provider call is recorded in the current process telemetry.")
     lines += ["", "**Truth boundary:** this report is generated from runtime-observed state. It does not infer or invent unavailable infrastructure facts."]
     return "\n".join(lines)
+

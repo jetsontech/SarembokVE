@@ -1,0 +1,29 @@
+name: Sarembok production latency probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      samples:
+        description: Number of production chat samples
+        required: false
+        default: '3'
+      host:
+        description: Production host
+        required: false
+        default: 'https://sarembok.com'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install probe dependency
+        run: python3 -m pip install --user websockets
+      - name: Run production probe
+        env:
+          SAREMBOK_PROBE_HOST: ${{ inputs.host }}
+          SAREMBOK_PROBE_SAMPLES: ${{ inputs.samples }}
+        run: python3 Deployment/cloud/production_latency_probe.py
