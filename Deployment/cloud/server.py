@@ -27,6 +27,7 @@ from runtime_response_composer import build_runtime_context
 from provider_router import ProviderRouter
 from capability_registry import CapabilityRegistry
 from structured_response import build_structured_response
+from sarembok_web_intelligence import w3c_research
 from datetime import datetime, timezone
 from typing import Any
 
@@ -551,11 +552,292 @@ def _is_model_identity_query(prompt: str) -> bool:
     prompt_lower = prompt.lower()
     return any(marker in prompt_lower for marker in markers)
 
+
+def _is_w3c_research_query(prompt: str) -> bool:
+    """Return True only for explicit W3C/Web-standards research requests."""
+    value = str(prompt or "").strip().lower()
+
+    if "w3c" not in value:
+        return False
+
+    research_markers = (
+        "research",
+        "research the",
+        "look up",
+        "investigate",
+        "find information",
+        "find out",
+        "specification",
+        "spec",
+        "standard",
+        "standards",
+    )
+
+    return any(marker in value for marker in research_markers)
+
+
+def _extract_w3c_research_topic(prompt: str) -> str:
+    """Extract the actual W3C subject and remove conversational instructions."""
+    clean = str(prompt or "").strip()
+
+    topic = clean
+
+    # Prefer the subject immediately following an explicit W3C marker.
+    match = re.search(r"\bw3c\b\s+(.+)$", clean, re.IGNORECASE)
+    if match:
+        topic = match.group(1).strip()
+
+    # Remove leading research/request verbs.
+    topic = re.sub(
+        r"^(?:please\s+)?(?:research|look\s+up|investigate|find\s+(?:information|out)\s+about)\s+",
+        "",
+        topic,
+        flags=re.IGNORECASE,
+    ).strip()
+
+    # Remove common trailing instructions rather than treating them as
+    # part of the research subject.
+    topic = re.split(
+        r"\s+(?:and\s+)?(?:summari[sz]e|explain|describe|tell\s+me\s+about|"
+        r"give\s+me|show\s+me|what\s+is|how\s+does)\b",
+        topic,
+        maxsplit=1,
+        flags=re.IGNORECASE,
+    )[0].strip()
+
+    # Normalize trailing punctuation before suffix matching.
+    topic = topic.strip(" .!?")
+
+    # Remove specification/standard as an instruction suffix.
+    topic = re.sub(
+        r"\s+(?:the\s+)?(?:latest\s+)?(?:current\s+)?"
+        r"(?:specification|spec|standard|standards)\s*$",
+        "",
+        topic,
+        flags=re.IGNORECASE,
+    ).strip(" .!?")
+
+    # If the phrase contains a simple conjunction followed by another
+    # instruction, keep only the subject portion.
+    topic = re.sub(
+        r"\s+and\s+(?:the\s+)?(?:current|latest)\s+.*$",
+        "",
+        topic,
+        flags=re.IGNORECASE,
+    ).strip(" .!?")
+
+    return topic or clean
+
+
+def _execute_w3c_research(prompt: str) -> dict[str, Any]:
+    """Execute the existing bounded W3C research capability."""
+    topic = _extract_w3c_research_topic(prompt)
+
+    research_result = w3c_research(topic)
+
+    evidence = research_result.get("evidence", [])
+    successful = [
+        item for item in evidence
+        if isinstance(item, dict) and "error" not in item
+    ]
+    failed = [
+        item for item in evidence
+        if isinstance(item, dict) and "error" in item
+    ]
+
+    findings = []
+    sources = []
+
+    for item in successful:
+        title = str(item.get("title") or "W3C source").strip()
+        url = str(item.get("url") or "").strip()
+        status = item.get("status")
+        excerpt = str(item.get("excerpt") or "").strip()
+
+        findings.append({
+            "title": title,
+            "detail": excerpt[:1000],
+            "status": "RETRIEVED",
+            "httpStatus": status,
+        })
+
+        if url:
+            sources.append({
+                "title": title,
+                "url": url,
+                "status": "RETRIEVED",
+                "httpStatus": status,
+                "excerpt": excerpt[:1000],
+            })
+
+    for item in failed:
+        findings.append({
+            "title": str(item.get("title") or "W3C source").strip(),
+            "detail": "Source retrieval failed.",
+            "status": "FAILED",
+            "error": str(item.get("error") or "unknown_error"),
+        })
+
+    verification = {
+        "status": "VERIFIED" if successful else "FAILED",
+        "retrieved": len(successful),
+        "failed": len(failed),
+        "discovered": len(research_result.get("discovery", {}).get("results", [])),
+        "scope": research_result.get("scope", "W3C and Web standards"),
+        "provenance": research_result.get("provenance"),
+    }
+
+    return {
+        "topic": topic,
+        "research": research_result,
+        "findings": findings,
+        "sources": sources,
+        "verification": verification,
+        "authorization": [{
+            "capability": "W3CResearch",
+            "status": "AUTHORIZED",
+            "scope": "Public W3C and Web standards resources",
+        }],
+    }
+
+
 def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key: str | None = None, session_id: str = "default") -> dict[str, Any]:
     prompt_clean = (prompt or "").strip()
     prompt_lower = prompt_clean.lower()
 
     action_info = None
+
+    # 0. Capability Intent: W3C Research
+    #
+    # This is intentionally server-side. Browser sessions remain limited
+    # to SarembokChat/GetRuntimeInfo; SarembokChat itself invokes the
+    # existing bounded W3C research capability.
+    if _is_w3c_research_query(prompt_clean):
+        try:
+            research_execution = _execute_w3c_research(prompt_clean)
+
+            topic = research_execution["topic"]
+            evidence = research_execution["research"].get("evidence", [])
+
+            evidence_context = []
+            for item in evidence:
+                if not isinstance(item, dict) or "error" in item:
+                    continue
+
+                evidence_context.append(
+                    "\n".join([
+                        f"TITLE: {item.get('title', '')}",
+                        f"URL: {item.get('url', '')}",
+                        f"HTTP STATUS: {item.get('status', '')}",
+                        f"EVIDENCE: {item.get('excerpt', '')}",
+                    ])
+                )
+
+            research_prompt = (
+                f"Answer the user's request using the live W3C research "
+                f"evidence retrieved by Sarembok.\n\n"
+                f"USER REQUEST:\n{prompt_clean}\n\n"
+                f"RESEARCH TOPIC:\n{topic}\n\n"
+                f"LIVE W3C EVIDENCE:\n"
+                f"{chr(10).join(evidence_context)}\n\n"
+                "Requirements:\n"
+                "- Synthesize only from the retrieved evidence and your "
+                "general knowledge where clearly appropriate.\n"
+                "- Distinguish current retrieved facts from inference.\n"
+                "- Do not invent W3C specifications, versions, dates, or "
+                "implementation status.\n"
+                "- Clearly identify the relevant W3C sources.\n"
+                "- State when evidence could not be retrieved.\n"
+            )
+
+            authority_snapshot = runtime_authority_snapshot(
+                store,
+                PROVIDER_ROUTER,
+                STARTED,
+            )
+            authoritative_context = build_runtime_context(authority_snapshot)
+
+            research_system_prompt = "\n".join([
+                authoritative_context,
+                "",
+                "You are Sarembok, an AI assistant running on the Sarembok VE platform.",
+                "You are synthesizing a live research result produced by the "
+                "authorized W3CResearch capability.",
+                "Do not claim that you retrieved a source unless it appears "
+                "in the supplied evidence.",
+                "Do not invent citations or URLs.",
+                "Answer directly and concisely, using clear headings and "
+                "bullet points where useful.",
+            ])
+
+            research_messages = [
+                {"role": "system", "content": research_system_prompt},
+                {"role": "user", "content": research_prompt},
+            ]
+
+            provider_result = PROVIDER_ROUTER.generate(
+                research_system_prompt,
+                research_prompt,
+                research_messages,
+            )
+
+            source = provider_result.provider
+            model = provider_result.model
+            provider_latency_ms = provider_result.latency_ms
+            provider_api = provider_result.api
+            provider_usage = provider_result.usage
+            reply = provider_result.text
+
+            structured = build_structured_response(
+                reply,
+                provider=source,
+                model=model,
+                latency_ms=provider_latency_ms,
+                findings=research_execution["findings"],
+                sources=research_execution["sources"],
+                authorization=research_execution["authorization"],
+                verification=research_execution["verification"],
+            )
+
+            _save_conversation(session_id, prompt_clean, reply)
+
+            store.event(
+                "sarembok-prime",
+                "W3C_RESEARCH_RESPONSE",
+                {
+                    "prompt": prompt_clean[:200],
+                    "topic": topic[:200],
+                    "retrieved": research_execution["verification"]["retrieved"],
+                    "failed": research_execution["verification"]["failed"],
+                    "model": model,
+                    "provider": source,
+                },
+            )
+
+            return {
+                "response": reply,
+                "audioText": reply[:300].replace("*", "").replace("`", "").replace("#", ""),
+                "source": source,
+                "model": model,
+                "action": {
+                    "type": "W3C_RESEARCH",
+                    "capability": "W3CResearch",
+                    "topic": topic,
+                    "status": research_execution["verification"]["status"],
+                },
+                "structuredResponse": structured,
+                "metadata": {
+                    "provider": source,
+                    "model": model,
+                    "latency_ms": provider_latency_ms,
+                    "provider_api": provider_api,
+                    "usage": provider_usage,
+                    "capability": "W3CResearch",
+                },
+            }
+
+        except Exception as exc:
+            LOG.warning("W3C research capability failed: %s", exc)
 
     # 1. Tool Intent: Create Agent
     if re.search(r"\b(?:create|spawn|build|deploy)\s+(?:an?\s+)?(?:agent|helper|assistant|bot)\b", prompt_lower):

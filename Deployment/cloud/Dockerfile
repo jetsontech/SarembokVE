@@ -2,6 +2,7 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/Runtime:/app \
     SAREMBOK_PORT=9000 \
     SAREMBOK_DB_PATH=/data/sarembok_cloud.db
 
