@@ -73,7 +73,7 @@ echo "Selection policy: PRESENT"
 echo
 
 echo "===== RUNTIME CAPABILITY RPC ====="
-python - <<'PY'
+python3 - <<'PY'
 import json, os, ssl, urllib.request
 print("Capability RPC smoke check is performed by the authenticated browser/session path.")
 print("Do not print or expose SAREMBOK_AUTH_TOKEN.")
