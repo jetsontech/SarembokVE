@@ -19,6 +19,7 @@
             --cyan: #00f0ff;
             --cyan-glow: rgba(0, 240, 255, 0.35);
             --emerald: #10b981;
+            --indigo: #818cf8;
             --text-main: #ffffff;
             --text-secondary: #94a3b8;
             --text-muted: #525e75;
@@ -26,14 +27,9 @@
             --font-mono: 'JetBrains Mono', monospace;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
-        html,
-        body {
+        html, body {
             width: 100%;
             height: 100%;
             overflow: hidden;
@@ -43,14 +39,7 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        button,
-        .btn-action,
-        .dock-pill,
-        .nav-arrow,
-        .srbk-copy {
-            user-select: none;
-            -webkit-user-select: none;
-        }
+        button, .btn-action, .dock-pill, .nav-arrow, .srbk-copy { user-select: none; -webkit-user-select: none; }
 
         .stage-viewport {
             position: absolute;
@@ -59,13 +48,7 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background:
-                radial-gradient(
-                    circle at 50% 45%,
-                    rgba(0, 240, 255, 0.03) 0%,
-                    transparent 65%
-                ),
-                #000000;
+            background: radial-gradient(circle at 50% 45%, rgba(0, 240, 255, 0.03) 0%, transparent 65%), #000000;
             z-index: 2;
         }
 
@@ -78,2774 +61,716 @@
             animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .view-panel.active {
-            display: flex;
-            flex-direction: column;
-        }
+        .view-panel.active { display: flex; flex-direction: column; }
 
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(6px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* ==================== BOOT ==================== */
+        #view-boot { justify-content: center; align-items: center; text-align: center; }
+        .boot-hero-title { font-size: clamp(38px, 6vw, 76px); font-weight: 300; letter-spacing: clamp(14px, 2.5vw, 32px); color: #ffffff; text-transform: uppercase; margin-right: calc(-1 * clamp(14px, 2.5vw, 32px)); text-shadow: 0 0 40px rgba(255, 255, 255, 0.15); }
+        .boot-subtitle { font-size: clamp(10px, 1.2vw, 13px); font-weight: 500; letter-spacing: clamp(4px, 0.8vw, 8px); color: var(--text-muted); text-transform: uppercase; margin-top: 24px; margin-right: calc(-1 * clamp(4px, 0.8vw, 8px)); }
+        .boot-loader-bar { width: 180px; height: 2px; background: rgba(255, 255, 255, 0.08); margin: 32px auto 0; border-radius: 2px; overflow: hidden; position: relative; }
+        .boot-loader-progress { position: absolute; top: 0; left: 0; bottom: 0; width: 40%; background: linear-gradient(90deg, transparent, var(--cyan)); box-shadow: 0 0 12px var(--cyan); animation: laserScan 2s ease-in-out infinite; }
+        @keyframes laserScan { 0% { left: -40%; } 100% { left: 100%; } }
 
-        #view-boot {
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-        }
+        .content-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; border-bottom: 1px solid var(--border-glass); padding-bottom: 20px; }
+        .content-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 2px; color: var(--cyan); text-transform: uppercase; margin-bottom: 6px; }
+        .content-title { font-size: 28px; font-weight: 400; letter-spacing: 1px; color: #ffffff; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 24px; }
+        .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 24px; margin-bottom: 24px; }
+        .glass-card { background: var(--bg-card); border: 1px solid var(--border-glass); backdrop-filter: blur(20px); border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 12px; transition: border-color 0.2s ease; }
+        .glass-card:hover { border-color: rgba(0, 240, 255, 0.25); }
+        .card-label { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); font-family: var(--font-mono); }
+        .card-val { font-size: 22px; font-weight: 500; color: #ffffff; }
+        .card-desc { font-size: 13.5px; line-height: 1.6; color: var(--text-secondary); }
+        .text-cyan { color: var(--cyan); }
+        .text-emerald { color: var(--emerald); }
+        .mono { font-family: var(--font-mono); }
 
-        .boot-hero-title {
-            font-size: clamp(38px, 6vw, 76px);
-            font-weight: 300;
-            letter-spacing: clamp(14px, 2.5vw, 32px);
-            color: #ffffff;
-            text-transform: uppercase;
-            margin-right: calc(-1 * clamp(14px, 2.5vw, 32px));
-            text-shadow: 0 0 40px rgba(255, 255, 255, 0.15);
-        }
-
-        .boot-subtitle {
-            font-size: clamp(10px, 1.2vw, 13px);
-            font-weight: 500;
-            letter-spacing: clamp(4px, 0.8vw, 8px);
-            color: var(--text-muted);
-            text-transform: uppercase;
-            margin-top: 24px;
-            margin-right: calc(-1 * clamp(4px, 0.8vw, 8px));
-        }
-
-        .boot-loader-bar {
-            width: 180px;
-            height: 2px;
-            background: rgba(255, 255, 255, 0.08);
-            margin: 32px auto 0;
-            border-radius: 2px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .boot-loader-progress {
-            position: absolute;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            width: 40%;
-            background: linear-gradient(90deg, transparent, var(--cyan));
-            box-shadow: 0 0 12px var(--cyan);
-            animation: laserScan 2s ease-in-out infinite;
-        }
-
-        @keyframes laserScan {
-            0% {
-                left: -40%;
-            }
-
-            100% {
-                left: 100%;
-            }
-        }
-
-        /* ==================== CONTENT ==================== */
-
-        .content-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 32px;
-            border-bottom: 1px solid var(--border-glass);
-            padding-bottom: 20px;
-        }
-
-        .content-eyebrow {
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 2px;
-            color: var(--cyan);
-            text-transform: uppercase;
-            margin-bottom: 6px;
-        }
-
-        .content-title {
-            font-size: 28px;
-            font-weight: 400;
-            letter-spacing: 1px;
-            color: #ffffff;
-        }
-
-        .grid-3 {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 20px;
-            margin-bottom: 24px;
-        }
-
-        .grid-2 {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
-            gap: 24px;
-            margin-bottom: 24px;
-        }
-
-        .glass-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-glass);
-            backdrop-filter: blur(20px);
-            border-radius: 14px;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            transition: border-color 0.2s ease;
-        }
-
-        .glass-card:hover {
-            border-color: rgba(0, 240, 255, 0.25);
-        }
-
-        .card-label {
-            font-size: 11px;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            font-family: var(--font-mono);
-        }
-
-        .card-val {
-            font-size: 22px;
-            font-weight: 500;
-            color: #ffffff;
-        }
-
-        .card-desc {
-            font-size: 13.5px;
-            line-height: 1.6;
-            color: var(--text-secondary);
-        }
-
-        .text-cyan {
-            color: var(--cyan);
-        }
-
-        .text-emerald {
-            color: var(--emerald);
-        }
-
-        .mono {
-            font-family: var(--font-mono);
-        }
-
-        /* ==================== INTERACTIVE CONSOLE ==================== */
-
-        .interactive-deck {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            background: rgba(10, 14, 23, 0.85);
-            border: 1px solid var(--border-glass);
-            border-radius: 16px;
-            padding: 24px;
-            margin-top: 10px;
-        }
-
-        .dialogue-history {
-            max-height: 420px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-            padding-right: 4px;
-        }
-
-        .dialogue-history::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .dialogue-history::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.12);
-            border-radius: 6px;
-        }
-
-        .input-bar {
-            display: flex;
-            gap: 12px;
-        }
-
-        .text-input {
-            flex: 1;
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid var(--border-glass);
-            border-radius: 10px;
-            padding: 12px 16px;
-            color: #ffffff;
-            font-family: var(--font-sans);
-            font-size: 14px;
-            outline: none;
-            user-select: text;
-            -webkit-user-select: text;
-        }
-
-        .text-input:focus {
-            border-color: var(--cyan);
-        }
-
-        .btn-action {
-            background: var(--cyan);
-            color: #000;
-            font-weight: 600;
-            padding: 12px 24px;
-            border-radius: 10px;
-            border: none;
-            cursor: pointer;
-            font-size: 13px;
-            letter-spacing: 0.5px;
-        }
-
-        .btn-action:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+        .interactive-deck { display: flex; flex-direction: column; gap: 16px; background: rgba(10, 14, 23, 0.85); border: 1px solid var(--border-glass); border-radius: 16px; padding: 24px; margin-top: 10px; }
+        .dialogue-history { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; padding: 2px 4px 2px 0; }
+        .dialogue-history::-webkit-scrollbar { width: 6px; }
+        .dialogue-history::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 6px; }
+        .input-bar { display: flex; gap: 12px; }
+        .text-input { flex: 1; background: rgba(0, 0, 0, 0.5); border: 1px solid var(--border-glass); border-radius: 10px; padding: 12px 16px; color: #ffffff; font-family: var(--font-sans); font-size: 14px; outline: none; user-select: text; -webkit-user-select: text; }
+        .text-input:focus { border-color: var(--cyan); }
+        .btn-action { background: var(--cyan); color: #000; font-weight: 600; padding: 12px 24px; border-radius: 10px; border: none; cursor: pointer; font-size: 13px; letter-spacing: 0.5px; }
+        .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* ==================== RESPONSE UI ==================== */
+        .srbk-bubble { color: var(--text-secondary); line-height: 1.65; user-select: text; -webkit-user-select: text; }
+        .srbk-bubble > strong { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+        .srbk-content { margin-top: 9px; color: var(--text-secondary); cursor: text; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+        .srbk-content * { user-select: text; -webkit-user-select: text; }
+        .srbk-content h1, .srbk-content h2, .srbk-content h3 { color: #ffffff; font-weight: 500; line-height: 1.3; margin: 18px 0 10px; }
+        .srbk-content h1 { font-size: 22px; }
+        .srbk-content h2 { font-size: 19px; }
+        .srbk-content h3 { font-size: 16px; }
+        .srbk-content p { margin: 8px 0; }
+        .srbk-content strong { color: #ffffff; font-weight: 600; }
+        .srbk-content em { color: #dbeafe; }
+        .srbk-content a { color: var(--cyan); text-decoration: underline; }
+        .srbk-content ul, .srbk-content ol { margin: 10px 0 10px 22px; }
+        .srbk-content li { margin: 5px 0; }
+        .srbk-content blockquote { margin: 12px 0; padding: 10px 14px; border-left: 3px solid var(--cyan); background: rgba(0, 240, 255, 0.04); color: var(--text-secondary); }
+        .srbk-content hr { border: 0; border-top: 1px solid var(--border-subtle); margin: 18px 0; }
+        .srbk-inline-code { display: inline-block; padding: 1px 5px; border-radius: 5px; background: rgba(255, 255, 255, 0.08); color: #e2e8f0; font-family: var(--font-mono); font-size: 0.9em; user-select: text; -webkit-user-select: text; }
+        .srbk-table-wrap { width: 100%; overflow-x: auto; margin: 12px 0; }
+        .srbk-table-wrap table { width: 100%; min-width: 520px; border-collapse: collapse; }
+        .srbk-table-wrap th, .srbk-table-wrap td { padding: 9px 11px; border: 1px solid rgba(255, 255, 255, 0.12); vertical-align: top; text-align: left; user-select: text; -webkit-user-select: text; }
+        .srbk-table-wrap th { color: #ffffff; font-weight: 600; background: rgba(255, 255, 255, 0.04); }
+        .srbk-table-wrap td { color: var(--text-secondary); }
+        .srbk-code-block { margin: 14px 0; border: 1px solid var(--border-glass); border-radius: 10px; overflow: hidden; background: rgba(0, 0, 0, 0.45); }
+        .srbk-code-head { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border-bottom: 1px solid var(--border-glass); color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+        .srbk-copy { padding: 5px 9px; border: 1px solid var(--border-glass); border-radius: 6px; background: rgba(255, 255, 255, 0.05); color: var(--text-secondary); cursor: pointer; font-family: var(--font-sans); font-size: 11px; }
+        .srbk-copy:hover { border-color: var(--cyan); color: var(--cyan); }
+        .srbk-code-block pre { margin: 0; padding: 14px; overflow-x: auto; white-space: pre; user-select: text; -webkit-user-select: text; }
+        .srbk-code-block code { color: #e2e8f0; font-family: var(--font-mono); font-size: 12px; line-height: 1.6; user-select: text; -webkit-user-select: text; }
+        .srbk-streaming { opacity: 0.95; }
+        .srbk-thinking { color: var(--text-muted); font-family: var(--font-mono); font-size: 12px; }
 
-        .srbk-bubble {
-            color: var(--text-secondary);
-            line-height: 1.65;
-            user-select: text;
-            -webkit-user-select: text;
-        }
-
-        .srbk-content {
-            margin-top: 8px;
-            color: var(--text-secondary);
-            cursor: text;
-            overflow-wrap: anywhere;
-            user-select: text;
-            -webkit-user-select: text;
-        }
-
-        .srbk-content * {
-            user-select: text;
-            -webkit-user-select: text;
-        }
-
-        .srbk-content h1,
-        .srbk-content h2,
-        .srbk-content h3 {
-            color: #ffffff;
-            font-weight: 500;
-            line-height: 1.3;
-            margin: 18px 0 10px;
-        }
-
-        .srbk-content h1 {
-            font-size: 22px;
-        }
-
-        .srbk-content h2 {
-            font-size: 19px;
-        }
-
-        .srbk-content h3 {
-            font-size: 16px;
-        }
-
-        .srbk-content p {
-            margin: 8px 0;
-        }
-
-        .srbk-content strong {
-            color: #ffffff;
-            font-weight: 600;
-        }
-
-        .srbk-content em {
-            color: #dbeafe;
-        }
-
-        .srbk-content a {
-            color: var(--cyan);
-            text-decoration: underline;
-        }
-
-        .srbk-content ul,
-        .srbk-content ol {
-            margin: 10px 0 10px 22px;
-        }
-
-        .srbk-content li {
-            margin: 5px 0;
-        }
-
-        .srbk-content blockquote {
-            margin: 12px 0;
-            padding: 10px 14px;
-            border-left: 3px solid var(--cyan);
-            background: rgba(0, 240, 255, 0.04);
-            color: var(--text-secondary);
-        }
-
-        .srbk-content hr {
-            border: 0;
-            border-top: 1px solid var(--border-subtle);
-            margin: 18px 0;
-        }
-
-        .srbk-inline-code {
-            display: inline-block;
-            padding: 1px 5px;
-            border-radius: 5px;
-            background: rgba(255, 255, 255, 0.08);
-            color: #e2e8f0;
-            font-family: var(--font-mono);
-            font-size: 0.9em;
-            user-select: text;
-            -webkit-user-select: text;
-        }
-
-        .srbk-table-wrap {
-            width: 100%;
-            overflow-x: auto;
-            margin: 12px 0;
-        }
-
-        .srbk-table-wrap table {
-            width: 100%;
-            min-width: 520px;
-            border-collapse: collapse;
-        }
-
-        .srbk-table-wrap th,
-        .srbk-table-wrap td {
-            padding: 9px 11px;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            vertical-align: top;
-            text-align: left;
-            user-select: text;
-            -webkit-user-select: text;
-        }
-
-        .srbk-table-wrap th {
-            color: #ffffff;
-            font-weight: 600;
-            background: rgba(255, 255, 255, 0.04);
-        }
-
-        .srbk-table-wrap td {
-            color: var(--text-secondary);
-        }
-
-        .srbk-code-block {
-            margin: 14px 0;
-            border: 1px solid var(--border-glass);
-            border-radius: 10px;
-            overflow: hidden;
-            background: rgba(0, 0, 0, 0.45);
-        }
-
-        .srbk-code-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 7px 10px;
-            border-bottom: 1px solid var(--border-glass);
-            color: var(--text-muted);
-            font-family: var(--font-mono);
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .srbk-copy {
-            padding: 5px 9px;
-            border: 1px solid var(--border-glass);
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text-secondary);
-            cursor: pointer;
-            font-family: var(--font-sans);
-            font-size: 11px;
-        }
-
-        .srbk-copy:hover {
-            border-color: var(--cyan);
-            color: var(--cyan);
-        }
-
-        .srbk-code-block pre {
-            margin: 0;
-            padding: 14px;
-            overflow-x: auto;
-            white-space: pre;
-            user-select: text;
-            -webkit-user-select: text;
-        }
-
-        .srbk-code-block code {
-            color: #e2e8f0;
-            font-family: var(--font-mono);
-            font-size: 12px;
-            line-height: 1.6;
-            user-select: text;
-            -webkit-user-select: text;
-        }
-
-        .srbk-streaming {
-            opacity: 0.95;
-        }
-
-        .srbk-thinking {
-            color: var(--text-muted);
-            font-family: var(--font-mono);
-            font-size: 12px;
-        }
+        /* ============================================================
+           FRONTIER RESPONSE CARDS
+           ============================================================ */
+        .srbk-response { display: flex; flex-direction: column; gap: 10px; width: 100%; user-select: text; -webkit-user-select: text; }
+        .srbk-response-card { border: 1px solid rgba(255,255,255,.09); border-radius: 14px; background: rgba(255,255,255,.025); overflow: hidden; user-select: text; -webkit-user-select: text; }
+        .srbk-response-card.answer { background: linear-gradient(135deg, rgba(0,240,255,.055), rgba(255,255,255,.025)); border-color: rgba(0,240,255,.16); }
+        .srbk-response-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 13px; border-bottom: 1px solid rgba(255,255,255,.065); }
+        .srbk-response-card-title { font-size: .66rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; color: #cbd5e1; opacity: .78; }
+        .srbk-response-card-body { padding: 13px; user-select: text; -webkit-user-select: text; }
+        .srbk-response-card-body > :first-child { margin-top: 0; }
+        .srbk-response-card-body > :last-child { margin-bottom: 0; }
+        .srbk-answer-lead { font-size: 15px; line-height: 1.72; color: #e2e8f0; }
+        .srbk-answer-lead p { margin: 0 0 9px; }
+        .srbk-response-list { display: flex; flex-direction: column; gap: 9px; margin: 0; padding: 0; list-style: none; }
+        .srbk-response-item { display: grid; grid-template-columns: 6px minmax(0,1fr); gap: 10px; align-items: start; user-select: text; -webkit-user-select: text; }
+        .srbk-response-item::before { content: ""; width: 5px; height: 5px; margin-top: 8px; border-radius: 50%; background: currentColor; opacity: .45; }
+        .srbk-response-item-main { min-width: 0; }
+        .srbk-response-item-title { font-weight: 650; line-height: 1.42; color: #f8fafc; }
+        .srbk-response-item-detail { margin-top: 3px; line-height: 1.58; opacity: .76; }
+        .srbk-response-item a { overflow-wrap: anywhere; }
+        .srbk-response-source-url { margin-top: 4px; font-size: .76rem; opacity: .58; overflow-wrap: anywhere; }
+        .srbk-response-source-excerpt { margin-top: 5px; font-size: .84rem; line-height: 1.55; opacity: .76; }
+        .srbk-response-status { display: inline-flex; width: max-content; margin-top: 6px; padding: 3px 7px; border: 1px solid rgba(255,255,255,.10); border-radius: 999px; font-size: .61rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; opacity: .80; }
+        .srbk-response-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+        .srbk-response-kv { min-width: 0; padding: 9px 10px; border-radius: 9px; background: rgba(255,255,255,.035); }
+        .srbk-response-kv-label { display: block; margin-bottom: 3px; font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; opacity: .48; }
+        .srbk-response-kv-value { display: block; overflow-wrap: anywhere; font-size: .82rem; color: #cbd5e1; }
+        .srbk-response-meta { display: flex; flex-wrap: wrap; gap: 5px 12px; padding: 1px 3px 0; font-size: .61rem; opacity: .32; }
+        .srbk-response-meta span { font-family: var(--font-mono); }
+        .srbk-response-badge { display: inline-flex; align-items: center; gap: 6px; width: max-content; padding: 4px 8px; border-radius: 999px; border: 1px solid rgba(16,185,129,.24); background: rgba(16,185,129,.07); color: #6ee7b7; font-size: .62rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+        .srbk-response-badge::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+        .srbk-response-empty { padding: 4px 0; color: var(--text-secondary); }
 
         /* ==================== NAVIGATION ==================== */
-
-        .nav-dock-container {
-            position: absolute;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            background: rgba(10, 14, 23, 0.75);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 40px;
-            padding: 4px 8px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
-            max-width: 95vw;
-            overflow-x: auto;
-        }
-
-        .nav-dock-container::-webkit-scrollbar {
-            display: none;
-        }
-
-        .nav-arrow {
-            width: 28px;
-            height: 28px;
-            flex: 0 0 auto;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--border-glass);
-            color: var(--text-secondary);
-            cursor: pointer;
-            font-size: 11px;
-            transition: all 0.2s ease;
-        }
-
-        .nav-arrow:hover {
-            color: #fff;
-            border-color: var(--cyan);
-        }
-
-        .dock-pill {
-            padding: 7px 15px;
-            border-radius: 20px;
-            font-size: 10.5px;
-            font-weight: 600;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            white-space: nowrap;
-            border: 1px solid transparent;
-            background: transparent;
-        }
-
-        .dock-pill:hover {
-            color: #e2e8f0;
-        }
-
-        .dock-pill.active {
-            background: rgba(0, 240, 255, 0.12);
-            color: var(--cyan);
-            border-color: rgba(0, 240, 255, 0.4);
-            box-shadow: 0 0 16px rgba(0, 240, 255, 0.2);
-        }
-
-        /* ==================== RESPONSIVE ==================== */
+        .nav-dock-container { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 100; display: flex; align-items: center; gap: 4px; background: rgba(10, 14, 23, 0.75); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 40px; padding: 4px 8px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8); max-width: 95vw; overflow-x: auto; }
+        .nav-dock-container::-webkit-scrollbar { display: none; }
+        .nav-arrow { width: 28px; height: 28px; flex: 0 0 auto; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-glass); color: var(--text-secondary); cursor: pointer; font-size: 11px; transition: all 0.2s ease; }
+        .nav-arrow:hover { color: #fff; border-color: var(--cyan); }
+        .dock-pill { padding: 7px 15px; border-radius: 20px; font-size: 10.5px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); cursor: pointer; transition: all 0.2s ease; white-space: nowrap; border: 1px solid transparent; background: transparent; }
+        .dock-pill:hover { color: #e2e8f0; }
+        .dock-pill.active { background: rgba(0, 240, 255, 0.12); color: var(--cyan); border-color: rgba(0, 240, 255, 0.4); box-shadow: 0 0 16px rgba(0, 240, 255, 0.2); }
 
         @media (max-width: 800px) {
-            .view-panel {
-                padding: 28px 20px 100px;
-            }
-
-            .grid-2 {
-                grid-template-columns: 1fr;
-            }
-
-            .grid-3 {
-                grid-template-columns: 1fr;
-            }
-
-            .content-header {
-                align-items: flex-start;
-                flex-direction: column;
-                gap: 12px;
-            }
-
-            .input-bar {
-                flex-direction: column;
-            }
-
-            .btn-action {
-                width: 100%;
-            }
+            .view-panel { padding: 28px 20px 100px; }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .content-header { align-items: flex-start; flex-direction: column; gap: 12px; }
+            .input-bar { flex-direction: column; }
+            .btn-action { width: 100%; }
         }
 
-/* ============================================================
-   SAREMBOK STRUCTURED RESPONSE UI
-   Presentation layer only.
-   ============================================================ */
-
-.srbk-response {
-    display:flex;
-    flex-direction:column;
-    gap:12px;
-    width:100%;
-    user-select:text;
-    -webkit-user-select:text;
-}
-
-.srbk-response-card {
-    border:1px solid rgba(255,255,255,.10);
-    border-radius:14px;
-    background:rgba(255,255,255,.035);
-    overflow:hidden;
-    user-select:text;
-    -webkit-user-select:text;
-}
-
-.srbk-response-card.answer {
-    background:rgba(255,255,255,.045);
-}
-
-.srbk-response-card-head {
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:12px;
-    padding:10px 14px;
-    border-bottom:1px solid rgba(255,255,255,.08);
-}
-
-.srbk-response-card-title {
-    font-size:.70rem;
-    font-weight:700;
-    letter-spacing:.12em;
-    text-transform:uppercase;
-    opacity:.72;
-}
-
-.srbk-response-card-body {
-    padding:14px;
-    user-select:text;
-    -webkit-user-select:text;
-}
-
-.srbk-response-card-body > :first-child {
-    margin-top:0;
-}
-
-.srbk-response-card-body > :last-child {
-    margin-bottom:0;
-}
-
-.srbk-response-list {
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-    margin:0;
-    padding:0;
-    list-style:none;
-}
-
-.srbk-response-item {
-    display:grid;
-    grid-template-columns:7px minmax(0,1fr);
-    gap:10px;
-    align-items:start;
-    user-select:text;
-    -webkit-user-select:text;
-}
-
-.srbk-response-item::before {
-    content:"";
-    width:6px;
-    height:6px;
-    margin-top:8px;
-    border-radius:50%;
-    background:currentColor;
-    opacity:.55;
-}
-
-.srbk-response-item-main {
-    min-width:0;
-}
-
-.srbk-response-item-title {
-    font-weight:650;
-    line-height:1.4;
-}
-
-.srbk-response-item-detail {
-    margin-top:3px;
-    line-height:1.55;
-    opacity:.78;
-}
-
-.srbk-response-item a {
-    overflow-wrap:anywhere;
-}
-
-.srbk-response-source-url {
-    margin-top:4px;
-    font-size:.78rem;
-    opacity:.62;
-    overflow-wrap:anywhere;
-}
-
-.srbk-response-source-excerpt {
-    margin-top:5px;
-    font-size:.84rem;
-    line-height:1.55;
-    opacity:.78;
-}
-
-.srbk-response-status {
-    display:inline-flex;
-    width:max-content;
-    margin-top:6px;
-    padding:3px 7px;
-    border:1px solid rgba(255,255,255,.10);
-    border-radius:999px;
-    font-size:.64rem;
-    font-weight:700;
-    letter-spacing:.07em;
-    text-transform:uppercase;
-    opacity:.80;
-}
-
-.srbk-response-grid {
-    display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:8px;
-}
-
-.srbk-response-kv {
-    min-width:0;
-    padding:9px 10px;
-    border-radius:9px;
-    background:rgba(255,255,255,.035);
-}
-
-.srbk-response-kv-label {
-    display:block;
-    margin-bottom:3px;
-    font-size:.66rem;
-    letter-spacing:.08em;
-    text-transform:uppercase;
-    opacity:.55;
-}
-
-.srbk-response-kv-value {
-    display:block;
-    overflow-wrap:anywhere;
-    font-size:.86rem;
-}
-
-.srbk-response-meta {
-    display:flex;
-    flex-wrap:wrap;
-    gap:7px 14px;
-    padding:1px 2px 0;
-    font-size:.66rem;
-    opacity:.42;
-}
-
-@media (max-width:640px) {
-    .srbk-response-grid {
-        grid-template-columns:1fr;
-    }
-
-    .srbk-response-card-head {
-        padding:9px 11px;
-    }
-
-    .srbk-response-card-body {
-        padding:11px;
-    }
-}
-
-</style>
+        @media (max-width: 640px) {
+            .srbk-response-grid { grid-template-columns: 1fr; }
+            .srbk-response-card-head { padding: 9px 11px; }
+            .srbk-response-card-body { padding: 11px; }
+            .srbk-answer-lead { font-size: 14px; }
+        }
+    </style>
 </head>
 
 <body>
-
     <div class="stage-viewport">
-
-        <!-- ==================== 1. BOOT ==================== -->
-
         <section class="view-panel active" id="view-boot">
             <div class="boot-hero-title">SAREMBOK</div>
             <div class="boot-subtitle">VIRTUAL EVOLUTION · INITIALIZING</div>
-
-            <div class="boot-loader-bar">
-                <div class="boot-loader-progress"></div>
-            </div>
+            <div class="boot-loader-bar"><div class="boot-loader-progress"></div></div>
         </section>
 
-        <!-- ==================== 2. DESKTOP ==================== -->
-
         <section class="view-panel" id="view-desktop">
-
             <div class="content-header">
                 <div>
                     <div class="content-eyebrow">Frontier OS</div>
                     <div class="content-title">Computing Environment</div>
                 </div>
-
-                <div class="card-label" style="color:var(--emerald);">
-                    ● RUNTIME LOADING
-                </div>
+                <div class="card-label" style="color:var(--emerald);">● RUNTIME LOADING</div>
             </div>
 
             <div class="grid-3">
-
                 <div class="glass-card">
                     <div class="card-label">Persistent Memory</div>
-                    <div class="card-val text-cyan" id="metric-mem">
-                        Loading…
-                    </div>
-                    <div class="card-desc">
-                        Live persistent-memory state reported by Runtime Authority.
-                    </div>
+                    <div class="card-val text-cyan" id="metric-mem">Loading…</div>
+                    <div class="card-desc">Live persistent-memory state reported by Runtime Authority.</div>
                 </div>
-
                 <div class="glass-card">
                     <div class="card-label">Active Agents</div>
-                    <div class="card-val" id="metric-agents">
-                        Loading…
-                    </div>
-                    <div class="card-desc">
-                        Live agent and worker state reported by Runtime Authority.
-                    </div>
+                    <div class="card-val" id="metric-agents">Loading…</div>
+                    <div class="card-desc">Live agent and worker state reported by Runtime Authority.</div>
                 </div>
-
-                                <div class="glass-card">
+                <div class="glass-card">
                     <div class="card-label">Runtime Endpoint</div>
-                    <div class="card-val text-emerald">
-                        sarembok.com
-                    </div>
-
+                    <div class="card-val text-emerald">sarembok.com</div>
                     <div class="card-label" style="margin-top:12px;">Compute</div>
-                    <div class="card-val text-cyan" id="metric-compute">
-                        Loading…
-                    </div>
-
-                    <div class="card-desc">
-                        Endpoint and live compute state reported by Runtime Authority.
-                    </div>
+                    <div class="card-val text-cyan" id="metric-compute">Loading…</div>
+                    <div class="card-desc">Endpoint and live compute state reported by Runtime Authority.</div>
                 </div>
-
             </div>
-
-
-            <!-- Dialogue & Execution Console -->
 
             <div class="interactive-deck">
-
-                <div class="card-label">
-                    Sarembok · SOVEREIGN DIALOGUE & SYNTHESIS
-                </div>
-
+                <div class="card-label">Sarembok · SOVEREIGN DIALOGUE & SYNTHESIS</div>
                 <div class="dialogue-history" id="dialogue-history">
-
                     <div class="srbk-bubble">
-                        <strong style="color:var(--cyan);">
-                            Sarembok:
-                        </strong>
-
-                        <div class="srbk-content">
-                            System initialized. Ready to execute code synthesis,
-                            multi-agent pipelines, memory recall, or research directives.
-                        </div>
+                        <strong style="color:var(--cyan);">Sarembok:</strong>
+                        <div class="srbk-content">System initialized. Ready to execute code synthesis, multi-agent pipelines, memory recall, or research directives.</div>
                     </div>
-
                 </div>
-
                 <div class="input-bar">
-
-                    <input
-                        type="text"
-                        class="text-input"
-                        id="directive-input"
-                        placeholder="Instruct Sarembok to synthesize, orchestrate, or execute..."
-                        autocomplete="off"
-                        onkeydown="if(event.key==='Enter')sendDirective()"
-                    >
-
-                    <button
-                        class="btn-action"
-                        id="execute-button"
-                        type="button"
-                        onclick="sendDirective()"
-                    >
-                        Execute
-                    </button>
-
+                    <input type="text" class="text-input" id="directive-input" placeholder="Instruct Sarembok to synthesize, orchestrate, or execute..." autocomplete="off" onkeydown="if(event.key==='Enter')sendDirective()">
+                    <button class="btn-action" id="execute-button" type="button" onclick="sendDirective()">Execute</button>
                 </div>
-
             </div>
-
         </section>
-
-        <!-- ==================== 3. PLANNING ==================== -->
 
         <section class="view-panel" id="view-planning">
-
-            <div class="content-header">
-                <div>
-                    <div class="content-eyebrow">Autonomy</div>
-                    <div class="content-title">Long-Horizon Planning</div>
-                </div>
-            </div>
-
+            <div class="content-header"><div><div class="content-eyebrow">Autonomy</div><div class="content-title">Long-Horizon Planning</div></div></div>
             <div class="grid-2">
-
-                <div class="glass-card">
-                    <div class="card-label">Task Graph Decomposition</div>
-
-                    <div
-                        class="card-desc"
-                        style="font-family:var(--font-mono);font-size:13px;line-height:2;"
-                    >
-                        [01] Analyze architectural boundary & dependencies<br>
-                        [02] Compile clean HTTP / JSON-RPC edge gateway<br>
-                        [03] Attach distributed GPU compute nodes<br>
-                        [04] Reconcile persistent WAL state & checkpoints
-                    </div>
-                </div>
-
-                <div class="glass-card">
-                    <div class="card-label">Runtime State</div>
-
-                    <div class="card-val text-cyan">
-                        Loading…
-                    </div>
-
-                    <div class="card-desc">
-                        Live scheduler state reported by Runtime Authority.
-                    </div>
-                </div>
-
+                <div class="glass-card"><div class="card-label">Task Graph Decomposition</div><div class="card-desc" style="font-family:var(--font-mono);font-size:13px;line-height:2;">[01] Analyze architectural boundary & dependencies<br>[02] Compile clean HTTP / JSON-RPC edge gateway<br>[03] Attach distributed GPU compute nodes<br>[04] Reconcile persistent WAL state & checkpoints</div></div>
+                <div class="glass-card"><div class="card-label">Runtime State</div><div class="card-val text-cyan">Loading…</div><div class="card-desc">Live scheduler state reported by Runtime Authority.</div></div>
             </div>
-
         </section>
-
-        <!-- ==================== 4. AGENTS ==================== -->
 
         <section class="view-panel" id="view-agents">
-
-            <div class="content-header">
-                <div>
-                    <div class="content-eyebrow">Orchestration</div>
-                    <div class="content-title">Multi-Agent Swarm Fleet</div>
-                </div>
-            </div>
-
+            <div class="content-header"><div><div class="content-eyebrow">Orchestration</div><div class="content-title">Multi-Agent Swarm Fleet</div></div></div>
             <div class="grid-3">
-
-                <div class="glass-card">
-                    <div class="card-label">Sarembok</div>
-                    <div class="card-val text-cyan">
-                        Digital Human · Core
-                    </div>
-                    <div class="card-desc">
-                        Natural language reasoning, voice interaction, and goal dispatch.
-                    </div>
-                </div>
-
-                <div class="glass-card">
-                    <div class="card-label">Developer</div>
-                    <div class="card-val">
-                        Synthesis Agent
-                    </div>
-                    <div class="card-desc">
-                        Autonomous code generation, refactoring, and test suite execution.
-                    </div>
-                </div>
-
-                <div class="glass-card">
-                    <div class="card-label">Research</div>
-                    <div class="card-val">
-                        Analysis Agent
-                    </div>
-                    <div class="card-desc">
-                        Semantic document ingestion, scientific literature review, and RAG.
-                    </div>
-                </div>
-
+                <div class="glass-card"><div class="card-label">Sarembok</div><div class="card-val text-cyan">Digital Human · Core</div><div class="card-desc">Natural language reasoning, voice interaction, and goal dispatch.</div></div>
+                <div class="glass-card"><div class="card-label">Developer</div><div class="card-val">Synthesis Agent</div><div class="card-desc">Autonomous code generation, refactoring, and test suite execution.</div></div>
+                <div class="glass-card"><div class="card-label">Research</div><div class="card-val">Analysis Agent</div><div class="card-desc">Semantic document ingestion, scientific literature review, and RAG.</div></div>
             </div>
-
         </section>
-
-        <!-- ==================== 5. VISION ==================== -->
 
         <section class="view-panel" id="view-vision">
-
-            <div class="content-header">
-                <div>
-                    <div class="content-eyebrow">Perception</div>
-                    <div class="content-title">Neural Computer Vision</div>
-                </div>
-            </div>
-
-            <div class="glass-card">
-                <div class="card-label">
-                    Multi-Modal Frame Perception
-                </div>
-
-                <div class="card-desc">
-                    Integrated OpenCV and computer vision pipeline for graphical UI
-                    inspection, OCR, and live spatial reasoning.
-                </div>
-            </div>
-
+            <div class="content-header"><div><div class="content-eyebrow">Perception</div><div class="content-title">Neural Computer Vision</div></div></div>
+            <div class="glass-card"><div class="card-label">Multi-Modal Frame Perception</div><div class="card-desc">Integrated OpenCV and computer vision pipeline for graphical UI inspection, OCR, and live spatial reasoning.</div></div>
         </section>
-
-        <!-- ==================== 6. ENGINEERING ==================== -->
 
         <section class="view-panel" id="view-engineering">
-
-            <div class="content-header">
-                <div>
-                    <div class="content-eyebrow">Synthesis</div>
-                    <div class="content-title">
-                        Autonomous Software Engineering
-                    </div>
-                </div>
-            </div>
-
-            <div class="glass-card">
-
-                <div class="card-label">
-                    Distributed Compilation Engine
-                </div>
-
-                <div class="card-desc">
-                    Translates high-level specifications directly into validated,
-                    test-covered microservices, APIs, and frontends.
-                </div>
-
-            </div>
-
+            <div class="content-header"><div><div class="content-eyebrow">Synthesis</div><div class="content-title">Autonomous Software Engineering</div></div></div>
+            <div class="glass-card"><div class="card-label">Distributed Compilation Engine</div><div class="card-desc">Translates high-level specifications directly into validated, test-covered microservices, APIs, and frontends.</div></div>
         </section>
-
-        <!-- ==================== 7. RESILIENCE ==================== -->
 
         <section class="view-panel" id="view-resilience">
-
-            <div class="content-header">
-                <div>
-                    <div class="content-eyebrow">Fault Tolerance</div>
-                    <div class="content-title">
-                        Self-Healing & Auto-Recovery
-                    </div>
-                </div>
-            </div>
-
+            <div class="content-header"><div><div class="content-eyebrow">Fault Tolerance</div><div class="content-title">Self-Healing & Auto-Recovery</div></div></div>
             <div class="grid-2">
-
-                <div class="glass-card">
-                    <div class="card-label">Heartbeat Monitor</div>
-
-                    <div class="card-val text-emerald">
-                        Active · 15s interval
-                    </div>
-
-                    <div class="card-desc">
-                        Automatic node eviction and task migration upon worker disconnect.
-                    </div>
-                </div>
-
-                <div class="glass-card">
-                    <div class="card-label">Database WAL Mode</div>
-
-                    <div class="card-val text-cyan">
-                        PRAGMA WAL Active
-                    </div>
-
-                    <div class="card-desc">
-                        Atomic transactions with zero lock contention across concurrent clients.
-                    </div>
-                </div>
-
+                <div class="glass-card"><div class="card-label">Heartbeat Monitor</div><div class="card-val text-emerald">Active · 15s interval</div><div class="card-desc">Automatic node eviction and task migration upon worker disconnect.</div></div>
+                <div class="glass-card"><div class="card-label">Database WAL Mode</div><div class="card-val text-cyan">PRAGMA WAL Active</div><div class="card-desc">Atomic transactions with zero lock contention across concurrent clients.</div></div>
             </div>
-
         </section>
-
-        <!-- ==================== 8. GOVERNANCE ==================== -->
 
         <section class="view-panel" id="view-governance">
-
-            <div class="content-header">
-                <div>
-                    <div class="content-eyebrow">Enterprise</div>
-                    <div class="content-title">
-                        Policy & Audit Governance
-                    </div>
-                </div>
-            </div>
-
-            <div class="glass-card">
-
-                <div class="card-label">
-                    Action Approval Ledger
-                </div>
-
-                <div class="card-desc">
-                    Production deployments and irreversible operations require
-                    explicit cryptographic approval.
-                </div>
-
-            </div>
-
+            <div class="content-header"><div><div class="content-eyebrow">Enterprise</div><div class="content-title">Policy & Audit Governance</div></div></div>
+            <div class="glass-card"><div class="card-label">Action Approval Ledger</div><div class="card-desc">Production deployments and irreversible operations require explicit cryptographic approval.</div></div>
         </section>
-
-        <!-- ==================== 9. MOBILE ==================== -->
 
         <section class="view-panel" id="view-mobile">
-
-            <div class="content-header">
-                <div>
-                    <div class="content-eyebrow">Continuity</div>
-                    <div class="content-title">
-                        Every Device, Same State
-                    </div>
-                </div>
-            </div>
-
-            <div class="glass-card">
-
-                <div class="card-desc">
-                    Leave your workstation. The exact same memory, active projects,
-                    agents, and conversational state resume instantly on mobile.
-                </div>
-
-            </div>
-
+            <div class="content-header"><div><div class="content-eyebrow">Continuity</div><div class="content-title">Every Device, Same State</div></div></div>
+            <div class="glass-card"><div class="card-desc">Leave your workstation. The exact same memory, active projects, agents, and conversational state resume instantly on mobile.</div></div>
         </section>
-
-        <!-- ==================== 10. ARCHITECTURE ==================== -->
 
         <section class="view-panel" id="view-architecture">
-
-            <div class="content-header">
-                <div>
-                    <div class="content-eyebrow">Topology</div>
-                    <div class="content-title">
-                        Sarembok VE 6-Layer Architecture
-                    </div>
-                </div>
-            </div>
-
+            <div class="content-header"><div><div class="content-eyebrow">Topology</div><div class="content-title">Sarembok VE 6-Layer Architecture</div></div></div>
             <div class="grid-3">
-
-                <div class="glass-card">
-                    <div class="card-label">Layer 1</div>
-                    <strong>MetaHuman / Sarembok</strong>
-                    <div class="card-desc">
-                        Voice, face, and multimodal embodiment.
-                    </div>
-                </div>
-
-                <div class="glass-card">
-                    <div class="card-label">Layer 2</div>
-                    <strong>AI-Native GUI</strong>
-                    <div class="card-desc">
-                        Desktop, mobile, and browser clients.
-                    </div>
-                </div>
-
-                <div class="glass-card">
-                    <div class="card-label">Layer 3</div>
-                    <strong>Multi-Agent Core</strong>
-                    <div class="card-desc">
-                        Reasoning, planning, and task scheduling.
-                    </div>
-                </div>
-
-                <div class="glass-card">
-                    <div class="card-label">Layer 4</div>
-                    <strong>Persistent Memory</strong>
-                    <div class="card-desc">
-                        SQLite-WAL, RAG, and state checkpoints.
-                    </div>
-                </div>
-
-                <div class="glass-card">
-                    <div class="card-label">Layer 5</div>
-                    <strong>Autonomous Engineering</strong>
-                    <div class="card-desc">
-                        Code generation, sandboxing, and testing.
-                    </div>
-                </div>
-
-                <div class="glass-card">
-                    <div class="card-label">Layer 6</div>
-                    <strong>Cloud Runtime</strong>
-                    <div class="card-desc">
-                        Distributed GPU workers and security boundary.
-                    </div>
-                </div>
-
+                <div class="glass-card"><div class="card-label">Layer 1</div><strong>MetaHuman / Sarembok</strong><div class="card-desc">Voice, face, and multimodal embodiment.</div></div>
+                <div class="glass-card"><div class="card-label">Layer 2</div><strong>AI-Native GUI</strong><div class="card-desc">Desktop, mobile, and browser clients.</div></div>
+                <div class="glass-card"><div class="card-label">Layer 3</div><strong>Multi-Agent Core</strong><div class="card-desc">Reasoning, planning, and task scheduling.</div></div>
+                <div class="glass-card"><div class="card-label">Layer 4</div><strong>Persistent Memory</strong><div class="card-desc">SQLite-WAL, RAG, and state checkpoints.</div></div>
+                <div class="glass-card"><div class="card-label">Layer 5</div><strong>Autonomous Engineering</strong><div class="card-desc">Code generation, sandboxing, and testing.</div></div>
+                <div class="glass-card"><div class="card-label">Layer 6</div><strong>Cloud Runtime</strong><div class="card-desc">Distributed GPU workers and security boundary.</div></div>
             </div>
-
         </section>
-
-        <!-- ==================== 11. MANIFESTO ==================== -->
 
         <section class="view-panel" id="view-manifesto">
-
-            <div class="content-header">
-                <div>
-                    <div class="content-eyebrow">Vision</div>
-                    <div class="content-title">
-                        The Frontier Manifesto
-                    </div>
-                </div>
+            <div class="content-header"><div><div class="content-eyebrow">Vision</div><div class="content-title">The Frontier Manifesto</div></div></div>
+            <div class="glass-card" style="max-width:800px;line-height:1.8;font-size:16px;">
+                <p style="color:#ffffff;font-size:22px;font-weight:300;margin-bottom:14px;">An AI-native computing platform.</p>
+                <p style="color:var(--text-secondary);margin-bottom:12px;">Not an AI inside your computer.</p>
+                <p style="color:var(--cyan);font-weight:500;font-size:18px;">A computer built around intelligence.</p>
             </div>
-
-            <div
-                class="glass-card"
-                style="max-width:800px;line-height:1.8;font-size:16px;"
-            >
-                <p
-                    style="color:#ffffff;font-size:22px;font-weight:300;margin-bottom:14px;"
-                >
-                    An AI-native computing platform.
-                </p>
-
-                <p
-                    style="color:var(--text-secondary);margin-bottom:12px;"
-                >
-                    Not an AI inside your computer.
-                </p>
-
-                <p
-                    style="color:var(--cyan);font-weight:500;font-size:18px;"
-                >
-                    A computer built around intelligence.
-                </p>
-            </div>
-
         </section>
-
     </div>
 
-    <!-- ==================== NAVIGATION DOCK ==================== -->
-
     <div class="nav-dock-container">
-
-        <button
-            class="nav-arrow"
-            type="button"
-            aria-label="Previous view"
-            onclick="navStep(-1)"
-        >
-            ‹
-        </button>
-
-        <button class="dock-pill active" type="button" onclick="switchTab('boot')">
-            BOOT
-        </button>
-
-        <button class="dock-pill" type="button" onclick="switchTab('desktop')">
-            DESKTOP
-        </button>
-
-        <button class="dock-pill" type="button" onclick="switchTab('planning')">
-            PLANNING
-        </button>
-
-        <button class="dock-pill" type="button" onclick="switchTab('agents')">
-            AGENTS
-        </button>
-
-        <button class="dock-pill" type="button" onclick="switchTab('vision')">
-            VISION
-        </button>
-
-        <button class="dock-pill" type="button" onclick="switchTab('engineering')">
-            ENGINEERING
-        </button>
-
-        <button class="dock-pill" type="button" onclick="switchTab('resilience')">
-            RESILIENCE
-        </button>
-
-        <button class="dock-pill" type="button" onclick="switchTab('governance')">
-            GOVERNANCE
-        </button>
-
-        <button class="dock-pill" type="button" onclick="switchTab('mobile')">
-            MOBILE
-        </button>
-
-        <button class="dock-pill" type="button" onclick="switchTab('architecture')">
-            ARCHITECTURE
-        </button>
-
-        <button class="dock-pill" type="button" onclick="switchTab('manifesto')">
-            MANIFESTO
-        </button>
-
-        <button
-            class="nav-arrow"
-            type="button"
-            aria-label="Next view"
-            onclick="navStep(1)"
-        >
-            ›
-        </button>
-
+        <button class="nav-arrow" type="button" aria-label="Previous view" onclick="navStep(-1)">‹</button>
+        <button class="dock-pill active" type="button" onclick="switchTab('boot')">BOOT</button>
+        <button class="dock-pill" type="button" onclick="switchTab('desktop')">DESKTOP</button>
+        <button class="dock-pill" type="button" onclick="switchTab('planning')">PLANNING</button>
+        <button class="dock-pill" type="button" onclick="switchTab('agents')">AGENTS</button>
+        <button class="dock-pill" type="button" onclick="switchTab('vision')">VISION</button>
+        <button class="dock-pill" type="button" onclick="switchTab('engineering')">ENGINEERING</button>
+        <button class="dock-pill" type="button" onclick="switchTab('resilience')">RESILIENCE</button>
+        <button class="dock-pill" type="button" onclick="switchTab('governance')">GOVERNANCE</button>
+        <button class="dock-pill" type="button" onclick="switchTab('mobile')">MOBILE</button>
+        <button class="dock-pill" type="button" onclick="switchTab('architecture')">ARCHITECTURE</button>
+        <button class="dock-pill" type="button" onclick="switchTab('manifesto')">MANIFESTO</button>
+        <button class="nav-arrow" type="button" aria-label="Next view" onclick="navStep(1)">›</button>
     </div>
 
     <script>
-        /* ============================================================
-           SAREMBOK VE FRONTEND RUNTIME
-           ============================================================ */
-
-        const tabs = [
-            "boot",
-            "desktop",
-            "planning",
-            "agents",
-            "vision",
-            "engineering",
-            "resilience",
-            "governance",
-            "mobile",
-            "architecture",
-            "manifesto"
-        ];
-
+        const tabs = ["boot","desktop","planning","agents","vision","engineering","resilience","governance","mobile","architecture","manifesto"];
         let currentTabIndex = 0;
 
         function switchTab(name) {
             const idx = tabs.indexOf(name);
-
-            if (idx !== -1) {
-                currentTabIndex = idx;
-            }
-
-            document.querySelectorAll(".view-panel").forEach(panel => {
-                panel.classList.toggle(
-                    "active",
-                    panel.id === "view-" + name
-                );
-            });
-
-            document.querySelectorAll(".dock-pill").forEach(button => {
-                button.classList.toggle(
-                    "active",
-                    button.textContent.trim().toLowerCase() === name
-                );
-            });
+            if (idx !== -1) currentTabIndex = idx;
+            document.querySelectorAll(".view-panel").forEach(panel => panel.classList.toggle("active", panel.id === "view-" + name));
+            document.querySelectorAll(".dock-pill").forEach(button => button.classList.toggle("active", button.textContent.trim().toLowerCase() === name));
         }
 
         function navStep(direction) {
-            currentTabIndex =
-                (currentTabIndex + direction + tabs.length) % tabs.length;
-
+            currentTabIndex = (currentTabIndex + direction + tabs.length) % tabs.length;
             switchTab(tabs[currentTabIndex]);
         }
 
-        /* ============================================================
-           HTML ESCAPING
-           ============================================================ */
-
         function escapeHtml(value) {
-            return String(value ?? "")
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+            return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
-
-        /* ============================================================
-           MARKDOWN RENDERER
-           ============================================================ */
 
         function renderInlineMarkdown(value) {
             let text = escapeHtml(value);
-
-            text = text.replace(
-                /`([^`]+)`/g,
-                '<code class="srbk-inline-code">$1</code>'
-            );
-
-            text = text.replace(
-                /\*\*([^*]+)\*\*/g,
-                "<strong>$1</strong>"
-            );
-
-            text = text.replace(
-                /__([^_]+)__/g,
-                "<strong>$1</strong>"
-            );
-
-            text = text.replace(
-                /(^|[^\*])\*([^*]+)\*(?!\*)/g,
-                "$1<em>$2</em>"
-            );
-
-            text = text.replace(
-                /(^|[^_])_([^_]+)_(?!_)/g,
-                "$1<em>$2</em>"
-            );
-
-            text = text.replace(
-                /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
-                '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
-            );
-
-            text = text.replace(
-                /&lt;br\s*\/?&gt;/gi,
-                "<br>"
-            );
-
+            text = text.replace(/`([^`]+)`/g, '<code class="srbk-inline-code">$1</code>');
+            text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+            text = text.replace(/__([^_]+)__/g, "<strong>$1</strong>");
+            text = text.replace(/(^|[^\*])\*([^*]+)\*(?!\*)/g, "$1<em>$2</em>");
+            text = text.replace(/(^|[^_])_([^_]+)_(?!_)/g, "$1<em>$2</em>");
+            text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+            text = text.replace(/&lt;br\s*\/?&gt;/gi, "<br>");
             return text;
         }
 
         function renderCodeBlock(code, language, complete) {
-            const lang = language
-                ? escapeHtml(language.trim())
-                : "";
-
-            return `
-                <div class="srbk-code-block ${complete ? "complete" : "streaming"}">
-                    <div class="srbk-code-head">
-                        <span>${lang || "code"}</span>
-
-                        ${
-                            complete
-                                ? '<button class="srbk-copy" type="button" onclick="copySarembokCode(this)">Copy</button>'
-                                : ""
-                        }
-                    </div>
-
-                    <pre><code>${escapeHtml(code)}</code></pre>
-                </div>
-            `;
+            const lang = language ? escapeHtml(language.trim()) : "";
+            return `<div class="srbk-code-block ${complete ? "complete" : "streaming"}"><div class="srbk-code-head"><span>${lang || "code"}</span>${complete ? '<button class="srbk-copy" type="button" onclick="copySarembokCode(this)">Copy</button>' : ""}</div><pre><code>${escapeHtml(code)}</code></pre></div>`;
         }
 
         function renderTable(lines) {
-            const normalized = lines
-                .map(line => line.trim())
-                .filter(Boolean);
-
-            if (normalized.length < 2) {
-                return "";
-            }
-
-            const separatorPattern =
-                /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/;
-
-            const headerLine = normalized[0];
-            const separatorLine = normalized[1];
-
-            if (!separatorPattern.test(separatorLine)) {
-                return "";
-            }
-
+            const normalized = lines.map(line => line.trim()).filter(Boolean);
+            if (normalized.length < 2) return "";
+            const separatorPattern = /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/;
+            if (!separatorPattern.test(normalized[1])) return "";
             function cells(row) {
                 let value = row.trim();
-
-                if (value.startsWith("|")) {
-                    value = value.slice(1);
-                }
-
-                if (value.endsWith("|")) {
-                    value = value.slice(0, -1);
-                }
-
-                return value
-                    .split("|")
-                    .map(cell => cell.trim());
+                if (value.startsWith("|")) value = value.slice(1);
+                if (value.endsWith("|")) value = value.slice(0, -1);
+                return value.split("|").map(cell => cell.trim());
             }
-
-            const header = cells(headerLine);
-
-            let html =
-                '<div class="srbk-table-wrap">' +
-                "<table>" +
-                "<thead><tr>";
-
-            for (const cell of header) {
-                html += `<th>${renderInlineMarkdown(cell)}</th>`;
-            }
-
+            const header = cells(normalized[0]);
+            let html = '<div class="srbk-table-wrap"><table><thead><tr>';
+            for (const cell of header) html += `<th>${renderInlineMarkdown(cell)}</th>`;
             html += "</tr></thead><tbody>";
-
             for (const row of normalized.slice(2)) {
                 const values = cells(row);
-
                 html += "<tr>";
-
-                for (let index = 0; index < header.length; index++) {
-                    html += `
-                        <td>
-                            ${renderInlineMarkdown(values[index] ?? "")}
-                        </td>
-                    `;
-                }
-
+                for (let index = 0; index < header.length; index++) html += `<td>${renderInlineMarkdown(values[index] ?? "")}</td>`;
                 html += "</tr>";
             }
-
-            html += "</tbody></table></div>";
-
-            return html;
+            return html + "</tbody></table></div>";
         }
 
         function md(source) {
-            if (!source) {
-                return "";
-            }
-
-            const text = String(source)
-                .replace(/\r\n/g, "\n")
-                .replace(/\r/g, "\n")
-                .replace(/\u00a0/g, " ");
-
+            if (!source) return "";
+            const text = String(source).replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\u00a0/g, " ");
             const lines = text.split("\n");
             const output = [];
-
             let index = 0;
-
             while (index < lines.length) {
                 const line = lines[index];
-
-                if (!line.trim()) {
-                    index++;
-                    continue;
-                }
-
-                /* Fenced code block */
-
+                if (!line.trim()) { index++; continue; }
                 const fence = line.match(/^\s*```(\w*)\s*$/);
-
                 if (fence) {
                     const language = fence[1] || "";
                     const code = [];
-
                     index++;
-
-                    while (
-                        index < lines.length &&
-                        !/^\s*```\s*$/.test(lines[index])
-                    ) {
-                        code.push(lines[index]);
-                        index++;
-                    }
-
-                    const complete =
-                        index < lines.length &&
-                        /^\s*```\s*$/.test(lines[index]);
-
-                    if (complete) {
-                        index++;
-                    }
-
-                    output.push(
-                        renderCodeBlock(
-                            code.join("\n"),
-                            language,
-                            complete
-                        )
-                    );
-
+                    while (index < lines.length && !/^\s*```\s*$/.test(lines[index])) { code.push(lines[index]); index++; }
+                    const complete = index < lines.length && /^\s*```\s*$/.test(lines[index]);
+                    if (complete) index++;
+                    output.push(renderCodeBlock(code.join("\n"), language, complete));
                     continue;
                 }
-
-                /* Markdown table */
-
-                if (
-                    line.includes("|") &&
-                    index + 1 < lines.length &&
-                    /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(
-                        lines[index + 1]
-                    )
-                ) {
-                    const tableLines = [
-                        line,
-                        lines[index + 1]
-                    ];
-
+                if (line.includes("|") && index + 1 < lines.length && /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(lines[index + 1])) {
+                    const tableLines = [line, lines[index + 1]];
                     index += 2;
-
-                    while (
-                        index < lines.length &&
-                        lines[index].trim() &&
-                        lines[index].includes("|")
-                    ) {
-                        tableLines.push(lines[index]);
-                        index++;
-                    }
-
+                    while (index < lines.length && lines[index].trim() && lines[index].includes("|")) { tableLines.push(lines[index]); index++; }
                     output.push(renderTable(tableLines));
-
                     continue;
                 }
-
-                /* Headings */
-
-                const heading = line.match(
-                    /^\s*(#{1,6})\s+(.+?)\s*#*\s*$/
-                );
-
+                const heading = line.match(/^\s*(#{1,6})\s+(.+?)\s*#*\s*$/);
                 if (heading) {
-                    const level =
-                        Math.min(3, heading[1].length);
-
-                    output.push(
-                        `<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`
-                    );
-
+                    const level = Math.min(3, heading[1].length);
+                    output.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`);
                     index++;
                     continue;
                 }
-
-                /* Horizontal rule */
-
-                if (
-                    /^\s*(---+|\*\*\*+|___+)\s*$/.test(line)
-                ) {
-                    output.push("<hr>");
-                    index++;
-                    continue;
-                }
-
-                /* Blockquote */
-
+                if (/^\s*(---+|\*\*\*+|___+)\s*$/.test(line)) { output.push("<hr>"); index++; continue; }
                 if (/^\s*>\s?/.test(line)) {
                     const quote = [];
-
-                    while (
-                        index < lines.length &&
-                        /^\s*>\s?/.test(lines[index])
-                    ) {
-                        quote.push(
-                            lines[index].replace(
-                                /^\s*>\s?/,
-                                ""
-                            )
-                        );
-
-                        index++;
-                    }
-
-                    output.push(
-                        `<blockquote>${quote
-                            .map(renderInlineMarkdown)
-                            .join("<br>")}</blockquote>`
-                    );
-
+                    while (index < lines.length && /^\s*>\s?/.test(lines[index])) { quote.push(lines[index].replace(/^\s*>\s?/, "")); index++; }
+                    output.push(`<blockquote>${quote.map(renderInlineMarkdown).join("<br>")}</blockquote>`);
                     continue;
                 }
-
-                /* Ordered list */
-
                 if (/^\s*\d+\.\s+/.test(line)) {
                     const items = [];
-
-                    while (
-                        index < lines.length &&
-                        /^\s*\d+\.\s+/.test(lines[index])
-                    ) {
-                        items.push(
-                            lines[index].replace(
-                                /^\s*\d+\.\s+/,
-                                ""
-                            )
-                        );
-
-                        index++;
-                    }
-
-                    output.push(
-                        `<ol>${items
-                            .map(
-                                item =>
-                                    `<li>${renderInlineMarkdown(item)}</li>`
-                            )
-                            .join("")}</ol>`
-                    );
-
+                    while (index < lines.length && /^\s*\d+\.\s+/.test(lines[index])) { items.push(lines[index].replace(/^\s*\d+\.\s+/, "")); index++; }
+                    output.push(`<ol>${items.map(item => `<li>${renderInlineMarkdown(item)}</li>`).join("")}</ol>`);
                     continue;
                 }
-
-                /* Unordered list */
-
                 if (/^\s*[-*+]\s+/.test(line)) {
                     const items = [];
-
-                    while (
-                        index < lines.length &&
-                        /^\s*[-*+]\s+/.test(lines[index])
-                    ) {
-                        items.push(
-                            lines[index].replace(
-                                /^\s*[-*+]\s+/,
-                                ""
-                            )
-                        );
-
-                        index++;
-                    }
-
-                    output.push(
-                        `<ul>${items
-                            .map(
-                                item =>
-                                    `<li>${renderInlineMarkdown(item)}</li>`
-                            )
-                            .join("")}</ul>`
-                    );
-
+                    while (index < lines.length && /^\s*[-*+]\s+/.test(lines[index])) { items.push(lines[index].replace(/^\s*[-*+]\s+/, "")); index++; }
+                    output.push(`<ul>${items.map(item => `<li>${renderInlineMarkdown(item)}</li>`).join("")}</ul>`);
                     continue;
                 }
-
-                /* Paragraph */
-
                 const paragraph = [line];
-
                 index++;
-
-                while (
-                    index < lines.length &&
-                    lines[index].trim() &&
-                    !/^\s*```/.test(lines[index]) &&
-                    !/^\s*#{1,6}\s+/.test(lines[index]) &&
-                    !/^\s*[-*+]\s+/.test(lines[index]) &&
-                    !/^\s*\d+\.\s+/.test(lines[index]) &&
-                    !/^\s*>/.test(lines[index]) &&
-                    !(
-                        lines[index].includes("|") &&
-                        index + 1 < lines.length &&
-                        /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(
-                            lines[index + 1]
-                        )
-                    )
-                ) {
-                    paragraph.push(lines[index]);
-                    index++;
-                }
-
-                output.push(
-                    `<p>${paragraph
-                        .map(renderInlineMarkdown)
-                        .join("<br>")}</p>`
-                );
+                while (index < lines.length && lines[index].trim() && !/^\s*```/.test(lines[index]) && !/^\s*#{1,6}\s+/.test(lines[index]) && !/^\s*[-*+]\s+/.test(lines[index]) && !/^\s*\d+\.\s+/.test(lines[index]) && !/^\s*>/.test(lines[index])) { paragraph.push(lines[index]); index++; }
+                output.push(`<p>${paragraph.map(renderInlineMarkdown).join("<br>")}</p>`);
             }
-
             return output.join("");
         }
 
-
         /* ============================================================
            STRUCTURED RESPONSE RENDERER
-           Presentation only. Runtime authority remains unchanged.
+           The runtime contract is unchanged. This layer controls only
+           how authoritative response data is presented to the user.
            ============================================================ */
-
         function srbkValue(value) {
             if (value === null || value === undefined) return "";
             if (typeof value === "string") return value;
-            try {
-                return JSON.stringify(value, null, 2);
-            } catch (_) {
-                return String(value);
-            }
+            try { return JSON.stringify(value, null, 2); } catch (_) { return String(value); }
         }
 
         function srbkUrl(value) {
             const url = String(value || "").trim();
-
-            if (!url || /["'<>\x00-\x1f\x7f]/.test(url)) {
-                return "";
-            }
-
+            if (!url || /["'<>\x00-\x1f\x7f]/.test(url)) return "";
             try {
                 const parsed = new URL(url);
-
-                if (
-                    parsed.protocol !== "http:" &&
-                    parsed.protocol !== "https:"
-                ) {
-                    return "";
-                }
-
+                if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
                 return parsed.href;
-            } catch (_) {
-                return "";
-            }
+            } catch (_) { return ""; }
         }
 
         function srbkTitle(item, fallback = "") {
             if (typeof item === "string") return item;
             if (!item || typeof item !== "object") return fallback;
-
-            return String(
-                item.title ??
-                item.name ??
-                item.label ??
-                item.heading ??
-                item.type ??
-                fallback
-            );
+            return String(item.title ?? item.name ?? item.label ?? item.heading ?? item.type ?? fallback);
         }
 
         function srbkDetail(item) {
             if (typeof item === "string") return item;
             if (!item || typeof item !== "object") return srbkValue(item);
-
-            return String(
-                item.text ??
-                item.description ??
-                item.detail ??
-                item.message ??
-                item.content ??
-                ""
-            );
+            return String(item.text ?? item.description ?? item.detail ?? item.message ?? item.content ?? "");
         }
 
         function srbkStatus(item) {
             if (!item || typeof item !== "object") return "";
-
-            return String(
-                item.status ??
-                item.state ??
-                item.result ??
-                item.outcome ??
-                item.decision ??
-                ""
-            );
+            return String(item.status ?? item.state ?? item.result ?? item.outcome ?? item.decision ?? "");
         }
 
         function srbkCard(title, body, extra = "") {
             if (!body) return "";
-
-            return `
-                <section class="srbk-response-card ${extra}">
-                    <div class="srbk-response-card-head">
-                        <span class="srbk-response-card-title">
-                            ${escapeHtml(title)}
-                        </span>
-                    </div>
-                    <div class="srbk-response-card-body">
-                        ${body}
-                    </div>
-                </section>
-            `;
+            return `<section class="srbk-response-card ${extra}"><div class="srbk-response-card-head"><span class="srbk-response-card-title">${escapeHtml(title)}</span></div><div class="srbk-response-card-body">${body}</div></section>`;
         }
 
         function srbkList(items) {
             if (!Array.isArray(items) || !items.length) return "";
-
-            return `
-                <ul class="srbk-response-list">
-                    ${items.map(item => {
-                        const title = srbkTitle(item);
-                        const detail = srbkDetail(item);
-                        const status = srbkStatus(item);
-                        const url = srbkUrl(
-                            item && typeof item === "object"
-                                ? (item.url ?? item.href ?? item.sourceUrl)
-                                : ""
-                        );
-
-                        let body = "";
-
-                        if (title) {
-                            body += `
-                                <div class="srbk-response-item-title">
-                                    ${escapeHtml(title)}
-                                </div>
-                            `;
-                        }
-
-                        if (detail && detail !== title) {
-                            body += `
-                                <div class="srbk-response-item-detail">
-                                    ${escapeHtml(detail)}
-                                </div>
-                            `;
-                        }
-
-                        if (url) {
-                            body += `
-                                <div class="srbk-response-source-url">
-                                    <a
-                                        href="${escapeHtml(url)}"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >${escapeHtml(url)}</a>
-                                </div>
-                            `;
-                        }
-
-                        if (status) {
-                            body += `
-                                <span class="srbk-response-status">
-                                    ${escapeHtml(status)}
-                                </span>
-                            `;
-                        }
-
-                        if (!body) {
-                            body = `
-                                <div class="srbk-response-item-detail">
-                                    ${escapeHtml(srbkValue(item))}
-                                </div>
-                            `;
-                        }
-
-                        return `
-                            <li class="srbk-response-item">
-                                <div class="srbk-response-item-main">
-                                    ${body}
-                                </div>
-                            </li>
-                        `;
-                    }).join("")}
-                </ul>
-            `;
+            return `<ul class="srbk-response-list">${items.map(item => {
+                const title = srbkTitle(item);
+                const detail = srbkDetail(item);
+                const status = srbkStatus(item);
+                const url = item && typeof item === "object" ? srbkUrl(item.url ?? item.href ?? item.sourceUrl) : "";
+                let body = "";
+                if (title) body += `<div class="srbk-response-item-title">${escapeHtml(title)}</div>`;
+                if (detail && detail !== title) body += `<div class="srbk-response-item-detail">${escapeHtml(detail)}</div>`;
+                if (url) body += `<div class="srbk-response-source-url"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a></div>`;
+                if (status) body += `<span class="srbk-response-status">${escapeHtml(status)}</span>`;
+                if (!body) body = `<div class="srbk-response-item-detail">${escapeHtml(srbkValue(item))}</div>`;
+                return `<li class="srbk-response-item"><div class="srbk-response-item-main">${body}</div></li>`;
+            }).join("")}</ul>`;
         }
 
         function srbkSources(items) {
             if (!Array.isArray(items) || !items.length) return "";
-
-            return `
-                <ul class="srbk-response-list">
-                    ${items.map(item => {
-                        if (typeof item === "string") {
-                            return `
-                                <li class="srbk-response-item">
-                                    <div class="srbk-response-item-main">
-                                        ${escapeHtml(item)}
-                                    </div>
-                                </li>
-                            `;
-                        }
-
-                        const title = srbkTitle(item, "Source");
-                        const url = srbkUrl(
-                            item?.url ??
-                            item?.href ??
-                            item?.sourceUrl
-                        );
-                        const excerpt = String(
-                            item?.excerpt ??
-                            item?.snippet ??
-                            item?.description ??
-                            item?.text ??
-                            ""
-                        );
-                        const status = srbkStatus(item);
-
-                        let body = `
-                            <div class="srbk-response-item-title">
-                                ${escapeHtml(title)}
-                            </div>
-                        `;
-
-                        if (url) {
-                            body += `
-                                <div class="srbk-response-source-url">
-                                    <a
-                                        href="${escapeHtml(url)}"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >${escapeHtml(url)}</a>
-                                </div>
-                            `;
-                        }
-
-                        if (excerpt) {
-                            body += `
-                                <div class="srbk-response-source-excerpt">
-                                    ${escapeHtml(excerpt)}
-                                </div>
-                            `;
-                        }
-
-                        if (status) {
-                            body += `
-                                <span class="srbk-response-status">
-                                    ${escapeHtml(status)}
-                                </span>
-                            `;
-                        }
-
-                        return `
-                            <li class="srbk-response-item">
-                                <div class="srbk-response-item-main">
-                                    ${body}
-                                </div>
-                            </li>
-                        `;
-                    }).join("")}
-                </ul>
-            `;
+            return `<ul class="srbk-response-list">${items.map(item => {
+                if (typeof item === "string") return `<li class="srbk-response-item"><div class="srbk-response-item-main"><div class="srbk-response-item-title">${escapeHtml(item)}</div></div></li>`;
+                const title = srbkTitle(item, "Source");
+                const url = srbkUrl(item?.url ?? item?.href ?? item?.sourceUrl);
+                const excerpt = String(item?.excerpt ?? item?.snippet ?? item?.description ?? item?.text ?? "");
+                const status = srbkStatus(item);
+                let body = `<div class="srbk-response-item-title">${escapeHtml(title)}</div>`;
+                if (url) body += `<div class="srbk-response-source-url"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a></div>`;
+                if (excerpt) body += `<div class="srbk-response-source-excerpt">${escapeHtml(excerpt)}</div>`;
+                if (status) body += `<span class="srbk-response-status">${escapeHtml(status)}</span>`;
+                return `<li class="srbk-response-item"><div class="srbk-response-item-main">${body}</div></li>`;
+            }).join("")}</ul>`;
         }
 
         function srbkVerification(value) {
-            if (
-                value === null ||
-                value === undefined ||
-                (
-                    typeof value === "object" &&
-                    !Object.keys(value).length
-                )
-            ) {
-                return "";
-            }
-
-            if (typeof value !== "object") {
-                return `<p>${escapeHtml(String(value))}</p>`;
-            }
-
-            return `
-                <div class="srbk-response-grid">
-                    ${Object.entries(value).map(([key, item]) => `
-                        <div class="srbk-response-kv">
-                            <span class="srbk-response-kv-label">
-                                ${escapeHtml(key)}
-                            </span>
-                            <span class="srbk-response-kv-value">
-                                ${escapeHtml(srbkValue(item))}
-                            </span>
-                        </div>
-                    `).join("")}
-                </div>
-            `;
+            if (value === null || value === undefined || (typeof value === "object" && !Object.keys(value).length)) return "";
+            if (typeof value !== "object") return `<p>${escapeHtml(String(value))}</p>`;
+            return `<div class="srbk-response-grid">${Object.entries(value).map(([key, item]) => `<div class="srbk-response-kv"><span class="srbk-response-kv-label">${escapeHtml(key)}</span><span class="srbk-response-kv-value">${escapeHtml(srbkValue(item))}</span></div>`).join("")}</div>`;
         }
 
         function renderStructuredResponse(payload) {
-            const content =
-                payload?.content &&
-                typeof payload.content === "object"
-                    ? payload.content
-                    : {};
-
-            const metadata =
-                payload?.metadata &&
-                typeof payload.metadata === "object"
-                    ? payload.metadata
-                    : {};
-
+            const content = payload?.content && typeof payload.content === "object" ? payload.content : {};
+            const metadata = payload?.metadata && typeof payload.metadata === "object" ? payload.metadata : {};
             const cards = [];
-
-            const hasStructured =
-                [
-                    content.findings,
-                    content.sources,
-                    content.agents,
-                    content.tasks,
-                    content.artifacts,
-                    content.actions,
-                    content.authorization,
-                    content.memoryUpdates
-                ].some(v => Array.isArray(v) && v.length) ||
-                (
-                    content.verification &&
-                    typeof content.verification === "object" &&
-                    Object.keys(content.verification).length
-                ) ||
-                (Array.isArray(content.code) && content.code.length);
-
+            const verification = content.verification && typeof content.verification === "object" ? content.verification : {};
             const fullText = String(content.text || "").trim();
             const summary = String(content.summary || "").trim();
+            const hasFindings = Array.isArray(content.findings) && content.findings.length;
+            const hasSources = Array.isArray(content.sources) && content.sources.length;
+            const hasOtherStructured = [content.agents, content.tasks, content.artifacts, content.actions, content.authorization, content.memoryUpdates].some(v => Array.isArray(v) && v.length);
+            const hasCode = Array.isArray(content.code) && content.code.length;
+            const hasVerification = Object.keys(verification).length > 0;
 
-            if (hasStructured) {
-                if (summary) {
-                    cards.push(
-                        srbkCard("ANSWER", md(summary), "answer")
-                    );
-                }
-            } else if (fullText || summary) {
-                cards.push(
-                    srbkCard(
-                        "ANSWER",
-                        md(fullText || summary),
-                        "answer"
-                    )
-                );
+            if (summary || fullText) {
+                const answerText = summary || fullText;
+                cards.push(srbkCard("SAREMBOK", `<div class="srbk-answer-lead">${md(answerText)}</div>`, "answer"));
             }
+
+            if (hasFindings) cards.push(srbkCard("KEY FINDINGS", srbkList(content.findings)));
+            if (hasSources) cards.push(srbkCard("SOURCES", srbkSources(content.sources)));
 
             const sections = [
-                ["FINDINGS", content.findings, srbkList],
-                ["SOURCES", content.sources, srbkSources],
-                ["AGENTS", content.agents, srbkList],
-                ["TASKS", content.tasks, srbkList],
-                ["ARTIFACTS", content.artifacts, srbkList],
-                ["ACTIONS", content.actions, srbkList],
-                ["AUTHORIZATION", content.authorization, srbkList],
-                ["MEMORY", content.memoryUpdates, srbkList]
+                ["AGENTS", content.agents], ["TASKS", content.tasks], ["ARTIFACTS", content.artifacts],
+                ["ACTIONS", content.actions], ["AUTHORIZATION", content.authorization], ["MEMORY", content.memoryUpdates]
             ];
+            for (const [title, items] of sections) if (Array.isArray(items) && items.length) cards.push(srbkCard(title, srbkList(items)));
 
-            for (const [title, items, renderer] of sections) {
-                if (Array.isArray(items) && items.length) {
-                    cards.push(
-                        srbkCard(title, renderer(items))
-                    );
-                }
+            if (hasVerification) {
+                const status = String(verification.status || "").toUpperCase();
+                const badge = status === "VERIFIED" ? `<span class="srbk-response-badge">VERIFIED</span>` : "";
+                cards.push(srbkCard("VERIFICATION", `${badge}${srbkVerification(verification)}`));
             }
 
-            if (
-                content.verification &&
-                typeof content.verification === "object" &&
-                Object.keys(content.verification).length
-            ) {
-                cards.push(
-                    srbkCard(
-                        "VERIFICATION",
-                        srbkVerification(content.verification)
-                    )
-                );
-            }
-
-            if (Array.isArray(content.code) && content.code.length) {
+            if (hasCode) {
                 const code = content.code.map(block => {
                     if (!block || typeof block !== "object") return "";
-
-                    return renderCodeBlock(
-                        String(block.content || ""),
-                        String(block.language || "code"),
-                        true
-                    );
+                    return renderCodeBlock(String(block.content || ""), String(block.language || "code"), true);
                 }).join("");
-
-                if (code) {
-                    cards.push(srbkCard("CODE", code));
-                }
+                if (code) cards.push(srbkCard("CODE", code));
             }
 
-            if (!cards.length && fullText) {
-                cards.push(srbkCard("ANSWER", md(fullText), "answer"));
-            }
+            if (!cards.length && (fullText || summary)) cards.push(srbkCard("SAREMBOK", md(fullText || summary), "answer"));
 
             const meta = [];
+            if (metadata.provider) meta.push(`provider: ${escapeHtml(String(metadata.provider))}`);
+            if (metadata.model) meta.push(`model: ${escapeHtml(String(metadata.model))}`);
+            if (metadata.latency_ms !== null && metadata.latency_ms !== undefined) meta.push(`latency: ${escapeHtml(String(metadata.latency_ms))} ms`);
+            if (metadata.schema_version) meta.push(`schema: ${escapeHtml(String(metadata.schema_version))}`);
+            if (meta.length) cards.push(`<div class="srbk-response-meta">${meta.map(v => `<span>${v}</span>`).join("")}</div>`);
 
-            if (metadata.provider) {
-                meta.push(
-                    `provider: ${escapeHtml(String(metadata.provider))}`
-                );
-            }
-
-            if (metadata.model) {
-                meta.push(
-                    `model: ${escapeHtml(String(metadata.model))}`
-                );
-            }
-
-            if (
-                metadata.latency_ms !== null &&
-                metadata.latency_ms !== undefined
-            ) {
-                meta.push(
-                    `latency: ${escapeHtml(String(metadata.latency_ms))} ms`
-                );
-            }
-
-            if (metadata.schema_version) {
-                meta.push(
-                    `schema: ${escapeHtml(String(metadata.schema_version))}`
-                );
-            }
-
-            if (meta.length) {
-                cards.push(`
-                    <div class="srbk-response-meta">
-                        ${meta.map(v => `<span>${v}</span>`).join("")}
-                    </div>
-                `);
-            }
-
-            return `
-                <div class="srbk-response">
-                    ${cards.join("")}
-                </div>
-            `;
+            return `<div class="srbk-response">${cards.join("")}</div>`;
         }
-
-        /* ============================================================
-           CODE COPY
-           ============================================================ */
 
         async function copySarembokCode(button) {
-            const block =
-                button.closest(".srbk-code-block");
-
-            const code =
-                block?.querySelector("pre code")?.innerText ?? "";
-
-            if (!code) {
-                return;
-            }
-
+            const block = button.closest(".srbk-code-block");
+            const code = block?.querySelector("pre code")?.innerText ?? "";
+            if (!code) return;
             try {
                 await navigator.clipboard.writeText(code);
-
                 const previous = button.textContent;
-
                 button.textContent = "Copied";
-
-                setTimeout(() => {
-                    button.textContent = previous;
-                }, 1200);
-
+                setTimeout(() => { button.textContent = previous; }, 1200);
             } catch (error) {
-                console.error(
-                    "Sarembok clipboard error:",
-                    error
-                );
-
+                console.error("Sarembok clipboard error:", error);
                 button.textContent = "Copy failed";
-
-                setTimeout(() => {
-                    button.textContent = "Copy";
-                }, 1500);
+                setTimeout(() => { button.textContent = "Copy"; }, 1500);
             }
         }
-
-        /* ============================================================
-           WEBSOCKET RPC
-           ============================================================ */
 
         let ws = null;
         let rpcCounter = 1;
-
         const pending = new Map();
 
         function connect() {
             const locationInfo = window.location;
-
-            const protocol =
-                locationInfo.protocol === "https:"
-                    ? "wss:"
-                    : "ws:";
+            const protocol = locationInfo.protocol === "https:" ? "wss:" : "ws:";
 
             function applyRuntimeAuthority(snapshot) {
-    if (!snapshot) return;
+                if (!snapshot) return;
+                const workers = snapshot.workers || {};
+                const agents = snapshot.agents || {};
+                const memory = snapshot.memory || {};
+                const runtime = snapshot.runtime || {};
+                const compute = snapshot.compute || {};
+                const metricAgents = document.getElementById("metric-agents");
+                const metricMemory = document.getElementById("metric-mem");
+                if (metricAgents) metricAgents.textContent = `${agents.online || 0} Agents · ${workers.online || 0} Workers`;
+                if (metricMemory) {
+                    const memoryStatus = String(memory.status || "UNKNOWN").toUpperCase();
+                    const memoryBackend = memory.backend || "Unknown";
+                    const memoryEntries = Number(memory.entries || 0);
+                    metricMemory.textContent = `${memoryBackend} · ${memoryEntries} entries`;
+                    metricMemory.title = `Memory status: ${memoryStatus}`;
+                }
+                const runtimeIndicator = document.querySelector(".content-header .card-label[style*='emerald']");
+                if (runtimeIndicator) runtimeIndicator.textContent = `● RUNTIME ${String(runtime.status || "UNKNOWN").toUpperCase()}`;
+                const computeTarget = document.getElementById("metric-compute");
+                if (computeTarget) computeTarget.textContent = `${compute.onlineGpuWorkers || 0} GPU Workers`;
+                const runtimeTarget = document.getElementById("metric-runtime");
+                if (runtimeTarget) runtimeTarget.textContent = runtime.domain || "Unknown";
+                const scheduler = snapshot.scheduler || {};
+                const schedulerTarget = document.getElementById("metric-scheduler");
+                if (schedulerTarget) schedulerTarget.textContent = `${String(scheduler.status || "UNKNOWN").toUpperCase()} · ${Number(scheduler.queueDepth || 0)} queued · ${Number(scheduler.running || 0)} running`;
+            }
 
-    const workers = snapshot.workers || {};
-    const agents = snapshot.agents || {};
-    const memory = snapshot.memory || {};
-    const runtime = snapshot.runtime || {};
-    const compute = snapshot.compute || {};
-
-    const metricAgents = document.getElementById("metric-agents");
-    const metricMemory = document.getElementById("metric-mem");
-
-    if (metricAgents) {
-        metricAgents.textContent =
-            `${agents.online || 0} Agents · ${workers.online || 0} Workers`;
-    }
-
-    if (metricMemory) {
-        const memoryStatus = String(memory.status || "UNKNOWN").toUpperCase();
-        const memoryBackend = memory.backend || "Unknown";
-        const memoryEntries = Number(memory.entries || 0);
-
-        metricMemory.textContent =
-            `${memoryBackend} · ${memoryEntries} entries`;
-
-        metricMemory.title =
-            `Memory status: ${memoryStatus}`;
-    }
-
-    const runtimeIndicator = document.querySelector(
-        ".content-header .card-label[style*='emerald']"
-    );
-
-    if (runtimeIndicator) {
-        runtimeIndicator.textContent =
-            `● RUNTIME ${String(runtime.status || "UNKNOWN").toUpperCase()}`;
-    }
-
-    const computeTarget =
-        document.getElementById("metric-compute");
-
-    if (computeTarget) {
-        computeTarget.textContent =
-            `${compute.onlineGpuWorkers || 0} GPU Workers`;
-    }
-
-    const runtimeTarget = document.getElementById("metric-runtime");
-
-    if (runtimeTarget) {
-        runtimeTarget.textContent =
-            runtime.domain || "Unknown";
-    }
-
-    const schedulerTarget = document.getElementById("metric-scheduler");
-    const schedulerStatus =
-        String(scheduler.status || "UNKNOWN").toUpperCase();
-    const queueDepth = Number(scheduler.queueDepth || 0);
-    const running = Number(scheduler.running || 0);
-
-    if (schedulerTarget) {
-        schedulerTarget.textContent =
-            `${schedulerStatus} · ${queueDepth} queued · ${running} running`;
-    }
-}
-const wsUrl = `${protocol}//${locationInfo.host}/ws`;
-
+            const wsUrl = `${protocol}//${locationInfo.host}/ws`;
             ws = new WebSocket(wsUrl);
-
             ws.onopen = () => {
-                sendRPC("GetRuntimeInfo")
-                    .then(applyRuntimeAuthority)
-                    .catch(error => {
-                        console.warn("Runtime Authority refresh failed:", error);
-                    });
-
-                console.log(
-                    "Sarembok runtime WebSocket connected."
-                );
+                sendRPC("GetRuntimeInfo").then(applyRuntimeAuthority).catch(error => console.warn("Runtime Authority refresh failed:", error));
+                console.log("Sarembok runtime WebSocket connected.");
             };
-
             ws.onmessage = event => {
                 try {
-                    const data =
-                        JSON.parse(event.data);
-
-                    /*
-                     * Streaming notification:
-                     *
-                     * {
-                     *   "method": "SarembokChat.delta",
-                     *   "params": {
-                     *      "id": "...",
-                     *      "text": "..."
-                     *   }
-                     * }
-                     */
-
-                    if (
-                        data.method === "SarembokChat.delta"
-                    ) {
-                        const params =
-                            data.params || {};
-
-                        const requestId =
-                            params.id || data.id;
-
-                        const text =
-                            params.text ??
-                            params.delta ??
-                            "";
-
-                        const entry =
-                            pending.get(requestId);
-
-                        if (
-                            entry &&
-                            text &&
-                            typeof entry.onDelta === "function"
-                        ) {
-                            entry.touch?.();
-                            entry.onDelta(text);
-                        }
-
+                    const data = JSON.parse(event.data);
+                    if (data.method === "SarembokChat.delta") {
+                        const params = data.params || {};
+                        const requestId = params.id || data.id;
+                        const text = params.text ?? params.delta ?? "";
+                        const entry = pending.get(requestId);
+                        if (entry && text && typeof entry.onDelta === "function") { entry.touch?.(); entry.onDelta(text); }
                         return;
                     }
-
-                    /* Standard JSON-RPC response */
-
-                    if (
-                        data.id &&
-                        pending.has(data.id)
-                    ) {
-                        const entry =
-                            pending.get(data.id);
-
+                    if (data.id && pending.has(data.id)) {
+                        const entry = pending.get(data.id);
                         pending.delete(data.id);
-
-                        if (data.error) {
-                            entry.rej(data.error);
-                        } else {
-                            entry.res(data.result);
-                        }
+                        if (data.error) entry.rej(data.error); else entry.res(data.result);
                     }
-
-                } catch (error) {
-                    console.error(
-                        "Sarembok WebSocket message error:",
-                        error
-                    );
-                }
+                } catch (error) { console.error("Sarembok WebSocket message error:", error); }
             };
-
-            ws.onerror = error => {
-                console.error(
-                    "Sarembok WebSocket error:",
-                    error
-                );
-            };
-
-            ws.onclose = () => {
-                console.warn(
-                    "Sarembok runtime disconnected. Reconnecting..."
-                );
-
-                setTimeout(connect, 3000);
-            };
+            ws.onerror = error => console.error("Sarembok WebSocket error:", error);
+            ws.onclose = () => { console.warn("Sarembok runtime disconnected. Reconnecting..."); setTimeout(connect, 3000); };
         }
 
         function waitForWebSocketOpen(timeoutMs = 15000) {
             return new Promise((resolve, reject) => {
                 const started = Date.now();
-
                 function check() {
-                    if (
-                        ws &&
-                        ws.readyState === WebSocket.OPEN
-                    ) {
-                        resolve();
-                        return;
-                    }
-
-                    if (
-                        !ws ||
-                        ws.readyState === WebSocket.CLOSING ||
-                        ws.readyState === WebSocket.CLOSED
-                    ) {
-                        reject(
-                            new Error(
-                                "Runtime WebSocket is not connected"
-                            )
-                        );
-                        return;
-                    }
-
-                    if (Date.now() - started >= timeoutMs) {
-                        reject(
-                            new Error(
-                                "Runtime WebSocket connection timeout"
-                            )
-                        );
-                        return;
-                    }
-
+                    if (ws && ws.readyState === WebSocket.OPEN) { resolve(); return; }
+                    if (!ws || ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED) { reject(new Error("Runtime WebSocket is not connected")); return; }
+                    if (Date.now() - started >= timeoutMs) { reject(new Error("Runtime WebSocket connection timeout")); return; }
                     setTimeout(check, 50);
                 }
-
                 check();
             });
         }
 
-        async function sendRPC(
-            method,
-            params = {},
-            onDelta = null
-        ) {
+        async function sendRPC(method, params = {}, onDelta = null) {
             await waitForWebSocketOpen();
-
             return new Promise((resolve, reject) => {
-
-                if (
-                    !ws ||
-                    ws.readyState !== WebSocket.OPEN
-                ) {
-                    reject(
-                        new Error(
-                            "Runtime WebSocket is not connected"
-                        )
-                    );
-
-                    return;
-                }
-
-                const id =
-                    "rpc-" +
-                    rpcCounter++;
-
+                if (!ws || ws.readyState !== WebSocket.OPEN) { reject(new Error("Runtime WebSocket is not connected")); return; }
+                const id = "rpc-" + rpcCounter++;
                 const totalTimeoutMs = 100000;
                 const idleTimeoutMs = 30000;
-
                 let totalTimer = null;
                 let idleTimer = null;
-
-                function cleanup() {
-                    if (totalTimer) {
-                        clearTimeout(totalTimer);
-                    }
-
-                    if (idleTimer) {
-                        clearTimeout(idleTimer);
-                    }
-
-                    totalTimer = null;
-                    idleTimer = null;
-                }
-
+                function cleanup() { if (totalTimer) clearTimeout(totalTimer); if (idleTimer) clearTimeout(idleTimer); totalTimer = null; idleTimer = null; }
                 function armIdleTimer() {
-                    if (idleTimer) {
-                        clearTimeout(idleTimer);
-                    }
-
+                    if (idleTimer) clearTimeout(idleTimer);
                     idleTimer = setTimeout(() => {
-                        if (pending.has(id)) {
-                            pending.delete(id);
-                            cleanup();
-
-                            reject(
-                                new Error(
-                                    "Runtime response stalled"
-                                )
-                            );
-                        }
+                        if (pending.has(id)) { pending.delete(id); cleanup(); reject(new Error("Runtime response stalled")); }
                     }, idleTimeoutMs);
                 }
-
-                pending.set(id, {
-                    res: value => {
-                        cleanup();
-                        resolve(value);
-                    },
-
-                    rej: error => {
-                        cleanup();
-                        reject(error);
-                    },
-
-                    onDelta,
-
-                    touch: armIdleTimer
-                });
-
-                const rpcParams = {
-                    ...params
-                };
-
-                /*
-                 * Browser session authentication is intentionally
-                 * scoped. The master runtime token must never be
-                 * embedded in this frontend.
-                 */
-
-                if (
-                    window.browserSessionToken &&
-                    !rpcParams.authToken &&
-                    !rpcParams.sessionToken
-                ) {
-                    rpcParams.sessionToken =
-                        window.browserSessionToken;
-                }
-
-                try {
-                    ws.send(
-                        JSON.stringify({
-                            jsonrpc: "2.0",
-                            id,
-                            method,
-                            params: rpcParams
-                        })
-                    );
-
-                } catch (error) {
-                    pending.delete(id);
-                    cleanup();
-                    reject(error);
-
-                    return;
-                }
-
-                totalTimer = setTimeout(() => {
-                    if (pending.has(id)) {
-                        pending.delete(id);
-                        cleanup();
-
-                        reject(
-                            new Error(
-                                "Runtime request timeout"
-                            )
-                        );
-                    }
-                }, totalTimeoutMs);
-
+                pending.set(id, { res: value => { cleanup(); resolve(value); }, rej: error => { cleanup(); reject(error); }, onDelta, touch: armIdleTimer });
+                const rpcParams = { ...params };
+                if (window.browserSessionToken && !rpcParams.authToken && !rpcParams.sessionToken) rpcParams.sessionToken = window.browserSessionToken;
+                try { ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params: rpcParams })); }
+                catch (error) { pending.delete(id); cleanup(); reject(error); return; }
+                totalTimer = setTimeout(() => { if (pending.has(id)) { pending.delete(id); cleanup(); reject(new Error("Runtime request timeout")); } }, totalTimeoutMs);
                 armIdleTimer();
             });
         }
 
-        /* ============================================================
-           DIALOGUE UI
-           ============================================================ */
-
         function appendUserMessage(text) {
-            const history =
-                document.getElementById(
-                    "dialogue-history"
-                );
-
-            const message =
-                document.createElement("div");
-
+            const history = document.getElementById("dialogue-history");
+            const message = document.createElement("div");
             message.className = "srbk-bubble";
-
-            message.innerHTML = `
-                <strong style="color:#818cf8;">
-                    YOU:
-                </strong>
-
-                <div class="srbk-content">
-                    ${escapeHtml(text)}
-                </div>
-            `;
-
+            message.innerHTML = `<strong style="color:var(--indigo);">YOU:</strong><div class="srbk-content">${escapeHtml(text)}</div>`;
             history.appendChild(message);
-
             return message;
         }
 
         function createSarembokMessage() {
-            const history =
-                document.getElementById(
-                    "dialogue-history"
-                );
-
-            const message =
-                document.createElement("div");
-
-            message.className =
-                "srbk-bubble srbk-streaming";
-
-            message.innerHTML = `
-                <strong style="color:var(--cyan);">
-                    Sarembok:
-                </strong>
-
-                <div class="srbk-content">
-                    <span class="srbk-thinking">
-                        Thinking...
-                    </span>
-                </div>
-            `;
-
+            const history = document.getElementById("dialogue-history");
+            const message = document.createElement("div");
+            message.className = "srbk-bubble srbk-streaming";
+            message.innerHTML = `<strong style="color:var(--cyan);">Sarembok:</strong><div class="srbk-content"><span class="srbk-thinking">Thinking...</span></div>`;
             history.appendChild(message);
-
             return message;
         }
 
         function scrollDialogueToBottom() {
-            const history =
-                document.getElementById(
-                    "dialogue-history"
-                );
-
-            history.scrollTop =
-                history.scrollHeight;
+            const history = document.getElementById("dialogue-history");
+            history.scrollTop = history.scrollHeight;
         }
 
-        /* ============================================================
-           DIRECTIVE EXECUTION
-           ============================================================ */
-
         async function sendDirective() {
-            const input =
-                document.getElementById(
-                    "directive-input"
-                );
-
-            const executeButton =
-                document.getElementById(
-                    "execute-button"
-                );
-
-            const text =
-                input.value.trim();
-
-            if (!text) {
-                return;
-            }
-
+            const input = document.getElementById("directive-input");
+            const executeButton = document.getElementById("execute-button");
+            const text = input.value.trim();
+            if (!text) return;
             input.value = "";
-
             appendUserMessage(text);
-
-            const aiMessage =
-                createSarembokMessage();
-
-            const content =
-                aiMessage.querySelector(
-                    ".srbk-content"
-                );
-
+            const aiMessage = createSarembokMessage();
+            const content = aiMessage.querySelector(".srbk-content");
             let streamedText = "";
-
             executeButton.disabled = true;
-
             try {
-                const result =
-                    await sendRPC(
-                        "SarembokChat",
-                        {
-                            prompt: text
-                        },
-                        delta => {
-                            streamedText += delta;
-
-                            content.innerHTML =
-                                md(streamedText);
-
-                            scrollDialogueToBottom();
-                        }
-                    );
-
-                const finalText =
-                    result?.response ||
-                    result?.audioText ||
-                    streamedText ||
-                    "Directive executed.";
-
-                /*
-                 * Always render the final authoritative response.
-                 * This also ensures the final output contains complete
-                 * code blocks and Copy controls.
-                 */
-
-                if (
-                    result?.structuredResponse &&
-                    typeof result.structuredResponse === "object" &&
-                    result.structuredResponse.content
-                ) {
-                    content.innerHTML =
-                        renderStructuredResponse(
-                            result.structuredResponse
-                        );
-                } else {
-                    content.innerHTML =
-                        md(finalText);
-                }
-
-                aiMessage.classList.remove(
-                    "srbk-streaming"
-                );
-
+                const result = await sendRPC("SarembokChat", { prompt: text }, delta => {
+                    streamedText += delta;
+                    content.innerHTML = md(streamedText);
+                    scrollDialogueToBottom();
+                });
+                const finalText = result?.response || result?.audioText || streamedText || "Directive executed.";
+                if (result?.structuredResponse && typeof result.structuredResponse === "object" && result.structuredResponse.content) content.innerHTML = renderStructuredResponse(result.structuredResponse);
+                else content.innerHTML = md(finalText);
+                aiMessage.classList.remove("srbk-streaming");
                 scrollDialogueToBottom();
-
             } catch (error) {
-
-                console.error(
-                    "Sarembok directive error:",
-                    error
-                );
-
-                /*
-                 * If streaming produced partial content before the
-                 * connection failed, preserve that content instead of
-                 * replacing it with a generic error.
-                 */
-
-                if (streamedText) {
-                    content.innerHTML =
-                        md(streamedText);
-                } else {
-                    content.innerHTML = `
-                        <p>
-                            Runtime error:
-                            ${escapeHtml(
-                                error?.message ||
-                                "Unable to complete the directive."
-                            )}
-                        </p>
-                    `;
-                }
-
-                aiMessage.classList.remove(
-                    "srbk-streaming"
-                );
-
+                console.error("Sarembok directive error:", error);
+                if (streamedText) content.innerHTML = md(streamedText);
+                else content.innerHTML = `<p>Runtime error: ${escapeHtml(error?.message || "Unable to complete the directive.")}</p>`;
+                aiMessage.classList.remove("srbk-streaming");
                 scrollDialogueToBottom();
-
             } finally {
                 executeButton.disabled = false;
                 input.focus();
             }
         }
 
-        /* ============================================================
-           BROWSER SESSION BOOTSTRAP
-           ============================================================ */
-
         async function initializeBrowserSession() {
-            /*
-             * The production runtime is responsible for issuing a
-             * scoped browser session token through /session.
-             *
-             * Keep this optional so local development can connect
-             * without requiring the production session endpoint.
-             */
-
             try {
-                const response =
-                    await fetch("/session", {
-                        method: "GET",
-                        cache: "no-store"
-                    });
-
-                if (!response.ok) {
-                    return;
-                }
-
-                const data =
-                    await response.json();
-
-                if (data.sessionToken) {
-                    window.browserSessionToken =
-                        data.sessionToken;
-                }
-
-            } catch (error) {
-                console.debug(
-                    "Browser session bootstrap skipped:",
-                    error
-                );
-            }
+                const response = await fetch("/session", { method: "GET", cache: "no-store" });
+                if (!response.ok) return;
+                const data = await response.json();
+                if (data.sessionToken) window.browserSessionToken = data.sessionToken;
+            } catch (error) { console.debug("Browser session bootstrap skipped:", error); }
         }
-
-        /* ============================================================
-           STARTUP
-           ============================================================ */
 
         window.onload = async () => {
             await initializeBrowserSession();
             connect();
         };
     </script>
-
 </body>
 </html>
