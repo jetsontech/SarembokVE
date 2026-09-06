@@ -1,4 +1,4 @@
-"""Runtime API for creating, querying, transitioning, and recovering knowledge."""
+"""Runtime API for creating, querying, transitioning, recovering, and researching knowledge."""
 from __future__ import annotations
 
 import uuid
@@ -7,6 +7,10 @@ from typing import Any
 from sarembok_knowledge_event_bus import KnowledgeLifecycleEvent
 from sarembok_knowledge_lifecycle import LifecycleState, KnowledgeLifecycleOrchestrator
 from sarembok_knowledge_runtime import PersistentKnowledgeRuntime
+from sarembok_web_intelligence import fetch as web_fetch
+from sarembok_web_intelligence import research as web_research
+from sarembok_web_intelligence import search as web_search
+from sarembok_web_intelligence import w3c_research
 
 
 class KnowledgeRuntimeAPI:
@@ -21,6 +25,10 @@ class KnowledgeRuntimeAPI:
         "CheckpointKnowledge",
         "RecoverKnowledge",
         "GetKnowledgeRecoveryStatus",
+        "WebFetch",
+        "WebSearch",
+        "Research",
+        "W3CResearch",
     })
 
     def __init__(self, runtime: PersistentKnowledgeRuntime):
@@ -125,4 +133,12 @@ class KnowledgeRuntimeAPI:
             return self.checkpoint()
         if method == "RecoverKnowledge":
             return self.recover()
-        return self.recovery_status()
+        if method == "GetKnowledgeRecoveryStatus":
+            return self.recovery_status()
+        if method == "WebFetch":
+            return web_fetch(str(params.get("url", "")).strip())
+        if method == "WebSearch":
+            return web_search(str(params.get("query", "")).strip(), int(params.get("limit", 8)))
+        if method == "W3CResearch":
+            return w3c_research(str(params.get("topic", "")).strip())
+        return web_research(str(params.get("query", "")).strip(), int(params.get("limit", 8)))
