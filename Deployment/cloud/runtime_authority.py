@@ -8,6 +8,8 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
+from capability_registry import CapabilityRegistry
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -171,7 +173,7 @@ def snapshot(store: Any, provider_router: Any, started_at: float) -> dict[str, A
     conversations = int(db.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]) if _table_exists(db, "conversations") else 0
     events = int(db.execute("SELECT COUNT(*) FROM events").fetchone()[0]) if _table_exists(db, "events") else 0
     tasks = int(db.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]) if _table_exists(db, "tasks") else 0
-    return {
+    data = {
         "type": "system_diagnostic",
         "source": "runtime_authority",
         "observedAt": _now(),
@@ -189,6 +191,8 @@ def snapshot(store: Any, provider_router: Any, started_at: float) -> dict[str, A
         "provider": provider,
         "state": {"tasks": tasks, "events": events, "conversations": conversations},
     }
+    data["capabilityFabric"] = CapabilityRegistry().snapshot(data)
+    return data
 
 
 def render_markdown(data: dict[str, Any]) -> str:
@@ -200,6 +204,8 @@ def render_markdown(data: dict[str, Any]) -> str:
     memory = data["memory"]
     scheduler = data["scheduler"]
     provider = data["provider"]
+    fabric = data.get("capabilityFabric") or {}
+    surfaces = fabric.get("surfaces") or []
     lines = [
         "## Sarembok Runtime Diagnostic", "",
         f"**Observed:** `{data['observedAt']}`",
@@ -210,7 +216,12 @@ def render_markdown(data: dict[str, Any]) -> str:
         f"- Port: `{runtime['port']}`",
         f"- Domain: `{runtime['domain']}`",
         f"- Uptime: `{runtime['uptimeSeconds']}s`", "",
-        "### Registered Workers",
+        "### Capability Fabric",
+    ]
+    for surface in surfaces:
+        lines.append(f"- {surface['label']}: **{surface['state']}**")
+    lines += [
+        "", "### Registered Workers",
         f"- Registered: **{workers['registered']}**",
         f"- Online: **{workers['online']}**",
         f"- Stale: **{workers['stale']}**",
@@ -259,4 +270,3 @@ def render_markdown(data: dict[str, Any]) -> str:
         lines.append("- No successful provider call is recorded in the current process telemetry.")
     lines += ["", "**Truth boundary:** this report is generated from runtime-observed state. It does not infer or invent unavailable infrastructure facts."]
     return "\n".join(lines)
-
