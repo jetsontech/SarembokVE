@@ -19,6 +19,7 @@ from runtime_response_composer import (
     render_identity,
     render_model_inventory,
 )
+from frontier_intelligence import is_live_research_intent, run as run_frontier_research
 
 CLOUD_SERVER_PATH = "/app/server.py"
 spec = importlib.util.spec_from_file_location("sarembok_cloud_server", CLOUD_SERVER_PATH)
@@ -56,6 +57,21 @@ def _dispatch_chat_with_authority(params: dict) -> dict:
         or params.get("text")
         or ""
     ).strip()
+
+    # Live/current/research requests must never fall through to model
+    # training memory. Route them through the bounded Web intelligence
+    # capability and preserve source provenance in the structured UI.
+    if is_live_research_intent(prompt):
+        research_result = run_frontier_research(prompt)
+        response = research_result["response"]
+        _save_research_conversation(prompt, response, params)
+        return {
+            **snapshot,
+            **research_result,
+            "audioText": response.replace("*", "").replace("`", "").replace("#", "")[:1200],
+            "agentId": "sarembok-research",
+            "timestamp": cloud_server.now(),
+        }
 
     # Sarembok inventory/state questions that do not require an LLM
     # are answered directly from Runtime Authority.
@@ -105,6 +121,20 @@ def _dispatch_chat_with_authority(params: dict) -> dict:
     # are supplied by the dialogue path itself; no monkey-patching
     # of ProviderRouter.generate() is required here.
     return _original_dispatch("SarembokChat", params)
+
+
+def _save_research_conversation(prompt: str, response: str, params: dict) -> None:
+    session_id = str(params.get("sessionId", "default")).strip() or "default"
+    try:
+        cloud_server._save_conversation(session_id, prompt, response)
+        cloud_server.store.event(
+            "sarembok-research",
+            "RESEARCH_COMPLETED",
+            {"query": prompt[:500], "source": "frontier-intelligence"},
+        )
+    except Exception as exc:
+        cloud_server.LOG.warning("Failed to persist research event: %s", exc)
+
 
 def _is_runtime_diagnostic(prompt: str) -> bool:
     text = prompt.lower()
@@ -180,6 +210,7 @@ async def handler(websocket) -> None:
                     bool(params.get("stream"))
                     and method in CHAT_METHODS
                     and not model_identity_query
+                    and not is_live_research_intent(prompt_for_stream_check)
                 )
                 first_delta_at = [None]
                 started_at = time.perf_counter()
@@ -232,6 +263,7 @@ def _is_model_identity_query(prompt: str) -> bool:
     )
     prompt_lower = prompt.lower()
     return any(marker in prompt_lower for marker in markers)
+
 
 cloud_server.handler = handler
 
