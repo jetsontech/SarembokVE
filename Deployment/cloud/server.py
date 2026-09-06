@@ -839,6 +839,73 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
         except Exception as exc:
             LOG.warning("W3C research capability failed: %s", exc)
 
+            failure_message = (
+                "I could not complete the requested W3C research. "
+                "The W3CResearch capability failed before a verified "
+                "research result could be produced."
+            )
+
+            verification = {
+                "status": "FAILED",
+                "retrieved": 0,
+                "failed": 1,
+                "discovered": 0,
+                "scope": "W3C and Web standards",
+                "error": str(exc),
+            }
+
+            structured = build_structured_response(
+                failure_message,
+                findings=[{
+                    "title": "W3CResearch capability",
+                    "detail": str(exc),
+                    "status": "FAILED",
+                }],
+                authorization=[{
+                    "capability": "W3CResearch",
+                    "status": "AUTHORIZED",
+                    "scope": "Public W3C and Web standards resources",
+                }],
+                verification=verification,
+            )
+
+            _save_conversation(
+                session_id,
+                prompt_clean,
+                failure_message,
+            )
+
+            store.event(
+                "sarembok-prime",
+                "W3C_RESEARCH_FAILED",
+                {
+                    "prompt": prompt_clean[:200],
+                    "error": str(exc)[:500],
+                },
+            )
+
+            return {
+                "response": failure_message,
+                "audioText": failure_message,
+                "source": "sarembok",
+                "model": None,
+                "action": {
+                    "type": "W3C_RESEARCH",
+                    "capability": "W3CResearch",
+                    "status": "FAILED",
+                },
+                "structuredResponse": structured,
+                "metadata": {
+                    "provider": None,
+                    "model": None,
+                    "latency_ms": None,
+                    "provider_api": None,
+                    "usage": {},
+                    "capability": "W3CResearch",
+                    "error": str(exc),
+                },
+            }
+
     # 1. Tool Intent: Create Agent
     if re.search(r"\b(?:create|spawn|build|deploy)\s+(?:an?\s+)?(?:agent|helper|assistant|bot)\b", prompt_lower):
         name_match = re.search(r"(?:named|called)\s+([a-zA-Z0-9_\-\s]+)", prompt_clean, re.IGNORECASE)
