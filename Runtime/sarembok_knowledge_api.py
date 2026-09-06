@@ -1,9 +1,10 @@
-"""Runtime API for creating, querying, transitioning, recovering, and researching knowledge."""
+"""Runtime API for knowledge, Web research, and capability introspection."""
 from __future__ import annotations
 
 import uuid
 from typing import Any
 
+from capability_registry import CapabilityRegistry
 from sarembok_knowledge_event_bus import KnowledgeLifecycleEvent
 from sarembok_knowledge_lifecycle import LifecycleState, KnowledgeLifecycleOrchestrator
 from sarembok_knowledge_runtime import PersistentKnowledgeRuntime
@@ -17,18 +18,10 @@ class KnowledgeRuntimeAPI:
     """Stable application-facing command/query surface over persistent knowledge runtime."""
 
     METHODS = frozenset({
-        "CreateKnowledge",
-        "GetKnowledge",
-        "ListKnowledge",
-        "TransitionKnowledge",
-        "CanTransitionKnowledge",
-        "CheckpointKnowledge",
-        "RecoverKnowledge",
-        "GetKnowledgeRecoveryStatus",
-        "WebFetch",
-        "WebSearch",
-        "Research",
-        "W3CResearch",
+        "CreateKnowledge", "GetKnowledge", "ListKnowledge", "TransitionKnowledge",
+        "CanTransitionKnowledge", "CheckpointKnowledge", "RecoverKnowledge",
+        "GetKnowledgeRecoveryStatus", "GetCapabilities", "WebFetch", "WebSearch",
+        "Research", "W3CResearch",
     })
 
     def __init__(self, runtime: PersistentKnowledgeRuntime):
@@ -64,13 +57,7 @@ class KnowledgeRuntimeAPI:
         transition = self.lifecycle.transition(knowledge_id, current_state, target, reason)
         entry = self.runtime.publish(KnowledgeLifecycleEvent(f"evt_{uuid.uuid4().hex}", transition))
         state = self.runtime.get_state(knowledge_id)
-        return {
-            "knowledgeId": knowledge_id,
-            "state": state.state.value,
-            "eventId": entry.event.event_id,
-            "sequence": entry.sequence,
-            "reason": reason,
-        }
+        return {"knowledgeId": knowledge_id, "state": state.state.value, "eventId": entry.event.event_id, "sequence": entry.sequence, "reason": reason}
 
     def can_transition_knowledge(self, knowledge_id: str, target_state: str) -> dict[str, Any]:
         entity = self.runtime.persistence.get_knowledge(knowledge_id)
@@ -82,12 +69,7 @@ class KnowledgeRuntimeAPI:
             target = LifecycleState(target_state)
         except ValueError as exc:
             raise ValueError(f"invalid_target_state:{target_state}") from exc
-        return {
-            "knowledgeId": knowledge_id,
-            "currentState": current_state.value,
-            "targetState": target.value,
-            "allowed": self.lifecycle.can_transition(current_state, target),
-        }
+        return {"knowledgeId": knowledge_id, "currentState": current_state.value, "targetState": target.value, "allowed": self.lifecycle.can_transition(current_state, target)}
 
     def checkpoint(self) -> dict[str, Any]:
         snapshot = self.runtime.checkpoint()
@@ -95,25 +77,13 @@ class KnowledgeRuntimeAPI:
 
     def recover(self) -> dict[str, Any]:
         report = self.runtime.recover()
-        return {
-            "status": report.status,
-            "checkpointSequence": report.checkpoint_sequence,
-            "replayedEvents": report.replayed_events,
-            "finalSequence": report.final_sequence,
-            "reason": report.reason,
-        }
+        return {"status": report.status, "checkpointSequence": report.checkpoint_sequence, "replayedEvents": report.replayed_events, "finalSequence": report.final_sequence, "reason": report.reason}
 
     def recovery_status(self) -> dict[str, Any]:
         report = self.runtime.last_recovery_report
         if report is None:
             return self.recover()
-        return {
-            "status": report.status,
-            "checkpointSequence": report.checkpoint_sequence,
-            "replayedEvents": report.replayed_events,
-            "finalSequence": report.final_sequence,
-            "reason": report.reason,
-        }
+        return {"status": report.status, "checkpointSequence": report.checkpoint_sequence, "replayedEvents": report.replayed_events, "finalSequence": report.final_sequence, "reason": report.reason}
 
     def dispatch(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         if method not in self.METHODS:
@@ -135,6 +105,8 @@ class KnowledgeRuntimeAPI:
             return self.recover()
         if method == "GetKnowledgeRecoveryStatus":
             return self.recovery_status()
+        if method == "GetCapabilities":
+            return CapabilityRegistry().snapshot()
         if method == "WebFetch":
             return web_fetch(str(params.get("url", "")).strip())
         if method == "WebSearch":
