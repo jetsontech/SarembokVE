@@ -6,12 +6,14 @@ It deliberately does not treat an LLM's training memory as current evidence.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 import sys
 
-_RUNTIME_DIR = "/app/Runtime"
-if _RUNTIME_DIR not in sys.path:
-    sys.path.insert(0, _RUNTIME_DIR)
+# Support both the production container and direct repository-root validation.
+_RUNTIME_DIR = Path(__file__).resolve().parents[2] / "Runtime"
+if str(_RUNTIME_DIR) not in sys.path:
+    sys.path.insert(0, str(_RUNTIME_DIR))
 
 from sarembok_web_intelligence import research as web_research
 
