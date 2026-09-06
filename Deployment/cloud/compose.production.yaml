@@ -3,6 +3,10 @@ services:
     ports: !reset []
     environment:
       SAREMBOK_AUTH_TOKEN: ${SAREMBOK_AUTH_TOKEN:-}
+      # Capability Fabric policy. Capability does not bypass authorization.
+      SAREMBOK_WEB_ENABLED: ${SAREMBOK_WEB_ENABLED:-true}
+      SAREMBOK_RESEARCH_ENABLED: ${SAREMBOK_RESEARCH_ENABLED:-true}
+      SAREMBOK_BROWSER_ENABLED: ${SAREMBOK_BROWSER_ENABLED:-false}
       # Intelligence Provider Interface
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
@@ -18,7 +22,6 @@ services:
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-oss-120b}
       GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
       SAREMBOK_LLM_MAX_OUTPUT_TOKENS: ${SAREMBOK_LLM_MAX_OUTPUT_TOKENS:-800}
-
 
   sarembok-edge:
     build:
