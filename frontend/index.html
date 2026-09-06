@@ -677,7 +677,11 @@
                         const requestId = params.id || data.id;
                         const text = params.text ?? params.delta ?? "";
                         const entry = pending.get(requestId);
-                        if (entry && text && typeof entry.onDelta === "function") { entry.touch?.(); entry.onDelta(text); }
+                        if (entry && text && typeof entry.onDelta === "function") {
+                            entry.hasReceivedDelta = true;
+                            entry.touch?.();
+                            entry.onDelta(text);
+                        }
                         return;
                     }
                     if (data.id && pending.has(data.id)) {
@@ -725,13 +729,21 @@
                         if (pending.has(id)) { pending.delete(id); cleanup(); reject(new Error("Runtime response stalled")); }
                     }, idleTimeoutMs);
                 }
-                pending.set(id, { res: value => { cleanup(); resolve(value); }, rej: error => { cleanup(); reject(error); }, onDelta, touch: armIdleTimer });
+                pending.set(id, {
+                    res: value => { cleanup(); resolve(value); },
+                    rej: error => { cleanup(); reject(error); },
+                    onDelta,
+                    hasReceivedDelta: false,
+                    touch: () => {
+                        const entry = pending.get(id);
+                        if (entry?.hasReceivedDelta) armIdleTimer();
+                    }
+                });
                 const rpcParams = { ...params };
                 if (window.browserSessionToken && !rpcParams.authToken && !rpcParams.sessionToken) rpcParams.sessionToken = window.browserSessionToken;
                 try { ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params: rpcParams })); }
                 catch (error) { pending.delete(id); cleanup(); reject(error); return; }
                 totalTimer = setTimeout(() => { if (pending.has(id)) { pending.delete(id); cleanup(); reject(new Error("Runtime request timeout")); } }, totalTimeoutMs);
-                armIdleTimer();
             });
         }
 
