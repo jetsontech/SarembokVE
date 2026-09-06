@@ -11,7 +11,17 @@ from typing import Any
 import sys
 
 # Support both the production container and direct repository-root validation.
-_RUNTIME_DIR = Path(__file__).resolve().parents[2] / "Runtime"
+_FILE_DIR = Path(__file__).resolve().parent
+_RUNTIME_CANDIDATES = (
+    _FILE_DIR / "Runtime",
+    _FILE_DIR.parents[1] / "Runtime",
+)
+
+_RUNTIME_DIR = next(
+    (path for path in _RUNTIME_CANDIDATES if path.is_dir()),
+    _FILE_DIR / "Runtime",
+)
+
 if str(_RUNTIME_DIR) not in sys.path:
     sys.path.insert(0, str(_RUNTIME_DIR))
 
