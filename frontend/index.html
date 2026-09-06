@@ -373,7 +373,7 @@
             // Markdown punctuation before HTML escaping so the existing renderer
             // can present the response correctly.
             let normalized = String(value ?? "")
-                .replace(/\\\\([*`_])/g, "$1");
+                .replace(/\\([*`_])/g, "$1");
 
             let text = escapeHtml(normalized);
             text = text.replace(/`([^`]+)`/g, '<code class="srbk-inline-code">$1</code>');
