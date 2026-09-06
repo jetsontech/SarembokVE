@@ -29,6 +29,34 @@ def _bullets(text: str) -> list[str]:
     return items[:50]
 
 
+def _sections_with_text(text: str) -> list[dict[str, str]]:
+    """Preserve heading/body relationships for renderers that consume findings."""
+    sections: list[dict[str, str]] = []
+    current_heading: str | None = None
+    current_body: list[str] = []
+
+    def flush() -> None:
+        nonlocal current_heading, current_body
+        if current_heading:
+            detail = "\n\n".join(current_body).strip()
+            sections.append({"heading": current_heading, "text": detail})
+        current_heading = None
+        current_body = []
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        match = re.match(r"^#{1,3}\s+(.+)$", line)
+        if match:
+            flush()
+            current_heading = match.group(1).strip()
+            continue
+        if current_heading and line:
+            current_body.append(line)
+
+    flush()
+    return sections[:20]
+
+
 def build_structured_response(
     text: str,
     *,
@@ -47,16 +75,38 @@ def build_structured_response(
 ) -> dict[str, Any]:
     clean = str(text or "").strip()
     paragraphs = [p.strip() for p in re.split(r"\n\s*\n", clean) if p.strip()]
-    sections = [{"heading": heading} for heading in _headings(clean)]
+    sections = _sections_with_text(clean)
     bullet_items = _bullets(clean)
+
+    if findings is not None:
+        structured_findings = findings
+    elif bullet_items:
+        structured_findings = [{"text": item} for item in bullet_items[:12]]
+    else:
+        structured_findings = [
+            {"title": section["heading"], "detail": section["text"]}
+            for section in sections
+            if section.get("text")
+        ][:12]
+
+    # A heading-only first paragraph is not useful as the response summary.
+    # Prefer the first substantive body paragraph so the UI never renders
+    # only a section title while hiding the model's actual answer.
+    body_paragraphs = [
+        paragraph
+        for paragraph in paragraphs
+        if not re.match(r"^#{1,3}\s+", paragraph)
+    ]
+    summary_source = body_paragraphs[0] if body_paragraphs else (paragraphs[0] if paragraphs else clean)
+
     return {
         "type": "response",
         "speaker": "sarembok",
         "status": "complete",
         "content": {
-            "summary": (paragraphs[0] if paragraphs else clean)[:500],
+            "summary": summary_source[:500],
             "sections": sections,
-            "findings": findings or [{"text": item} for item in bullet_items[:12]],
+            "findings": structured_findings,
             "sources": sources or [],
             "agents": agents or [],
             "tasks": tasks or [],
