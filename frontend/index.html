@@ -2425,11 +2425,55 @@ const wsUrl = `${protocol}//${locationInfo.host}/ws`;
             };
         }
 
-        function sendRPC(
+        function waitForWebSocketOpen(timeoutMs = 15000) {
+            return new Promise((resolve, reject) => {
+                const started = Date.now();
+
+                function check() {
+                    if (
+                        ws &&
+                        ws.readyState === WebSocket.OPEN
+                    ) {
+                        resolve();
+                        return;
+                    }
+
+                    if (
+                        !ws ||
+                        ws.readyState === WebSocket.CLOSING ||
+                        ws.readyState === WebSocket.CLOSED
+                    ) {
+                        reject(
+                            new Error(
+                                "Runtime WebSocket is not connected"
+                            )
+                        );
+                        return;
+                    }
+
+                    if (Date.now() - started >= timeoutMs) {
+                        reject(
+                            new Error(
+                                "Runtime WebSocket connection timeout"
+                            )
+                        );
+                        return;
+                    }
+
+                    setTimeout(check, 50);
+                }
+
+                check();
+            });
+        }
+
+        async function sendRPC(
             method,
             params = {},
             onDelta = null
         ) {
+            await waitForWebSocketOpen();
+
             return new Promise((resolve, reject) => {
 
                 if (
@@ -2437,7 +2481,9 @@ const wsUrl = `${protocol}//${locationInfo.host}/ws`;
                     ws.readyState !== WebSocket.OPEN
                 ) {
                     reject(
-                        new Error("Connecting...")
+                        new Error(
+                            "Runtime WebSocket is not connected"
+                        )
                     );
 
                     return;
