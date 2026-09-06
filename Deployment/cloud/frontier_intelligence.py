@@ -11,11 +11,17 @@ from typing import Any
 import sys
 
 # Support both the production container and direct repository-root validation.
-_FILE_DIR = Path(__file__).resolve().parent
-_RUNTIME_CANDIDATES = (
+_FILE_DIR = Path(__file__).resolve()
+
+_RUNTIME_CANDIDATES = [
     _FILE_DIR / "Runtime",
-    _FILE_DIR.parents[1] / "Runtime",
-)
+]
+
+# In the repository this file lives at Deployment/cloud/frontier_intelligence.py,
+# so the repository Runtime directory is three levels above the file itself.
+# Build this candidate without indexing parents on shallow container paths.
+for parent in _FILE_DIR.parents:
+    _RUNTIME_CANDIDATES.append(parent / "Runtime")
 
 _RUNTIME_DIR = next(
     (path for path in _RUNTIME_CANDIDATES if path.is_dir()),
