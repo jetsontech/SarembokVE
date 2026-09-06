@@ -115,7 +115,7 @@ class CapabilityRegistry:
                 {"id": "apis", "label": "APIs", "state": "CONFIGURED" if providers else "NOT_CONFIGURED"},
             ],
             "providers": providers,
-            "runtime": runtime,
+            "runtime": runtime.get("runtime") or {},
             "policy": {
                 "authorizationRequired": True,
                 "executionTruthRequired": True,
