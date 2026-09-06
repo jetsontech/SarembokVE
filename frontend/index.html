@@ -158,8 +158,30 @@
         .srbk-response-kv { min-width: 0; padding: 9px 10px; border-radius: 9px; background: rgba(255,255,255,.035); }
         .srbk-response-kv-label { display: block; margin-bottom: 3px; font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; opacity: .48; }
         .srbk-response-kv-value { display: block; overflow-wrap: anywhere; font-size: .82rem; color: #cbd5e1; }
-        .srbk-response-meta { display: flex; flex-wrap: wrap; gap: 5px 12px; padding: 1px 3px 0; font-size: .61rem; opacity: .32; }
+        .srbk-response-meta {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 5px 9px;
+          margin-top: 2px;
+          padding: 7px 10px;
+          border: 1px solid rgba(255,255,255,.07);
+          border-radius: 9px;
+          background: rgba(255,255,255,.025);
+          color: rgba(255,255,255,.48);
+          font-size: .64rem;
+          line-height: 1.35;
+        }
         .srbk-response-meta span { font-family: var(--font-mono); }
+        .srbk-response-meta strong {
+          color: rgba(255,255,255,.72);
+          font-weight: 500;
+        }
+        .srbk-meta-divider {
+          color: rgba(255,255,255,.18);
+          user-select: none;
+          -webkit-user-select: none;
+        }
         .srbk-response-badge { display: inline-flex; align-items: center; gap: 6px; width: max-content; padding: 4px 8px; border-radius: 999px; border: 1px solid rgba(16,185,129,.24); background: rgba(16,185,129,.07); color: #6ee7b7; font-size: .62rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
         .srbk-response-badge::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
         .srbk-response-empty { padding: 4px 0; color: var(--text-secondary); }
@@ -346,7 +368,14 @@
         }
 
         function renderInlineMarkdown(value) {
-            let text = escapeHtml(value);
+            // Some provider responses arrive with Markdown punctuation escaped
+            // (for example \\*\\*bold\\*\\* and \\`code\\`). Normalize only
+            // Markdown punctuation before HTML escaping so the existing renderer
+            // can present the response correctly.
+            let normalized = String(value ?? "")
+                .replace(/\\\\([*`_])/g, "$1");
+
+            let text = escapeHtml(normalized);
             text = text.replace(/`([^`]+)`/g, '<code class="srbk-inline-code">$1</code>');
             text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
             text = text.replace(/__([^_]+)__/g, "<strong>$1</strong>");
@@ -573,11 +602,11 @@
             if (!cards.length && (fullText || summary)) cards.push(srbkCard("SAREMBOK", md(fullText || summary), "answer"));
 
             const meta = [];
-            if (metadata.provider) meta.push(`provider: ${escapeHtml(String(metadata.provider))}`);
-            if (metadata.model) meta.push(`model: ${escapeHtml(String(metadata.model))}`);
-            if (metadata.latency_ms !== null && metadata.latency_ms !== undefined) meta.push(`latency: ${escapeHtml(String(metadata.latency_ms))} ms`);
-            if (metadata.schema_version) meta.push(`schema: ${escapeHtml(String(metadata.schema_version))}`);
-            if (meta.length) cards.push(`<div class="srbk-response-meta">${meta.map(v => `<span>${v}</span>`).join("")}</div>`);
+            if (metadata.provider) meta.push(`<span>Provider <strong>${escapeHtml(String(metadata.provider))}</strong></span>`);
+            if (metadata.model) meta.push(`<span>Model <strong>${escapeHtml(String(metadata.model))}</strong></span>`);
+            if (metadata.latency_ms !== null && metadata.latency_ms !== undefined) meta.push(`<span>Latency <strong>${escapeHtml(String(metadata.latency_ms))} ms</strong></span>`);
+            if (metadata.schema_version) meta.push(`<span>Schema <strong>${escapeHtml(String(metadata.schema_version))}</strong></span>`);
+            if (meta.length) cards.push(`<div class="srbk-response-meta">${meta.join('<span class="srbk-meta-divider">•</span>')}</div>`);
 
             return `<div class="srbk-response">${cards.join("")}</div>`;
         }
