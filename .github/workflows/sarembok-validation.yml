@@ -1,0 +1,39 @@
+name: Sarembok Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python syntax
+        run: |
+          python -m compileall -q Runtime Deployment/cloud
+
+      - name: Compose syntax
+        run: |
+          docker compose \
+            -f Deployment/cloud/compose.yaml \
+            -f Deployment/cloud/compose.production.yaml \
+            config --quiet
+
+      - name: Capability fabric smoke import
+        run: |
+          PYTHONPATH=Runtime:Deployment/cloud python - <<'PY'
+          from capability_registry import CapabilityRegistry
+          from sarembok_web_intelligence import fetch, search, research, w3c_research
+          snapshot = {"runtime":{"status":"ONLINE"},"workers":{"registered":0,"online":0},"agents":{"registered":0},"memory":{"status":"ONLINE"},"scheduler":{"status":"READY"},"compute":{}}
+          fabric = CapabilityRegistry().snapshot(snapshot)
+          assert fabric["registryVersion"] == "2.0"
+          assert any(item["id"] == "web" for item in fabric["surfaces"])
+          assert any(item["id"] == "w3c" for item in fabric["surfaces"])
+          assert "DISCOVER" in fabric["lifecycle"]
+          print("Capability fabric import: OK")
+          PY
