@@ -610,7 +610,192 @@
                 width: 100%;
             }
         }
-    </style>
+
+/* ============================================================
+   SAREMBOK STRUCTURED RESPONSE UI
+   Presentation layer only.
+   ============================================================ */
+
+.srbk-response {
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    width:100%;
+    user-select:text;
+    -webkit-user-select:text;
+}
+
+.srbk-response-card {
+    border:1px solid rgba(255,255,255,.10);
+    border-radius:14px;
+    background:rgba(255,255,255,.035);
+    overflow:hidden;
+    user-select:text;
+    -webkit-user-select:text;
+}
+
+.srbk-response-card.answer {
+    background:rgba(255,255,255,.045);
+}
+
+.srbk-response-card-head {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:10px 14px;
+    border-bottom:1px solid rgba(255,255,255,.08);
+}
+
+.srbk-response-card-title {
+    font-size:.70rem;
+    font-weight:700;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    opacity:.72;
+}
+
+.srbk-response-card-body {
+    padding:14px;
+    user-select:text;
+    -webkit-user-select:text;
+}
+
+.srbk-response-card-body > :first-child {
+    margin-top:0;
+}
+
+.srbk-response-card-body > :last-child {
+    margin-bottom:0;
+}
+
+.srbk-response-list {
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    margin:0;
+    padding:0;
+    list-style:none;
+}
+
+.srbk-response-item {
+    display:grid;
+    grid-template-columns:7px minmax(0,1fr);
+    gap:10px;
+    align-items:start;
+    user-select:text;
+    -webkit-user-select:text;
+}
+
+.srbk-response-item::before {
+    content:"";
+    width:6px;
+    height:6px;
+    margin-top:8px;
+    border-radius:50%;
+    background:currentColor;
+    opacity:.55;
+}
+
+.srbk-response-item-main {
+    min-width:0;
+}
+
+.srbk-response-item-title {
+    font-weight:650;
+    line-height:1.4;
+}
+
+.srbk-response-item-detail {
+    margin-top:3px;
+    line-height:1.55;
+    opacity:.78;
+}
+
+.srbk-response-item a {
+    overflow-wrap:anywhere;
+}
+
+.srbk-response-source-url {
+    margin-top:4px;
+    font-size:.78rem;
+    opacity:.62;
+    overflow-wrap:anywhere;
+}
+
+.srbk-response-source-excerpt {
+    margin-top:5px;
+    font-size:.84rem;
+    line-height:1.55;
+    opacity:.78;
+}
+
+.srbk-response-status {
+    display:inline-flex;
+    width:max-content;
+    margin-top:6px;
+    padding:3px 7px;
+    border:1px solid rgba(255,255,255,.10);
+    border-radius:999px;
+    font-size:.64rem;
+    font-weight:700;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    opacity:.80;
+}
+
+.srbk-response-grid {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+}
+
+.srbk-response-kv {
+    min-width:0;
+    padding:9px 10px;
+    border-radius:9px;
+    background:rgba(255,255,255,.035);
+}
+
+.srbk-response-kv-label {
+    display:block;
+    margin-bottom:3px;
+    font-size:.66rem;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    opacity:.55;
+}
+
+.srbk-response-kv-value {
+    display:block;
+    overflow-wrap:anywhere;
+    font-size:.86rem;
+}
+
+.srbk-response-meta {
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px 14px;
+    padding:1px 2px 0;
+    font-size:.66rem;
+    opacity:.42;
+}
+
+@media (max-width:640px) {
+    .srbk-response-grid {
+        grid-template-columns:1fr;
+    }
+
+    .srbk-response-card-head {
+        padding:9px 11px;
+    }
+
+    .srbk-response-card-body {
+        padding:11px;
+    }
+}
+
+</style>
 </head>
 
 <body>
@@ -1588,6 +1773,433 @@
             return output.join("");
         }
 
+
+        /* ============================================================
+           STRUCTURED RESPONSE RENDERER
+           Presentation only. Runtime authority remains unchanged.
+           ============================================================ */
+
+        function srbkValue(value) {
+            if (value === null || value === undefined) return "";
+            if (typeof value === "string") return value;
+            try {
+                return JSON.stringify(value, null, 2);
+            } catch (_) {
+                return String(value);
+            }
+        }
+
+        function srbkUrl(value) {
+            const url = String(value || "").trim();
+
+            if (!url || /["'<>\x00-\x1f\x7f]/.test(url)) {
+                return "";
+            }
+
+            try {
+                const parsed = new URL(url);
+
+                if (
+                    parsed.protocol !== "http:" &&
+                    parsed.protocol !== "https:"
+                ) {
+                    return "";
+                }
+
+                return parsed.href;
+            } catch (_) {
+                return "";
+            }
+        }
+
+        function srbkTitle(item, fallback = "") {
+            if (typeof item === "string") return item;
+            if (!item || typeof item !== "object") return fallback;
+
+            return String(
+                item.title ??
+                item.name ??
+                item.label ??
+                item.heading ??
+                item.type ??
+                fallback
+            );
+        }
+
+        function srbkDetail(item) {
+            if (typeof item === "string") return item;
+            if (!item || typeof item !== "object") return srbkValue(item);
+
+            return String(
+                item.text ??
+                item.description ??
+                item.detail ??
+                item.message ??
+                item.content ??
+                ""
+            );
+        }
+
+        function srbkStatus(item) {
+            if (!item || typeof item !== "object") return "";
+
+            return String(
+                item.status ??
+                item.state ??
+                item.result ??
+                item.outcome ??
+                item.decision ??
+                ""
+            );
+        }
+
+        function srbkCard(title, body, extra = "") {
+            if (!body) return "";
+
+            return `
+                <section class="srbk-response-card ${extra}">
+                    <div class="srbk-response-card-head">
+                        <span class="srbk-response-card-title">
+                            ${escapeHtml(title)}
+                        </span>
+                    </div>
+                    <div class="srbk-response-card-body">
+                        ${body}
+                    </div>
+                </section>
+            `;
+        }
+
+        function srbkList(items) {
+            if (!Array.isArray(items) || !items.length) return "";
+
+            return `
+                <ul class="srbk-response-list">
+                    ${items.map(item => {
+                        const title = srbkTitle(item);
+                        const detail = srbkDetail(item);
+                        const status = srbkStatus(item);
+                        const url = srbkUrl(
+                            item && typeof item === "object"
+                                ? (item.url ?? item.href ?? item.sourceUrl)
+                                : ""
+                        );
+
+                        let body = "";
+
+                        if (title) {
+                            body += `
+                                <div class="srbk-response-item-title">
+                                    ${escapeHtml(title)}
+                                </div>
+                            `;
+                        }
+
+                        if (detail && detail !== title) {
+                            body += `
+                                <div class="srbk-response-item-detail">
+                                    ${escapeHtml(detail)}
+                                </div>
+                            `;
+                        }
+
+                        if (url) {
+                            body += `
+                                <div class="srbk-response-source-url">
+                                    <a
+                                        href="${escapeHtml(url)}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >${escapeHtml(url)}</a>
+                                </div>
+                            `;
+                        }
+
+                        if (status) {
+                            body += `
+                                <span class="srbk-response-status">
+                                    ${escapeHtml(status)}
+                                </span>
+                            `;
+                        }
+
+                        if (!body) {
+                            body = `
+                                <div class="srbk-response-item-detail">
+                                    ${escapeHtml(srbkValue(item))}
+                                </div>
+                            `;
+                        }
+
+                        return `
+                            <li class="srbk-response-item">
+                                <div class="srbk-response-item-main">
+                                    ${body}
+                                </div>
+                            </li>
+                        `;
+                    }).join("")}
+                </ul>
+            `;
+        }
+
+        function srbkSources(items) {
+            if (!Array.isArray(items) || !items.length) return "";
+
+            return `
+                <ul class="srbk-response-list">
+                    ${items.map(item => {
+                        if (typeof item === "string") {
+                            return `
+                                <li class="srbk-response-item">
+                                    <div class="srbk-response-item-main">
+                                        ${escapeHtml(item)}
+                                    </div>
+                                </li>
+                            `;
+                        }
+
+                        const title = srbkTitle(item, "Source");
+                        const url = srbkUrl(
+                            item?.url ??
+                            item?.href ??
+                            item?.sourceUrl
+                        );
+                        const excerpt = String(
+                            item?.excerpt ??
+                            item?.snippet ??
+                            item?.description ??
+                            item?.text ??
+                            ""
+                        );
+                        const status = srbkStatus(item);
+
+                        let body = `
+                            <div class="srbk-response-item-title">
+                                ${escapeHtml(title)}
+                            </div>
+                        `;
+
+                        if (url) {
+                            body += `
+                                <div class="srbk-response-source-url">
+                                    <a
+                                        href="${escapeHtml(url)}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >${escapeHtml(url)}</a>
+                                </div>
+                            `;
+                        }
+
+                        if (excerpt) {
+                            body += `
+                                <div class="srbk-response-source-excerpt">
+                                    ${escapeHtml(excerpt)}
+                                </div>
+                            `;
+                        }
+
+                        if (status) {
+                            body += `
+                                <span class="srbk-response-status">
+                                    ${escapeHtml(status)}
+                                </span>
+                            `;
+                        }
+
+                        return `
+                            <li class="srbk-response-item">
+                                <div class="srbk-response-item-main">
+                                    ${body}
+                                </div>
+                            </li>
+                        `;
+                    }).join("")}
+                </ul>
+            `;
+        }
+
+        function srbkVerification(value) {
+            if (
+                value === null ||
+                value === undefined ||
+                (
+                    typeof value === "object" &&
+                    !Object.keys(value).length
+                )
+            ) {
+                return "";
+            }
+
+            if (typeof value !== "object") {
+                return `<p>${escapeHtml(String(value))}</p>`;
+            }
+
+            return `
+                <div class="srbk-response-grid">
+                    ${Object.entries(value).map(([key, item]) => `
+                        <div class="srbk-response-kv">
+                            <span class="srbk-response-kv-label">
+                                ${escapeHtml(key)}
+                            </span>
+                            <span class="srbk-response-kv-value">
+                                ${escapeHtml(srbkValue(item))}
+                            </span>
+                        </div>
+                    `).join("")}
+                </div>
+            `;
+        }
+
+        function renderStructuredResponse(payload) {
+            const content =
+                payload?.content &&
+                typeof payload.content === "object"
+                    ? payload.content
+                    : {};
+
+            const metadata =
+                payload?.metadata &&
+                typeof payload.metadata === "object"
+                    ? payload.metadata
+                    : {};
+
+            const cards = [];
+
+            const hasStructured =
+                [
+                    content.findings,
+                    content.sources,
+                    content.agents,
+                    content.tasks,
+                    content.artifacts,
+                    content.actions,
+                    content.authorization,
+                    content.memoryUpdates
+                ].some(v => Array.isArray(v) && v.length) ||
+                (
+                    content.verification &&
+                    typeof content.verification === "object" &&
+                    Object.keys(content.verification).length
+                ) ||
+                (Array.isArray(content.code) && content.code.length);
+
+            const fullText = String(content.text || "").trim();
+            const summary = String(content.summary || "").trim();
+
+            if (hasStructured) {
+                if (summary) {
+                    cards.push(
+                        srbkCard("ANSWER", md(summary), "answer")
+                    );
+                }
+            } else if (fullText || summary) {
+                cards.push(
+                    srbkCard(
+                        "ANSWER",
+                        md(fullText || summary),
+                        "answer"
+                    )
+                );
+            }
+
+            const sections = [
+                ["FINDINGS", content.findings, srbkList],
+                ["SOURCES", content.sources, srbkSources],
+                ["AGENTS", content.agents, srbkList],
+                ["TASKS", content.tasks, srbkList],
+                ["ARTIFACTS", content.artifacts, srbkList],
+                ["ACTIONS", content.actions, srbkList],
+                ["AUTHORIZATION", content.authorization, srbkList],
+                ["MEMORY", content.memoryUpdates, srbkList]
+            ];
+
+            for (const [title, items, renderer] of sections) {
+                if (Array.isArray(items) && items.length) {
+                    cards.push(
+                        srbkCard(title, renderer(items))
+                    );
+                }
+            }
+
+            if (
+                content.verification &&
+                typeof content.verification === "object" &&
+                Object.keys(content.verification).length
+            ) {
+                cards.push(
+                    srbkCard(
+                        "VERIFICATION",
+                        srbkVerification(content.verification)
+                    )
+                );
+            }
+
+            if (Array.isArray(content.code) && content.code.length) {
+                const code = content.code.map(block => {
+                    if (!block || typeof block !== "object") return "";
+
+                    return renderCodeBlock(
+                        String(block.content || ""),
+                        String(block.language || "code"),
+                        true
+                    );
+                }).join("");
+
+                if (code) {
+                    cards.push(srbkCard("CODE", code));
+                }
+            }
+
+            if (!cards.length && fullText) {
+                cards.push(srbkCard("ANSWER", md(fullText), "answer"));
+            }
+
+            const meta = [];
+
+            if (metadata.provider) {
+                meta.push(
+                    `provider: ${escapeHtml(String(metadata.provider))}`
+                );
+            }
+
+            if (metadata.model) {
+                meta.push(
+                    `model: ${escapeHtml(String(metadata.model))}`
+                );
+            }
+
+            if (
+                metadata.latency_ms !== null &&
+                metadata.latency_ms !== undefined
+            ) {
+                meta.push(
+                    `latency: ${escapeHtml(String(metadata.latency_ms))} ms`
+                );
+            }
+
+            if (metadata.schema_version) {
+                meta.push(
+                    `schema: ${escapeHtml(String(metadata.schema_version))}`
+                );
+            }
+
+            if (meta.length) {
+                cards.push(`
+                    <div class="srbk-response-meta">
+                        ${meta.map(v => `<span>${v}</span>`).join("")}
+                    </div>
+                `);
+            }
+
+            return `
+                <div class="srbk-response">
+                    ${cards.join("")}
+                </div>
+            `;
+        }
+
         /* ============================================================
            CODE COPY
            ============================================================ */
@@ -2079,8 +2691,19 @@ const wsUrl = `${protocol}//${locationInfo.host}/ws`;
                  * code blocks and Copy controls.
                  */
 
-                content.innerHTML =
-                    md(finalText);
+                if (
+                    result?.structuredResponse &&
+                    typeof result.structuredResponse === "object" &&
+                    result.structuredResponse.content
+                ) {
+                    content.innerHTML =
+                        renderStructuredResponse(
+                            result.structuredResponse
+                        );
+                } else {
+                    content.innerHTML =
+                        md(finalText);
+                }
 
                 aiMessage.classList.remove(
                     "srbk-streaming"
