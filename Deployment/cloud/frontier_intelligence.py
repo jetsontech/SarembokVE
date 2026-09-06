@@ -7,58 +7,27 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
+import sys
+
+_RUNTIME_DIR = "/app/Runtime"
+if _RUNTIME_DIR not in sys.path:
+    sys.path.insert(0, _RUNTIME_DIR)
 
 from sarembok_web_intelligence import research as web_research
 
 
 LIVE_MARKERS = (
-    "latest",
-    "current",
-    "today",
-    "tonight",
-    "this week",
-    "this month",
-    "recent",
-    "newest",
-    "new release",
-    "recent release",
-    "just released",
-    "what happened",
-    "news",
-    "breaking",
-    "developments",
-    "research",
-    "papers",
-    "paper",
-    "study",
-    "studies",
-    "benchmark",
-    "benchmarks",
-    "state of the art",
-    "state-of-the-art",
-    "frontier",
+    "latest", "current", "today", "tonight", "this week", "this month",
+    "recent", "newest", "new release", "recent release", "just released",
+    "what happened", "news", "breaking", "developments", "research", "papers",
+    "paper", "study", "studies", "benchmark", "benchmarks", "state of the art",
+    "state-of-the-art", "frontier",
 )
 
 RESEARCH_DOMAINS = (
-    "ai",
-    "artificial intelligence",
-    "machine learning",
-    "llm",
-    "language model",
-    "agent",
-    "agents",
-    "model",
-    "models",
-    "computer use",
-    "robotics",
-    "generative ai",
-    "genai",
-    "mcp",
-    "a2a",
-    "webgpu",
-    "w3c",
-    "technology",
-    "tech",
+    "ai", "artificial intelligence", "machine learning", "llm", "language model",
+    "agent", "agents", "model", "models", "computer use", "robotics",
+    "generative ai", "genai", "mcp", "a2a", "webgpu", "w3c", "technology", "tech",
 )
 
 
@@ -67,14 +36,11 @@ def is_live_research_intent(prompt: str) -> bool:
     text = " ".join(str(prompt or "").lower().split())
     if not text:
         return False
-    has_live_marker = any(marker in text for marker in LIVE_MARKERS)
-    has_research_domain = any(domain in text for domain in RESEARCH_DOMAINS)
-    return has_live_marker and has_research_domain
+    return any(marker in text for marker in LIVE_MARKERS) and any(domain in text for domain in RESEARCH_DOMAINS)
 
 
 def _topic(prompt: str) -> str:
-    text = " ".join(str(prompt or "").split()).strip()
-    return text or "AI frontier developments"
+    return " ".join(str(prompt or "").split()).strip() or "AI frontier developments"
 
 
 def run(prompt: str, limit: int = 6) -> dict[str, Any]:
@@ -91,91 +57,47 @@ def run(prompt: str, limit: int = 6) -> dict[str, Any]:
         title = str(item.get("title") or "Untitled source").strip()
         excerpt = " ".join(str(item.get("excerpt") or "").split())
         if excerpt:
-            findings.append({
-                "title": title,
-                "text": excerpt[:900],
-                "url": item.get("url"),
-            })
-        sources.append({
-            "title": title,
-            "url": item.get("url"),
-            "status": item.get("status"),
-            "contentType": item.get("contentType"),
-        })
+            findings.append({"title": title, "text": excerpt[:900], "url": item.get("url")})
+        sources.append({"title": title, "url": item.get("url"), "status": item.get("status"), "contentType": item.get("contentType")})
 
     completed = datetime.now(timezone.utc)
     lines = [
-        "# Frontier Intelligence Brief",
-        "",
-        f"**Query:** {topic}",
+        "# Frontier Intelligence Brief", "", f"**Query:** {topic}",
         f"**Retrieved:** {completed.isoformat()}",
-        f"**Sources retrieved:** {len(retrieved)} · **Failed:** {len(failed)}",
-        "",
-        "## Evidence",
+        f"**Sources retrieved:** {len(retrieved)} · **Failed:** {len(failed)}", "", "## Evidence",
     ]
     if findings:
         for index, finding in enumerate(findings, 1):
-            lines.extend([
-                "",
-                f"### {index}. {finding['title']}",
-                "",
-                finding["text"],
-            ])
+            lines.extend(["", f"### {index}. {finding['title']}", "", finding["text"]])
     else:
         lines.extend(["", "No external evidence was successfully retrieved."])
-
     lines.extend([
-        "",
-        "## Research Integrity",
-        "",
+        "", "## Research Integrity", "",
         "This response is based on live retrieval rather than model training-memory claims. "
         "Source retrieval time and URLs are preserved below for verification.",
     ])
 
     verification = {
-        "status": "VERIFIED" if retrieved else "FAILED",
-        "retrieved": len(retrieved),
-        "failed": len(failed),
-        "live": True,
-        "startedAt": started.isoformat(),
-        "completedAt": completed.isoformat(),
-        "freshness": "live_retrieval",
+        "status": "VERIFIED" if retrieved else "FAILED", "retrieved": len(retrieved),
+        "failed": len(failed), "live": True, "startedAt": started.isoformat(),
+        "completedAt": completed.isoformat(), "freshness": "live_retrieval",
+    }
+    text = "\n".join(lines)
+    structured = {
+        "type": "response", "speaker": "sarembok", "status": "complete" if retrieved else "error",
+        "content": {
+            "summary": f"Live frontier research retrieved {len(retrieved)} source(s) for: {topic}",
+            "sections": [{"heading": "Frontier Intelligence Brief"}, {"heading": "Evidence"}, {"heading": "Research Integrity"}],
+            "findings": findings, "sources": sources,
+            "agents": [{"agentId": "sarembok-research", "role": "live-web-research"}],
+            "tasks": [], "artifacts": [], "actions": [], "authorization": [],
+            "verification": verification, "memoryUpdates": [], "code": [], "tables": [], "text": text,
+        },
+        "metadata": {"provider": "frontier-intelligence", "model": "live-web-research", "latency_ms": round((completed - started).total_seconds() * 1000, 1), "schema_version": "2.0"},
     }
     return {
-        "response": "\n".join(lines),
-        "structuredResponse": {
-            "type": "response",
-            "speaker": "sarembok",
-            "status": "complete" if retrieved else "error",
-            "content": {
-                "summary": f"Live frontier research retrieved {len(retrieved)} source(s) for: {topic}",
-                "sections": [{"heading": "Frontier Intelligence Brief"}, {"heading": "Evidence"}, {"heading": "Research Integrity"}],
-                "findings": findings,
-                "sources": sources,
-                "agents": [{"agentId": "sarembok-research", "role": "live-web-research"}],
-                "tasks": [],
-                "artifacts": [],
-                "actions": [],
-                "authorization": [],
-                "verification": verification,
-                "memoryUpdates": [],
-                "code": [],
-                "tables": [],
-                "text": "\n".join(lines),
-            },
-            "metadata": {
-                "provider": "frontier-intelligence",
-                "model": "live-web-research",
-                "latency_ms": round((completed - started).total_seconds() * 1000, 1),
-                "schema_version": "2.0",
-            },
-        },
-        "source": "frontier-intelligence",
-        "model": "live-web-research",
+        "response": text, "structuredResponse": structured,
+        "source": "frontier-intelligence", "model": "live-web-research",
         "action": {"type": "LIVE_RESEARCH", "query": topic},
-        "metadata": {
-            "live": True,
-            "retrieved": len(retrieved),
-            "failed": len(failed),
-        },
+        "metadata": {"live": True, "retrieved": len(retrieved), "failed": len(failed)},
     }
