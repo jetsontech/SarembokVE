@@ -53,8 +53,8 @@ class ProviderResult:
 
 class ProviderRouter:
     def __init__(self) -> None:
-        self.provider_timeout = max(5, int(os.getenv('SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS', '60')))
-        self.total_timeout = max(5, int(os.getenv('SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS', '90')))
+        self.provider_timeout = max(3, int(os.getenv('SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS', '8')))
+        self.total_timeout = max(5, int(os.getenv('SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS', '15')))
         self.gemini_api = os.getenv('SAREMBOK_GEMINI_API', 'interactions').strip().lower()
         self.gemini_thinking = os.getenv('SAREMBOK_GEMINI_THINKING_LEVEL', 'low').strip().lower()
         if self.gemini_thinking not in {'low', 'medium', 'high'}:
@@ -132,17 +132,17 @@ class ProviderRouter:
             result['OpenAI'] = ProviderSpec('OpenAI', os.getenv('LLM_MODEL', 'gpt-5-mini'), 'openai', 'https://api.openai.com/v1/chat/completions', openai)
         router = os.getenv('OPENROUTER_API_KEY', '').strip()
         if router:
-            result['OpenRouter'] = ProviderSpec('OpenRouter', os.getenv('OPENROUTER_MODEL', 'openai/gpt-oss-120b'), 'openai', 'https://openrouter.ai/api/v1/chat/completions', router)
+            result['OpenRouter'] = ProviderSpec('OpenRouter', os.getenv('OPENROUTER_MODEL', 'openai/gpt-4o-mini'), 'openai', 'https://openrouter.ai/api/v1/chat/completions', router)
         groq = os.getenv('GROQ_API_KEY', '').strip()
         if groq:
-            result['Groq'] = ProviderSpec('Groq', os.getenv('GROQ_MODEL', 'openai/gpt-oss-120b'), 'openai', 'https://api.groq.com/openai/v1/chat/completions', groq)
+            result['Groq'] = ProviderSpec('Groq', os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile'), 'openai', 'https://api.groq.com/openai/v1/chat/completions', groq)
         gemini = os.getenv('GEMINI_API_KEY', '').strip()
         if gemini:
             result['Gemini'] = ProviderSpec('Gemini', os.getenv('GEMINI_MODEL', 'gemini-3.8-flash'), 'gemini', 'https://generativelanguage.googleapis.com/v1beta/interactions', gemini)
         custom = os.getenv('LLM_ENDPOINT_URL', '').strip()
         if custom:
             result['Custom'] = ProviderSpec('Custom', os.getenv('LLM_MODEL', 'llama-3.1-8b'), 'openai', custom, os.getenv('LLM_API_KEY', 'dummy'))
-        order = [x.strip() for x in os.getenv('SAREMBOK_PROVIDER_ORDER', 'Gemini,OpenRouter,Groq,OpenAI,Custom').split(',') if x.strip()]
+        order = [x.strip() for x in os.getenv('SAREMBOK_PROVIDER_ORDER', 'OpenRouter,Gemini,Groq,OpenAI,Custom').split(',') if x.strip()]
         return [result[x] for x in order if x in result] + [v for k, v in result.items() if k not in order]
 
     @staticmethod
