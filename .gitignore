@@ -52,3 +52,4 @@ Content/
 
 # Local secrets
 Deployment/cloud/.env
+scratch/

@@ -63,6 +63,8 @@ BROWSER_ALLOWED_METHODS = {
     "GetGpuMarketplace",
     "RentGpuNode",
     "ListGpuRentals",
+    "ProcessVisionFrame",
+    "GetVisionStatus",
 }
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
@@ -74,6 +76,33 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 LOG = logging.getLogger("sarembok.cloud")
+
+import base64
+try:
+    import cv2
+    import numpy as np
+    OPENCV_AVAILABLE = True
+    OPENCV_VERSION = cv2.__version__
+except ImportError:
+    OPENCV_AVAILABLE = False
+    OPENCV_VERSION = "NOT_INSTALLED"
+
+OPENCV_DETECTOR = None
+if OPENCV_AVAILABLE:
+    model_paths = [
+        "/app/models/face_detection_yunet_2023mar.onnx",
+        "Deployment/cloud/models/face_detection_yunet_2023mar.onnx",
+        os.path.join(os.path.dirname(__file__), "models", "face_detection_yunet_2023mar.onnx"),
+    ]
+    for p in model_paths:
+        if os.path.exists(p):
+            try:
+                OPENCV_DETECTOR = cv2.FaceDetectorYN_create(p, "", (320, 240), 0.6, 0.3, 5000)
+                LOG.info("OpenCV YuNet FaceDetector loaded from %s", p)
+                break
+            except Exception as e:
+                LOG.warning("Failed to load YuNet from %s: %s", p, e)
+
 
 
 def now() -> str:
@@ -772,10 +801,12 @@ def sarembok_process_dialogue(
     api_key: str | None = None,
     session_id: str = "default",
     model: str | None = None,
-    language: str = "en"
+    language: str = "en",
+    conversational: bool = False
 ) -> dict[str, Any]:
     prompt_clean = (prompt or "").strip()
     prompt_lower = prompt_clean.lower()
+    is_conversational = bool(conversational or ("live" in prompt_lower and "conversation" in prompt_lower))
 
     action_info = None
 
@@ -925,6 +956,12 @@ def sarembok_process_dialogue(
             f"Keep code blocks, technical variable names, and JSON identifiers intact."
         )
 
+    if is_conversational:
+        system_context_parts.append(
+            "\nCONVERSATIONAL VOICE DIRECTIVE: You are in Live Voice Conversation mode. "
+            "Deliver a natural, calm, warm spoken response in 1-3 concise sentences. "
+            "Do NOT use bulleted lists, raw markdown symbols, or long essays. Speak naturally as in a live telephone call."
+        )
     system_prompt = "\n".join(system_context_parts)
 
     messages = [{"role": "system", "content": system_prompt}]
@@ -1032,6 +1069,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         session_id = str(params.get("sessionId", "default")).strip() or "default"
         req_model = str(params.get("model", "")).strip() or None
         req_lang = str(params.get("language", "en")).strip().lower() or "en"
+        req_conv = bool(params.get("conversational", False))
         res = sarembok_process_dialogue(
             prompt,
             context=context if isinstance(context, list) else None,
@@ -1039,6 +1077,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             session_id=session_id,
             model=req_model,
             language=req_lang,
+            conversational=req_conv,
         )
         if "structuredResponse" not in res:
             res["structuredResponse"] = build_structured_response(
@@ -1883,6 +1922,76 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "message": "Workers must be legitimately launched via Deployment/cloud/worker_client.py or compose.worker.yaml. Runtime authority never invents fake hardware.",
             "onlineWorkers": w_stats["onlineWorkers"],
             "registeredWorkers": w_stats["registeredWorkers"],
+        }
+
+    if method == "GetVisionStatus":
+        return {
+            "opencvInstalled": OPENCV_AVAILABLE,
+            "version": OPENCV_VERSION,
+            "detectorLoaded": OPENCV_DETECTOR is not None,
+            "modelName": "OpenCV YuNet ONNX (Face & Gaze Tracking)",
+            "capabilities": ["Face Detection", "Landmarks", "Gaze Tracking", "Motion Analysis", "Brightness Telemetry"],
+        }
+
+    if method == "ProcessVisionFrame":
+        if not OPENCV_AVAILABLE:
+            raise RuntimeError("opencv_not_available")
+        raw_b64 = str(params.get("frame", "")).strip()
+        if not raw_b64:
+            raise ValueError("frame is required")
+        if "," in raw_b64:
+            raw_b64 = raw_b64.split(",", 1)[1]
+
+        t0 = time.time()
+        img_bytes = base64.b64decode(raw_b64)
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            raise ValueError("invalid_image_data")
+
+        h, w = img.shape[:2]
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        brightness = float(np.mean(gray))
+
+        faces_data = []
+        if OPENCV_DETECTOR is not None:
+            OPENCV_DETECTOR.setInputSize((w, h))
+            ret, detected_faces = OPENCV_DETECTOR.detect(img)
+            if detected_faces is not None:
+                for f in detected_faces:
+                    box_x, box_y, box_w, box_h = int(f[0]), int(f[1]), int(f[2]), int(f[3])
+                    conf = float(f[14])
+                    re_x, re_y = float(f[4]), float(f[5])
+                    le_x, le_y = float(f[6]), float(f[7])
+                    nose_x, nose_y = float(f[8]), float(f[9])
+
+                    center_face_x = (box_x + box_w / 2.0) / w
+                    center_face_y = (box_y + box_h / 2.0) / h
+                    gaze_x = round((center_face_x - 0.5) * 2.0, 3)
+                    gaze_y = round((center_face_y - 0.5) * 2.0, 3)
+
+                    faces_data.append({
+                        "box": {"x": box_x, "y": box_y, "w": box_w, "h": box_h},
+                        "confidence": round(conf, 3),
+                        "landmarks": {
+                            "rightEye": [round(re_x, 1), round(re_y, 1)],
+                            "leftEye": [round(le_x, 1), round(le_y, 1)],
+                            "nose": [round(nose_x, 1), round(nose_y, 1)],
+                        },
+                        "gazeVector": {"dx": gaze_x, "dy": gaze_y},
+                    })
+
+        dt_ms = round((time.time() - t0) * 1000, 2)
+        return {
+            "success": True,
+            "opencvVersion": OPENCV_VERSION,
+            "frameWidth": w,
+            "frameHeight": h,
+            "faceCount": len(faces_data),
+            "faces": faces_data,
+            "brightness": round(brightness, 1),
+            "latencyMs": dt_ms,
+            "timestamp": now(),
         }
 
     if method == "GetGpuMarketplace":

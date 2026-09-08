@@ -1841,6 +1841,205 @@
             opacity: 1;
         }
 
+    
+        /* OPENCV SENSOR & VISION HUD */
+        .opencv-sensor-card {
+            background: rgba(8, 14, 26, 0.88);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            position: relative;
+        }
+        .opencv-feed-wrap {
+            position: relative;
+            width: 100%;
+            height: 180px;
+            background: #000;
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+        #opencv-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        #opencv-overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            transform: scaleX(-1);
+        }
+        .opencv-feed-standby {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(4, 9, 20, 0.92);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            gap: 8px;
+            z-index: 2;
+        }
+        .opencv-telemetry-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            margin-bottom: 12px;
+        }
+        .opencv-telemetry-item {
+            background: rgba(0, 240, 255, 0.04);
+            border: 1px solid rgba(0, 240, 255, 0.1);
+            border-radius: 6px;
+            padding: 6px 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .opencv-telemetry-label {
+            color: var(--text-muted);
+        }
+        .opencv-telemetry-val {
+            color: var(--cyan);
+            font-weight: 600;
+        }
+        .opencv-telemetry-val.good { color: #10b981; }
+
+        /* LIVE INTERACTIVE CONVERSATION MODE */
+        .live-conv-toggle-btn {
+            background: rgba(0, 240, 255, 0.08);
+            border: 1px solid rgba(0, 240, 255, 0.4);
+            color: var(--cyan);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            letter-spacing: 0.08em;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.25s ease;
+            text-transform: uppercase;
+        }
+        .live-conv-toggle-btn:hover {
+            background: rgba(0, 240, 255, 0.18);
+            border-color: var(--cyan);
+            box-shadow: 0 0 16px rgba(0, 240, 255, 0.3);
+        }
+        .live-conv-toggle-btn.active {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: #10b981;
+            color: #10b981;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
+        }
+        .live-conv-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: all 0.3s ease;
+        }
+        .live-conv-toggle-btn.active .live-conv-dot {
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+            animation: liveConvPulse 1.4s infinite ease-in-out;
+        }
+        @keyframes liveConvPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.4); opacity: 0.6; }
+        }
+
+        .live-conv-hud {
+            display: none;
+            background: linear-gradient(135deg, rgba(8, 20, 35, 0.95), rgba(15, 23, 42, 0.95));
+            border: 1px solid rgba(0, 240, 255, 0.35);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 240, 255, 0.05);
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .live-conv-hud.active {
+            display: flex;
+            animation: fadeIn 0.3s ease-out;
+        }
+        .live-conv-orb-wrap {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .live-conv-orb {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #00f0ff 0%, rgba(0,240,255,0.2) 60%, transparent 100%);
+            border: 1px solid rgba(0, 240, 255, 0.6);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.5);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .live-conv-orb.listening {
+            background: radial-gradient(circle, #10b981 0%, rgba(16,185,129,0.2) 60%, transparent 100%);
+            border-color: #10b981;
+            box-shadow: 0 0 18px rgba(16,185,129,0.6);
+            animation: liveConvPulse 1.2s infinite ease-in-out;
+        }
+        .live-conv-orb.speaking {
+            background: radial-gradient(circle, #8b5cf6 0%, rgba(139,92,246,0.2) 60%, transparent 100%);
+            border-color: #8b5cf6;
+            box-shadow: 0 0 20px rgba(139,92,246,0.6);
+            animation: liveConvWave 0.8s infinite alternate ease-in-out;
+        }
+        @keyframes liveConvWave {
+            0% { transform: scale(0.92); }
+            100% { transform: scale(1.15); }
+        }
+        .live-conv-info {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .live-conv-state {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--cyan);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .live-conv-hint {
+            font-family: var(--font-sans);
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        .live-conv-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
     </style>
 </head>
 <body>
@@ -2195,6 +2394,63 @@
                         <button class="browser-action-btn" style="flex:1;" onclick="createLiveDigitalHumanSession()">RECONNECT SESSION</button>
                         <button class="browser-action-btn" style="flex:1; border-color:var(--amber); color:var(--amber);" onclick="triggerVoicePulse()">EMOTE: ATTENTION</button>
                     </div>
+
+                    <!-- OPENCV 5.0 YUNET COMPUTER VISION SENSOR DECK -->
+                    <div class="opencv-sensor-card">
+                        <div class="cyber-card-head" style="margin-bottom:12px;">
+                            <div class="cyber-card-title" style="font-size:11px;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                                OPENCV 5.0 · YUNET REAL-TIME VISION SENSOR
+                            </div>
+                            <div class="cyber-card-badge cyan" id="opencv-status-badge">STANDBY</div>
+                        </div>
+
+                        <div class="opencv-feed-wrap">
+                            <video id="opencv-video" playsinline autoplay muted></video>
+                            <canvas id="opencv-overlay-canvas"></canvas>
+                            <div class="opencv-feed-standby" id="opencv-standby-cover">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                                <span>OPENCV CAMERA SENSOR INACTIVE</span>
+                                <button class="browser-action-btn" style="padding:5px 14px; font-size:10px;" onclick="toggleOpenCVSensor()">START OPENCV SENSORS</button>
+                            </div>
+                        </div>
+
+                        <div class="opencv-telemetry-grid">
+                            <div class="opencv-telemetry-item">
+                                <span class="opencv-telemetry-label">ENGINE</span>
+                                <span class="opencv-telemetry-val good" id="opencv-engine-val">OpenCV 5.0.0</span>
+                            </div>
+                            <div class="opencv-telemetry-item">
+                                <span class="opencv-telemetry-label">MODEL</span>
+                                <span class="opencv-telemetry-val" id="opencv-model-val">YuNet ONNX</span>
+                            </div>
+                            <div class="opencv-telemetry-item">
+                                <span class="opencv-telemetry-label">FACES</span>
+                                <span class="opencv-telemetry-val" id="opencv-faces-val">0 DETECTED</span>
+                            </div>
+                            <div class="opencv-telemetry-item">
+                                <span class="opencv-telemetry-label">GAZE VECTOR</span>
+                                <span class="opencv-telemetry-val" id="opencv-gaze-val">X: 0.00 Y: 0.00</span>
+                            </div>
+                            <div class="opencv-telemetry-item">
+                                <span class="opencv-telemetry-label">LATENCY</span>
+                                <span class="opencv-telemetry-val good" id="opencv-latency-val">-- ms</span>
+                            </div>
+                            <div class="opencv-telemetry-item">
+                                <span class="opencv-telemetry-label">BRIGHTNESS</span>
+                                <span class="opencv-telemetry-val" id="opencv-bright-val">--</span>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                            <label style="font-family:var(--font-mono); font-size:10px; color:var(--text-secondary); display:flex; align-items:center; gap:6px; cursor:pointer;">
+                                <input type="checkbox" id="opencv-gaze-sync" checked onchange="opencvGazeSync = this.checked">
+                                SYNC METAHUMAN GAZE TO DETECTED FACE
+                            </label>
+                            <button class="browser-action-btn" id="opencv-toggle-btn" style="padding:5px 12px; font-size:10px;" onclick="toggleOpenCVSensor()">START SENSOR</button>
+                        </div>
+                    </div>
+
                 </div>
 
             </div>
@@ -2228,7 +2484,27 @@
                             <span class="voice-chip-dot"></span>
                             <span id="dialogue-voice-chip-text">VOICE: ON</span>
                         </button>
+                        <button class="live-conv-toggle-btn" id="live-conv-btn" onclick="toggleLiveConversation()" title="Toggle Hands-Free Live Interactive Conversation Mode">
+                            <span class="live-conv-dot"></span>
+                            <span id="live-conv-btn-text">LIVE CONVERSATION</span>
+                        </button>
                         <div class="cyber-card-badge cyan" id="dialogue-status-tag">STREAM READY</div>
+                    </div>
+                </div>
+
+                
+                <!-- LIVE CONVERSATION STATUS HUD -->
+                <div class="live-conv-hud" id="live-conv-hud">
+                    <div class="live-conv-orb-wrap">
+                        <div class="live-conv-orb" id="live-conv-orb"></div>
+                        <div class="live-conv-info">
+                            <div class="live-conv-state" id="live-conv-state">STANDBY</div>
+                            <div class="live-conv-hint" id="live-conv-hint">Speak naturally · Auto silence detection · Hands-free conversational loop · Interrupt anytime</div>
+                        </div>
+                    </div>
+                    <div class="live-conv-actions">
+                        <button class="browser-action-btn" style="padding:4px 10px; font-size:10px; border-color:var(--amber); color:var(--amber);" onclick="interruptSpeech()">BARGE-IN / STOP</button>
+                        <button class="browser-action-btn" style="padding:4px 10px; font-size:10px;" onclick="toggleLiveConversation()">EXIT LIVE</button>
                     </div>
                 </div>
 
@@ -3347,6 +3623,7 @@
             }, 220);
 
             animateMetaHuman();
+            initOpenCVStatus();
         }
 
         // Canonical 3D facial topology nodes
@@ -3891,6 +4168,508 @@
                 loadWorkerFleet();
             }, 800);
         });
+
+    
+
+        /* ============================================================
+           OPENCV 5.0 COMPUTER VISION & GAZE TRACKING ENGINE
+           ============================================================ */
+        let opencvActive = false;
+        let opencvStream = null;
+        let opencvLoopTimer = null;
+        let opencvGazeSync = true;
+        let opencvOffscreenCanvas = null;
+        let opencvOffscreenCtx = null;
+        let isProcessingVisionFrame = false;
+
+        async function initOpenCVStatus() {
+            try {
+                const status = await sendRPC("GetVisionStatus", {});
+                if (status) {
+                    const engineEl = document.getElementById("opencv-engine-val");
+                    const modelEl = document.getElementById("opencv-model-val");
+                    if (engineEl) engineEl.textContent = `OpenCV ${status.version || "5.0.0"}`;
+                    if (modelEl) modelEl.textContent = status.detectorLoaded ? "YuNet ONNX (Loaded)" : "YuNet ONNX (Ready)";
+                }
+            } catch (e) {
+                console.warn("OpenCV status fetch:", e);
+            }
+        }
+
+        async function toggleOpenCVSensor() {
+            if (opencvActive) {
+                stopOpenCVSensor();
+            } else {
+                await startOpenCVSensor();
+            }
+        }
+
+        async function startOpenCVSensor() {
+            const video = document.getElementById("opencv-video");
+            const standby = document.getElementById("opencv-standby-cover");
+            const badge = document.getElementById("opencv-status-badge");
+            const btn = document.getElementById("opencv-toggle-btn");
+
+            try {
+                opencvStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 320 }, height: { ideal: 240 }, facingMode: "user" },
+                    audio: false
+                });
+
+                if (video) {
+                    video.srcObject = opencvStream;
+                    await video.play();
+                }
+
+                opencvActive = true;
+                if (standby) standby.style.display = "none";
+                if (badge) {
+                    badge.textContent = "ACTIVE · TRACKING";
+                    badge.className = "cyber-card-badge good";
+                }
+                if (btn) {
+                    btn.textContent = "STOP SENSOR";
+                    btn.style.borderColor = "var(--amber)";
+                    btn.style.color = "var(--amber)";
+                }
+
+                // Prepare offscreen canvas for capture
+                if (!opencvOffscreenCanvas) {
+                    opencvOffscreenCanvas = document.createElement("canvas");
+                    opencvOffscreenCanvas.width = 320;
+                    opencvOffscreenCanvas.height = 240;
+                    opencvOffscreenCtx = opencvOffscreenCanvas.getContext("2d");
+                }
+
+                // Start capture loop at ~6 FPS for optimal low-latency RPC
+                clearInterval(opencvLoopTimer);
+                opencvLoopTimer = setInterval(captureAndProcessVisionFrame, 160);
+
+            } catch (err) {
+                console.error("Camera access error:", err);
+                alert("Camera access denied or unavailable. Please grant camera permission to use OpenCV vision sensors.");
+            }
+        }
+
+        function stopOpenCVSensor() {
+            opencvActive = false;
+            clearInterval(opencvLoopTimer);
+
+            if (opencvStream) {
+                opencvStream.getTracks().forEach(t => t.stop());
+                opencvStream = null;
+            }
+
+            const video = document.getElementById("opencv-video");
+            if (video) video.srcObject = null;
+
+            const canvas = document.getElementById("opencv-overlay-canvas");
+            if (canvas) {
+                const ctx = canvas.getContext("2d");
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+
+            const standby = document.getElementById("opencv-standby-cover");
+            const badge = document.getElementById("opencv-status-badge");
+            const btn = document.getElementById("opencv-toggle-btn");
+
+            if (standby) standby.style.display = "flex";
+            if (badge) {
+                badge.textContent = "STANDBY";
+                badge.className = "cyber-card-badge cyan";
+            }
+            if (btn) {
+                btn.textContent = "START SENSOR";
+                btn.style.borderColor = "";
+                btn.style.color = "";
+            }
+
+            const facesEl = document.getElementById("opencv-faces-val");
+            const gazeEl = document.getElementById("opencv-gaze-val");
+            const latEl = document.getElementById("opencv-latency-val");
+            if (facesEl) facesEl.textContent = "0 DETECTED";
+            if (gazeEl) gazeEl.textContent = "X: 0.00 Y: 0.00";
+            if (latEl) latEl.textContent = "-- ms";
+        }
+
+        async function captureAndProcessVisionFrame() {
+            if (!opencvActive || isProcessingVisionFrame) return;
+            const video = document.getElementById("opencv-video");
+            if (!video || video.readyState < 2) return;
+
+            isProcessingVisionFrame = true;
+            try {
+                opencvOffscreenCtx.drawImage(video, 0, 0, 320, 240);
+                const b64 = opencvOffscreenCanvas.toDataURL("image/jpeg", 0.6);
+
+                const res = await sendRPC("ProcessVisionFrame", { frame: b64 });
+                if (res && res.success) {
+                    updateVisionTelemetryAndHUD(res);
+                }
+            } catch (err) {
+                console.warn("ProcessVisionFrame error:", err);
+            } finally {
+                isProcessingVisionFrame = false;
+            }
+        }
+
+        function updateVisionTelemetryAndHUD(res) {
+            const facesEl = document.getElementById("opencv-faces-val");
+            const gazeEl = document.getElementById("opencv-gaze-val");
+            const latEl = document.getElementById("opencv-latency-val");
+            const brightEl = document.getElementById("opencv-bright-val");
+
+            if (facesEl) facesEl.textContent = `${res.faceCount || 0} DETECTED`;
+            if (latEl) latEl.textContent = `${res.latencyMs || 0} ms`;
+            if (brightEl) brightEl.textContent = `${res.brightness || 0} L`;
+
+            const canvas = document.getElementById("opencv-overlay-canvas");
+            if (!canvas) return;
+            canvas.width = 320;
+            canvas.height = 240;
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, 320, 240);
+
+            if (res.faces && res.faces.length > 0) {
+                const primary = res.faces[0];
+
+                if (gazeEl && primary.gazeVector) {
+                    gazeEl.textContent = `X: ${primary.gazeVector.dx} Y: ${primary.gazeVector.dy}`;
+                }
+
+                // If Gaze Sync enabled, map directly to 3D MetaHuman head orientation!
+                if (opencvGazeSync && primary.gazeVector) {
+                    mhTargetYaw = -primary.gazeVector.dx * 0.70; // Inverted for mirror view
+                    mhTargetPitch = -primary.gazeVector.dy * 0.45;
+
+                    const coordsEl = document.getElementById("mh-coords-overlay");
+                    if (coordsEl) {
+                        coordsEl.textContent = `OPENCV GAZE X: ${(-primary.gazeVector.dx).toFixed(2)} Y: ${primary.gazeVector.dy.toFixed(2)}`;
+                    }
+                }
+
+                // Render Cybernetic Tracking HUD on Overlay Canvas
+                res.faces.forEach(f => {
+                    const b = f.box;
+                    ctx.save();
+                    ctx.strokeStyle = "#00f0ff";
+                    ctx.lineWidth = 1.5;
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = "#00f0ff";
+
+                    // Bracket corners
+                    const s = 12;
+                    // Top-Left
+                    ctx.beginPath(); ctx.moveTo(b.x, b.y + s); ctx.lineTo(b.x, b.y); ctx.lineTo(b.x + s, b.y); ctx.stroke();
+                    // Top-Right
+                    ctx.beginPath(); ctx.moveTo(b.x + b.w - s, b.y); ctx.lineTo(b.x + b.w, b.y); ctx.lineTo(b.x + b.w, b.y + s); ctx.stroke();
+                    // Bottom-Left
+                    ctx.beginPath(); ctx.moveTo(b.x, b.y + b.h - s); ctx.lineTo(b.x, b.y + b.h); ctx.lineTo(b.x + s, b.y + b.h); ctx.stroke();
+                    // Bottom-Right
+                    ctx.beginPath(); ctx.moveTo(b.x + b.w - s, b.y + b.h); ctx.lineTo(b.x + b.w, b.y + b.h); ctx.lineTo(b.x + b.w, b.y + b.h - s); ctx.stroke();
+
+                    // Confidence tag
+                    ctx.fillStyle = "rgba(0, 240, 255, 0.85)";
+                    ctx.font = "9px monospace";
+                    ctx.fillText(`YUNET ${(f.confidence * 100).toFixed(0)}%`, b.x + 4, b.y - 4);
+
+                    // Landmarks
+                    if (f.landmarks) {
+                        ctx.fillStyle = "#10b981";
+                        [f.landmarks.rightEye, f.landmarks.leftEye, f.landmarks.nose].forEach(pt => {
+                            if (pt) {
+                                ctx.beginPath();
+                                ctx.arc(pt[0], pt[1], 2.5, 0, Math.PI * 2);
+                                ctx.fill();
+                            }
+                        });
+                    }
+                    ctx.restore();
+                });
+            }
+        }
+
+        /* ============================================================
+           LIVE INTERACTIVE CONVERSATION ENGINE (HANDS-FREE & CALM)
+           ============================================================ */
+        let liveConversationActive = false;
+        let liveRecContinuous = null;
+        let liveSilenceTimer = null;
+        let liveTranscriptBuffer = "";
+        let isSpeakingTurn = false;
+        let isWaitingForAIResponse = false;
+
+        function toggleLiveConversation() {
+            liveConversationActive = !liveConversationActive;
+            const btn = document.getElementById("live-conv-btn");
+            const btnText = document.getElementById("live-conv-btn-text");
+            const hud = document.getElementById("live-conv-hud");
+
+            if (liveConversationActive) {
+                if (btn) btn.classList.add("active");
+                if (btnText) btnText.textContent = "LIVE CONVERSATION: ACTIVE";
+                if (hud) hud.classList.add("active");
+                voiceEnabled = true; // Ensure voice is on for live conversation
+                startLiveConversationLoop();
+            } else {
+                if (btn) btn.classList.remove("active");
+                if (btnText) btnText.textContent = "LIVE CONVERSATION";
+                if (hud) hud.classList.remove("active");
+                stopLiveConversationLoop();
+            }
+        }
+
+        function setLiveConvUI(state, hint) {
+            const orb = document.getElementById("live-conv-orb");
+            const stateEl = document.getElementById("live-conv-state");
+            const hintEl = document.getElementById("live-conv-hint");
+
+            if (stateEl) stateEl.textContent = state;
+            if (hintEl && hint) hintEl.textContent = hint;
+
+            if (orb) {
+                orb.className = "live-conv-orb";
+                if (state.includes("LISTENING")) orb.classList.add("listening");
+                else if (state.includes("SPEAKING")) orb.classList.add("speaking");
+            }
+        }
+
+        function startLiveConversationLoop() {
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) {
+                alert("Live speech recognition requires Chrome, Edge, or a WebSpeech-compatible browser.");
+                toggleLiveConversation();
+                return;
+            }
+
+            try {
+                if (liveRecContinuous) {
+                    try { liveRecContinuous.stop(); } catch(e) {}
+                }
+
+                liveRecContinuous = new SpeechRec();
+                liveRecContinuous.continuous = true;
+                liveRecContinuous.interimResults = true;
+                liveRecContinuous.lang = "en-US";
+
+                setLiveConvUI("LISTENING (HANDS-FREE)", "Speak naturally · Auto silence detection · Interrupt anytime");
+                setAvatarSignal("LISTENING");
+
+                liveRecContinuous.onstart = () => {
+                    console.log("Live conversation recognizer started.");
+                };
+
+                liveRecContinuous.onresult = event => {
+                    // Barge-In Interruption: If user starts speaking while AI is talking, cancel immediately!
+                    if (window.speechSynthesis && window.speechSynthesis.speaking) {
+                        console.log("User barge-in detected! Stopping assistant speech immediately.");
+                        window.speechSynthesis.cancel();
+                        isSpeakingTurn = false;
+                        setAvatarSignal("LISTENING");
+                    }
+
+                    let interim = "";
+                    let finalChunk = "";
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            finalChunk += transcript + " ";
+                        } else {
+                            interim += transcript;
+                        }
+                    }
+
+                    const currentHeard = (finalChunk || interim).trim();
+                    if (currentHeard) {
+                        liveTranscriptBuffer = (liveTranscriptBuffer + " " + finalChunk).trim() || currentHeard;
+                        setLiveConvUI("HEARING YOU...", `"${currentHeard}"`);
+                        setAvatarSignal("LISTENING");
+
+                        // Reset silence detection timer (1.2 seconds of silence = user finished speaking)
+                        clearTimeout(liveSilenceTimer);
+                        liveSilenceTimer = setTimeout(() => {
+                            if (liveTranscriptBuffer && !isWaitingForAIResponse && !isSpeakingTurn) {
+                                executeLiveConversationTurn(liveTranscriptBuffer);
+                                liveTranscriptBuffer = "";
+                            }
+                        }, 1200);
+                    }
+                };
+
+                liveRecContinuous.onerror = err => {
+                    if (err.error !== "no-speech") {
+                        console.warn("Live conversation recognition error:", err);
+                    }
+                };
+
+                liveRecContinuous.onend = () => {
+                    // Automatically restart continuous recognition if live mode remains active
+                    if (liveConversationActive) {
+                        setTimeout(() => {
+                            try {
+                                if (liveConversationActive && liveRecContinuous) {
+                                    liveRecContinuous.start();
+                                }
+                            } catch(e) {}
+                        }, 250);
+                    }
+                };
+
+                liveRecContinuous.start();
+
+            } catch (err) {
+                console.error("Failed to start live recognition:", err);
+            }
+        }
+
+        function stopLiveConversationLoop() {
+            clearTimeout(liveSilenceTimer);
+            if (liveRecContinuous) {
+                try { liveRecContinuous.stop(); } catch(e) {}
+                liveRecContinuous = null;
+            }
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+            isSpeakingTurn = false;
+            isWaitingForAIResponse = false;
+            setAvatarSignal("IDLE");
+        }
+
+        function interruptSpeech() {
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+            isSpeakingTurn = false;
+            setLiveConvUI("INTERRUPTED · LISTENING", "Listening for your next directive...");
+            setAvatarSignal("LISTENING");
+        }
+
+        async function executeLiveConversationTurn(userSpeech) {
+            const cleanSpeech = userSpeech.trim();
+            if (!cleanSpeech) return;
+
+            isWaitingForAIResponse = true;
+            setLiveConvUI("SYNTHESIZING...", `Routing through frontier fabric: "${cleanSpeech}"`);
+            setAvatarSignal("ATTENTION");
+
+            appendUserDialogue(cleanSpeech);
+            const assistantBubble = createAssistantDialogue();
+            const content = assistantBubble.querySelector(".srbk-content");
+
+            let streamedResponse = "";
+            let sentenceBuffer = "";
+
+            try {
+                const selectedModel = document.getElementById("active-model-select")?.value || "gpt-4o-mini";
+                const selectedLang = document.getElementById("active-language-select")?.value || "en";
+
+                const result = await sendRPC(
+                    "SarembokChat",
+                    {
+                        prompt: cleanSpeech,
+                        model: selectedModel,
+                        language: selectedLang,
+                        conversational: true, // Tells server: 1-3 natural, warm, spoken sentences
+                        stream: true
+                    },
+                    delta => {
+                        streamedResponse += delta;
+                        sentenceBuffer += delta;
+                        content.innerHTML = md(streamedResponse);
+                        scrollDialogue();
+
+                        // Stream speech sentence by sentence for zero perceived latency
+                        if (liveConversationActive && !isSpeakingTurn) {
+                            const match = sentenceBuffer.match(/([.!?])\s+/);
+                            if (match) {
+                                const splitIdx = match.index + 1;
+                                const readySentence = sentenceBuffer.slice(0, splitIdx).trim();
+                                sentenceBuffer = sentenceBuffer.slice(splitIdx);
+                                if (readySentence) {
+                                    speakCalmConversational(readySentence);
+                                }
+                            }
+                        }
+                    }
+                );
+
+                const finalText = result?.response || streamedResponse || "Directive completed.";
+                content.innerHTML = md(finalText);
+                scrollDialogue();
+
+                // If any remaining sentence hasn't been spoken yet
+                if (sentenceBuffer.trim() && liveConversationActive && !isSpeakingTurn) {
+                    speakCalmConversational(sentenceBuffer.trim());
+                } else if (!isSpeakingTurn && liveConversationActive) {
+                    speakCalmConversational(finalText);
+                }
+
+            } catch (err) {
+                content.innerHTML = `<p style="color:var(--amber);">Live conversation error: ${escapeHtml(err.message)}</p>`;
+                setLiveConvUI("LISTENING (READY)", "Speak your next directive...");
+                setAvatarSignal("IDLE");
+            } finally {
+                isWaitingForAIResponse = false;
+            }
+        }
+
+        function speakCalmConversational(text) {
+            if (!text || !window.speechSynthesis) return;
+
+            // Strip raw markdown, symbols, asterisks, URLs, and code blocks for warm human cadence
+            const clean = text
+                .replace(/```[\s\S]*?```/g, "Code block omitted.")
+                .replace(/`([^`]+)`/g, "$1")
+                .replace(/[*#_~]/g, "")
+                .replace(/https?:\/\/\S+/g, "link")
+                .trim();
+
+            if (!clean) return;
+
+            isSpeakingTurn = true;
+            setLiveConvUI("SPEAKING (CALM & CONVERSATIONAL)", clean);
+            setAvatarSignal("SPEAKING");
+
+            const utterance = new SpeechSynthesisUtterance(clean);
+            // Calm, conversational parameters (never loud or jarring)
+            utterance.volume = 0.76;
+            utterance.rate = 1.02;
+            utterance.pitch = 1.02;
+
+            const voices = window.speechSynthesis.getVoices();
+            const preferred = voices.find(v => (v.lang.includes("en-GB") || v.lang.includes("en-US")) && (v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Samantha") || v.name.includes("Victoria") || v.name.includes("Ava")));
+            if (preferred) utterance.voice = preferred;
+
+            utterance.onboundary = () => {
+                triggerSpeechViseme();
+            };
+
+            utterance.onend = () => {
+                isSpeakingTurn = false;
+                morphTargets.jawOpen = 0;
+                updateMorphMeters();
+
+                if (liveConversationActive) {
+                    setLiveConvUI("LISTENING (HANDS-FREE)", "Speak naturally · Auto silence detection · Interrupt anytime");
+                    setAvatarSignal("LISTENING");
+                } else {
+                    setAvatarSignal("IDLE");
+                }
+            };
+
+            utterance.onerror = () => {
+                isSpeakingTurn = false;
+                if (liveConversationActive) {
+                    setLiveConvUI("LISTENING (HANDS-FREE)", "Ready for next message...");
+                    setAvatarSignal("LISTENING");
+                } else {
+                    setAvatarSignal("IDLE");
+                }
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
 
     </script>
 
