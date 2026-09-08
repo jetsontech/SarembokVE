@@ -604,7 +604,34 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
         _save_conversation(session_id, prompt_clean, response_text)
         return {"response": response_text, "audioText": response_text, "action": action_info}
 
-    # 4. Build context from real system state
+    # 4. Tool Intent: Date & Time Query
+    time_regex = re.compile(
+        r"\b(?:what(?:\s*is|\s*'s|\s*s)?\s+(?:the\s+)?(?:current\s+|today'?s\s+)?(?:time|date|day)"
+        r"|what\s+time\s+is\s+it"
+        r"|what\s+date\s+is\s+it"
+        r"|what\s+day\s+is\s+(?:it|today)"
+        r"|tell\s+me\s+the\s+(?:time|date)"
+        r"|current\s+(?:time|date))\b",
+        re.IGNORECASE
+    )
+    clean_no_punct = re.sub(r"[^\w\s]", "", prompt_lower).strip()
+    if time_regex.search(prompt_clean) or clean_no_punct in ("time", "date", "clock", "today", "day"):
+        now_utc = datetime.now(timezone.utc)
+        utc_date_str = now_utc.strftime("%A, %B %d, %Y")
+        utc_time_str = now_utc.strftime("%H:%M:%S UTC")
+        response_text = f"The current system time is **{utc_time_str}** on **{utc_date_str}**."
+        audio_text = f"The current time is {now_utc.strftime('%I:%M %p UTC on %A, %B %d, %Y')}."
+        _save_conversation(session_id, prompt_clean, response_text)
+        return {
+            "response": response_text,
+            "audioText": audio_text,
+            "source": "runtime_authority",
+            "model": "runtime-clock",
+            "action": None,
+            "timestamp": now()
+        }
+
+    # 5. Build context from real system state
     worker_stats = get_worker_status_counts()
     mem_rows = store.db.execute("SELECT key, value FROM memories ORDER BY created_at DESC LIMIT 10").fetchall()
     agent_rows = store.db.execute("SELECT display_name, status FROM agents LIMIT 6").fetchall()
@@ -625,9 +652,13 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
     )
 
     authoritative_context = build_runtime_context(authority_snapshot)
+    current_utc = datetime.now(timezone.utc)
+    current_time_str = current_utc.strftime("%A, %B %d, %Y at %H:%M:%S UTC")
 
     system_context_parts = [
         authoritative_context,
+        f"Current Real-Time Clock: {current_time_str}.",
+        "You have live access to the current date and time above.",
         "",
         "You are Sarembok, an AI assistant running on the Sarembok VE platform.",
         "Answer questions directly and honestly. If you don't know something, say so.",
