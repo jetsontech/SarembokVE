@@ -1666,7 +1666,7 @@
             try {
                 const result = await sendRPC(
                     "SarembokChat",
-                    { prompt: text },
+                    { prompt: text, stream: true },
                     delta => {
                         streamedText += delta;
                         content.innerHTML = md(streamedText);
@@ -1916,7 +1916,7 @@
 
         async function refreshFrontierAuthority() {
             try {
-                const authority = await sendRPC("GetRuntimeAuthority");
+                const authority = await sendRPC("GetRuntimeInfo");
                 updateFrontierAuthority(authority);
             } catch (error) {
                 console.warn("Frontier Authority unavailable:", error);
