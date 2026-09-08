@@ -125,14 +125,38 @@ class ProviderRouter:
             usage['_finish_reason'] = finish_reason
         return text, usage
 
-    def configured(self) -> list[ProviderSpec]:
+    MODEL_ALIASES: dict[str, str] = {
+        'gpt-4o-mini': 'openai/gpt-4o-mini',
+        'fast': 'openai/gpt-4o-mini',
+        'auto': 'openai/gpt-4o-mini',
+        'llama-3.3-70b': 'meta-llama/llama-3.3-70b-instruct',
+        'reasoning': 'meta-llama/llama-3.3-70b-instruct',
+        'deepseek-v3': 'deepseek/deepseek-chat',
+        'deepseek': 'deepseek/deepseek-chat',
+        'qwen-2.5-coder': 'qwen/qwen-2.5-coder-32b-instruct',
+        'code': 'qwen/qwen-2.5-coder-32b-instruct',
+        'gemini-flash': 'google/gemini-flash-1.5',
+    }
+
+    def resolve_model_id(self, model_hint: str | None) -> str | None:
+        if not model_hint:
+            return None
+        cleaned = model_hint.strip().lower()
+        if cleaned in self.MODEL_ALIASES:
+            return self.MODEL_ALIASES[cleaned]
+        return model_hint.strip()
+
+    def configured(self, requested_model: str | None = None) -> list[ProviderSpec]:
         result: dict[str, ProviderSpec] = {}
+        target_model = self.resolve_model_id(requested_model)
+        
         openai = os.getenv('OPENAI_API_KEY', '').strip()
         if openai:
             result['OpenAI'] = ProviderSpec('OpenAI', os.getenv('LLM_MODEL', 'gpt-5-mini'), 'openai', 'https://api.openai.com/v1/chat/completions', openai)
         router = os.getenv('OPENROUTER_API_KEY', '').strip()
         if router:
-            result['OpenRouter'] = ProviderSpec('OpenRouter', os.getenv('OPENROUTER_MODEL', 'openai/gpt-4o-mini'), 'openai', 'https://openrouter.ai/api/v1/chat/completions', router)
+            primary_model = target_model or os.getenv('OPENROUTER_MODEL', 'openai/gpt-4o-mini')
+            result['OpenRouter'] = ProviderSpec('OpenRouter', primary_model, 'openai', 'https://openrouter.ai/api/v1/chat/completions', router)
         groq = os.getenv('GROQ_API_KEY', '').strip()
         if groq:
             result['Groq'] = ProviderSpec('Groq', os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile'), 'openai', 'https://api.groq.com/openai/v1/chat/completions', groq)
@@ -143,7 +167,13 @@ class ProviderRouter:
         if custom:
             result['Custom'] = ProviderSpec('Custom', os.getenv('LLM_MODEL', 'llama-3.1-8b'), 'openai', custom, os.getenv('LLM_API_KEY', 'dummy'))
         order = [x.strip() for x in os.getenv('SAREMBOK_PROVIDER_ORDER', 'OpenRouter,Gemini,Groq,OpenAI,Custom').split(',') if x.strip()]
-        return [result[x] for x in order if x in result] + [v for k, v in result.items() if k not in order]
+        specs = [result[x] for x in order if x in result] + [v for k, v in result.items() if k not in order]
+        
+        # If a specific model was requested and OpenRouter is available, also add the baseline fallback spec
+        if target_model and router and target_model != 'openai/gpt-4o-mini':
+            specs.append(ProviderSpec('OpenRouterFallback', 'openai/gpt-4o-mini', 'openai', 'https://openrouter.ai/api/v1/chat/completions', router))
+            
+        return specs
 
     @staticmethod
     def _extract_gemini(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
@@ -350,8 +380,8 @@ class ProviderRouter:
             except urllib.error.HTTPError as exc:
                 self._handle_http_error(spec, exc, attempts, deadline)
 
-    def generate_stream(self, system_prompt: str, prompt: str, messages: list[dict[str, str]], on_delta: Callable[[str], None]) -> ProviderResult:
-        providers = self.configured()
+    def generate_stream(self, system_prompt: str, prompt: str, messages: list[dict[str, str]], on_delta: Callable[[str], None], requested_model: str | None = None) -> ProviderResult:
+        providers = self.configured(requested_model=requested_model)
         if not providers:
             raise RuntimeError('no language-model provider configured')
         deadline = time.monotonic() + self.total_timeout
@@ -382,11 +412,11 @@ class ProviderRouter:
                 logger.warning('provider_failed provider=%s model=%s error_type=%s error=%s', spec.name, spec.model, type(exc).__name__, error_message)
         raise RuntimeError('all providers failed: ' + ','.join(failures))
 
-    def generate(self, system_prompt: str, prompt: str, messages: list[dict[str, str]]) -> ProviderResult:
+    def generate(self, system_prompt: str, prompt: str, messages: list[dict[str, str]], requested_model: str | None = None) -> ProviderResult:
         callback = _STREAM_CALLBACK.get()
         if callback is not None:
-            return self.generate_stream(system_prompt, prompt, messages, callback)
-        providers = self.configured()
+            return self.generate_stream(system_prompt, prompt, messages, callback, requested_model=requested_model)
+        providers = self.configured(requested_model=requested_model)
         if not providers:
             raise RuntimeError('no language-model provider configured')
         deadline = time.monotonic() + self.total_timeout

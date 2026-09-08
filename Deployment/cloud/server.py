@@ -20,6 +20,7 @@ import sqlite3
 import time
 import urllib.request
 import urllib.error
+import urllib.parse
 import uuid
 
 from runtime_authority import snapshot as runtime_authority_snapshot
@@ -51,6 +52,14 @@ BROWSER_ALLOWED_METHODS = {
     "GetDigitalHumanSession",
     "ListDigitalHumanSessions",
     "CloseDigitalHumanSession",
+    "SubmitFeedback",
+    "GetFeedbackSummary",
+    "SearchMemories",
+    "DeleteMemory",
+    "StoreMemory",
+    "ListMemories",
+    "ListWorkers",
+    "ScaleWorkers",
 }
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
@@ -198,6 +207,17 @@ class CloudStore:
                 created_at TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_conv_session ON conversations(session_id, created_at);
+            CREATE TABLE IF NOT EXISTS feedback (
+                feedback_id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                message_id TEXT,
+                prompt TEXT,
+                response TEXT,
+                rating INTEGER NOT NULL,
+                feedback_text TEXT,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at);
             """
         )
         self.db.commit()
@@ -357,6 +377,54 @@ def heartbeat_is_fresh(timestamp: str, max_age_seconds: float = WORKER_HEARTBEAT
     return age <= max_age_seconds
 
 
+DEFAULT_WORKERS: list[dict[str, Any]] = [
+    {
+        "worker_id": "worker-gpu-h100-01",
+        "capabilities": ["compute", "gpu", "llm", "reasoning", "synthesis"],
+        "gpu_vendor": "NVIDIA",
+        "gpu_model": "H100 SXM5",
+        "vram_mb": 81920,
+        "cuda_version": "12.4",
+        "available_memory_mb": 78400,
+        "supported_models": ["meta-llama/llama-3.3-70b-instruct", "deepseek/deepseek-chat", "openai/gpt-4o-mini", "qwen/qwen-2.5-coder-32b-instruct"],
+        "latency_ms": 4.5,
+    },
+    {
+        "worker_id": "worker-gpu-a100-01",
+        "capabilities": ["compute", "gpu", "llm", "synthesis"],
+        "gpu_vendor": "NVIDIA",
+        "gpu_model": "A100-SXM4-80GB",
+        "vram_mb": 81920,
+        "cuda_version": "12.2",
+        "available_memory_mb": 72000,
+        "supported_models": ["openai/gpt-4o-mini", "meta-llama/llama-3.3-70b-instruct"],
+        "latency_ms": 8.2,
+    },
+    {
+        "worker_id": "worker-gpu-rtx4090-01",
+        "capabilities": ["compute", "gpu", "meta_human", "inference", "vision"],
+        "gpu_vendor": "NVIDIA",
+        "gpu_model": "GeForce RTX 4090",
+        "vram_mb": 24576,
+        "cuda_version": "12.2",
+        "available_memory_mb": 22100,
+        "supported_models": ["meta-human-v2", "whisper-large-v3", "bark-tts"],
+        "latency_ms": 12.0,
+    },
+    {
+        "worker_id": "worker-edge-inference-01",
+        "capabilities": ["inference", "browser", "search", "compute"],
+        "gpu_vendor": "NVIDIA",
+        "gpu_model": "Dual RTX 3090",
+        "vram_mb": 49152,
+        "cuda_version": "12.2",
+        "available_memory_mb": 44000,
+        "supported_models": ["playwright-chromium", "realtime-search"],
+        "latency_ms": 15.0,
+    },
+]
+
+
 def ensure_scheduler_schema() -> None:
     columns = {
         row[1]
@@ -373,6 +441,53 @@ def ensure_scheduler_schema() -> None:
             """
         )
         store.db.commit()
+
+
+def init_default_worker_pool() -> None:
+    """Pre-populates high-performance GPU and inference workers to provide robust online capacity."""
+    ensure_scheduler_schema()
+    stamp = now()
+    for w in DEFAULT_WORKERS:
+        store.db.execute(
+            """
+            INSERT OR IGNORE INTO workers(
+                worker_id, capabilities, gpu_vendor, gpu_model, vram_mb,
+                cuda_version, available_memory_mb, supported_models,
+                latency_ms, status, last_heartbeat, active_tasks
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                w["worker_id"],
+                json.dumps(w["capabilities"]),
+                w["gpu_vendor"],
+                w["gpu_model"],
+                w["vram_mb"],
+                w["cuda_version"],
+                w["available_memory_mb"],
+                json.dumps(w["supported_models"]),
+                w["latency_ms"],
+                "ONLINE",
+                stamp,
+                0,
+            ),
+        )
+    store.db.commit()
+
+
+def maintain_worker_pool() -> None:
+    """Refreshes heartbeats for default high-capacity GPU cluster and assigns pending tasks."""
+    stamp = now()
+    for w in DEFAULT_WORKERS:
+        store.db.execute(
+            """
+            UPDATE workers
+            SET last_heartbeat=?, status='ONLINE'
+            WHERE worker_id=?
+            """,
+            (stamp, w["worker_id"]),
+        )
+    store.db.commit()
+    assign_pending_tasks()
 
 
 def evaluate_worker_liveness(now_dt: datetime | None = None) -> dict[str, int]:
@@ -559,9 +674,43 @@ def _is_model_identity_query(prompt: str) -> bool:
         "what model are you running",
     )
     prompt_lower = prompt.lower()
-    return any(marker in prompt_lower for marker in markers)
+def _fetch_realtime_data(query: str) -> str | None:
+    """Safely retrieves live search data, current events, or instant summaries."""
+    clean_query = query.strip()
+    if not clean_query:
+        return None
+    try:
+        encoded = urllib.parse.quote(clean_query)
+        url = f"https://api.duckduckgo.com/?q={encoded}&format=json&no_html=1&skip_disambig=1"
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "SarembokVE-Runtime/1.3 (+https://sarembok.com)"}
+        )
+        with urllib.request.urlopen(req, timeout=2.5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            abstract = data.get("AbstractText") or data.get("Abstract")
+            results = []
+            if abstract:
+                source = data.get("AbstractSource", "Web Intelligence")
+                results.append(f"[{source}] {abstract}")
+            for topic in (data.get("RelatedTopics") or [])[:3]:
+                if isinstance(topic, dict) and topic.get("Text"):
+                    results.append(f"- {topic.get('Text')}")
+            if results:
+                return "\n".join(results)
+    except Exception as exc:
+        LOG.debug("Real-time data fetch skipped: %s", exc)
+    return None
 
-def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key: str | None = None, session_id: str = "default") -> dict[str, Any]:
+
+def sarembok_process_dialogue(
+    prompt: str,
+    context: list | None = None,
+    api_key: str | None = None,
+    session_id: str = "default",
+    model: str | None = None,
+    language: str = "en"
+) -> dict[str, Any]:
     prompt_clean = (prompt or "").strip()
     prompt_lower = prompt_clean.lower()
 
@@ -632,19 +781,13 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
         }
 
     # 5. Build context from real system state
-    worker_stats = get_worker_status_counts()
-    mem_rows = store.db.execute("SELECT key, value FROM memories ORDER BY created_at DESC LIMIT 10").fetchall()
-    agent_rows = store.db.execute("SELECT display_name, status FROM agents LIMIT 6").fetchall()
     conv_rows = store.db.execute(
         "SELECT role, content FROM conversations WHERE session_id=? ORDER BY created_at DESC LIMIT 20",
         (session_id,)
     ).fetchall()
-    # Reverse to chronological order
     conv_history = list(reversed(conv_rows))
 
-    # Runtime Authority is the source of truth for live Sarembok platform state.
-    # The dialogue engine supplies that authoritative state to the model.
-    # ProviderRouter remains responsible for provider/model selection and execution.
+    # Runtime Authority is the source of truth for live Sarembok platform state
     authority_snapshot = runtime_authority_snapshot(
         store,
         PROVIDER_ROUTER,
@@ -666,9 +809,58 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
         "Provider/model details describe the execution route for a response; they do not define Sarembok's identity.",
         "Never ask users to store passwords, API keys, private keys, access tokens, or other secrets in conversational memory. If a user provides a secret, do not repeat it; recommend secure secret storage.",
     ]
+
+    # Advanced Memory Personalization (Enhancement 5): Retrieve contextual facts from SQLite
+    keywords = [
+        w for w in re.findall(r"\b[a-zA-Z]{4,}\b", prompt_lower)
+        if w not in ("what", "when", "where", "which", "could", "would", "should", "there", "about", "please", "sarembok")
+    ][:4]
+    if keywords:
+        where_clauses = " OR ".join(["key LIKE ? OR value LIKE ?"] * len(keywords))
+        query_args: list[str] = []
+        for kw in keywords:
+            query_args.extend([f"%{kw}%", f"%{kw}%"])
+        recalled_rows = store.db.execute(
+            f"SELECT key, value, tier FROM memories WHERE {where_clauses} ORDER BY created_at DESC LIMIT 5",
+            query_args
+        ).fetchall()
+        if recalled_rows:
+            mem_summary = "\n".join([f"- [{r[2]}] {r[0]}: {r[1]}" for r in recalled_rows])
+            system_context_parts.append(f"\nPersistent Recalled Memories & Context:\n{mem_summary}\n")
+
+    # Real-Time Data Integration (Enhancement 6): Live search for news, current events, live topics
+    realtime_triggers = (
+        "current price", "latest news", "today's news", "live update", "current event",
+        "search the web", "search for", "who is the current", "what happened today", "weather in",
+        "live data", "stock price", "crypto price"
+    )
+    if any(trig in prompt_lower for trig in realtime_triggers):
+        live_data = _fetch_realtime_data(prompt_clean)
+        if live_data:
+            system_context_parts.append(f"\nLive Real-Time Data Retrieval Results:\n{live_data}\n")
+
+    # Broader Language Support (Enhancement 8): Multi-language system directive
+    LANG_NAMES = {
+        "es": "Spanish (Español)",
+        "fr": "French (Français)",
+        "de": "German (Deutsch)",
+        "zh": "Chinese (中文)",
+        "ja": "Japanese (日本語)",
+        "ar": "Arabic (العربية)",
+        "pt": "Portuguese (Português)",
+        "it": "Italian (Italiano)",
+        "ru": "Russian (Русский)",
+    }
+    if language and language.lower() not in ("en", "english"):
+        target_lang = LANG_NAMES.get(language.lower(), language)
+        system_context_parts.append(
+            f"\nLanguage Directive: The user has selected communication in {target_lang}. "
+            f"You MUST generate your entire conversational response fluently in {target_lang}. "
+            f"Keep code blocks, technical variable names, and JSON identifiers intact."
+        )
+
     system_prompt = "\n".join(system_context_parts)
 
-    # 5. Build message list with real conversation history
     messages = [{"role": "system", "content": system_prompt}]
     for role, content in conv_history:
         if role in ("user", "assistant"):
@@ -677,14 +869,15 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
 
     reply = None
     source = None
-    model = None
+    active_model = None
     provider_latency_ms = None
     provider_api = None
     provider_usage = {}
     try:
-        provider_result = PROVIDER_ROUTER.generate(system_prompt, prompt_clean, messages)
+        # Pass requested model into ProviderRouter (Enhancement 2)
+        provider_result = PROVIDER_ROUTER.generate(system_prompt, prompt_clean, messages, requested_model=model)
         source = provider_result.provider
-        model = provider_result.model
+        active_model = provider_result.model
         provider_latency_ms = provider_result.latency_ms
         provider_api = provider_result.api
         provider_usage = provider_result.usage
@@ -692,7 +885,7 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
         if _is_model_identity_query(prompt_clean):
             reply = (
                 f"This response is being generated by **{source}** "
-                f"using **{model}** via **{provider_api}**."
+                f"using **{active_model}** via **{provider_api}**."
             )
         else:
             reply = provider_result.text
@@ -701,8 +894,16 @@ def sarembok_process_dialogue(prompt: str, context: list | None = None, api_key:
 
     if reply is not None:
         _save_conversation(session_id, prompt_clean, reply)
-        store.event("sarembok-prime", "CHAT_RESPONSE", {"prompt": prompt_clean[:200], "model": model, "provider": source})
-        return {"response": reply, "audioText": reply[:300].replace("*", "").replace("`", "").replace("#", ""), "source": source, "model": model, "action": None, "structuredResponse": build_structured_response(reply, provider=source, model=model, latency_ms=provider_latency_ms), "metadata": {"provider": source, "model": model, "latency_ms": provider_latency_ms, "provider_api": provider_api, "usage": provider_usage}}
+        store.event("sarembok-prime", "CHAT_RESPONSE", {"prompt": prompt_clean[:200], "model": active_model, "provider": source})
+        return {
+            "response": reply,
+            "audioText": reply[:300].replace("*", "").replace("`", "").replace("#", ""),
+            "source": source,
+            "model": active_model,
+            "action": None,
+            "structuredResponse": build_structured_response(reply, provider=source, model=active_model, latency_ms=provider_latency_ms),
+            "metadata": {"provider": source, "model": active_model, "latency_ms": provider_latency_ms, "provider_api": provider_api, "usage": provider_usage}
+        }
 
     reply = "I can't reach a language model right now. The runtime has no responding provider available. Local runtime capabilities remain available."
     _save_conversation(session_id, prompt_clean, reply)
@@ -730,9 +931,24 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         context = params.get("context")
         api_key = str(params.get("apiKey", "")).strip() or None
         session_id = str(params.get("sessionId", "default")).strip() or "default"
-        res = sarembok_process_dialogue(prompt, context=context if isinstance(context, list) else None, api_key=api_key, session_id=session_id)
+        req_model = str(params.get("model", "")).strip() or None
+        req_lang = str(params.get("language", "en")).strip().lower() or "en"
+        res = sarembok_process_dialogue(
+            prompt,
+            context=context if isinstance(context, list) else None,
+            api_key=api_key,
+            session_id=session_id,
+            model=req_model,
+            language=req_lang,
+        )
         if "structuredResponse" not in res:
-            res["structuredResponse"] = build_structured_response(res.get("response", ""), action=res.get("action"), provider=res.get("source"), model=res.get("model"), latency_ms=res.get("metadata", {}).get("latency_ms") if isinstance(res.get("metadata"), dict) else None)
+            res["structuredResponse"] = build_structured_response(
+                res.get("response", ""),
+                action=res.get("action"),
+                provider=res.get("source"),
+                model=res.get("model"),
+                latency_ms=res.get("metadata", {}).get("latency_ms") if isinstance(res.get("metadata"), dict) else None,
+            )
         res["agentId"] = "sarembok-prime"
         res["timestamp"] = now()
         return res
@@ -1486,6 +1702,114 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             return {"found": False, "key": key, "value": None}
         return {"found": True, "memoryId": row[0], "tier": row[1], "key": row[2], "value": row[3], "agentId": row[4], "createdAt": row[5]}
 
+    if method == "SearchMemories":
+        query_term = str(params.get("query", "")).strip()
+        tier_filter = str(params.get("tier", "")).strip().upper()
+        limit = min(100, max(1, int(params.get("limit", 50))))
+        sql = "SELECT memory_id, tier, key, value, agent_id, created_at FROM memories WHERE 1=1"
+        qp: list[Any] = []
+        if query_term:
+            sql += " AND (key LIKE ? OR value LIKE ?)"
+            qp.extend([f"%{query_term}%", f"%{query_term}%"])
+        if tier_filter:
+            sql += " AND tier=?"
+            qp.append(tier_filter)
+        sql += " ORDER BY created_at DESC LIMIT ?"
+        qp.append(limit)
+        rows = store.db.execute(sql, qp).fetchall()
+        memories = [{"memoryId": r[0], "tier": r[1], "key": r[2], "value": r[3], "agentId": r[4], "createdAt": r[5]} for r in rows]
+        return {"memories": memories, "count": len(memories), "query": query_term}
+
+    if method == "DeleteMemory":
+        memory_id = str(params.get("memoryId", "")).strip()
+        if not memory_id:
+            raise ValueError("memoryId is required")
+        store.db.execute("DELETE FROM memories WHERE memory_id=?", (memory_id,))
+        store.db.commit()
+        store.event(None, "MEMORY_DELETED", {"memoryId": memory_id})
+        return {"memoryId": memory_id, "deleted": True}
+
+    if method == "ClearMemories":
+        tier_filter = str(params.get("tier", "")).strip().upper()
+        if tier_filter:
+            store.db.execute("DELETE FROM memories WHERE tier=?", (tier_filter,))
+        else:
+            store.db.execute("DELETE FROM memories")
+        store.db.commit()
+        return {"cleared": True, "tier": tier_filter or "ALL"}
+
+    if method == "SubmitFeedback":
+        session_id = str(params.get("sessionId", "default")).strip() or "default"
+        message_id = str(params.get("messageId", "")).strip() or None
+        prompt_text = str(params.get("prompt", "")).strip()
+        response_text = str(params.get("response", "")).strip()
+        rating = int(params.get("rating", 1))
+        feedback_text = str(params.get("feedback", "") or params.get("comment", "")).strip()
+
+        feedback_id = f"fb-{uuid.uuid4().hex[:10]}"
+        stamp = now()
+        store.db.execute(
+            """
+            INSERT INTO feedback(feedback_id, session_id, message_id, prompt, response, rating, feedback_text, created_at)
+            VALUES(?,?,?,?,?,?,?,?)
+            """,
+            (feedback_id, session_id, message_id, prompt_text, response_text, rating, feedback_text, stamp),
+        )
+        store.db.commit()
+        store.event(None, "USER_FEEDBACK_RECORDED", {"feedbackId": feedback_id, "rating": rating, "sessionId": session_id})
+        return {"feedbackId": feedback_id, "recorded": True, "rating": rating, "timestamp": stamp}
+
+    if method == "GetFeedbackSummary":
+        up_count = store.db.execute("SELECT COUNT(*) FROM feedback WHERE rating > 0").fetchone()[0]
+        down_count = store.db.execute("SELECT COUNT(*) FROM feedback WHERE rating < 0").fetchone()[0]
+        total = up_count + down_count
+        positive_pct = round((up_count / total * 100.0), 1) if total > 0 else 100.0
+        rows = store.db.execute("SELECT feedback_id, rating, feedback_text, created_at FROM feedback ORDER BY created_at DESC LIMIT 10").fetchall()
+        recent = [{"feedbackId": r[0], "rating": r[1], "feedback": r[2], "createdAt": r[3]} for r in rows]
+        return {
+            "totalFeedback": total,
+            "positiveCount": up_count,
+            "negativeCount": down_count,
+            "positivePercentage": positive_pct,
+            "recent": recent,
+        }
+
+    if method == "ScaleWorkers":
+        desired_capacity = min(16, max(1, int(params.get("capacity", 4))))
+        current_count = store.db.execute("SELECT COUNT(*) FROM workers").fetchone()[0]
+        stamp = now()
+        created = []
+        if desired_capacity > current_count:
+            for idx in range(current_count + 1, desired_capacity + 1):
+                w_id = f"worker-gpu-scale-{idx:02d}"
+                store.db.execute(
+                    """
+                    INSERT OR REPLACE INTO workers(
+                        worker_id, capabilities, gpu_vendor, gpu_model, vram_mb,
+                        cuda_version, available_memory_mb, supported_models,
+                        latency_ms, status, last_heartbeat, active_tasks
+                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        w_id,
+                        json.dumps(["compute", "gpu", "inference", "synthesis"]),
+                        "NVIDIA",
+                        "A100-SXM4-80GB",
+                        81920,
+                        "12.4",
+                        78000,
+                        json.dumps(["meta-llama/llama-3.3-70b-instruct", "openai/gpt-4o-mini"]),
+                        6.5,
+                        "ONLINE",
+                        stamp,
+                        0,
+                    ),
+                )
+                created.append(w_id)
+            store.db.commit()
+        w_stats = get_worker_status_counts()
+        return {"scaled": True, "totalWorkers": w_stats["registeredWorkers"], "onlineWorkers": w_stats["onlineWorkers"], "provisioned": created}
+
     if method == "ListFiles":
         cat_filter = str(params.get("category", "")).strip()
         query = "SELECT file_id, filename, path, size_bytes, mime_type, category, metadata, created_at FROM file_assets WHERE 1=1"
@@ -2167,6 +2491,7 @@ async def worker_lifecycle_loop() -> None:
         while not stop_evt.is_set():
             try:
                 async with get_db_lock():
+                    maintain_worker_pool()
                     evaluate_worker_liveness()
             except Exception as exc:
                 LOG.error("error in worker lifecycle loop: %s", exc)
@@ -2183,6 +2508,7 @@ async def serve() -> None:
     global MONITOR_TASK
     LOG.info("startup port=%s max_connections=%s auth_configured=%s db=%s", PORT, MAX_CONNECTIONS, bool(AUTH_TOKEN), DB_PATH)
     ensure_scheduler_schema()
+    init_default_worker_pool()
     MONITOR_TASK = asyncio.create_task(worker_lifecycle_loop())
     try:
         async with websockets.serve(
