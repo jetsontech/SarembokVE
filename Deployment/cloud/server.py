@@ -65,6 +65,8 @@ BROWSER_ALLOWED_METHODS = {
     "ListGpuRentals",
     "ProcessVisionFrame",
     "GetVisionStatus",
+    "AdminExecuteDirective",
+    "GetAdminStatus",
 }
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
@@ -795,6 +797,325 @@ def _fetch_realtime_data(query: str) -> str | None:
     return None
 
 
+
+# ============================================================
+# AUTONOMOUS AGENTIC ADMIN TOOL REGISTRY & REACT EXECUTION LOOP
+# ============================================================
+import subprocess
+
+class AdminToolRegistry:
+    """Autonomous tools for Sarembok Admin Execution Mode."""
+
+    BLOCKED_PATTERNS = [
+        r"rm\s+-rf\s+/(?:\s|$)", r"rm\s+-rf\s+/\*", r":\(\)\s*\{\s*:\|:&\s*\}\s*;",
+        r"mkfs", r"dd\s+if=/dev/zero", r">\s*/dev/sd[a-z]", r"shutdown", r"reboot", r"init\s+0"
+    ]
+
+    @classmethod
+    def dispatch(cls, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        tool = (tool_name or "").strip().lower()
+        t0 = time.time()
+        try:
+            if tool in ("run_terminal", "terminal", "shell", "bash", "execute_shell"):
+                cmd = str(args.get("command", "") or args.get("cmd", "")).strip()
+                res = cls.run_terminal(cmd)
+            elif tool in ("execute_python", "python", "py_eval"):
+                code_snippet = str(args.get("code", "")).strip()
+                res = cls.execute_python(code_snippet)
+            elif tool in ("read_file", "view_file", "cat"):
+                path = str(args.get("path", "")).strip()
+                s_line = int(args.get("start_line", 1))
+                e_line = int(args.get("end_line", 150))
+                res = cls.read_file(path, s_line, e_line)
+            elif tool in ("write_file", "save_file"):
+                path = str(args.get("path", "")).strip()
+                content = str(args.get("content", ""))
+                res = cls.write_file(path, content)
+            elif tool in ("fleet_status", "gpu_status", "workers"):
+                res = cls.fleet_status()
+            elif tool in ("git_info", "git_status", "git"):
+                subcmd = str(args.get("command", "status")).strip()
+                res = cls.git_info(subcmd)
+            elif tool in ("browser_research", "web_search", "search"):
+                q = str(args.get("query", "") or args.get("url", "")).strip()
+                res = cls.browser_research(q)
+            else:
+                res = {"error": f"Unknown tool: {tool_name}"}
+        except Exception as e:
+            res = {"error": f"Tool execution failed: {e}"}
+
+        dt_ms = round((time.time() - t0) * 1000, 2)
+        res["durationMs"] = dt_ms
+        return res
+
+    @classmethod
+    def run_terminal(cls, command: str) -> dict[str, Any]:
+        if not command:
+            return {"error": "command is required"}
+        for pat in cls.BLOCKED_PATTERNS:
+            if re.search(pat, command):
+                return {"error": "Security violation: Dangerous destructive command blocked by safety policy."}
+        try:
+            proc = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=12
+            )
+            out = proc.stdout.strip()
+            err = proc.stderr.strip()
+            return {
+                "command": command,
+                "exitCode": proc.returncode,
+                "stdout": out[:2500] if out else "",
+                "stderr": err[:1000] if err else "",
+                "truncated": len(out) > 2500
+            }
+        except subprocess.TimeoutExpired:
+            return {"command": command, "error": "Command timed out after 12 seconds"}
+        except Exception as exc:
+            return {"command": command, "error": str(exc)}
+
+    @classmethod
+    def execute_python(cls, code_snippet: str) -> dict[str, Any]:
+        if not code_snippet:
+            return {"error": "code is required"}
+        output_buffer = []
+        local_scope = {"print": lambda *args: output_buffer.append(" ".join(str(a) for a in args))}
+        try:
+            exec(code_snippet, {"__builtins__": __builtins__}, local_scope)
+            res_str = "\n".join(output_buffer) if output_buffer else "Execution completed (returncode 0)."
+            return {"status": "SUCCESS", "output": res_str[:2500]}
+        except Exception as exc:
+            return {"status": "ERROR", "output": f"Python Exception: {exc}"}
+
+    @classmethod
+    def read_file(cls, path: str, start_line: int = 1, end_line: int = 150) -> dict[str, Any]:
+        if not path:
+            return {"error": "path is required"}
+        # Resolve path
+        resolved = os.path.abspath(path)
+        if not os.path.exists(resolved):
+            return {"error": f"File not found: {path}"}
+        if os.path.isdir(resolved):
+            entries = os.listdir(resolved)[:50]
+            return {"path": path, "type": "directory", "entries": entries}
+        try:
+            with open(resolved, "r", encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+            s_idx = max(0, start_line - 1)
+            e_idx = min(len(lines), end_line)
+            chunk = "".join(lines[s_idx:e_idx])
+            return {
+                "path": path,
+                "totalLines": len(lines),
+                "startLine": s_idx + 1,
+                "endLine": e_idx,
+                "content": chunk[:3500]
+            }
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    @classmethod
+    def write_file(cls, path: str, content: str) -> dict[str, Any]:
+        if not path:
+            return {"error": "path is required"}
+        try:
+            resolved = os.path.abspath(path)
+            os.makedirs(os.path.dirname(resolved), exist_ok=True)
+            with open(resolved, "w", encoding="utf-8") as f:
+                f.write(content)
+            return {"status": "WRITTEN", "path": path, "bytes": len(content.encode("utf-8"))}
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    @classmethod
+    def fleet_status(cls) -> dict[str, Any]:
+        try:
+            w_stats = get_worker_status_counts()
+            rental_count = store.db.execute("SELECT COUNT(*) FROM gpu_rentals WHERE status=\'ACTIVE\'").fetchone()[0]
+            mem_count = store.db.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
+            return {
+                "onlineWorkers": w_stats.get("onlineWorkers", 0),
+                "totalWorkers": w_stats.get("totalWorkers", 0),
+                "activeGpuRentals": rental_count,
+                "memoryCount": mem_count,
+                "serverUptimeSeconds": int(time.time() - STARTED)
+            }
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    @classmethod
+    def git_info(cls, subcmd: str = "status") -> dict[str, Any]:
+        clean_sub = "status -s" if subcmd == "status" else subcmd
+        res = cls.run_terminal(f"git {clean_sub}")
+        return {"gitCommand": f"git {clean_sub}", "result": res.get("stdout") or res.get("stderr")}
+
+    @classmethod
+    def browser_research(cls, query_or_url: str) -> dict[str, Any]:
+        if not query_or_url:
+            return {"error": "query_or_url is required"}
+        data = _fetch_realtime_data(query_or_url)
+        return {"query": query_or_url, "intelligence": data[:2000] if data else "No external intelligence returned."}
+
+
+def run_admin_agent_loop(
+    prompt_clean: str,
+    system_prompt: str,
+    model: str | None = None,
+    max_steps: int = 5
+) -> tuple[str, list[dict[str, Any]]]:
+    """Autonomous ReAct agent execution loop for Admin Mode."""
+    tools_doc = """
+==================== ADMIN AGENTIC EXECUTION PROTOCOL ====================
+You are operating in SAREMBOK ADMIN EXECUTION MODE with live authority to inspect, execute, and verify system actions.
+You have access to the following SYSTEM TOOLS:
+1. run_terminal(command="bash command") -> Executes shell command (e.g. ps, ls, docker, git, curl, df).
+2. execute_python(code="python code") -> Executes dynamic Python code with stdout capture.
+3. read_file(path="path", start_line=1, end_line=100) -> Reads file or directory contents.
+4. write_file(path="path", content="text") -> Writes file content to disk.
+5. fleet_status() -> Returns real-time worker fleet counts, GPU rentals, and memory stats.
+6. git_info(command="status" or "diff" or "log") -> Runs git operations.
+7. browser_research(query="search terms or URL") -> Retrieves live web research data.
+
+PROTOCOL:
+If you need to perform an action to inspect, verify, or execute what the user requested, reply ONLY in this format:
+ACTION: <tool_name>
+ARGUMENTS: {"param": "value"}
+
+When the action finishes, the system will provide:
+OBSERVATION: <output>
+
+You can perform up to 5 sequential actions.
+When your task is complete or if no action is needed, reply in this format:
+FINAL_RESPONSE: <Your concise, calm, conversational response summarizing the execution and results>
+========================================================================
+"""
+    augmented_sys_prompt = system_prompt + "\n" + tools_doc
+    messages = [
+        {"role": "system", "content": augmented_sys_prompt},
+        {"role": "user", "content": prompt_clean}
+    ]
+
+    # Deterministic Command & Tool Shortcuts
+    p_lower = prompt_clean.lower().strip()
+    direct_tool = None
+    direct_args = {}
+
+    if prompt_clean.startswith("/sh ") or prompt_clean.startswith("/bash ") or prompt_clean.startswith("/exec "):
+        direct_tool = "run_terminal"
+        direct_args = {"command": re.sub(r"^/(?:sh|bash|exec)\s+", "", prompt_clean).strip()}
+    elif prompt_clean.startswith("/py ") or prompt_clean.startswith("/python "):
+        direct_tool = "execute_python"
+        direct_args = {"code": re.sub(r"^/(?:py|python)\s+", "", prompt_clean).strip()}
+    elif p_lower in ("/fleet", "fleet", "fleet status", "workers", "gpu status", "check fleet"):
+        direct_tool = "fleet_status"
+    elif p_lower.startswith("git ") or p_lower.startswith("/git"):
+        direct_tool = "git_info"
+        direct_args = {"command": re.sub(r"^/?git\s*", "", prompt_clean).strip() or "status"}
+    elif re.search(r"\b(?:run|execute)\s+(?:a\s+)?(?:terminal|shell|bash)\s+(?:command\s+)?(?:to\s+|:\s*)(.+)", prompt_clean, re.IGNORECASE):
+        m = re.search(r"\b(?:run|execute)\s+(?:a\s+)?(?:terminal|shell|bash)\s+(?:command\s+)?(?:to\s+|:\s*)(.+)", prompt_clean, re.IGNORECASE)
+        direct_tool = "run_terminal"
+        direct_args = {"command": m.group(1).strip()}
+
+    if direct_tool:
+        tool_res = AdminToolRegistry.dispatch(direct_tool, direct_args)
+        trace_entry = {
+            "step": 1,
+            "tool": direct_tool,
+            "args": direct_args,
+            "output": tool_res,
+            "durationMs": tool_res.get("durationMs", 0),
+            "timestamp": now()
+        }
+        resp_lines = [f"**[ADMIN TOOL EXECUTED: `{direct_tool}`]**"]
+        if direct_tool == "run_terminal":
+            cmd = tool_res.get("command", "")
+            out = tool_res.get("stdout", "")
+            err = tool_res.get("stderr", "")
+            code_ret = tool_res.get("exitCode", 0)
+            resp_lines.append(f"`$ {cmd}` (exit code: {code_ret})")
+            if out: resp_lines.append(f"```\n{out}\n```")
+            if err: resp_lines.append(f"```stderr\n{err}\n```")
+        elif direct_tool == "execute_python":
+            out = tool_res.get("output", "")
+            resp_lines.append(f"```python\n{out}\n```")
+        elif direct_tool == "fleet_status":
+            resp_lines.append(f"- Active Workers: **{tool_res.get('onlineWorkers')}** / {tool_res.get('totalWorkers')}")
+            resp_lines.append(f"- Active GPU Rentals: **{tool_res.get('activeGpuRentals')}**")
+            resp_lines.append(f"- Server Uptime: **{tool_res.get('serverUptimeSeconds')}s**")
+        else:
+            resp_lines.append(f"```json\n{json.dumps(tool_res, indent=2)}\n```")
+
+        summary_text = "\n".join(resp_lines)
+        return summary_text, [trace_entry]
+
+    tool_traces: list[dict[str, Any]] = []
+
+    for step in range(1, max_steps + 1):
+        try:
+            res = PROVIDER_ROUTER.generate(augmented_sys_prompt, prompt_clean, messages, requested_model=model)
+            text = (res.text or "").strip()
+        except Exception as exc:
+            # Fallback if external LLM provider is offline: analyze prompt keywords for safe admin execution
+            if "terminal" in p_lower or "command" in p_lower or "run" in p_lower or "list" in p_lower:
+                inferred_cmd = "ls -la /app && python --version" if "list" in p_lower else "python --version"
+                fallback_res = AdminToolRegistry.run_terminal(inferred_cmd)
+                tool_traces.append({"step": step, "tool": "run_terminal", "args": {"command": inferred_cmd}, "output": fallback_res, "durationMs": fallback_res.get("durationMs", 0)})
+                return f"Executed admin command `{inferred_cmd}` (exit code: {fallback_res.get('exitCode')}):\n\n```\n{fallback_res.get('stdout')}\n```", tool_traces
+
+            tool_traces.append({"step": step, "tool": "error", "output": f"LLM inference error: {exc}"})
+            return f"Agent execution encountered an LLM provider error: {exc}", tool_traces
+
+        # Check for ACTION:
+        action_match = re.search(r"ACTION:\s*([a-zA-Z0-9_\-]+)", text, re.IGNORECASE)
+        if action_match:
+            tool_name = action_match.group(1).strip()
+            # Extract ARGUMENTS:
+            args = {}
+            args_match = re.search(r"ARGUMENTS:\s*(\{.*?\})", text, re.DOTALL | re.IGNORECASE)
+            if args_match:
+                try:
+                    args = json.loads(args_match.group(1))
+                except Exception:
+                    try:
+                        # Fallback for single quotes
+                        args = eval(args_match.group(1), {"__builtins__": {}}, {})
+                    except Exception:
+                        args = {}
+
+            # Execute tool
+            tool_result = AdminToolRegistry.dispatch(tool_name, args)
+            obs_str = json.dumps(tool_result) if isinstance(tool_result, dict) else str(tool_result)
+
+            trace_entry = {
+                "step": step,
+                "tool": tool_name,
+                "args": args,
+                "output": tool_result,
+                "durationMs": tool_result.get("durationMs", 0),
+                "timestamp": now()
+            }
+            tool_traces.append(trace_entry)
+
+            # Append to conversation messages for next step
+            messages.append({"role": "assistant", "content": text})
+            messages.append({"role": "user", "content": f"OBSERVATION: {obs_str}"})
+            continue
+
+        # Check for FINAL_RESPONSE:
+        final_match = re.search(r"FINAL_RESPONSE:\s*(.*)", text, re.DOTALL | re.IGNORECASE)
+        if final_match:
+            final_text = final_match.group(1).strip()
+            return final_text, tool_traces
+
+        # If no explicit markers but returned text
+        return text, tool_traces
+
+    return "Admin directive execution completed maximum allowable steps.", tool_traces
+
+
 def sarembok_process_dialogue(
     prompt: str,
     context: list | None = None,
@@ -802,11 +1123,13 @@ def sarembok_process_dialogue(
     session_id: str = "default",
     model: str | None = None,
     language: str = "en",
-    conversational: bool = False
+    conversational: bool = False,
+    admin: bool = False
 ) -> dict[str, Any]:
     prompt_clean = (prompt or "").strip()
     prompt_lower = prompt_clean.lower()
     is_conversational = bool(conversational or ("live" in prompt_lower and "conversation" in prompt_lower))
+    is_admin = bool(admin or prompt_clean.startswith("/admin") or prompt_clean.startswith("/exec") or "admin execute" in prompt_lower)
 
     action_info = None
 
@@ -964,6 +1287,26 @@ def sarembok_process_dialogue(
         )
     system_prompt = "\n".join(system_context_parts)
 
+    # Autonomous Agentic Admin Execution Loop
+    if is_admin:
+        LOG.info("Executing dialogue directive via Autonomous Admin Agent Loop")
+        admin_reply, traces = run_admin_agent_loop(
+            prompt_clean,
+            system_prompt,
+            model=model,
+            max_steps=5
+        )
+        _save_conversation(session_id, prompt_clean, admin_reply)
+        return {
+            "response": admin_reply,
+            "audioText": admin_reply,
+            "source": "autonomous_admin_agent",
+            "model": model or "gpt-4o-mini",
+            "adminMode": True,
+            "toolTraces": traces,
+            "timestamp": now()
+        }
+
     messages = [{"role": "system", "content": system_prompt}]
     for role, content in conv_history:
         if role in ("user", "assistant"):
@@ -1070,6 +1413,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         req_model = str(params.get("model", "")).strip() or None
         req_lang = str(params.get("language", "en")).strip().lower() or "en"
         req_conv = bool(params.get("conversational", False))
+        req_admin = bool(params.get("admin", False))
         res = sarembok_process_dialogue(
             prompt,
             context=context if isinstance(context, list) else None,
@@ -1078,6 +1422,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             model=req_model,
             language=req_lang,
             conversational=req_conv,
+            admin=req_admin,
         )
         if "structuredResponse" not in res:
             res["structuredResponse"] = build_structured_response(
@@ -1923,6 +2268,38 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "onlineWorkers": w_stats["onlineWorkers"],
             "registeredWorkers": w_stats["registeredWorkers"],
         }
+
+    if method == "GetAdminStatus":
+        w_stats = get_worker_status_counts()
+        return {
+            "adminModeSupported": True,
+            "capabilities": [
+                "run_terminal",
+                "execute_python",
+                "read_file",
+                "write_file",
+                "fleet_status",
+                "git_info",
+                "browser_research"
+            ],
+            "serverUptimeSeconds": int(time.time() - STARTED),
+            "activeWorkers": w_stats.get("onlineWorkers", 0),
+            "timestamp": now()
+        }
+
+    if method == "AdminExecuteDirective":
+        prompt = str(params.get("directive", "") or params.get("prompt", "")).strip()
+        if not prompt:
+            raise ValueError("directive is required")
+        session_id = str(params.get("sessionId", "admin-session")).strip() or "admin-session"
+        model = str(params.get("model", "")).strip() or None
+        res = sarembok_process_dialogue(
+            prompt,
+            session_id=session_id,
+            model=model,
+            admin=True
+        )
+        return res
 
     if method == "GetVisionStatus":
         return {
