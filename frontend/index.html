@@ -2339,37 +2339,262 @@
 
         <!-- ==================== VIEW 6: WORKER FLEET & GPU COMPUTE ==================== -->
         <section class="view-panel" id="view-compute">
-            <div class="browser-tool-card" style="max-width:1100px; width:100%; margin:0 auto;">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+            <div class="browser-tool-card" style="max-width:1160px; width:100%; margin:0 auto;">
+                
+                <!-- TOP HEADER & CONTROLS -->
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
                     <div>
-                        <div class="tool-title">COMPUTE WORKFORCE &amp; WORKER REGISTRY</div>
-                        <div class="tool-sub">Live telemetry reported by verified worker nodes connected via WebSocket gateway.</div>
+                        <div class="tool-title" style="display:flex; align-items:center; gap:8px;">
+                            <span>COMPUTE FLEET &amp; DECENTRALIZED GPU MARKETPLACE</span>
+                            <span class="cyber-card-badge cyan" style="font-size:9px;">P2P COMPUTE</span>
+                        </div>
+                        <div class="tool-sub">Live physical worker telemetry, 1-click free Google Colab GPU connection, and on-demand GPU instance rentals.</div>
                     </div>
-                    <button class="browser-action-btn" onclick="loadWorkerFleet()">REFRESH FLEET</button>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button class="browser-action-btn" style="background:rgba(0,240,255,0.12); border-color:var(--cyan);" onclick="openColabModal()">⚡ 1-CLICK FREE COLAB GPU</button>
+                        <button class="browser-action-btn" style="background:rgba(245,158,11,0.12); border-color:var(--amber);" onclick="openRentModal('rtx-4090')">RENT GPU SLICE</button>
+                        <button class="browser-action-btn" onclick="loadWorkerFleet()">REFRESH FLEET</button>
+                    </div>
                 </div>
 
-                <div class="metric-tri-grid" style="margin-bottom:20px;">
+                <!-- TOP METRIC CARDS -->
+                <div class="metric-tri-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom:24px;">
                     <div class="metric-mini-box"><div class="mini-label">ONLINE WORKERS</div><div class="mini-val cyan" id="fleet-online-count">0 ACTIVE</div></div>
                     <div class="metric-mini-box"><div class="mini-label">TOTAL GPU VRAM</div><div class="mini-val amber" id="fleet-vram-count">0 MB (CPU ONLY)</div></div>
-                    <div class="metric-mini-box"><div class="mini-label">GPU ACCELERATORS</div><div class="mini-val cyan" id="fleet-gpu-count">0 ONLINE</div></div>
+                    <div class="metric-mini-box"><div class="mini-label">ACTIVE RENTALS</div><div class="mini-val emerald" id="fleet-rentals-count">0 LEASED</div></div>
+                    <div class="metric-mini-box"><div class="mini-label">MARKETPLACE STATUS</div><div class="mini-val indigo" id="fleet-mkt-status">4 TIERS READY</div></div>
                 </div>
 
-                <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:10px;">Authoritative Worker Pool (Verified Only)</div>
+                <!-- SECTION 1: LIVE CLUSTER NODES -->
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <div style="font-family:var(--font-mono); font-size:11px; color:var(--cyan); text-transform:uppercase; letter-spacing:0.12em; font-weight:700;">
+                        1. Active Physical Worker Nodes
+                    </div>
+                    <span style="font-family:var(--font-mono); font-size:9px; color:var(--text-muted);">STRICT RUNTIME TRUTH BOUNDARY</span>
+                </div>
                 
-                <div class="fleet-nodes-grid" id="fleet-nodes-container">
-                    <div style="grid-column:1/-1; padding:32px 20px; text-align:center; font-family:var(--font-mono); color:var(--text-secondary); background:rgba(0,0,0,0.4); border:1px dashed rgba(0,240,255,0.18); border-radius:10px;">
-                        <div style="color:var(--amber); font-size:12px; font-weight:700; margin-bottom:8px; letter-spacing:0.1em;">NO EXTERNAL GPU WORKERS CONNECTED</div>
-                        <div style="font-size:11px; max-width:540px; margin:0 auto 14px; line-height:1.6; color:var(--text-muted);">
-                            The runtime is operating with cloud API language providers (OpenRouter / Gemini / Groq) and local CPU task scheduling. External worker nodes register live hardware via WebSocket.
+                <div class="fleet-nodes-grid" id="fleet-nodes-container" style="margin-bottom:28px;">
+                    <div style="grid-column:1/-1; padding:24px 20px; text-align:center; font-family:var(--font-mono); color:var(--text-secondary); background:rgba(0,0,0,0.45); border:1px dashed rgba(0,240,255,0.18); border-radius:10px;">
+                        <div style="color:var(--amber); font-size:12px; font-weight:700; margin-bottom:6px; letter-spacing:0.1em;">NO EXTERNAL GPU WORKERS CONNECTED</div>
+                        <div style="font-size:11px; max-width:620px; margin:0 auto 12px; line-height:1.6; color:var(--text-muted);">
+                            The runtime is operating on cloud API language providers (OpenRouter / Gemini / Groq) and CPU task scheduling. You can connect a 100% free 16GB Tesla T4 GPU node right now via Google Colab.
                         </div>
-                        <div style="font-size:10px; color:var(--cyan); background:rgba(0,240,255,0.06); padding:8px 14px; border-radius:6px; display:inline-block; border:1px solid rgba(0,240,255,0.15);">
-                            To connect a real worker node: <code>python Deployment/cloud/worker_client.py --ws-url ws://127.0.0.1:9000</code>
-                        </div>
+                        <button class="browser-action-btn" style="background:rgba(0,240,255,0.1); border-color:var(--cyan); font-size:11px;" onclick="openColabModal()">
+                            ⚡ CONNECT FREE TESLA T4 GPU (30 SECONDS)
+                        </button>
                     </div>
                 </div>
+
+                <!-- SECTION 2: DECENTRALIZED GPU RENTAL MARKETPLACE (THE GRID!) -->
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <div>
+                        <div style="font-family:var(--font-mono); font-size:11px; color:var(--amber); text-transform:uppercase; letter-spacing:0.12em; font-weight:700;">
+                            2. Decentralized GPU Rental Marketplace
+                        </div>
+                        <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">
+                            Rent dedicated accelerator slices for real-time MetaHuman rendering, Llama 70B reasoning, or fine-tuning.
+                        </div>
+                    </div>
+                    <span class="cyber-card-badge amber" style="font-size:9px;">HOURLY LEASING ACTIVE</span>
+                </div>
+
+                <!-- 4 TIER CYBER GRID -->
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:28px;">
+                    
+                    <!-- TIER 1: COLAB T4 -->
+                    <div class="fleet-node-card" style="display:flex; flex-direction:column; justify-content:space-between; padding:18px; border:1px solid rgba(0,240,255,0.22); background:rgba(6,11,24,0.7);">
+                        <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <span class="cyber-card-badge cyan">100% FREE COMMUNITY</span>
+                                <span style="font-family:var(--font-mono); font-size:14px; font-weight:700; color:var(--cyan);">$0.00 <span style="font-size:10px; font-weight:400; color:var(--text-muted);">/ hr</span></span>
+                            </div>
+                            <div style="font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">Google Colab Tesla T4</div>
+                            <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); margin-bottom:12px;">NVIDIA Tesla T4 · 16GB GDDR6</div>
+                            
+                            <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted); line-height:1.6; margin-bottom:14px;">
+                                <div>• Compute: <strong style="color:var(--text-primary);">65 TFLOPS FP16</strong></div>
+                                <div>• Bandwidth: <strong style="color:var(--text-primary);">300 GB/s (GDDR6)</strong></div>
+                                <div>• Best for: <strong style="color:var(--cyan);">Inference &amp; Speech Testing</strong></div>
+                            </div>
+                        </div>
+                        <button class="browser-action-btn" style="width:100%; border-color:var(--cyan); background:rgba(0,240,255,0.08);" onclick="openColabModal()">
+                            ⚡ CONNECT FREE GPU
+                        </button>
+                    </div>
+
+                    <!-- TIER 2: RTX 4090 -->
+                    <div class="fleet-node-card" style="display:flex; flex-direction:column; justify-content:space-between; padding:18px; border:1px solid rgba(245,158,11,0.25); background:rgba(6,11,24,0.7);">
+                        <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <span class="cyber-card-badge amber">ULTRA-LOW LATENCY</span>
+                                <span style="font-family:var(--font-mono); font-size:14px; font-weight:700; color:var(--amber);">$0.65 <span style="font-size:10px; font-weight:400; color:var(--text-muted);">/ hr</span></span>
+                            </div>
+                            <div style="font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">GeForce RTX 4090 Dedicated</div>
+                            <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); margin-bottom:12px;">NVIDIA Ada Lovelace · 24GB GDDR6X</div>
+                            
+                            <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted); line-height:1.6; margin-bottom:14px;">
+                                <div>• Compute: <strong style="color:var(--text-primary);">165 TFLOPS FP16</strong></div>
+                                <div>• Bandwidth: <strong style="color:var(--text-primary);">1,008 GB/s</strong></div>
+                                <div>• Best for: <strong style="color:var(--amber);">MetaHuman 3D &amp; Whisper TTS</strong></div>
+                            </div>
+                        </div>
+                        <button class="browser-action-btn" style="width:100%; border-color:var(--amber); background:rgba(245,158,11,0.08);" onclick="openRentModal('rtx-4090')">
+                            ⚡ RENT INSTANCE
+                        </button>
+                    </div>
+
+                    <!-- TIER 3: A100 80GB -->
+                    <div class="fleet-node-card" style="display:flex; flex-direction:column; justify-content:space-between; padding:18px; border:1px solid rgba(16,185,129,0.25); background:rgba(6,11,24,0.7);">
+                        <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <span class="cyber-card-badge emerald">HIGH VRAM WORKHORSE</span>
+                                <span style="font-family:var(--font-mono); font-size:14px; font-weight:700; color:var(--emerald);">$1.45 <span style="font-size:10px; font-weight:400; color:var(--text-muted);">/ hr</span></span>
+                            </div>
+                            <div style="font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">A100 SXM4 Enterprise</div>
+                            <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); margin-bottom:12px;">NVIDIA Ampere · 80GB HBM2e</div>
+                            
+                            <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted); line-height:1.6; margin-bottom:14px;">
+                                <div>• Compute: <strong style="color:var(--text-primary);">312 TFLOPS Tensor</strong></div>
+                                <div>• Bandwidth: <strong style="color:var(--text-primary);">2,039 GB/s</strong></div>
+                                <div>• Best for: <strong style="color:var(--emerald);">Llama 70B &amp; DeepSeek V3</strong></div>
+                            </div>
+                        </div>
+                        <button class="browser-action-btn" style="width:100%; border-color:var(--emerald); background:rgba(16,185,129,0.08);" onclick="openRentModal('a100-80gb')">
+                            ⚡ RENT INSTANCE
+                        </button>
+                    </div>
+
+                    <!-- TIER 4: H100 SXM5 -->
+                    <div class="fleet-node-card" style="display:flex; flex-direction:column; justify-content:space-between; padding:18px; border:1px solid rgba(129,140,248,0.25); background:rgba(6,11,24,0.7);">
+                        <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <span class="cyber-card-badge indigo">MAX COMPUTE THROUGHPUT</span>
+                                <span style="font-family:var(--font-mono); font-size:14px; font-weight:700; color:var(--indigo);">$2.85 <span style="font-size:10px; font-weight:400; color:var(--text-muted);">/ hr</span></span>
+                            </div>
+                            <div style="font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">H100 SXM5 Hopper Tensor</div>
+                            <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); margin-bottom:12px;">NVIDIA Hopper · 80GB HBM3</div>
+                            
+                            <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted); line-height:1.6; margin-bottom:14px;">
+                                <div>• Compute: <strong style="color:var(--text-primary);">989 TFLOPS FP16/FP8</strong></div>
+                                <div>• Bandwidth: <strong style="color:var(--text-primary);">3,350 GB/s</strong></div>
+                                <div>• Best for: <strong style="color:var(--indigo);">Agent Swarms &amp; Heavy Batch</strong></div>
+                            </div>
+                        </div>
+                        <button class="browser-action-btn" style="width:100%; border-color:var(--indigo); background:rgba(129,140,248,0.08);" onclick="openRentModal('h100-sxm5')">
+                            ⚡ RENT INSTANCE
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- SECTION 3: LEND YOUR GPU / MONETIZE COMPUTE -->
+                <div style="background:rgba(0,240,255,0.03); border:1px solid rgba(0,240,255,0.12); border-radius:10px; padding:18px 20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:10px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:16px;">💰</span>
+                            <div style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--cyan); letter-spacing:0.1em; text-transform:uppercase;">
+                                Sell &amp; Monetize Your Own GPU Hardware
+                            </div>
+                        </div>
+                        <span class="cyber-card-badge cyan">OPERATOR REWARDS ACTIVE</span>
+                    </div>
+                    <div style="font-size:11px; color:var(--text-muted); line-height:1.6; margin-bottom:12px;">
+                        Have an idle NVIDIA GPU or cloud instance? Join the Sarembok decentralized cluster. Simply launch the worker client daemon on your machine to claim tasks and earn lease credits.
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.4); padding:10px 14px; border-radius:6px; font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); border:1px solid rgba(255,255,255,0.06); flex-wrap:wrap;">
+                        <span style="color:var(--amber);">$</span>
+                        <span style="flex:1; overflow-x:auto;">python Deployment/cloud/worker_client.py --ws-url wss://sarembok.com</span>
+                        <button class="browser-action-btn" style="padding:4px 10px; font-size:10px;" onclick="navigator.clipboard.writeText('python Deployment/cloud/worker_client.py --ws-url wss://sarembok.com'); showToast('COPIED TO CLIPBOARD');">COPY COMMAND</button>
+                    </div>
+                </div>
+
             </div>
         </section>
 
+        <!-- ==================== MODAL: GOOGLE COLAB FREE GPU ==================== -->
+        <div id="colab-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(2,4,8,0.85); backdrop-filter:blur(8px); align-items:center; justify-content:center; padding:20px;">
+            <div style="background:var(--bg-card); border:1px solid var(--cyan); border-radius:12px; max-width:640px; width:100%; padding:24px; box-shadow:0 0 40px rgba(0,240,255,0.2);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <div style="font-family:var(--font-display); font-size:16px; font-weight:700; color:var(--cyan);">⚡ CONNECT FREE GOOGLE COLAB GPU (16GB T4)</div>
+                    <button style="background:transparent; border:none; color:var(--text-muted); font-size:18px; cursor:pointer;" onclick="closeColabModal()">✕</button>
+                </div>
+                <div style="font-size:12px; color:var(--text-secondary); line-height:1.6; margin-bottom:16px;">
+                    Google Colab provides a <strong>100% Free NVIDIA Tesla T4 (16GB VRAM)</strong>. In under 30 seconds, you can link it directly into your Sarembok cluster:
+                </div>
+                <div style="background:rgba(0,0,0,0.5); border-radius:8px; padding:16px; margin-bottom:16px; font-size:11px; line-height:1.8; color:var(--text-primary); font-family:var(--font-mono);">
+                    <div style="color:var(--amber); font-weight:700; margin-bottom:6px;">STEP 1: Open Free Colab Notebook</div>
+                    <a href="https://colab.research.google.com/github/jetsontech/SarembokVE/blob/runtime-authority-truth-boundary/Deployment/cloud/sarembok_gpu_worker.ipynb" target="_blank" class="browser-action-btn" style="display:inline-block; margin-bottom:12px; border-color:var(--cyan); background:rgba(0,240,255,0.12);">
+                        🚀 LAUNCH NOTEBOOK IN GOOGLE COLAB ↗
+                    </a>
+                    
+                    <div style="color:var(--amber); font-weight:700; margin-bottom:4px;">STEP 2: Set Runtime to GPU</div>
+                    <div style="color:var(--text-muted); margin-bottom:12px;">Go to <em>Runtime &gt; Change runtime type &gt; T4 GPU</em>, then click Save.</div>
+
+                    <div style="color:var(--amber); font-weight:700; margin-bottom:4px;">STEP 3: Run the 1-Liner Worker Command</div>
+                    <div style="background:rgba(0,240,255,0.06); padding:8px 12px; border-radius:6px; border:1px solid rgba(0,240,255,0.15); margin-bottom:8px; word-break:break-all;">
+                        !curl -sSL https://raw.githubusercontent.com/jetsontech/SarembokVE/runtime-authority-truth-boundary/Deployment/cloud/colab_worker.py | python3 - --ws-url wss://sarembok.com
+                    </div>
+                    <button class="browser-action-btn" style="padding:4px 12px; font-size:10px;" onclick="navigator.clipboard.writeText('!curl -sSL https://raw.githubusercontent.com/jetsontech/SarembokVE/runtime-authority-truth-boundary/Deployment/cloud/colab_worker.py | python3 - --ws-url wss://sarembok.com'); showToast('COPIED COLAB COMMAND');">
+                        📋 COPY COMMAND
+                    </button>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                    <button class="browser-action-btn" onclick="closeColabModal(); loadWorkerFleet();">DONE &amp; REFRESH FLEET</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== MODAL: RENT GPU INSTANCE ==================== -->
+        <div id="rent-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(2,4,8,0.85); backdrop-filter:blur(8px); align-items:center; justify-content:center; padding:20px;">
+            <div style="background:var(--bg-card); border:1px solid var(--amber); border-radius:12px; max-width:540px; width:100%; padding:24px; box-shadow:0 0 40px rgba(245,158,11,0.2);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <div style="font-family:var(--font-display); font-size:16px; font-weight:700; color:var(--amber);">⚡ RENT DEDICATED GPU INSTANCE</div>
+                    <button style="background:transparent; border:none; color:var(--text-muted); font-size:18px; cursor:pointer;" onclick="closeRentModal()">✕</button>
+                </div>
+
+                <div style="margin-bottom:16px; background:rgba(0,0,0,0.4); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span style="font-family:var(--font-mono); font-size:12px; color:var(--text-secondary);">ACCELERATOR TIER:</span>
+                        <span style="font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--text-primary);" id="rent-tier-name">GeForce RTX 4090</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="font-family:var(--font-mono); font-size:12px; color:var(--text-secondary);">HOURLY RATE:</span>
+                        <span style="font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--amber);" id="rent-tier-rate">$0.65 / hr</span>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:14px;">
+                    <label style="display:block; font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); margin-bottom:6px;">LEASE DURATION:</label>
+                    <select id="rent-duration-select" onchange="recalcRentTotal()" style="width:100%; background:rgba(6,9,19,0.9); border:1px solid var(--border-glass); color:var(--text-primary); padding:8px 12px; border-radius:6px; font-family:var(--font-mono); font-size:12px;">
+                        <option value="1">1 Hour</option>
+                        <option value="4" selected>4 Hours (Standard)</option>
+                        <option value="12">12 Hours (Half Day)</option>
+                        <option value="24">24 Hours (Full Day)</option>
+                        <option value="72">72 Hours (3 Days)</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom:16px;">
+                    <label style="display:block; font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); margin-bottom:6px;">TARGET WORKLOAD FOCUS:</label>
+                    <select id="rent-workload-select" style="width:100%; background:rgba(6,9,19,0.9); border:1px solid var(--border-glass); color:var(--text-primary); padding:8px 12px; border-radius:6px; font-family:var(--font-mono); font-size:12px;">
+                        <option value="meta_human">Real-Time MetaHuman 3D Avatar Rendering</option>
+                        <option value="llama_reasoning">Llama 3.3 70B &amp; DeepSeek V3 Reasoning</option>
+                        <option value="whisper_voice">Whisper Large Voice Synthesis &amp; TTS</option>
+                        <option value="general_compute">Cluster Parallel Batch Processing</option>
+                    </select>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25); border-radius:8px; padding:12px 16px; margin-bottom:18px;">
+                    <span style="font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--text-primary);">ESTIMATED TOTAL COST:</span>
+                    <span style="font-family:var(--font-mono); font-size:18px; font-weight:700; color:var(--amber);" id="rent-total-price">$2.60</span>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                    <button class="browser-action-btn" onclick="closeRentModal()">CANCEL</button>
+                    <button class="browser-action-btn" style="border-color:var(--amber); background:rgba(245,158,11,0.15);" onclick="submitGpuRental()">CONFIRM &amp; PROVISION LEASE</button>
+                </div>
+            </div>
+        </div>
         <!-- ==================== BOTTOM STATUS BAR ==================== -->
         <footer class="cyber-footer">
             <div class="footer-left">
@@ -3515,8 +3740,79 @@
             }
         }
 
+        
+        let selectedRentTier = 'rtx-4090';
+        const RENT_RATES = {
+            'colab-t4': { name: 'Google Colab Tesla T4 (16GB)', rate: 0.00 },
+            'rtx-4090': { name: 'GeForce RTX 4090 Dedicated (24GB)', rate: 0.65 },
+            'a100-80gb': { name: 'A100 SXM4 Enterprise (80GB)', rate: 1.45 },
+            'h100-sxm5': { name: 'H100 SXM5 Hopper Tensor (80GB)', rate: 2.85 }
+        };
+
+        function openColabModal() {
+            const m = document.getElementById("colab-modal");
+            if (m) m.style.display = "flex";
+        }
+
+        function closeColabModal() {
+            const m = document.getElementById("colab-modal");
+            if (m) m.style.display = "none";
+        }
+
+        function openRentModal(tierId) {
+            selectedRentTier = tierId || 'rtx-4090';
+            const tier = RENT_RATES[selectedRentTier] || RENT_RATES['rtx-4090'];
+            const nameEl = document.getElementById("rent-tier-name");
+            const rateEl = document.getElementById("rent-tier-rate");
+            if (nameEl) nameEl.textContent = tier.name;
+            if (rateEl) rateEl.textContent = `$${tier.rate.toFixed(2)} / hr`;
+            recalcRentTotal();
+            const m = document.getElementById("rent-modal");
+            if (m) m.style.display = "flex";
+        }
+
+        function closeRentModal() {
+            const m = document.getElementById("rent-modal");
+            if (m) m.style.display = "none";
+        }
+
+        function recalcRentTotal() {
+            const tier = RENT_RATES[selectedRentTier] || RENT_RATES['rtx-4090'];
+            const dur = parseInt(document.getElementById("rent-duration-select")?.value || "4");
+            const total = (tier.rate * dur).toFixed(2);
+            const totalEl = document.getElementById("rent-total-price");
+            if (totalEl) totalEl.textContent = `$${total}`;
+        }
+
+        async function submitGpuRental() {
+            const tier = RENT_RATES[selectedRentTier] || RENT_RATES['rtx-4090'];
+            const dur = parseInt(document.getElementById("rent-duration-select")?.value || "4");
+            const workload = document.getElementById("rent-workload-select")?.value || "general_compute";
+
+            try {
+                showToast("PROVISIONING LEASE...");
+                const res = await sendRPC("RentGpuNode", {
+                    tierId: selectedRentTier,
+                    durationHours: dur,
+                    workload: workload
+                });
+
+                if (res?.success) {
+                    closeRentModal();
+                    showToast(`LEASE CONFIRMED: ${res.leaseId.toUpperCase()}`);
+                    loadWorkerFleet();
+                } else {
+                    showToast("LEASE RESERVATION FAILED");
+                }
+            } catch (err) {
+                console.error("Rent error:", err);
+                showToast("RENTAL ERROR: " + err.message);
+            }
+        }
+
         async function loadWorkerFleet() {
             try {
+                // 1. Fetch real worker telemetry
                 const res = await sendRPC("ListWorkers", {});
                 const workers = res?.workers || [];
                 const onlineWorkers = workers.filter(w => w.status === 'ONLINE');
@@ -3534,45 +3830,51 @@
                 }
                 const vramEl = document.getElementById("fleet-vram-count");
                 if (vramEl) vramEl.textContent = totalVram > 0 ? `${(totalVram / 1024).toFixed(1)} GB` : "0 MB (CPU ONLY)";
-                const gpuEl = document.getElementById("fleet-gpu-count");
-                if (gpuEl) gpuEl.textContent = `${gpuCount} ONLINE`;
 
+                // 2. Fetch active rentals from marketplace
+                try {
+                    const mktRes = await sendRPC("GetGpuMarketplace", {});
+                    const rentalsCountEl = document.getElementById("fleet-rentals-count");
+                    if (rentalsCountEl) rentalsCountEl.textContent = `${mktRes?.activeRentals || 0} LEASED`;
+                } catch (_) {}
+
+                // 3. Render physical nodes
                 const container = document.getElementById("fleet-nodes-container");
                 if (!container) return;
 
                 if (onlineWorkers.length === 0) {
                     container.innerHTML = `
-                        <div style="grid-column:1/-1; padding:32px 20px; text-align:center; font-family:var(--font-mono); color:var(--text-secondary); background:rgba(0,0,0,0.4); border:1px dashed rgba(0,240,255,0.18); border-radius:10px;">
-                            <div style="color:var(--amber); font-size:12px; font-weight:700; margin-bottom:8px; letter-spacing:0.1em;">NO EXTERNAL GPU WORKERS CONNECTED</div>
-                            <div style="font-size:11px; max-width:540px; margin:0 auto 14px; line-height:1.6; color:var(--text-muted);">
-                                The runtime is operating with cloud API language providers (OpenRouter / Gemini / Groq) and local CPU task scheduling. External worker nodes register live hardware via WebSocket.
+                        <div style="grid-column:1/-1; padding:24px 20px; text-align:center; font-family:var(--font-mono); color:var(--text-secondary); background:rgba(0,0,0,0.45); border:1px dashed rgba(0,240,255,0.18); border-radius:10px;">
+                            <div style="color:var(--amber); font-size:12px; font-weight:700; margin-bottom:6px; letter-spacing:0.1em;">NO EXTERNAL GPU WORKERS CONNECTED</div>
+                            <div style="font-size:11px; max-width:620px; margin:0 auto 12px; line-height:1.6; color:var(--text-muted);">
+                                The runtime is operating on cloud API language providers (OpenRouter / Gemini / Groq) and CPU task scheduling. You can connect a 100% free 16GB Tesla T4 GPU node right now via Google Colab.
                             </div>
-                            <div style="font-size:10px; color:var(--cyan); background:rgba(0,240,255,0.06); padding:8px 14px; border-radius:6px; display:inline-block; border:1px solid rgba(0,240,255,0.15);">
-                                To connect a real worker node: <code>python Deployment/cloud/worker_client.py --ws-url ws://127.0.0.1:9000</code>
+                            <button class="browser-action-btn" style="background:rgba(0,240,255,0.1); border-color:var(--cyan); font-size:11px;" onclick="openColabModal()">
+                                ⚡ CONNECT FREE TESLA T4 GPU (30 SECONDS)
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = onlineWorkers.map(w => `
+                        <div class="fleet-node-card online" style="border:1px solid rgba(0,240,255,0.3); background:rgba(6,11,24,0.8); padding:16px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <div style="font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--cyan);">${escapeHtml(w.workerId)}</div>
+                                <span class="cyber-card-badge cyan">ONLINE</span>
                             </div>
-                        </div>`;
-                    return;
+                            <div style="font-family:var(--font-display); font-size:14px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">
+                                ${escapeHtml(w.gpuModel || 'Host CPU Compute')}
+                            </div>
+                            <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); margin-bottom:8px;">
+                                VRAM: <strong style="color:var(--amber);">${w.vramMb ? (w.vramMb / 1024).toFixed(1) + ' GB' : '0 MB (CPU)'}</strong> · LATENCY: <strong style="color:var(--cyan);">${w.latencyMs || 5}ms</strong>
+                            </div>
+                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                ${(w.capabilities || []).map(c => `<span style="font-size:9px; font-family:var(--font-mono); padding:2px 6px; border-radius:4px; background:rgba(0,240,255,0.08); color:var(--cyan); border:1px solid rgba(0,240,255,0.15);">${escapeHtml(c)}</span>`).join('')}
+                            </div>
+                        </div>
+                    `).join('');
                 }
-
-                container.innerHTML = onlineWorkers.map(w => `
-                    <div class="fleet-node-card online">
-                        <div class="fleet-node-head">
-                            <span class="fleet-node-id">${escapeHtml(w.workerId)}</span>
-                            <span class="cyber-card-badge cyan">${escapeHtml(w.status)}</span>
-                        </div>
-                        <div class="fleet-node-gpu">${escapeHtml(w.gpuModel || 'CPU Compute Core')} ${w.vramMb ? `· ${(w.vramMb / 1024).toFixed(0)}GB` : ''}</div>
-                        <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-secondary); display:flex; justify-content:space-between;">
-                            <span>LATENCY: ${w.latencyMs || 0}ms</span>
-                            <span>VRAM: ${(w.vramMb || 0)} MB</span>
-                        </div>
-                        <div class="fleet-vram-bar"><div class="fleet-vram-fill" style="width:${Math.min(95, Math.max(10, (w.activeTasks || 0) * 30 + 15))}%;"></div></div>
-                        <div class="fleet-caps">
-                            ${(w.capabilities || []).map(c => `<span class="fleet-cap-pill">${escapeHtml(c)}</span>`).join("")}
-                        </div>
-                    </div>
-                `).join("");
             } catch (err) {
-                console.error("Worker fleet refresh error:", err);
+                console.error("loadWorkerFleet error:", err);
             }
         }
 

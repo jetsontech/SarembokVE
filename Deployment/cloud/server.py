@@ -60,6 +60,9 @@ BROWSER_ALLOWED_METHODS = {
     "ListMemories",
     "ListWorkers",
     "ScaleWorkers",
+    "GetGpuMarketplace",
+    "RentGpuNode",
+    "ListGpuRentals",
 }
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
@@ -398,7 +401,94 @@ def ensure_scheduler_schema() -> None:
     store.db.execute(
         "DELETE FROM workers WHERE worker_id LIKE 'worker-gpu-%' OR worker_id LIKE 'worker-edge-%' OR worker_id LIKE 'worker-scale-%'"
     )
+    store.db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS gpu_rentals (
+            rental_id TEXT PRIMARY KEY,
+            tier_id TEXT NOT NULL,
+            tier_name TEXT NOT NULL,
+            vram_gb INTEGER NOT NULL,
+            hourly_rate REAL NOT NULL,
+            duration_hours INTEGER NOT NULL,
+            total_price REAL NOT NULL,
+            workload TEXT NOT NULL,
+            status TEXT NOT NULL,
+            renter_id TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+        )
+        """
+    )
     store.db.commit()
+
+
+GPU_MARKETPLACE_TIERS = [
+    {
+        "tierId": "colab-t4",
+        "tierName": "Google Colab Tesla T4 (Community)",
+        "gpuModel": "NVIDIA Tesla T4",
+        "vramGb": 16,
+        "vramMb": 15360,
+        "memoryType": "GDDR6 300 GB/s",
+        "hourlyRate": 0.00,
+        "isFree": True,
+        "tflopsFp16": 65,
+        "badge": "FREE COMMUNITY NODE",
+        "badgeColor": "cyan",
+        "description": "100% Free 16GB GPU compute powered by Google Colab. Perfect for FP16 inference, conversational agents, and testing.",
+        "capabilities": ["inference", "speech_synthesis", "web_research"],
+        "setupType": "colab_1click",
+        "colabCommand": "!curl -sSL https://raw.githubusercontent.com/jetsontech/SarembokVE/runtime-authority-truth-boundary/Deployment/cloud/colab_worker.py | python3 - --ws-url wss://sarembok.com",
+    },
+    {
+        "tierId": "rtx-4090",
+        "tierName": "GeForce RTX 4090 Dedicated",
+        "gpuModel": "NVIDIA GeForce RTX 4090",
+        "vramGb": 24,
+        "vramMb": 24576,
+        "memoryType": "GDDR6X 1008 GB/s",
+        "hourlyRate": 0.65,
+        "isFree": False,
+        "tflopsFp16": 165,
+        "badge": "ULTRA-LOW LATENCY",
+        "badgeColor": "amber",
+        "description": "Extreme workstation silicon with 16,384 CUDA cores. Ideal for real-time 3D MetaHuman rendering and Whisper TTS.",
+        "capabilities": ["meta_human", "whisper_tts", "vision_inference"],
+        "setupType": "on_demand_rental",
+    },
+    {
+        "tierId": "a100-80gb",
+        "tierName": "A100 SXM4 Enterprise Cluster",
+        "gpuModel": "NVIDIA A100-SXM4-80GB",
+        "vramGb": 80,
+        "vramMb": 81920,
+        "memoryType": "HBM2e 2039 GB/s",
+        "hourlyRate": 1.45,
+        "isFree": False,
+        "tflopsFp16": 312,
+        "badge": "HIGH VRAM WORKHORSE",
+        "badgeColor": "emerald",
+        "description": "High-bandwidth memory architecture for massive context inference, Llama-3.3-70B, and DeepSeek model fine-tuning.",
+        "capabilities": ["large_llm", "deep_reasoning", "fine_tuning"],
+        "setupType": "on_demand_rental",
+    },
+    {
+        "tierId": "h100-sxm5",
+        "tierName": "H100 SXM5 Hopper Tensor Core",
+        "gpuModel": "NVIDIA H100 SXM5",
+        "vramGb": 80,
+        "vramMb": 81920,
+        "memoryType": "HBM3 3350 GB/s",
+        "hourlyRate": 2.85,
+        "isFree": False,
+        "tflopsFp16": 989,
+        "badge": "MAX COMPUTE THROUGHPUT",
+        "badgeColor": "indigo",
+        "description": "State-of-the-art Hopper architecture with Transformer Engine. Maximum throughput for concurrent multi-agent swarms.",
+        "capabilities": ["swarm_orchestration", "fp8_synthesis", "heavy_compute"],
+        "setupType": "on_demand_rental",
+    },
+]
 
 
 def evaluate_worker_liveness(now_dt: datetime | None = None) -> dict[str, int]:
@@ -1696,6 +1786,98 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "onlineWorkers": w_stats["onlineWorkers"],
             "registeredWorkers": w_stats["registeredWorkers"],
         }
+
+    if method == "GetGpuMarketplace":
+        ensure_scheduler_schema()
+        rental_count = store.db.execute("SELECT COUNT(*) FROM gpu_rentals WHERE status='ACTIVE'").fetchone()[0]
+        w_stats = get_worker_status_counts()
+        return {
+            "tiers": GPU_MARKETPLACE_TIERS,
+            "activeRentals": rental_count,
+            "onlineWorkers": w_stats["onlineWorkers"],
+            "registeredWorkers": w_stats["registeredWorkers"],
+            "colabSetupCommand": "!curl -sSL https://raw.githubusercontent.com/jetsontech/SarembokVE/runtime-authority-truth-boundary/Deployment/cloud/colab_worker.py | python3 - --ws-url wss://sarembok.com",
+        }
+
+    if method == "RentGpuNode":
+        ensure_scheduler_schema()
+        tier_id = str(params.get("tierId", "")).strip()
+        duration_hours = max(1, min(720, int(params.get("durationHours", 1))))
+        workload = str(params.get("workload", "general_compute")).strip()
+        renter_id = str(params.get("renterId", "user-browser")).strip()
+
+        tier = next((t for t in GPU_MARKETPLACE_TIERS if t["tierId"] == tier_id), None)
+        if not tier:
+            raise ValueError(f"unknown_gpu_tier: {tier_id}")
+
+        total_price = round(tier["hourlyRate"] * duration_hours, 2)
+        lease_id = f"lease-{tier_id}-{uuid.uuid4().hex[:8]}"
+        stamp = now()
+        from datetime import timedelta
+        expires_at = (datetime.now(timezone.utc) + timedelta(hours=duration_hours)).isoformat()
+
+        store.db.execute(
+            """
+            INSERT INTO gpu_rentals(
+                rental_id, tier_id, tier_name, vram_gb, hourly_rate,
+                duration_hours, total_price, workload, status,
+                renter_id, created_at, expires_at
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                lease_id, tier["tierId"], tier["tierName"], tier["vramGb"],
+                tier["hourlyRate"], duration_hours, total_price, workload,
+                "ACTIVE", renter_id, stamp, expires_at
+            )
+        )
+        store.db.commit()
+
+        store.event(None, "GPU_RENTAL_LEASED", {
+            "leaseId": lease_id,
+            "tierId": tier_id,
+            "tierName": tier["tierName"],
+            "durationHours": duration_hours,
+            "totalPrice": total_price,
+            "expiresAt": expires_at,
+        })
+
+        return {
+            "success": True,
+            "leaseId": lease_id,
+            "tier": tier,
+            "durationHours": duration_hours,
+            "totalPrice": total_price,
+            "status": "ACTIVE",
+            "expiresAt": expires_at,
+            "message": f"Successfully reserved {tier['tierName']} for {duration_hours}h. Lease Token: {lease_id}",
+        }
+
+    if method == "ListGpuRentals":
+        ensure_scheduler_schema()
+        rows = store.db.execute(
+            """
+            SELECT rental_id, tier_id, tier_name, vram_gb, hourly_rate,
+                   duration_hours, total_price, workload, status, created_at, expires_at
+            FROM gpu_rentals
+            ORDER BY created_at DESC LIMIT 50
+            """
+        ).fetchall()
+        rentals = []
+        for r in rows:
+            rentals.append({
+                "leaseId": r[0],
+                "tierId": r[1],
+                "tierName": r[2],
+                "vramGb": r[3],
+                "hourlyRate": r[4],
+                "durationHours": r[5],
+                "totalPrice": r[6],
+                "workload": r[7],
+                "status": r[8],
+                "createdAt": r[9],
+                "expiresAt": r[10],
+            })
+        return {"rentals": rentals, "count": len(rentals)}
 
     if method == "ListFiles":
         cat_filter = str(params.get("category", "")).strip()

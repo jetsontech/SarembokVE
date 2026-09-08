@@ -34,26 +34,24 @@ LOG = logging.getLogger("sarembok.worker")
 
 
 def detect_gpu_info() -> dict[str, Any]:
-    """Detects physical GPU hardware or provides standard fallback telemetry."""
-    info: dict[str, Any] = {
-        "gpuVendor": "NVIDIA",
-        "gpuModel": "NVIDIA GeForce RTX 4090",
-        "vramMb": 24576,
-        "cudaVersion": "12.4",
-        "availableMemoryMb": 22000,
-        "supportedModels": ["meta-human-v1", "sarembok-reasoner-7b", "whisper-large-v3"],
-    }
-
-    # 1. Try PyTorch CUDA if installed
+    """Detects physical GPU hardware or provides truthful CPU fallback telemetry."""
+    # 1. Try PyTorch CUDA if installed (e.g. Google Colab Tesla T4, Kaggle, GPU server)
     try:
         import torch  # type: ignore
 
         if torch.cuda.is_available():
-            info["gpuModel"] = torch.cuda.get_device_name(0)
-            info["vramMb"] = int(torch.cuda.get_device_properties(0).total_memory / (1024 * 1024))
-            info["cudaVersion"] = str(torch.version.cuda or "12.0")
-            LOG.info("Detected GPU via PyTorch: %s (%s MB VRAM, CUDA %s)", info["gpuModel"], info["vramMb"], info["cudaVersion"])
-            return info
+            dev_name = torch.cuda.get_device_name(0)
+            vram = int(torch.cuda.get_device_properties(0).total_memory / (1024 * 1024))
+            cuda_ver = str(torch.version.cuda or "12.0")
+            LOG.info("Detected GPU via PyTorch: %s (%s MB VRAM, CUDA %s)", dev_name, vram, cuda_ver)
+            return {
+                "gpuVendor": "NVIDIA",
+                "gpuModel": dev_name,
+                "vramMb": vram,
+                "cudaVersion": cuda_ver,
+                "availableMemoryMb": int(vram * 0.9),
+                "supportedModels": ["meta-human-v1", "sarembok-reasoner-7b", "whisper-large-v3", "llama-3.3-70b-instruct"],
+            }
     except Exception:
         pass
 
@@ -70,15 +68,31 @@ def detect_gpu_info() -> dict[str, Any]:
         if res.returncode == 0 and res.stdout.strip():
             parts = [p.strip() for p in res.stdout.strip().split(",")]
             if len(parts) >= 2:
-                info["gpuModel"] = parts[0]
-                info["vramMb"] = int(float(parts[1]))
-                LOG.info("Detected GPU via nvidia-smi: %s (%s MB VRAM)", info["gpuModel"], info["vramMb"])
-                return info
+                dev_name = parts[0]
+                vram = int(float(parts[1]))
+                LOG.info("Detected GPU via nvidia-smi: %s (%s MB VRAM)", dev_name, vram)
+                return {
+                    "gpuVendor": "NVIDIA",
+                    "gpuModel": dev_name,
+                    "vramMb": vram,
+                    "cudaVersion": "12.0",
+                    "availableMemoryMb": int(vram * 0.85),
+                    "supportedModels": ["meta-human-v1", "sarembok-reasoner-7b", "whisper-large-v3"],
+                }
     except Exception:
         pass
 
-    LOG.info("Using default profile: %s (%s MB VRAM)", info["gpuModel"], info["vramMb"])
-    return info
+    # 3. Truthful fallback: CPU Compute Engine (no fake GPU)
+    proc = platform.processor() or "Host CPU Architecture"
+    LOG.info("No physical NVIDIA GPU detected. Truthful worker registration: CPU (%s)", proc)
+    return {
+        "gpuVendor": "CPU",
+        "gpuModel": f"CPU · {platform.machine().upper()} ({proc[:24].strip()})",
+        "vramMb": 0,
+        "cudaVersion": "N/A",
+        "availableMemoryMb": 4096,
+        "supportedModels": ["cpu-arithmetic", "general_compute", "web-automation"],
+    }
 
 
 class SarembokWorker:
