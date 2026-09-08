@@ -32,6 +32,10 @@ RPC_CAPABILITIES = {
     'BrowserNavigate': ('browser', 'Navigate to a verified public URL and extract structured text.'),
     'BrowserScreenshot': ('browser', 'Capture a full-page or viewport screenshot of a public URL.'),
     'BrowserRender': ('browser', 'Render full-page DOM of a public URL using headless Chromium.'),
+    'CreateDigitalHumanSession': ('avatar', 'Create an active MetaHuman digital human session.'),
+    'GetDigitalHumanSession': ('avatar', 'Get digital human session status and voice profile.'),
+    'ListDigitalHumanSessions': ('avatar', 'List all digital human sessions.'),
+    'CloseDigitalHumanSession': ('avatar', 'Close an active digital human session.'),
 }
 
 class CapabilityRegistry:

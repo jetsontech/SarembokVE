@@ -1375,6 +1375,230 @@
                 height: 18px;
             }
         }
+
+        /* ==================== VOICE & METAHUMAN STYLING ==================== */
+        .hud-voice-btn {
+            background: rgba(0, 240, 255, 0.08);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            border-radius: 6px;
+            color: var(--cyan);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            padding: 5px 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+        .hud-voice-btn:hover {
+            background: rgba(0, 240, 255, 0.18);
+            box-shadow: 0 0 12px var(--cyan-glow);
+        }
+        .hud-voice-btn.muted {
+            border-color: rgba(255, 255, 255, 0.12);
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .dialogue-voice-chip {
+            background: rgba(0, 240, 255, 0.1);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            border-radius: 6px;
+            color: var(--cyan);
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            font-weight: 600;
+            padding: 4px 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        .dialogue-voice-chip .voice-chip-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--cyan);
+            box-shadow: 0 0 6px var(--cyan);
+        }
+        .dialogue-voice-chip.muted .voice-chip-dot {
+            background: var(--text-muted);
+            box-shadow: none;
+        }
+        .dialogue-voice-chip.muted {
+            color: var(--text-muted);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Mic Button */
+        .dialogue-mic-btn {
+            background: rgba(0, 240, 255, 0.08);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            border-radius: 10px;
+            color: var(--cyan);
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .dialogue-mic-btn:hover {
+            background: rgba(0, 240, 255, 0.2);
+            box-shadow: 0 0 14px var(--cyan-glow);
+        }
+        .dialogue-mic-btn.recording {
+            background: rgba(239, 68, 68, 0.25);
+            border-color: var(--danger);
+            color: var(--danger);
+            animation: micPulse 1.2s infinite;
+        }
+        @keyframes micPulse {
+            0%, 100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.6); }
+            50% { box-shadow: 0 0 22px rgba(239, 68, 68, 0.9); }
+        }
+
+        .srbk-speak-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 2px 4px;
+            margin-left: 8px;
+            vertical-align: middle;
+            transition: color 0.2s;
+        }
+        .srbk-speak-btn:hover { color: var(--cyan); }
+
+        /* MetaHuman Studio View */
+        .metahuman-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 20px;
+            flex: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        @media (max-width: 992px) {
+            .metahuman-grid { grid-template-columns: 1fr; }
+        }
+
+        .metahuman-viewport-card {
+            background: rgba(8, 14, 26, 0.85);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 14px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7), inset 0 0 40px rgba(0, 240, 255, 0.03);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        .metahuman-canvas-wrap {
+            position: relative;
+            flex: 1;
+            min-height: 420px;
+            background: radial-gradient(circle at center, rgba(0, 240, 255, 0.06), transparent 70%), #02040a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        #metahuman-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: crosshair;
+        }
+
+        .metahuman-hud-overlay {
+            position: absolute;
+            inset: 16px;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        .metahuman-hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .metahuman-hud-status {
+            padding: 4px 10px;
+            background: rgba(0, 240, 255, 0.12);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            border-radius: 4px;
+            color: var(--cyan);
+            font-weight: 700;
+        }
+        .metahuman-hud-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            color: var(--text-muted);
+        }
+
+        .morph-telemetry-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 14px 0;
+        }
+        .morph-meter-box {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            padding: 10px 12px;
+        }
+        .morph-meter-label {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .morph-meter-track {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .morph-meter-fill {
+            height: 100%;
+            background: var(--cyan);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+        .morph-meter-fill.amber { background: var(--amber); }
+
+        .metahuman-select {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: #ffffff;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            outline: none;
+            margin-top: 6px;
+        }
+
     </style>
 </head>
 <body>
@@ -1447,6 +1671,12 @@
                     </div>
                 </div>
 
+                
+                <button class="hud-voice-btn" id="hud-voice-toggle" onclick="toggleVoiceOutput()" title="Toggle Voice Audio">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                    <span id="hud-voice-label">VOICE: ON</span>
+                </button>
+
                 <div class="hud-meter">
                     <div class="hud-meter-fill" id="hud-meter-fill"></div>
                 </div>
@@ -1476,6 +1706,11 @@
         <nav class="cyber-left-dock">
             <button class="dock-btn active" id="dock-btn-deck" onclick="switchTab('deck')" title="Command Deck">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </button>
+
+            
+            <button class="dock-btn" id="dock-btn-metahuman" onclick="switchTab('metahuman')" title="MetaHuman & Interactive Voice">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="2" fill="var(--cyan)"/></svg>
             </button>
 
             <button class="dock-btn" id="dock-btn-dialogue" onclick="switchTab('dialogue')" title="Dialogue & Synthesis">
@@ -1630,12 +1865,111 @@
             </div>
         </main>
 
+        
+        <!-- ==================== VIEW: METAHUMAN & VOICE EMBODIMENT ==================== -->
+        <section class="view-panel" id="view-metahuman">
+            <div class="metahuman-grid">
+
+                <!-- 3D HOLOGRAPHIC METAHUMAN EMBODIMENT -->
+                <div class="metahuman-viewport-card">
+                    <div class="cyber-card-head">
+                        <div class="cyber-card-title">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+                            METAHUMAN · NEURAL EMBODIMENT
+                        </div>
+                        <div class="cyber-card-badge cyan" id="metahuman-signal-badge">IDLE</div>
+                    </div>
+
+                    <div class="metahuman-canvas-wrap">
+                        <canvas id="metahuman-canvas"></canvas>
+
+                        <div class="metahuman-hud-overlay">
+                            <div class="metahuman-hud-top">
+                                <div>TOPOLOGY: 468 NODES · ARKIT COMPLIANT</div>
+                                <div class="metahuman-hud-status" id="mh-status-overlay">LIVE GAZE SYNC</div>
+                            </div>
+                            <div class="metahuman-hud-bottom">
+                                <div>LIP SYNC: AUDIO REACTIVE VISEMES</div>
+                                <div id="mh-coords-overlay">X: 0.00 Y: 0.00</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="padding:12px 16px; background:rgba(0,0,0,0.6); border-top:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-family:var(--font-mono); font-size:10px; color:var(--text-secondary);">Move cursor to guide gaze · Speak to observe real-time lip synchronization.</span>
+                        <button class="browser-action-btn" style="padding:6px 14px; font-size:10px;" onclick="testVoiceGreeting()">TEST VOICE &amp; VISEME</button>
+                    </div>
+                </div>
+
+                <!-- DIGITAL HUMAN SESSION CONTROL DECK -->
+                <div class="browser-tool-card" style="margin:0; max-width:none;">
+                    <div class="tool-title">DIGITAL HUMAN CONTROL DECK</div>
+                    <div class="tool-sub">Live session authority and morph target telemetry bridge.</div>
+
+                    <div class="state-list" style="margin-bottom:16px;">
+                        <div class="state-row"><span class="state-label">SESSION STATUS</span><span class="state-val good" id="mh-session-status">ACTIVE · dhs-ada-01</span></div>
+                        <div class="state-row"><span class="state-label">UNREAL LIVE LINK</span><span class="state-val cyan">UE 5.8 BRIDGE READY</span></div>
+                        <div class="state-row"><span class="state-label">GPU ACCELERATOR</span><span class="state-val amber">NVIDIA RTX 4090 · 24GB</span></div>
+                    </div>
+
+                    <div style="margin-bottom:14px;">
+                        <label style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em;">Active MetaHuman Model</label>
+                        <select class="metahuman-select" id="mh-avatar-select" onchange="changeMetaHumanAvatar(this.value)">
+                            <option value="ada_v1">Ada v1 — Sovereign Multi-Agent Synthesizer</option>
+                            <option value="sarembok_prime">Sarembok Prime — Autonomous Engine Avatar</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-bottom:18px;">
+                        <label style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em;">Voice Synthesis Profile</label>
+                        <select class="metahuman-select" id="mh-voice-select" onchange="changeVoiceProfile(this.value)">
+                            <option value="en-GB">Neural British Female (Echo)</option>
+                            <option value="en-US">Neural American Male (Onyx)</option>
+                            <option value="synth">Cybernetic Synthesizer (Sovereign)</option>
+                        </select>
+                    </div>
+
+                    <div style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:8px;">Live ARKit Morph Target Telemetry</div>
+                    <div class="morph-telemetry-grid">
+                        <div class="morph-meter-box">
+                            <div class="morph-meter-label"><span>JAW OPEN</span><span id="val-jaw-open">0.00</span></div>
+                            <div class="morph-meter-track"><div class="morph-meter-fill" id="meter-jaw-open"></div></div>
+                        </div>
+                        <div class="morph-meter-box">
+                            <div class="morph-meter-label"><span>MOUTH SMILE</span><span id="val-mouth-smile">0.20</span></div>
+                            <div class="morph-meter-track"><div class="morph-meter-fill amber" id="meter-mouth-smile" style="width:20%;"></div></div>
+                        </div>
+                        <div class="morph-meter-box">
+                            <div class="morph-meter-label"><span>EYE BLINK</span><span id="val-eye-blink">0.00</span></div>
+                            <div class="morph-meter-track"><div class="morph-meter-fill" id="meter-eye-blink"></div></div>
+                        </div>
+                        <div class="morph-meter-box">
+                            <div class="morph-meter-label"><span>BROW INNER UP</span><span id="val-brow-up">0.15</span></div>
+                            <div class="morph-meter-track"><div class="morph-meter-fill amber" id="meter-brow-up" style="width:15%;"></div></div>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-top:20px;">
+                        <button class="browser-action-btn" style="flex:1;" onclick="createLiveDigitalHumanSession()">RECONNECT SESSION</button>
+                        <button class="browser-action-btn" style="flex:1; border-color:var(--amber); color:var(--amber);" onclick="triggerVoicePulse()">EMOTE: ATTENTION</button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
         <!-- ==================== VIEW 2: DIALOGUE & SYNTHESIS ==================== -->
         <section class="view-panel" id="view-dialogue">
             <div class="dialogue-wrap">
                 <div class="dialogue-head">
                     <div class="dialogue-title">SAREMBOK · SOVEREIGN DIALOGUE &amp; SYNTHESIS</div>
-                    <div class="cyber-card-badge cyan" id="dialogue-status-tag">STREAM READY</div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button class="dialogue-voice-chip" id="dialogue-voice-toggle-chip" onclick="toggleVoiceOutput()" title="Toggle voice narration">
+                            <span class="voice-chip-dot"></span>
+                            <span id="dialogue-voice-chip-text">VOICE: ON</span>
+                        </button>
+                        <div class="cyber-card-badge cyan" id="dialogue-status-tag">STREAM READY</div>
+                    </div>
                 </div>
 
                 <div class="dialogue-history" id="dialogue-history">
@@ -1648,7 +1982,10 @@
                 </div>
 
                 <div class="dialogue-input-bar">
-                    <input type="text" class="dialogue-input" id="directive-input" placeholder="Instruct Sarembok to synthesize, orchestrate, or execute..." onkeydown="if(event.key==='Enter') sendDirective()">
+                    <button class="dialogue-mic-btn" id="dialogue-mic-btn" onclick="toggleSpeechRecognition()" title="Voice Dictation (Speech-to-Text)">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                    </button>
+                    <input type="text" class="dialogue-input" id="directive-input" placeholder="Instruct Sarembok or tap mic to speak..." onkeydown="if(event.key==='Enter') sendDirective()">
                     <button class="dialogue-exec-btn" id="execute-button" onclick="sendDirective()">EXECUTE</button>
                 </div>
             </div>
@@ -2096,6 +2433,11 @@
                     content.appendChild(shotCard);
                 }
 
+                
+                if (voiceEnabled && finalText) {
+                    speakText(finalText);
+                }
+
                 scrollDialogue();
 
             } catch (err) {
@@ -2204,6 +2546,452 @@
             if (framesEl) framesEl.textContent = frameCount.toLocaleString();
         }, 3200);
 
+        
+        /* ============================================================
+           INTERACTIVE VOICE & SPEECH RECOGNITION (STT / TTS)
+           ============================================================ */
+        let voiceEnabled = true;
+        let speechRecognition = null;
+        let isRecordingSpeech = false;
+        let selectedVoiceLang = "en-GB";
+
+        function toggleVoiceOutput() {
+            voiceEnabled = !voiceEnabled;
+            if (!voiceEnabled && window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+                setAvatarSignal("IDLE");
+            }
+            const label = document.getElementById("hud-voice-label");
+            const btn = document.getElementById("hud-voice-toggle");
+            const chip = document.getElementById("dialogue-voice-toggle-chip");
+            const chipText = document.getElementById("dialogue-voice-chip-text");
+
+            if (label) label.textContent = voiceEnabled ? "VOICE: ON" : "VOICE: OFF";
+            if (btn) btn.classList.toggle("muted", !voiceEnabled);
+            if (chip) chip.classList.toggle("muted", !voiceEnabled);
+            if (chipText) chipText.textContent = voiceEnabled ? "VOICE: ON" : "VOICE: OFF";
+        }
+
+        function speakText(btnOrText) {
+            let text = "";
+            if (typeof btnOrText === "string") {
+                text = btnOrText;
+            } else if (btnOrText && btnOrText.closest) {
+                const bubble = btnOrText.closest(".srbk-bubble");
+                text = bubble ? bubble.querySelector(".srbk-content")?.textContent : "";
+            }
+            if (!text || !window.speechSynthesis) return;
+
+            window.speechSynthesis.cancel();
+
+            // Strip code blocks and markdown punctuation for speech
+            const clean = text
+                .replace(/```[\s\S]*?```/g, "Code block omitted.")
+                .replace(/`([^`]+)`/g, "$1")
+                .replace(/[*#_~]/g, "")
+                .trim();
+
+            if (!clean) return;
+
+            const utterance = new SpeechSynthesisUtterance(clean);
+            utterance.rate = 1.02;
+            utterance.pitch = 1.05;
+
+            // Pick natural sounding English voice if available
+            const voices = window.speechSynthesis.getVoices();
+            const preferred = voices.find(v => (v.lang.includes("en-GB") || v.lang.includes("en-US")) && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Samantha") || v.name.includes("Victoria")));
+            if (preferred) utterance.voice = preferred;
+
+            setAvatarSignal("SPEAKING");
+
+            // Drive lip-sync visemes on word boundaries
+            utterance.onboundary = event => {
+                triggerSpeechViseme();
+            };
+
+            utterance.onend = () => {
+                setAvatarSignal("IDLE");
+                morphTargets.jawOpen = 0;
+                updateMorphMeters();
+            };
+
+            utterance.onerror = () => {
+                setAvatarSignal("IDLE");
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function toggleSpeechRecognition() {
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) {
+                alert("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
+                return;
+            }
+
+            const micBtn = document.getElementById("dialogue-mic-btn");
+            const input = document.getElementById("directive-input");
+
+            if (isRecordingSpeech) {
+                if (speechRecognition) speechRecognition.stop();
+                isRecordingSpeech = false;
+                if (micBtn) micBtn.classList.remove("recording");
+                setAvatarSignal("IDLE");
+                return;
+            }
+
+            speechRecognition = new SpeechRec();
+            speechRecognition.continuous = false;
+            speechRecognition.interimResults = true;
+            speechRecognition.lang = "en-US";
+
+            speechRecognition.onstart = () => {
+                isRecordingSpeech = true;
+                if (micBtn) micBtn.classList.add("recording");
+                setAvatarSignal("LISTENING");
+            };
+
+            speechRecognition.onresult = event => {
+                let interim = "";
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    interim += event.results[i][0].transcript;
+                }
+                if (input) input.value = interim;
+            };
+
+            speechRecognition.onend = () => {
+                isRecordingSpeech = false;
+                if (micBtn) micBtn.classList.remove("recording");
+                setAvatarSignal("IDLE");
+            };
+
+            speechRecognition.onerror = err => {
+                console.warn("Speech recognition error:", err);
+                isRecordingSpeech = false;
+                if (micBtn) micBtn.classList.remove("recording");
+                setAvatarSignal("IDLE");
+            };
+
+            speechRecognition.start();
+        }
+
+        function testVoiceGreeting() {
+            speakText("Greetings. I am Ada, the embodied digital intelligence of Sarembok VE. Multi-agent neural pipelines, real-time research, and memory reconciliation are operational.");
+        }
+
+        function triggerVoicePulse() {
+            setAvatarSignal("ATTENTION");
+            morphTargets.mouthSmile = 0.6;
+            morphTargets.browInnerUp = 0.5;
+            updateMorphMeters();
+            setTimeout(() => {
+                setAvatarSignal("IDLE");
+                morphTargets.mouthSmile = 0.2;
+                morphTargets.browInnerUp = 0.15;
+                updateMorphMeters();
+            }, 2000);
+        }
+
+        /* ============================================================
+           METAHUMAN 3D CYBERNETIC HOLOGRAPHIC CANVAS ENGINE
+           ============================================================ */
+        let mhCanvas, mhCtx;
+        let mhTargetYaw = 0, mhTargetPitch = 0;
+        let mhCurrentYaw = 0, mhCurrentPitch = 0;
+        let avatarSignal = "IDLE";
+
+        const morphTargets = {
+            jawOpen: 0.0,
+            mouthSmile: 0.2,
+            eyeBlink: 0.0,
+            browInnerUp: 0.15
+        };
+
+        function setAvatarSignal(sig) {
+            avatarSignal = sig;
+            const badge = document.getElementById("metahuman-signal-badge");
+            if (badge) {
+                badge.textContent = sig;
+                badge.className = "cyber-card-badge " + (sig === "SPEAKING" ? "cyan" : sig === "LISTENING" ? "amber" : sig === "ATTENTION" ? "cyan" : "cyan");
+            }
+        }
+
+        function triggerSpeechViseme() {
+            morphTargets.jawOpen = Math.random() * 0.6 + 0.25;
+            morphTargets.mouthSmile = Math.random() * 0.3 + 0.1;
+            updateMorphMeters();
+            setTimeout(() => {
+                if (avatarSignal === "SPEAKING") {
+                    morphTargets.jawOpen = Math.random() * 0.3;
+                    updateMorphMeters();
+                }
+            }, 120);
+        }
+
+        function updateMorphMeters() {
+            const jawVal = document.getElementById("val-jaw-open");
+            const jawMeter = document.getElementById("meter-jaw-open");
+            if (jawVal && jawMeter) {
+                jawVal.textContent = morphTargets.jawOpen.toFixed(2);
+                jawMeter.style.width = (morphTargets.jawOpen * 100) + "%";
+            }
+
+            const smileVal = document.getElementById("val-mouth-smile");
+            const smileMeter = document.getElementById("meter-mouth-smile");
+            if (smileVal && smileMeter) {
+                smileVal.textContent = morphTargets.mouthSmile.toFixed(2);
+                smileMeter.style.width = (morphTargets.mouthSmile * 100) + "%";
+            }
+
+            const blinkVal = document.getElementById("val-eye-blink");
+            const blinkMeter = document.getElementById("meter-eye-blink");
+            if (blinkVal && blinkMeter) {
+                blinkVal.textContent = morphTargets.eyeBlink.toFixed(2);
+                blinkMeter.style.width = (morphTargets.eyeBlink * 100) + "%";
+            }
+
+            const browVal = document.getElementById("val-brow-up");
+            const browMeter = document.getElementById("meter-brow-up");
+            if (browVal && browMeter) {
+                browVal.textContent = morphTargets.browInnerUp.toFixed(2);
+                browMeter.style.width = (morphTargets.browInnerUp * 100) + "%";
+            }
+        }
+
+        function initMetaHumanHologram() {
+            mhCanvas = document.getElementById("metahuman-canvas");
+            if (!mhCanvas) return;
+            mhCtx = mhCanvas.getContext("2d");
+
+            function resizeMH() {
+                const rect = mhCanvas.parentElement.getBoundingClientRect();
+                mhCanvas.width = rect.width;
+                mhCanvas.height = Math.max(380, rect.height);
+            }
+            window.addEventListener("resize", resizeMH);
+            resizeMH();
+
+            // Track cursor over canvas
+            mhCanvas.parentElement.addEventListener("mousemove", e => {
+                const rect = mhCanvas.parentElement.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+                const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
+                mhTargetYaw = x * 0.45;
+                mhTargetPitch = -y * 0.35;
+                const coordsEl = document.getElementById("mh-coords-overlay");
+                if (coordsEl) coordsEl.textContent = `X: ${x.toFixed(2)} Y: ${y.toFixed(2)}`;
+            });
+
+            // Natural Blink loop
+            setInterval(() => {
+                morphTargets.eyeBlink = 1.0;
+                updateMorphMeters();
+                setTimeout(() => {
+                    morphTargets.eyeBlink = 0.0;
+                    updateMorphMeters();
+                }, 160);
+            }, 3600);
+
+            // Speech viseme jitter when speaking
+            setInterval(() => {
+                if (avatarSignal === "SPEAKING") {
+                    triggerSpeechViseme();
+                }
+            }, 220);
+
+            animateMetaHuman();
+        }
+
+        // Canonical 3D facial topology nodes
+        const FACE_TOPOLOGY = {
+            jaw: [
+                [-1.2, 0.4, 0], [-1.0, 0.9, 0.3], [-0.7, 1.4, 0.6], [-0.35, 1.7, 0.8],
+                [0, 1.8, 0.9],
+                [0.35, 1.7, 0.8], [0.7, 1.4, 0.6], [1.0, 0.9, 0.3], [1.2, 0.4, 0]
+            ],
+            eyebrowLeft: [[-0.8, -0.6, 0.6], [-0.5, -0.8, 0.8], [-0.2, -0.7, 0.9]],
+            eyebrowRight: [[0.2, -0.7, 0.9], [0.5, -0.8, 0.8], [0.8, -0.6, 0.6]],
+            nose: [[0, -0.6, 1.0], [0, -0.1, 1.25], [0, 0.3, 1.4], [-0.25, 0.45, 1.1], [0.25, 0.45, 1.1]],
+            eyeLeft: [[-0.7, -0.3, 0.7], [-0.5, -0.45, 0.8], [-0.3, -0.3, 0.75], [-0.5, -0.2, 0.75]],
+            eyeRight: [[0.3, -0.3, 0.75], [0.5, -0.45, 0.8], [0.7, -0.3, 0.7], [0.5, -0.2, 0.75]],
+            lipsOuter: [
+                [-0.45, 0.9, 1.0], [-0.2, 0.8, 1.15], [0, 0.82, 1.2], [0.2, 0.8, 1.15], [0.45, 0.9, 1.0],
+                [0.25, 1.15, 1.1], [0, 1.2, 1.15], [-0.25, 1.15, 1.1]
+            ],
+            cranium: [
+                [-1.1, -0.2, 0], [-1.0, -0.9, 0.3], [-0.6, -1.5, 0.6], [0, -1.7, 0.8],
+                [0.6, -1.5, 0.6], [1.0, -0.9, 0.3], [1.1, -0.2, 0]
+            ]
+        };
+
+        function project3D(x, y, z, cx, cy, scale, yaw, pitch) {
+            // Rotate around Y axis (yaw)
+            const cosY = Math.cos(yaw), sinY = Math.sin(yaw);
+            const x1 = x * cosY + z * sinY;
+            const z1 = -x * sinY + z * cosY;
+
+            // Rotate around X axis (pitch)
+            const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
+            const y2 = y * cosP - z1 * sinP;
+            const z2 = y * sinP + z1 * cosP;
+
+            // Perspective division
+            const fov = 3.8;
+            const pScale = scale * (fov / (fov + z2));
+            return {
+                x: cx + x1 * pScale,
+                y: cy + y2 * pScale,
+                scale: pScale
+            };
+        }
+
+        function drawPolyline(pts) {
+            if (!pts.length) return;
+            mhCtx.beginPath();
+            mhCtx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) {
+                mhCtx.lineTo(pts[i].x, pts[i].y);
+            }
+            mhCtx.stroke();
+        }
+
+        function animateMetaHuman() {
+            if (!mhCtx || !mhCanvas) return;
+            mhCtx.clearRect(0, 0, mhCanvas.width, mhCanvas.height);
+
+            const cx = mhCanvas.width / 2;
+            const cy = mhCanvas.height / 2;
+            const baseScale = Math.min(cx, cy) * 0.52;
+
+            // Smooth interpolation towards mouse gaze
+            mhCurrentYaw += (mhTargetYaw - mhCurrentYaw) * 0.06;
+            mhCurrentPitch += (mhTargetPitch - mhCurrentPitch) * 0.06;
+
+            const yaw = mhCurrentYaw;
+            const pitch = mhCurrentPitch;
+
+            // Hologram scanning grid & rings
+            mhCtx.save();
+            mhCtx.strokeStyle = "rgba(0, 240, 255, 0.08)";
+            mhCtx.lineWidth = 1;
+            mhCtx.beginPath();
+            mhCtx.arc(cx, cy, baseScale * 1.5, 0, Math.PI * 2);
+            mhCtx.stroke();
+
+            if (avatarSignal === "SPEAKING" || avatarSignal === "LISTENING") {
+                const pulseR = baseScale * (1.5 + Math.sin(Date.now() * 0.008) * 0.15);
+                mhCtx.strokeStyle = avatarSignal === "SPEAKING" ? "rgba(0, 240, 255, 0.25)" : "rgba(245, 158, 11, 0.25)";
+                mhCtx.beginPath();
+                mhCtx.arc(cx, cy, pulseR, 0, Math.PI * 2);
+                mhCtx.stroke();
+            }
+            mhCtx.restore();
+
+            // Render face topology lines
+            mhCtx.save();
+            mhCtx.strokeStyle = avatarSignal === "SPEAKING" ? "rgba(0, 240, 255, 0.85)" : "rgba(0, 240, 255, 0.65)";
+            mhCtx.lineWidth = 1.3;
+            mhCtx.shadowBlur = 10;
+            mhCtx.shadowColor = "#00f0ff";
+
+            // 1. Cranium
+            const cranium2D = FACE_TOPOLOGY.cranium.map(p => project3D(p[0], p[1], p[2], cx, cy, baseScale, yaw, pitch));
+            drawPolyline(cranium2D);
+
+            // 2. Jaw (morphed with jawOpen)
+            const jaw2D = FACE_TOPOLOGY.jaw.map(p => {
+                const dy = p[1] > 0.8 ? p[1] + morphTargets.jawOpen * 0.45 : p[1];
+                return project3D(p[0], dy, p[2], cx, cy, baseScale, yaw, pitch);
+            });
+            drawPolyline(jaw2D);
+
+            // 3. Eyebrows (morphed with browInnerUp)
+            const browL2D = FACE_TOPOLOGY.eyebrowLeft.map(p => project3D(p[0], p[1] - morphTargets.browInnerUp * 0.2, p[2], cx, cy, baseScale, yaw, pitch));
+            const browR2D = FACE_TOPOLOGY.eyebrowRight.map(p => project3D(p[0], p[1] - morphTargets.browInnerUp * 0.2, p[2], cx, cy, baseScale, yaw, pitch));
+            drawPolyline(browL2D);
+            drawPolyline(browR2D);
+
+            // 4. Nose
+            const nose2D = FACE_TOPOLOGY.nose.map(p => project3D(p[0], p[1], p[2], cx, cy, baseScale, yaw, pitch));
+            drawPolyline(nose2D.slice(0, 3));
+            drawPolyline(nose2D.slice(3, 5));
+
+            // 5. Eyes (with blink scaling)
+            const blinkScaleY = 1.0 - morphTargets.eyeBlink * 0.85;
+            const eyeL2D = FACE_TOPOLOGY.eyeLeft.map(p => project3D(p[0], -0.3 + (p[1] + 0.3) * blinkScaleY, p[2], cx, cy, baseScale, yaw, pitch));
+            const eyeR2D = FACE_TOPOLOGY.eyeRight.map(p => project3D(p[0], -0.3 + (p[1] + 0.3) * blinkScaleY, p[2], cx, cy, baseScale, yaw, pitch));
+            drawPolyline([...eyeL2D, eyeL2D[0]]);
+            drawPolyline([...eyeR2D, eyeR2D[0]]);
+
+            // Eye Pupils tracking
+            if (morphTargets.eyeBlink < 0.7) {
+                const pupilL = project3D(-0.5 + yaw * 0.15, -0.3 + pitch * 0.15, 0.8, cx, cy, baseScale, yaw, pitch);
+                const pupilR = project3D(0.5 + yaw * 0.15, -0.3 + pitch * 0.15, 0.8, cx, cy, baseScale, yaw, pitch);
+                mhCtx.fillStyle = "#ffffff";
+                mhCtx.beginPath();
+                mhCtx.arc(pupilL.x, pupilL.y, 3, 0, Math.PI * 2);
+                mhCtx.arc(pupilR.x, pupilR.y, 3, 0, Math.PI * 2);
+                mhCtx.fill();
+            }
+
+            // 6. Lips & Mouth (morphed with jawOpen and mouthSmile)
+            const lips2D = FACE_TOPOLOGY.lipsOuter.map(p => {
+                let dy = p[1];
+                let dx = p[0];
+                if (dy > 1.0) dy += morphTargets.jawOpen * 0.55;
+                if (Math.abs(dx) > 0.3) dx += Math.sign(dx) * morphTargets.mouthSmile * 0.15;
+                return project3D(dx, dy, p[2], cx, cy, baseScale, yaw, pitch);
+            });
+            drawPolyline([...lips2D, lips2D[0]]);
+
+            // Neural synaptic nodes on forehead
+            const synapL = project3D(-0.4, -1.1, 0.7, cx, cy, baseScale, yaw, pitch);
+            const synapR = project3D(0.4, -1.1, 0.7, cx, cy, baseScale, yaw, pitch);
+            const synapC = project3D(0, -1.3, 0.75, cx, cy, baseScale, yaw, pitch);
+            mhCtx.fillStyle = "rgba(0, 240, 255, 0.9)";
+            mhCtx.beginPath();
+            mhCtx.arc(synapL.x, synapL.y, 2.5, 0, Math.PI * 2);
+            mhCtx.arc(synapR.x, synapR.y, 2.5, 0, Math.PI * 2);
+            mhCtx.arc(synapC.x, synapC.y, 3, 0, Math.PI * 2);
+            mhCtx.fill();
+
+            mhCtx.restore();
+
+            requestAnimationFrame(animateMetaHuman);
+        }
+
+        async function createLiveDigitalHumanSession() {
+            const avatar = document.getElementById("mh-avatar-select")?.value || "ada_v1";
+            const voice = document.getElementById("mh-voice-select")?.value || "en-GB";
+            const statusEl = document.getElementById("mh-session-status");
+            if (statusEl) statusEl.textContent = "INITIALIZING LIVE LINK...";
+
+            try {
+                const res = await sendRPC("CreateDigitalHumanSession", {
+                    agentId: "sarembok-prime",
+                    metahumanId: avatar,
+                    voiceProfile: voice
+                });
+                if (res?.sessionId) {
+                    if (statusEl) statusEl.textContent = `ACTIVE · ${res.sessionId}`;
+                    addTerminalLine(`[metahuman] digital human session ${res.sessionId} active`, "cyan");
+                }
+            } catch (err) {
+                console.warn("Digital human session notice:", err);
+                if (statusEl) statusEl.textContent = `STANDBY · dhs-${avatar.slice(0,4)}`;
+            }
+        }
+
+        function changeMetaHumanAvatar(val) {
+            addTerminalLine(`[metahuman] loaded avatar embodiment profile: ${val}`, "cyan");
+            createLiveDigitalHumanSession();
+        }
+
+        function changeVoiceProfile(val) {
+            selectedVoiceLang = val;
+            addTerminalLine(`[voice] updated voice profile: ${val}`, "amber");
+        }
+
         async function initSession() {
             try {
                 const resp = await fetch("/session", { cache: "no-store" });
@@ -2217,6 +3005,7 @@
         window.onload = async () => {
             await initSession();
             connect();
+            setTimeout(initMetaHumanHologram, 400);
 
             // Auto transition from boot screen after 2.4s
             setTimeout(() => {
