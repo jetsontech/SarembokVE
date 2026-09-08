@@ -2151,7 +2151,7 @@
                     <div class="state-list" style="margin-bottom:16px;">
                         <div class="state-row"><span class="state-label">SESSION STATUS</span><span class="state-val good" id="mh-session-status">ACTIVE · dhs-ada-01</span></div>
                         <div class="state-row"><span class="state-label">UNREAL LIVE LINK</span><span class="state-val cyan">UE 5.8 BRIDGE READY</span></div>
-                        <div class="state-row"><span class="state-label">GPU ACCELERATOR</span><span class="state-val amber">NVIDIA RTX 4090 · 24GB</span></div>
+                        <div class="state-row"><span class="state-label">GRAPHICS PIPELINE</span><span class="state-val cyan">WebGL Canvas · Client Hologram</span></div>
                     </div>
 
                     <div style="margin-bottom:14px;">
@@ -2223,7 +2223,7 @@
                             <option value="ar">العربية (AR)</option>
                             <option value="pt">Português (PT)</option>
                         </select>
-                        <div class="cyber-card-badge amber" id="dialogue-gpu-badge" title="Active Cluster Accelerator">H100-SXM5 · 80GB</div>
+                        <div class="cyber-card-badge cyan" id="dialogue-gpu-badge" title="Active Engine">ENGINE: GPT-4O-MINI</div>
                         <button class="dialogue-voice-chip" id="dialogue-voice-toggle-chip" onclick="toggleVoiceOutput()" title="Toggle voice narration">
                             <span class="voice-chip-dot"></span>
                             <span id="dialogue-voice-chip-text">VOICE: ON</span>
@@ -2342,83 +2342,28 @@
             <div class="browser-tool-card" style="max-width:1100px; width:100%; margin:0 auto;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
                     <div>
-                        <div class="tool-title">DISTRIBUTED WORKER FLEET &amp; ACCELERATED GPU POOL</div>
-                        <div class="tool-sub">Multi-node cluster handling parallel synthesis, reasoning, code execution, and MetaHuman rendering.</div>
+                        <div class="tool-title">COMPUTE WORKFORCE &amp; WORKER REGISTRY</div>
+                        <div class="tool-sub">Live telemetry reported by verified worker nodes connected via WebSocket gateway.</div>
                     </div>
-                    <button class="browser-action-btn" onclick="scaleWorkerCluster()">+ SCALE WORKER FLEET</button>
+                    <button class="browser-action-btn" onclick="loadWorkerFleet()">REFRESH FLEET</button>
                 </div>
 
                 <div class="metric-tri-grid" style="margin-bottom:20px;">
-                    <div class="metric-mini-box"><div class="mini-label">ONLINE WORKERS</div><div class="mini-val cyan" id="fleet-online-count">4 ACTIVE</div></div>
-                    <div class="metric-mini-box"><div class="mini-label">TOTAL GPU VRAM</div><div class="mini-val amber" id="fleet-vram-count">237.5 GB</div></div>
-                    <div class="metric-mini-box"><div class="mini-label">ACCELERATORS</div><div class="mini-val cyan" id="fleet-gpu-count">3 H100 / A100 / RTX</div></div>
+                    <div class="metric-mini-box"><div class="mini-label">ONLINE WORKERS</div><div class="mini-val cyan" id="fleet-online-count">0 ACTIVE</div></div>
+                    <div class="metric-mini-box"><div class="mini-label">TOTAL GPU VRAM</div><div class="mini-val amber" id="fleet-vram-count">0 MB (CPU ONLY)</div></div>
+                    <div class="metric-mini-box"><div class="mini-label">GPU ACCELERATORS</div><div class="mini-val cyan" id="fleet-gpu-count">0 ONLINE</div></div>
                 </div>
 
-                <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:10px;">Registered Autonomous Cluster Nodes</div>
+                <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:10px;">Authoritative Worker Pool (Verified Only)</div>
                 
                 <div class="fleet-nodes-grid" id="fleet-nodes-container">
-                    <!-- Default Worker Cards -->
-                    <div class="fleet-node-card online">
-                        <div class="fleet-node-head">
-                            <span class="fleet-node-id">worker-gpu-h100-01</span>
-                            <span class="cyber-card-badge cyan">ONLINE</span>
+                    <div style="grid-column:1/-1; padding:32px 20px; text-align:center; font-family:var(--font-mono); color:var(--text-secondary); background:rgba(0,0,0,0.4); border:1px dashed rgba(0,240,255,0.18); border-radius:10px;">
+                        <div style="color:var(--amber); font-size:12px; font-weight:700; margin-bottom:8px; letter-spacing:0.1em;">NO EXTERNAL GPU WORKERS CONNECTED</div>
+                        <div style="font-size:11px; max-width:540px; margin:0 auto 14px; line-height:1.6; color:var(--text-muted);">
+                            The runtime is operating with cloud API language providers (OpenRouter / Gemini / Groq) and local CPU task scheduling. External worker nodes register live hardware via WebSocket.
                         </div>
-                        <div class="fleet-node-gpu">NVIDIA H100 SXM5 · 80GB</div>
-                        <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-secondary); display:flex; justify-content:space-between;"><span>VRAM ALLOCATION</span><span>78.4 / 80.0 GB</span></div>
-                        <div class="fleet-vram-bar"><div class="fleet-vram-fill" style="width:25%;"></div></div>
-                        <div class="fleet-caps">
-                            <span class="fleet-cap-pill">LLM</span>
-                            <span class="fleet-cap-pill">REASONING</span>
-                            <span class="fleet-cap-pill">SYNTHESIS</span>
-                            <span class="fleet-cap-pill">CUDA 12.4</span>
-                        </div>
-                    </div>
-
-                    <div class="fleet-node-card online">
-                        <div class="fleet-node-head">
-                            <span class="fleet-node-id">worker-gpu-a100-01</span>
-                            <span class="cyber-card-badge cyan">ONLINE</span>
-                        </div>
-                        <div class="fleet-node-gpu">NVIDIA A100-SXM4 · 80GB</div>
-                        <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-secondary); display:flex; justify-content:space-between;"><span>VRAM ALLOCATION</span><span>72.0 / 80.0 GB</span></div>
-                        <div class="fleet-vram-bar"><div class="fleet-vram-fill" style="width:30%;"></div></div>
-                        <div class="fleet-caps">
-                            <span class="fleet-cap-pill">COMPUTE</span>
-                            <span class="fleet-cap-pill">LLM</span>
-                            <span class="fleet-cap-pill">SYNTHESIS</span>
-                            <span class="fleet-cap-pill">CUDA 12.2</span>
-                        </div>
-                    </div>
-
-                    <div class="fleet-node-card online">
-                        <div class="fleet-node-head">
-                            <span class="fleet-node-id">worker-gpu-rtx4090-01</span>
-                            <span class="cyber-card-badge cyan">ONLINE</span>
-                        </div>
-                        <div class="fleet-node-gpu">NVIDIA GeForce RTX 4090 · 24GB</div>
-                        <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-secondary); display:flex; justify-content:space-between;"><span>VRAM ALLOCATION</span><span>22.1 / 24.0 GB</span></div>
-                        <div class="fleet-vram-bar"><div class="fleet-vram-fill" style="width:40%;"></div></div>
-                        <div class="fleet-caps">
-                            <span class="fleet-cap-pill">METAHUMAN</span>
-                            <span class="fleet-cap-pill">VISEMES</span>
-                            <span class="fleet-cap-pill">VISION</span>
-                            <span class="fleet-cap-pill">INFERENCE</span>
-                        </div>
-                    </div>
-
-                    <div class="fleet-node-card online">
-                        <div class="fleet-node-head">
-                            <span class="fleet-node-id">worker-edge-inference-01</span>
-                            <span class="cyber-card-badge cyan">ONLINE</span>
-                        </div>
-                        <div class="fleet-node-gpu">Dual RTX 3090 · 48GB</div>
-                        <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-secondary); display:flex; justify-content:space-between;"><span>VRAM ALLOCATION</span><span>44.0 / 48.0 GB</span></div>
-                        <div class="fleet-vram-bar"><div class="fleet-vram-fill" style="width:20%;"></div></div>
-                        <div class="fleet-caps">
-                            <span class="fleet-cap-pill">PLAYWRIGHT</span>
-                            <span class="fleet-cap-pill">BROWSER</span>
-                            <span class="fleet-cap-pill">SEARCH</span>
-                            <span class="fleet-cap-pill">INFERENCE</span>
+                        <div style="font-size:10px; color:var(--cyan); background:rgba(0,240,255,0.06); padding:8px 14px; border-radius:6px; display:inline-block; border:1px solid rgba(0,240,255,0.15);">
+                            To connect a real worker node: <code>python Deployment/cloud/worker_client.py --ws-url ws://127.0.0.1:9000</code>
                         </div>
                     </div>
                 </div>
@@ -3403,13 +3348,8 @@
             showToast("ENGINE: " + val.toUpperCase());
             const badge = document.getElementById("dialogue-gpu-badge");
             if (badge) {
-                if (val.includes("llama") || val.includes("deepseek")) {
-                    badge.textContent = "H100-SXM5 · 80GB";
-                } else if (val.includes("coder")) {
-                    badge.textContent = "A100-SXM4 · 80GB";
-                } else {
-                    badge.textContent = "RTX-4090 · 24GB";
-                }
+                badge.textContent = "ENGINE: " + val.toUpperCase();
+                badge.className = "cyber-card-badge cyan";
             }
         }
 
@@ -3567,11 +3507,11 @@
         /* Worker Fleet Scaling & Monitoring (Enhancements 1 & 3) */
         async function scaleWorkerCluster() {
             try {
-                const res = await sendRPC("ScaleWorkers", { capacity: 6 });
-                showToast(`FLEET SCALED: ${res.onlineWorkers} WORKERS ONLINE`);
+                const res = await sendRPC("ScaleWorkers", {});
+                showToast(res.message || "Awaiting real worker connection");
                 loadWorkerFleet();
             } catch (err) {
-                showToast("SCALE FAILED: " + err.message);
+                showToast("NOTICE: " + err.message);
             }
         }
 
@@ -3579,30 +3519,58 @@
             try {
                 const res = await sendRPC("ListWorkers", {});
                 const workers = res?.workers || [];
-                const onlineCount = workers.filter(w => w.status === 'ONLINE').length;
+                const onlineWorkers = workers.filter(w => w.status === 'ONLINE');
+                const onlineCount = onlineWorkers.length;
                 const onlineCountEl = document.getElementById("fleet-online-count");
                 if (onlineCountEl) onlineCountEl.textContent = `${onlineCount} ACTIVE`;
 
-                const container = document.getElementById("fleet-nodes-container");
-                if (container && workers.length > 0) {
-                    container.innerHTML = workers.map(w => `
-                        <div class="fleet-node-card ${w.status === 'ONLINE' ? 'online' : ''}">
-                            <div class="fleet-node-head">
-                                <span class="fleet-node-id">${escapeHtml(w.workerId)}</span>
-                                <span class="cyber-card-badge ${w.status === 'ONLINE' ? 'cyan' : 'amber'}">${escapeHtml(w.status)}</span>
-                            </div>
-                            <div class="fleet-node-gpu">${escapeHtml(w.gpuModel || 'Compute Core')} · ${(w.vramMb / 1024).toFixed(0)}GB</div>
-                            <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-secondary); display:flex; justify-content:space-between;">
-                                <span>LATENCY: ${w.latencyMs || 5.0}ms</span>
-                                <span>VRAM: ${(w.vramMb || 0)} MB</span>
-                            </div>
-                            <div class="fleet-vram-bar"><div class="fleet-vram-fill" style="width:${Math.min(95, Math.max(20, (w.activeTasks || 0) * 35 + 25))}%;"></div></div>
-                            <div class="fleet-caps">
-                                ${(w.capabilities || []).map(c => `<span class="fleet-cap-pill">${escapeHtml(c)}</span>`).join("")}
-                            </div>
-                        </div>
-                    `).join("");
+                let totalVram = 0;
+                let gpuCount = 0;
+                for (const w of onlineWorkers) {
+                    if (w.vramMb) {
+                        totalVram += w.vramMb;
+                        gpuCount++;
+                    }
                 }
+                const vramEl = document.getElementById("fleet-vram-count");
+                if (vramEl) vramEl.textContent = totalVram > 0 ? `${(totalVram / 1024).toFixed(1)} GB` : "0 MB (CPU ONLY)";
+                const gpuEl = document.getElementById("fleet-gpu-count");
+                if (gpuEl) gpuEl.textContent = `${gpuCount} ONLINE`;
+
+                const container = document.getElementById("fleet-nodes-container");
+                if (!container) return;
+
+                if (onlineWorkers.length === 0) {
+                    container.innerHTML = `
+                        <div style="grid-column:1/-1; padding:32px 20px; text-align:center; font-family:var(--font-mono); color:var(--text-secondary); background:rgba(0,0,0,0.4); border:1px dashed rgba(0,240,255,0.18); border-radius:10px;">
+                            <div style="color:var(--amber); font-size:12px; font-weight:700; margin-bottom:8px; letter-spacing:0.1em;">NO EXTERNAL GPU WORKERS CONNECTED</div>
+                            <div style="font-size:11px; max-width:540px; margin:0 auto 14px; line-height:1.6; color:var(--text-muted);">
+                                The runtime is operating with cloud API language providers (OpenRouter / Gemini / Groq) and local CPU task scheduling. External worker nodes register live hardware via WebSocket.
+                            </div>
+                            <div style="font-size:10px; color:var(--cyan); background:rgba(0,240,255,0.06); padding:8px 14px; border-radius:6px; display:inline-block; border:1px solid rgba(0,240,255,0.15);">
+                                To connect a real worker node: <code>python Deployment/cloud/worker_client.py --ws-url ws://127.0.0.1:9000</code>
+                            </div>
+                        </div>`;
+                    return;
+                }
+
+                container.innerHTML = onlineWorkers.map(w => `
+                    <div class="fleet-node-card online">
+                        <div class="fleet-node-head">
+                            <span class="fleet-node-id">${escapeHtml(w.workerId)}</span>
+                            <span class="cyber-card-badge cyan">${escapeHtml(w.status)}</span>
+                        </div>
+                        <div class="fleet-node-gpu">${escapeHtml(w.gpuModel || 'CPU Compute Core')} ${w.vramMb ? `· ${(w.vramMb / 1024).toFixed(0)}GB` : ''}</div>
+                        <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-secondary); display:flex; justify-content:space-between;">
+                            <span>LATENCY: ${w.latencyMs || 0}ms</span>
+                            <span>VRAM: ${(w.vramMb || 0)} MB</span>
+                        </div>
+                        <div class="fleet-vram-bar"><div class="fleet-vram-fill" style="width:${Math.min(95, Math.max(10, (w.activeTasks || 0) * 30 + 15))}%;"></div></div>
+                        <div class="fleet-caps">
+                            ${(w.capabilities || []).map(c => `<span class="fleet-cap-pill">${escapeHtml(c)}</span>`).join("")}
+                        </div>
+                    </div>
+                `).join("");
             } catch (err) {
                 console.error("Worker fleet refresh error:", err);
             }

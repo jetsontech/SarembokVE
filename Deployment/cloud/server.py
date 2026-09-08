@@ -377,54 +377,6 @@ def heartbeat_is_fresh(timestamp: str, max_age_seconds: float = WORKER_HEARTBEAT
     return age <= max_age_seconds
 
 
-DEFAULT_WORKERS: list[dict[str, Any]] = [
-    {
-        "worker_id": "worker-gpu-h100-01",
-        "capabilities": ["compute", "gpu", "llm", "reasoning", "synthesis"],
-        "gpu_vendor": "NVIDIA",
-        "gpu_model": "H100 SXM5",
-        "vram_mb": 81920,
-        "cuda_version": "12.4",
-        "available_memory_mb": 78400,
-        "supported_models": ["meta-llama/llama-3.3-70b-instruct", "deepseek/deepseek-chat", "openai/gpt-4o-mini", "qwen/qwen-2.5-coder-32b-instruct"],
-        "latency_ms": 4.5,
-    },
-    {
-        "worker_id": "worker-gpu-a100-01",
-        "capabilities": ["compute", "gpu", "llm", "synthesis"],
-        "gpu_vendor": "NVIDIA",
-        "gpu_model": "A100-SXM4-80GB",
-        "vram_mb": 81920,
-        "cuda_version": "12.2",
-        "available_memory_mb": 72000,
-        "supported_models": ["openai/gpt-4o-mini", "meta-llama/llama-3.3-70b-instruct"],
-        "latency_ms": 8.2,
-    },
-    {
-        "worker_id": "worker-gpu-rtx4090-01",
-        "capabilities": ["compute", "gpu", "meta_human", "inference", "vision"],
-        "gpu_vendor": "NVIDIA",
-        "gpu_model": "GeForce RTX 4090",
-        "vram_mb": 24576,
-        "cuda_version": "12.2",
-        "available_memory_mb": 22100,
-        "supported_models": ["meta-human-v2", "whisper-large-v3", "bark-tts"],
-        "latency_ms": 12.0,
-    },
-    {
-        "worker_id": "worker-edge-inference-01",
-        "capabilities": ["inference", "browser", "search", "compute"],
-        "gpu_vendor": "NVIDIA",
-        "gpu_model": "Dual RTX 3090",
-        "vram_mb": 49152,
-        "cuda_version": "12.2",
-        "available_memory_mb": 44000,
-        "supported_models": ["playwright-chromium", "realtime-search"],
-        "latency_ms": 15.0,
-    },
-]
-
-
 def ensure_scheduler_schema() -> None:
     columns = {
         row[1]
@@ -442,52 +394,11 @@ def ensure_scheduler_schema() -> None:
         )
         store.db.commit()
 
-
-def init_default_worker_pool() -> None:
-    """Pre-populates high-performance GPU and inference workers to provide robust online capacity."""
-    ensure_scheduler_schema()
-    stamp = now()
-    for w in DEFAULT_WORKERS:
-        store.db.execute(
-            """
-            INSERT OR IGNORE INTO workers(
-                worker_id, capabilities, gpu_vendor, gpu_model, vram_mb,
-                cuda_version, available_memory_mb, supported_models,
-                latency_ms, status, last_heartbeat, active_tasks
-            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
-            """,
-            (
-                w["worker_id"],
-                json.dumps(w["capabilities"]),
-                w["gpu_vendor"],
-                w["gpu_model"],
-                w["vram_mb"],
-                w["cuda_version"],
-                w["available_memory_mb"],
-                json.dumps(w["supported_models"]),
-                w["latency_ms"],
-                "ONLINE",
-                stamp,
-                0,
-            ),
-        )
+    # Truth Boundary: Remove any mock or unverified worker entries
+    store.db.execute(
+        "DELETE FROM workers WHERE worker_id LIKE 'worker-gpu-%' OR worker_id LIKE 'worker-edge-%' OR worker_id LIKE 'worker-scale-%'"
+    )
     store.db.commit()
-
-
-def maintain_worker_pool() -> None:
-    """Refreshes heartbeats for default high-capacity GPU cluster and assigns pending tasks."""
-    stamp = now()
-    for w in DEFAULT_WORKERS:
-        store.db.execute(
-            """
-            UPDATE workers
-            SET last_heartbeat=?, status='ONLINE'
-            WHERE worker_id=?
-            """,
-            (stamp, w["worker_id"]),
-        )
-    store.db.commit()
-    assign_pending_tasks()
 
 
 def evaluate_worker_liveness(now_dt: datetime | None = None) -> dict[str, int]:
@@ -1775,40 +1686,16 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         }
 
     if method == "ScaleWorkers":
-        desired_capacity = min(16, max(1, int(params.get("capacity", 4))))
-        current_count = store.db.execute("SELECT COUNT(*) FROM workers").fetchone()[0]
-        stamp = now()
-        created = []
-        if desired_capacity > current_count:
-            for idx in range(current_count + 1, desired_capacity + 1):
-                w_id = f"worker-gpu-scale-{idx:02d}"
-                store.db.execute(
-                    """
-                    INSERT OR REPLACE INTO workers(
-                        worker_id, capabilities, gpu_vendor, gpu_model, vram_mb,
-                        cuda_version, available_memory_mb, supported_models,
-                        latency_ms, status, last_heartbeat, active_tasks
-                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
-                    """,
-                    (
-                        w_id,
-                        json.dumps(["compute", "gpu", "inference", "synthesis"]),
-                        "NVIDIA",
-                        "A100-SXM4-80GB",
-                        81920,
-                        "12.4",
-                        78000,
-                        json.dumps(["meta-llama/llama-3.3-70b-instruct", "openai/gpt-4o-mini"]),
-                        6.5,
-                        "ONLINE",
-                        stamp,
-                        0,
-                    ),
-                )
-                created.append(w_id)
-            store.db.commit()
+        # Truth boundary: Do not insert mock or fake workers.
+        # Worker instances must be physically launched via worker_client.py or compose.worker.yaml
         w_stats = get_worker_status_counts()
-        return {"scaled": True, "totalWorkers": w_stats["registeredWorkers"], "onlineWorkers": w_stats["onlineWorkers"], "provisioned": created}
+        return {
+            "scaled": False,
+            "status": "ready_for_workers",
+            "message": "Workers must be legitimately launched via Deployment/cloud/worker_client.py or compose.worker.yaml. Runtime authority never invents fake hardware.",
+            "onlineWorkers": w_stats["onlineWorkers"],
+            "registeredWorkers": w_stats["registeredWorkers"],
+        }
 
     if method == "ListFiles":
         cat_filter = str(params.get("category", "")).strip()
@@ -2491,7 +2378,6 @@ async def worker_lifecycle_loop() -> None:
         while not stop_evt.is_set():
             try:
                 async with get_db_lock():
-                    maintain_worker_pool()
                     evaluate_worker_liveness()
             except Exception as exc:
                 LOG.error("error in worker lifecycle loop: %s", exc)
@@ -2508,7 +2394,6 @@ async def serve() -> None:
     global MONITOR_TASK
     LOG.info("startup port=%s max_connections=%s auth_configured=%s db=%s", PORT, MAX_CONNECTIONS, bool(AUTH_TOKEN), DB_PATH)
     ensure_scheduler_schema()
-    init_default_worker_pool()
     MONITOR_TASK = asyncio.create_task(worker_lifecycle_loop())
     try:
         async with websockets.serve(
