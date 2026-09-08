@@ -41,7 +41,7 @@ MAX_METHOD_LENGTH = max(32, int(os.getenv("SAREMBOK_MAX_METHOD_LENGTH", "128")))
 LLM_PROVIDER_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "20")))
 LLM_TOTAL_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS", "30")))
 BROWSER_SESSION_TTL_SECONDS = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_TTL_SECONDS", "3600")))
-BROWSER_ALLOWED_METHODS = {"SarembokChat", "GetRuntimeInfo"}
+BROWSER_ALLOWED_METHODS = {"SarembokChat", "GetRuntimeInfo", "BrowserNavigate", "BrowserScreenshot", "BrowserRender"}
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
 PROVIDER_ROUTER = ProviderRouter()
@@ -734,6 +734,66 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             ),
         }
 
+    if method == "BrowserNavigate":
+        url = str(params.get("url", "")).strip()
+        browser_url = os.getenv("SAREMBOK_BROWSER_URL", "http://sarembok-browser:9100")
+        try:
+            req = urllib.request.Request(
+                f"{browser_url}/navigate",
+                data=json.dumps({"url": url}).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            try:
+                err_body = json.loads(e.read().decode("utf-8"))
+                return {"error": err_body.get("detail", str(e)), "ok": False}
+            except Exception:
+                return {"error": str(e), "ok": False}
+        except Exception as e:
+            return {"error": f"Browser service error: {e}", "ok": False}
+
+    if method == "BrowserScreenshot":
+        url = str(params.get("url", "")).strip()
+        full_page = bool(params.get("fullPage", True))
+        browser_url = os.getenv("SAREMBOK_BROWSER_URL", "http://sarembok-browser:9100")
+        try:
+            req = urllib.request.Request(
+                f"{browser_url}/screenshot",
+                data=json.dumps({"url": url, "full_page": full_page}).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            try:
+                err_body = json.loads(e.read().decode("utf-8"))
+                return {"error": err_body.get("detail", str(e)), "ok": False}
+            except Exception:
+                return {"error": str(e), "ok": False}
+        except Exception as e:
+            return {"error": f"Browser service error: {e}", "ok": False}
+
+    if method == "BrowserRender":
+        url = str(params.get("url", "")).strip()
+        browser_url = os.getenv("SAREMBOK_BROWSER_URL", "http://sarembok-browser:9100")
+        try:
+            req = urllib.request.Request(
+                f"{browser_url}/render",
+                data=json.dumps({"url": url}).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            try:
+                err_body = json.loads(e.read().decode("utf-8"))
+                return {"error": err_body.get("detail", str(e)), "ok": False}
+            except Exception:
+                return {"error": str(e), "ok": False}
+        except Exception as e:
+            return {"error": f"Browser service error: {e}", "ok": False}
 
     if method == "CreateAgent":
         agent_id = str(params.get("agentId", "")).strip()

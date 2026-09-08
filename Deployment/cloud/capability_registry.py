@@ -29,6 +29,9 @@ RPC_CAPABILITIES = {
     'RuntimeInfo': ('runtime', 'Read the extended runtime information surface.'),
     'ListProjects': ('projects', 'List runtime projects.'),
     'CreateProject': ('projects', 'Create a runtime project.'),
+    'BrowserNavigate': ('browser', 'Navigate to a verified public URL and extract structured text.'),
+    'BrowserScreenshot': ('browser', 'Capture a full-page or viewport screenshot of a public URL.'),
+    'BrowserRender': ('browser', 'Render full-page DOM of a public URL using headless Chromium.'),
 }
 
 class CapabilityRegistry:

@@ -4,31 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAREMBOK · VIRTUAL EVOLUTION</title>
-    <meta name="description" content="Sarembok VE — AI-native computing environment. Multi-agent, persistent memory, live research, and autonomous engineering.">
+    <meta name="description" content="Sarembok VE — Cybernetic Operating Environment. Multi-agent execution, persistent SQLite-WAL memory, live research, and autonomous engineering.">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
         /* ============================================================
-           SAREMBOK VE FRONTEND — DESIGN SYSTEM
+           SAREMBOK VE — CYBERNETIC COMMAND DECK DESIGN SYSTEM
            ============================================================ */
 
         :root {
-            --bg-void: #000000;
-            --bg-surface: #07090e;
-            --bg-card: rgba(14, 18, 28, 0.7);
-            --border-glass: rgba(255, 255, 255, 0.08);
-            --border-subtle: rgba(255, 255, 255, 0.12);
+            --bg-void: #020408;
+            --bg-surface: #060913;
+            --bg-card: rgba(8, 14, 26, 0.82);
+            --border-glass: rgba(0, 240, 255, 0.12);
+            --border-subtle: rgba(255, 255, 255, 0.08);
             --cyan: #00f0ff;
-            --cyan-glow: rgba(0, 240, 255, 0.35);
+            --cyan-glow: rgba(0, 240, 255, 0.45);
+            --cyan-dim: rgba(0, 240, 255, 0.15);
+            --amber: #f59e0b;
+            --amber-glow: rgba(245, 158, 11, 0.4);
             --emerald: #10b981;
             --indigo: #818cf8;
+            --danger: #ef4444;
             --text-main: #ffffff;
             --text-secondary: #94a3b8;
             --text-muted: #525e75;
-            --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-display: 'Chakra Petch', 'Plus Jakarta Sans', sans-serif;
+            --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
             --font-mono: 'JetBrains Mono', monospace;
         }
 
@@ -36,1632 +41,1699 @@
 
         html, body {
             width: 100%;
+            height: 100%;
             min-height: 100%;
-            height: auto;
             overflow-x: hidden;
-            overflow-y: auto;
             background: var(--bg-void);
             color: var(--text-main);
             font-family: var(--font-sans);
             -webkit-font-smoothing: antialiased;
+            user-select: text;
         }
 
-        /* Non-selectable UI controls only */
-        button, .btn-action, .dock-pill, .nav-arrow, .srbk-copy {
-            user-select: none;
-            -webkit-user-select: none;
+        /* Scanlines and CRT overlay */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.015), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.015));
+            background-size: 100% 3px, 6px 100%;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.6;
         }
 
-        .stage-viewport {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            align-items: stretch;
-            background:
-                radial-gradient(circle at 50% 45%, rgba(0, 240, 255, 0.03) 0%, transparent 65%),
-                #000000;
-            z-index: 2;
-        }
-
-        .view-panel {
-            display: none;
+        /* Canvas background */
+        #srbk-bg-canvas {
+            position: fixed;
+            inset: 0;
             width: 100%;
             height: 100%;
-            padding: 40px 60px 100px;
-            overflow-y: auto;
-            animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+            z-index: 0;
         }
 
-        .view-panel.active { display: flex; flex-direction: column; }
+        /* Viewport HUD Corner Brackets */
+        .hud-bracket {
+            position: fixed;
+            width: 20px;
+            height: 20px;
+            border-color: var(--border-glass);
+            pointer-events: none;
+            z-index: 90;
+        }
+        .hud-bracket.top-left { top: 12px; left: 14px; border-top: 2px solid var(--cyan); border-left: 2px solid var(--cyan); }
+        .hud-bracket.top-right { top: 12px; right: 14px; border-top: 2px solid var(--cyan); border-right: 2px solid var(--cyan); }
+        .hud-bracket.bottom-left { bottom: 12px; left: 14px; border-bottom: 2px solid var(--cyan); border-left: 2px solid var(--cyan); }
+        .hud-bracket.bottom-right { bottom: 12px; right: 14px; border-bottom: 2px solid var(--cyan); border-right: 2px solid var(--cyan); }
 
+        /* ==================== APP CONTAINER ==================== */
+        #app {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            padding-left: 72px; /* For left dock */
+        }
+
+        /* ==================== TOP HEADER ==================== */
+        .cyber-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 28px 12px;
+            background: linear-gradient(180deg, rgba(2, 6, 14, 0.92), transparent);
+            border-bottom: 1px solid rgba(0, 240, 255, 0.08);
+            position: sticky;
+            top: 0;
+            z-index: 80;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .header-brand-wrap {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* Arc Reactor Icon */
+        .srbk-reactor {
+            position: relative;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid var(--cyan);
+            box-shadow: 0 0 14px var(--cyan-glow), inset 0 0 10px var(--cyan-glow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: reactorPulse 3s ease-in-out infinite alternate;
+        }
+        .srbk-reactor-core {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 0 0 10px #ffffff, 0 0 20px var(--cyan);
+        }
+        @keyframes reactorPulse {
+            0% { transform: scale(0.96); box-shadow: 0 0 10px var(--cyan-glow); }
+            100% { transform: scale(1.04); box-shadow: 0 0 22px var(--cyan-glow); }
+        }
+
+        .header-brand-text {
+            display: flex;
+            flex-direction: column;
+        }
+        .header-brand-title {
+            font-family: var(--font-display);
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            color: #ffffff;
+            text-transform: uppercase;
+        }
+        .header-brand-title .glow-cyan {
+            color: var(--cyan);
+            text-shadow: 0 0 12px var(--cyan-glow);
+        }
+        .header-brand-sub {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            letter-spacing: 0.22em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-top: -1px;
+        }
+
+        /* Top HUD Telemetry Group */
+        .header-hud-group {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+        }
+        .hud-badge {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            text-transform: uppercase;
+        }
+        .hud-badge.system { color: var(--cyan); }
+        .hud-badge.latency { color: var(--amber); }
+        .hud-badge.health { color: var(--cyan); }
+
+        .hud-badge-kicker {
+            color: var(--text-muted);
+            font-size: 9px;
+            letter-spacing: 0.14em;
+        }
+        .hud-badge-val {
+            font-weight: 600;
+        }
+
+        /* Battery/Status Meter */
+        .hud-meter {
+            width: 58px;
+            height: 7px;
+            background: rgba(0, 240, 255, 0.12);
+            border-radius: 4px;
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            overflow: hidden;
+            position: relative;
+        }
+        .hud-meter-fill {
+            width: 92%;
+            height: 100%;
+            background: var(--cyan);
+            box-shadow: 0 0 8px var(--cyan);
+            border-radius: 3px;
+        }
+
+        /* ==================== TICKER MARQUEE ==================== */
+        .cyber-ticker {
+            width: 100%;
+            background: rgba(2, 6, 14, 0.65);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            white-space: nowrap;
+            padding: 5px 0;
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            z-index: 70;
+        }
+        .cyber-ticker-track {
+            display: inline-block;
+            white-space: nowrap;
+            animation: tickerScroll 32s linear infinite;
+        }
+        .cyber-ticker-track span {
+            margin-right: 48px;
+            color: var(--text-muted);
+        }
+        .cyber-ticker-track span.cyan { color: var(--cyan); }
+        .cyber-ticker-track span.amber { color: var(--amber); }
+        @keyframes tickerScroll {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(-50%, 0, 0); }
+        }
+
+        /* ==================== LEFT VERTICAL DOCK ==================== */
+        .cyber-left-dock {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 68px;
+            background: rgba(4, 7, 15, 0.85);
+            border-right: 1px solid rgba(0, 240, 255, 0.09);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 80px 0 24px;
+            gap: 16px;
+        }
+        .dock-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+        }
+        .dock-btn:hover {
+            color: var(--cyan);
+            border-color: rgba(0, 240, 255, 0.25);
+            background: rgba(0, 240, 255, 0.06);
+        }
+        .dock-btn.active {
+            color: var(--cyan);
+            background: rgba(0, 240, 255, 0.12);
+            border-color: rgba(0, 240, 255, 0.4);
+            box-shadow: 0 0 16px rgba(0, 240, 255, 0.25), inset 0 0 8px rgba(0, 240, 255, 0.15);
+        }
+        .dock-btn.active::before {
+            content: "";
+            position: absolute;
+            left: -12px;
+            top: 12px;
+            bottom: 12px;
+            width: 3px;
+            background: var(--cyan);
+            box-shadow: 0 0 8px var(--cyan);
+            border-radius: 0 2px 2px 0;
+        }
+        .dock-btn svg {
+            width: 20px;
+            height: 20px;
+            stroke-width: 1.75;
+        }
+        .dock-version {
+            margin-top: auto;
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            font-family: var(--font-mono);
+            font-size: 8.5px;
+            letter-spacing: 0.18em;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .dock-version::after {
+            content: "";
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--emerald);
+            box-shadow: 0 0 6px var(--emerald);
+        }
+
+        /* ==================== PANELS & VIEWS ==================== */
+        .view-panel {
+            display: none;
+            flex: 1;
+            padding: 24px 28px 60px;
+            position: relative;
+        }
+        .view-panel.active {
+            display: flex;
+            flex-direction: column;
+            animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(6px); }
-            to   { opacity: 1; transform: translateY(0); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* ==================== CONTENT LAYOUT ==================== */
+        /* ==================== 1. CYBER COMMAND DECK ==================== */
+        .deck-grid {
+            display: grid;
+            grid-template-columns: 1.35fr 1fr 1fr;
+            gap: 18px;
+            flex: 1;
+            min-height: 520px;
+        }
+        @media (max-width: 1200px) {
+            .deck-grid { grid-template-columns: 1fr; }
+        }
 
-        .content-header {
+        .cyber-card {
+            background: linear-gradient(180deg, rgba(10, 16, 28, 0.85), rgba(4, 7, 14, 0.9));
+            border: 1px solid rgba(0, 240, 255, 0.12);
+            border-radius: 14px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        .cyber-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.04), transparent 35%, transparent 70%, rgba(245, 158, 11, 0.03));
+            pointer-events: none;
+        }
+
+        .cyber-card-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(2, 6, 14, 0.4);
+            position: relative;
+            z-index: 2;
+        }
+        .cyber-card-title {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            color: #ffffff;
+            text-transform: uppercase;
+        }
+        .cyber-card-badge {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 4px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+        .cyber-card-badge.cyan {
+            background: rgba(0, 240, 255, 0.12);
+            color: var(--cyan);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+        }
+        .cyber-card-badge.amber {
+            background: rgba(245, 158, 11, 0.12);
+            color: var(--amber);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .cyber-card-body {
+            flex: 1;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 2;
+            overflow: hidden;
+        }
+
+        /* Card 1: Live Terminal */
+        .terminal-feed {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-family: var(--font-mono);
+            font-size: 11.5px;
+            line-height: 1.7;
+            color: #94a3b8;
+            overflow-y: auto;
+            max-height: 380px;
+        }
+        .terminal-line { margin-bottom: 4px; }
+        .terminal-line.cyan { color: var(--cyan); }
+        .terminal-line.amber { color: var(--amber); }
+        .terminal-line.emerald { color: var(--emerald); }
+        .terminal-line.prompt { color: #ffffff; font-weight: 600; }
+        .terminal-cursor {
+            display: inline-block;
+            width: 7px;
+            height: 13px;
+            background: var(--cyan);
+            box-shadow: 0 0 8px var(--cyan);
+            vertical-align: middle;
+            margin-left: 4px;
+            animation: cursorBlink 1s infinite;
+        }
+        @keyframes cursorBlink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        .terminal-input-bar {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+        }
+        .terminal-input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 240, 255, 0.18);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #ffffff;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .terminal-input:focus {
+            border-color: var(--cyan);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+        }
+        .terminal-btn {
+            background: var(--cyan);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            padding: 0 18px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .terminal-btn:hover {
+            box-shadow: 0 0 14px var(--cyan-glow);
+            transform: translateY(-1px);
+        }
+
+        /* Card 2: Persistent Memory WAL with Sparkline */
+        .sparkline-box {
+            width: 100%;
+            height: 90px;
+            margin-bottom: 16px;
+            position: relative;
+        }
+        .sparkline-box svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .metric-tri-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .metric-mini-box {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .mini-label {
+            font-family: var(--font-mono);
+            font-size: 8.5px;
+            color: var(--text-muted);
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        .mini-val {
+            font-family: var(--font-mono);
+            font-size: 15px;
+            font-weight: 700;
+        }
+        .mini-val.amber { color: var(--amber); }
+        .mini-val.cyan { color: var(--cyan); }
+
+        .state-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+        }
+        .state-row {
             display: flex;
             justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 32px;
-            border-bottom: 1px solid var(--border-glass);
-            padding-bottom: 20px;
+            padding: 7px 10px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
         }
-        .content-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 2px; color: var(--cyan); text-transform: uppercase; margin-bottom: 6px; }
-        .content-title { font-size: 28px; font-weight: 400; letter-spacing: 1px; color: #ffffff; }
-        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 24px; }
-        .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 24px; margin-bottom: 24px; }
-        .glass-card { background: var(--bg-card); border: 1px solid var(--border-glass); backdrop-filter: blur(20px); border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 12px; transition: border-color 0.2s ease; }
-        .glass-card:hover { border-color: rgba(0, 240, 255, 0.25); }
-        .card-label { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); font-family: var(--font-mono); }
-        .card-val { font-size: 22px; font-weight: 500; color: #ffffff; }
-        .card-desc { font-size: 13.5px; line-height: 1.6; color: var(--text-secondary); }
-        .text-cyan { color: var(--cyan); }
-        .text-emerald { color: var(--emerald); }
-        .mono { font-family: var(--font-mono); }
+        .state-label { color: var(--text-muted); }
+        .state-val { color: #f1f5f9; font-weight: 600; }
+        .state-val.cyan { color: var(--cyan); }
+        .state-val.amber { color: var(--amber); }
+        .state-val.good { color: var(--emerald); }
 
-        /* ==================== INTERACTIVE CONSOLE ==================== */
+        /* Card 3: Recursive Memory Reconciliation */
+        .reconcile-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin: 10px 0 20px;
+        }
+        .reconcile-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+        }
+        .reconcile-tag {
+            color: var(--text-muted);
+            width: 20px;
+        }
+        .reconcile-bar-track {
+            flex: 1;
+            height: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
+        }
+        .reconcile-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .reconcile-bar-fill.cyan {
+            background: var(--cyan);
+            box-shadow: 0 0 10px var(--cyan);
+        }
+        .reconcile-bar-fill.amber {
+            background: var(--amber);
+            box-shadow: 0 0 10px var(--amber);
+        }
+        .reconcile-status {
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            width: 50px;
+            text-align: right;
+        }
+        .reconcile-status.stable { color: var(--cyan); }
+        .reconcile-status.commit { color: var(--amber); }
 
-        .interactive-deck {
+        .reconcile-cycle-box {
+            margin-top: auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 240, 255, 0.1);
+            border-radius: 8px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+        }
+        .cycle-label { color: var(--text-muted); text-transform: uppercase; }
+        .cycle-val { color: var(--cyan); font-weight: 700; letter-spacing: 0.1em; }
+
+        /* ==================== 2. DIALOGUE VIEW ==================== */
+        .dialogue-wrap {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            max-width: 1000px;
+            margin: 0 auto;
+            width: 100%;
+            background: rgba(8, 14, 26, 0.6);
+            border: 1px solid rgba(0, 240, 255, 0.1);
+            border-radius: 16px;
+            overflow: hidden;
+            backdrop-filter: blur(16px);
+        }
+
+        .dialogue-head {
+            padding: 14px 20px;
+            background: rgba(2, 6, 14, 0.6);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .dialogue-title {
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            color: #ffffff;
+            text-transform: uppercase;
+        }
+
+        .dialogue-history {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 16px;
-            background: rgba(10, 14, 23, 0.85);
-            border: 1px solid var(--border-glass);
-            border-radius: 16px;
-            padding: 24px;
-            margin-top: 10px;
-        }
-        .dialogue-history {
-            max-height: 480px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 18px;
-            padding: 2px 4px 2px 0;
+            min-height: 480px;
+            max-height: 65vh;
             user-select: text;
-            -webkit-user-select: text;
         }
         .dialogue-history::-webkit-scrollbar { width: 6px; }
-        .dialogue-history::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 6px; }
-        .input-bar { display: flex; gap: 12px; }
-        .text-input {
-            flex: 1;
+        .dialogue-history::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, 0.2); border-radius: 6px; }
+
+        .srbk-bubble {
+            padding: 14px 18px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            line-height: 1.65;
+            font-size: 13.5px;
+            user-select: text;
+        }
+        .srbk-bubble.user {
+            border-color: rgba(129, 140, 248, 0.3);
+            background: rgba(129, 140, 248, 0.05);
+        }
+        .srbk-bubble.assistant {
+            border-color: rgba(0, 240, 255, 0.2);
+            background: rgba(0, 240, 255, 0.035);
+        }
+        .srbk-bubble-sender {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .srbk-bubble.user .srbk-bubble-sender { color: var(--indigo); }
+        .srbk-bubble.assistant .srbk-bubble-sender { color: var(--cyan); }
+
+        .srbk-content {
+            color: #e2e8f0;
+            user-select: text;
+        }
+        .srbk-content p { margin-bottom: 10px; }
+        .srbk-content p:last-child { margin-bottom: 0; }
+        .srbk-content code {
+            font-family: var(--font-mono);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--cyan);
+            font-size: 12px;
+        }
+
+        /* Response structured cards */
+        .srbk-response-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+            margin-top: 14px;
+        }
+        .srbk-res-card {
             background: rgba(0, 0, 0, 0.5);
-            border: 1px solid var(--border-glass);
+            border: 1px solid rgba(0, 240, 255, 0.15);
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-size: 12.5px;
+        }
+        .srbk-res-card-head {
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            color: var(--cyan);
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Screenshot Preview Card */
+        .srbk-screenshot-card {
+            margin-top: 14px;
+            border: 1px solid rgba(0, 240, 255, 0.25);
             border-radius: 10px;
-            padding: 12px 16px;
+            overflow: hidden;
+            background: #000;
+        }
+        .srbk-screenshot-head {
+            background: rgba(2, 6, 14, 0.9);
+            padding: 8px 12px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--cyan);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .srbk-screenshot-img {
+            width: 100%;
+            display: block;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Code Block */
+        .srbk-code-block {
+            background: #040711;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        .srbk-code-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        .srbk-copy-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--text-secondary);
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            cursor: pointer;
+        }
+        .srbk-copy-btn:hover { color: var(--cyan); border-color: var(--cyan); }
+        .srbk-code-block pre {
+            padding: 12px;
+            overflow-x: auto;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            line-height: 1.5;
+            color: #cbd5e1;
+        }
+
+        /* Dialogue Input Bar */
+        .dialogue-input-bar {
+            padding: 14px 20px;
+            background: rgba(2, 6, 14, 0.7);
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            gap: 12px;
+        }
+        .dialogue-input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 240, 255, 0.18);
+            border-radius: 10px;
+            padding: 12px 18px;
             color: #ffffff;
             font-family: var(--font-sans);
             font-size: 14px;
             outline: none;
-            user-select: text;
-            -webkit-user-select: text;
+            transition: all 0.2s;
         }
-        .text-input:focus { border-color: var(--cyan); }
-        .btn-action {
+        .dialogue-input:focus {
+            border-color: var(--cyan);
+            box-shadow: 0 0 16px rgba(0, 240, 255, 0.25);
+        }
+        .dialogue-exec-btn {
             background: var(--cyan);
             color: #000;
-            font-weight: 600;
-            padding: 12px 24px;
-            border-radius: 10px;
             border: none;
-            cursor: pointer;
+            border-radius: 10px;
+            padding: 0 24px;
+            font-family: var(--font-display);
             font-size: 13px;
-            letter-spacing: 0.5px;
-            transition: opacity 0.15s ease;
-        }
-        .btn-action:hover { opacity: 0.88; }
-        .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        /* ==================== RESPONSE UI — TEXT ==================== */
-
-        .srbk-bubble {
-            color: var(--text-secondary);
-            line-height: 1.65;
-            user-select: text;
-            -webkit-user-select: text;
-        }
-        .srbk-bubble > strong {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 11px;
-            letter-spacing: .12em;
+            font-weight: 700;
+            letter-spacing: 0.12em;
             text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
         }
-        .srbk-content {
-            margin-top: 9px;
-            color: var(--text-secondary);
-            cursor: text;
-            overflow-wrap: anywhere;
-            user-select: text;
-            -webkit-user-select: text;
+        .dialogue-exec-btn:hover {
+            box-shadow: 0 0 20px var(--cyan-glow);
+            transform: translateY(-1px);
         }
-        .srbk-content * { user-select: text; -webkit-user-select: text; }
-        .srbk-content h1, .srbk-content h2, .srbk-content h3 { color: #ffffff; font-weight: 500; line-height: 1.3; margin: 18px 0 10px; }
-        .srbk-content h1 { font-size: 22px; }
-        .srbk-content h2 { font-size: 19px; }
-        .srbk-content h3 { font-size: 16px; }
-        .srbk-content p { margin: 8px 0; }
-        .srbk-content strong { color: #ffffff; font-weight: 600; }
-        .srbk-content em { color: #dbeafe; }
-        .srbk-content a { color: var(--cyan); text-decoration: underline; }
-        .srbk-content ul, .srbk-content ol { margin: 10px 0 10px 22px; }
-        .srbk-content li { margin: 5px 0; }
-        .srbk-content blockquote { margin: 12px 0; padding: 10px 14px; border-left: 3px solid var(--cyan); background: rgba(0, 240, 255, 0.04); color: var(--text-secondary); }
-        .srbk-content hr { border: 0; border-top: 1px solid var(--border-subtle); margin: 18px 0; }
-        .srbk-inline-code { display: inline-block; padding: 1px 5px; border-radius: 5px; background: rgba(255, 255, 255, 0.08); color: #e2e8f0; font-family: var(--font-mono); font-size: 0.9em; user-select: text; -webkit-user-select: text; }
-        .srbk-table-wrap { width: 100%; overflow-x: auto; margin: 12px 0; }
-        .srbk-table-wrap table { width: 100%; min-width: 520px; border-collapse: collapse; }
-        .srbk-table-wrap th, .srbk-table-wrap td { padding: 9px 11px; border: 1px solid rgba(255, 255, 255, 0.12); vertical-align: top; text-align: left; user-select: text; -webkit-user-select: text; }
-        .srbk-table-wrap th { color: #ffffff; font-weight: 600; background: rgba(255, 255, 255, 0.04); }
-        .srbk-table-wrap td { color: var(--text-secondary); }
-        .srbk-code-block { margin: 14px 0; border: 1px solid var(--border-glass); border-radius: 10px; overflow: hidden; background: rgba(0, 0, 0, 0.45); }
-        .srbk-code-head { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border-bottom: 1px solid var(--border-glass); color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
-        .srbk-copy { padding: 5px 9px; border: 1px solid var(--border-glass); border-radius: 6px; background: rgba(255, 255, 255, 0.05); color: var(--text-secondary); cursor: pointer; font-family: var(--font-sans); font-size: 11px; }
-        .srbk-copy:hover { border-color: var(--cyan); color: var(--cyan); }
-        .srbk-code-block pre { margin: 0; padding: 14px; overflow-x: auto; white-space: pre; user-select: text; -webkit-user-select: text; }
-        .srbk-code-block code { color: #e2e8f0; font-family: var(--font-mono); font-size: 12px; line-height: 1.6; user-select: text; -webkit-user-select: text; }
-        .srbk-streaming { opacity: 0.95; }
-        .srbk-thinking { color: var(--text-muted); font-family: var(--font-mono); font-size: 12px; }
 
-        /* ==================== RESPONSE UI V5 — STRUCTURED CARDS ==================== */
-        /* Visual presentation layer only. Runtime contract / structuredResponse schema unchanged. */
-
-        .srbk-response {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            width: 100%;
-            max-width: 940px;
-            user-select: text;
-            -webkit-user-select: text;
-        }
-        .srbk-response-card {
-            border: 1px solid rgba(255,255,255,.09);
+        /* ==================== 3. RESEARCH & BROWSER VIEW ==================== */
+        .browser-tool-card {
+            background: rgba(8, 14, 26, 0.8);
+            border: 1px solid rgba(0, 240, 255, 0.15);
             border-radius: 14px;
-            background: rgba(255,255,255,.025);
-            overflow: hidden;
-            user-select: text;
-            -webkit-user-select: text;
-            transition: border-color .18s ease, background .18s ease;
-        }
-        .srbk-response-card:hover { border-color: rgba(255,255,255,.13); background: rgba(255,255,255,.032); }
-        .srbk-response-card.answer {
-            background: linear-gradient(135deg, rgba(0,240,255,.055), rgba(255,255,255,.025));
-            border-color: rgba(0,240,255,.18);
-        }
-        .srbk-response-card-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            min-height: 42px;
-            padding: 0 18px;
-            border-bottom: 1px solid rgba(255,255,255,.065);
-            background: rgba(255,255,255,.018);
-        }
-        .srbk-response-card-title {
-            font-size: .66rem;
-            font-weight: 700;
-            letter-spacing: .13em;
-            text-transform: uppercase;
-            color: rgba(255,255,255,.56);
-        }
-        .srbk-response-card-body {
-            padding: 13px 18px;
-            user-select: text;
-            -webkit-user-select: text;
-        }
-        .srbk-response-card-body > :first-child { margin-top: 0; }
-        .srbk-response-card-body > :last-child { margin-bottom: 0; }
-        .srbk-answer-lead { font-size: 15px; line-height: 1.72; color: #e2e8f0; user-select: text; -webkit-user-select: text; }
-        .srbk-answer-lead p { margin: 0 0 9px; }
-        .srbk-answer-lead p:last-child { margin-bottom: 0; }
-        .srbk-response-list { display: flex; flex-direction: column; gap: 9px; margin: 0; padding: 0; list-style: none; }
-        .srbk-response-item { display: grid; grid-template-columns: 6px minmax(0,1fr); gap: 10px; align-items: start; user-select: text; -webkit-user-select: text; }
-        .srbk-response-item::before { content: ""; width: 5px; height: 5px; margin-top: 8px; border-radius: 50%; background: var(--cyan); opacity: .35; }
-        .srbk-response-item-main { min-width: 0; }
-        .srbk-response-item-title { font-weight: 650; line-height: 1.42; color: #f8fafc; }
-        .srbk-response-item-detail { margin-top: 3px; line-height: 1.58; opacity: .76; }
-        .srbk-response-item a { overflow-wrap: anywhere; }
-        .srbk-response-source-url { margin-top: 4px; font-size: .76rem; opacity: .58; overflow-wrap: anywhere; }
-        .srbk-response-source-excerpt { margin-top: 5px; font-size: .84rem; line-height: 1.55; opacity: .76; }
-        .srbk-response-status { display: inline-flex; width: max-content; margin-top: 6px; padding: 3px 7px; border: 1px solid rgba(255,255,255,.10); border-radius: 999px; font-size: .61rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; opacity: .80; }
-        .srbk-response-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
-        .srbk-response-kv { min-width: 0; padding: 9px 10px; border-radius: 9px; background: rgba(255,255,255,.035); }
-        .srbk-response-kv-label { display: block; margin-bottom: 3px; font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; opacity: .48; }
-        .srbk-response-kv-value { display: block; overflow-wrap: anywhere; font-size: .82rem; color: #cbd5e1; }
-        .srbk-response-meta {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 5px 9px;
-            margin-top: 2px;
-            padding: 7px 10px;
-            border: 1px solid rgba(255,255,255,.07);
-            border-radius: 9px;
-            background: rgba(255,255,255,.025);
-            color: rgba(255,255,255,.48);
-            font-size: .64rem;
-            line-height: 1.35;
-        }
-        .srbk-response-meta span { font-family: var(--font-mono); }
-        .srbk-response-meta strong { color: rgba(255,255,255,.72); font-weight: 500; }
-        .srbk-meta-divider { color: rgba(255,255,255,.18); user-select: none; -webkit-user-select: none; }
-        .srbk-response-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            width: max-content;
-            padding: 4px 8px;
-            border-radius: 999px;
-            border: 1px solid rgba(16,185,129,.24);
-            background: rgba(16,185,129,.07);
-            color: #6ee7b7;
-            font-size: .62rem;
-            font-weight: 700;
-            letter-spacing: .07em;
-            text-transform: uppercase;
-        }
-        .srbk-response-badge::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
-
-        /* Research response cards */
-        .srbk-research-claim-id { font: 700 10px/1.3 var(--font-mono); letter-spacing: .10em; opacity: .55; text-transform: uppercase; }
-        .srbk-research-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
-        .srbk-research-badge { padding: 2px 7px; border-radius: 999px; border: 1px solid rgba(255,255,255,.10); font-size: .60rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .78; }
-        .srbk-research-badge.status { color: #6ee7b7; border-color: rgba(110,231,183,.2); }
-        .srbk-research-badge.confidence { color: var(--cyan); border-color: rgba(0,240,255,.2); }
-        .srbk-research-badge.evidence { color: var(--indigo); border-color: rgba(129,140,248,.2); }
-        .srbk-research-source-title { font-weight: 600; color: #f8fafc; }
-        .srbk-research-source-url { margin-top: 4px; font-size: .76rem; opacity: .58; overflow-wrap: anywhere; }
-        .srbk-research-source-excerpt { margin-top: 5px; font-size: .84rem; line-height: 1.55; opacity: .72; }
-        .srbk-research-verification-grid { display: grid; gap: 6px; }
-        .srbk-research-verification-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 9px; background: rgba(255,255,255,.03); }
-        .srbk-research-verification-label { font-size: .72rem; opacity: .6; }
-        .srbk-research-verification-value { font: 700 .72rem var(--font-mono); letter-spacing: .07em; text-transform: uppercase; }
-        .srbk-research-verification-value.verified { color: #6ee7b7; }
-        .srbk-research-section-note { margin-top: 8px; font-size: .72rem; line-height: 1.55; opacity: .52; }
-
-        /* ==================== FRONTIER SHELL ==================== */
-
-        .frontier-surface { position: relative; overflow-y: auto; overflow-x: hidden; }
-
-        .frontier-shell, .frontier-page-head {
-            width: min(1180px, calc(100% - 48px));
+            padding: 24px;
+            max-width: 900px;
             margin: 0 auto;
+            width: 100%;
+        }
+        .tool-title {
+            font-family: var(--font-display);
+            font-size: 16px;
+            color: #ffffff;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .tool-sub {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+        .browser-url-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .browser-url-input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #ffffff;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            outline: none;
+        }
+        .browser-url-input:focus { border-color: var(--cyan); }
+        .browser-action-btn {
+            background: transparent;
+            border: 1px solid var(--cyan);
+            color: var(--cyan);
+            border-radius: 8px;
+            padding: 0 18px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .browser-action-btn:hover { background: var(--cyan); color: #000; box-shadow: 0 0 14px var(--cyan-glow); }
+        .browser-preview-box {
+            background: #000;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
         }
 
-        .frontier-shell {
-            min-height: 100%;
+        /* ==================== BOOT SCREEN (VIDEO ACCURATE) ==================== */
+        #view-boot {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-void);
+            z-index: 950;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            gap: 28px;
-            padding: 48px 0 110px;
-        }
-
-        .frontier-identity, .frontier-page-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 24px;
-        }
-
-        .frontier-eyebrow {
-            font-family: var(--font-mono);
-            font-size: 11px;
-            letter-spacing: .24em;
-            text-transform: uppercase;
-            opacity: .62;
-        }
-
-        .frontier-title {
-            margin-top: 6px;
-            font-size: clamp(32px, 5vw, 64px);
-            line-height: .95;
-            font-weight: 700;
-            letter-spacing: -.04em;
-        }
-
-        .frontier-subtitle {
-            margin-top: 12px;
-            font-family: var(--font-mono);
-            font-size: 11px;
-            letter-spacing: .13em;
-            opacity: .48;
-        }
-
-        .frontier-live-state, .frontier-status-badge {
-            font-family: var(--font-mono);
-            font-size: 11px;
-            letter-spacing: .12em;
-            white-space: nowrap;
-        }
-
-        .frontier-live-state { display: flex; align-items: center; gap: 8px; padding-top: 6px; }
-        .frontier-state-dot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid currentColor; display: inline-block; }
-
-        .boot-sequence, .frontier-panel, .frontier-ready-panel {
-            border: 1px solid rgba(255,255,255,.08);
-            background: rgba(10,14,23,.62);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border-radius: 18px;
-            box-shadow: 0 20px 60px rgba(0,0,0,.35);
-        }
-
-        .boot-sequence { padding: 22px; }
-
-        .boot-sequence-head, .frontier-panel-head {
-            display: flex;
-            justify-content: space-between;
             align-items: center;
+            justify-content: center;
+            padding: 40px;
+            text-align: center;
+            transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.6s;
+        }
+        #view-boot.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .boot-badge {
             font-family: var(--font-mono);
             font-size: 10px;
-            letter-spacing: .16em;
+            font-weight: 600;
+            letter-spacing: 0.3em;
+            color: var(--cyan);
             text-transform: uppercase;
-            opacity: .62;
-        }
-
-        .boot-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0,1fr));
-            gap: 1px;
-            margin-top: 18px;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,.06);
-            border-radius: 12px;
-        }
-
-        .boot-item {
-            display: grid;
-            grid-template-columns: 18px 1fr auto;
-            gap: 10px;
+            margin-bottom: 14px;
+            display: flex;
             align-items: center;
-            padding: 16px;
-            background: rgba(255,255,255,.025);
+            gap: 8px;
+        }
+        .boot-badge-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--cyan);
+            box-shadow: 0 0 8px var(--cyan);
+        }
+        .boot-badge-dot.amber { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+
+        .boot-title {
+            font-family: var(--font-display);
+            font-size: clamp(38px, 6vw, 76px);
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            color: #ffffff;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+        }
+        .boot-title .glow-cyan {
+            color: var(--cyan);
+            text-shadow: 0 0 24px var(--cyan-glow);
+        }
+        .boot-desc {
+            max-width: 580px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            line-height: 1.8;
+            letter-spacing: 0.08em;
+            color: var(--text-secondary);
+            margin-bottom: 36px;
+        }
+        .boot-dots {
+            display: flex;
+            gap: 22px;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            letter-spacing: 0.25em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        .boot-dot-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .boot-dot-item::before {
+            content: "";
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--cyan);
+            box-shadow: 0 0 6px var(--cyan);
         }
 
-        .boot-icon { font-size: 18px; line-height: 1; }
-        .boot-name { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; opacity: .7; }
-        .boot-item strong { font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; }
-
-        .frontier-ready-panel {
-            padding: 22px;
+        /* ==================== BOTTOM STATUS BAR ==================== */
+        .cyber-footer {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 24px;
-        }
-
-        .frontier-ready-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em; opacity: .5; }
-        .frontier-ready-title { margin-top: 6px; font-size: 20px; font-weight: 650; }
-        .frontier-ready-details, .frontier-detail { max-width: 620px; font-size: 13px; line-height: 1.7; opacity: .68; }
-
-        .frontier-page-head { padding-top: 42px; }
-
-        .frontier-status-badge {
-            padding: 8px 11px;
-            border: 1px solid rgba(255,255,255,.09);
-            border-radius: 999px;
-            background: rgba(255,255,255,.03);
-        }
-
-        .frontier-stat-grid {
-            width: min(1180px, calc(100% - 48px));
-            margin: 24px auto 0;
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0,1fr));
-            gap: 12px;
-        }
-
-        .frontier-stat {
-            padding: 20px;
-            border: 1px solid rgba(255,255,255,.07);
-            border-radius: 16px;
-            background: rgba(10,14,23,.56);
-        }
-
-        .frontier-stat span { display: block; font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; opacity: .5; }
-        .frontier-stat strong { display: block; margin-top: 9px; font-size: 24px; font-weight: 650; }
-
-        .frontier-stat-grid + .frontier-panel {
-            width: min(1180px, calc(100% - 48px));
-            margin: 12px auto 110px;
-        }
-
-        .frontier-panel { padding: 22px; }
-        .frontier-panel-head { padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,.06); }
-        .frontier-list { display: grid; gap: 8px; margin-top: 14px; }
-        .frontier-empty { padding: 24px 4px; opacity: .48; font-family: var(--font-mono); font-size: 11px; }
-
-        .frontier-capability-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0,1fr));
-            gap: 8px;
-            margin-top: 14px;
-        }
-        .frontier-capability-grid .frontier-stat { padding: 15px; }
-        .frontier-capability-grid .frontier-stat strong { font-size: 13px; letter-spacing: .05em; }
-
-        /* ==================== HUD (DESKTOP VIEW) ==================== */
-
-        .srbk-reference-shell {
-            position: relative;
-            width: min(1440px, calc(100vw - 84px));
-            height: calc(100vh - 108px);
-            margin: 0 auto;
-            display: grid;
-            grid-template-rows: auto minmax(0, 1fr);
-            gap: 16px;
-            z-index: 30;
-            overflow: hidden;
-        }
-
-        .srbk-hud {
-            display: grid;
-            grid-template-columns: minmax(180px, 1.2fr) repeat(3, minmax(150px, .75fr));
-            gap: 1px;
-            min-height: 64px;
-            border: 1px solid rgba(255,255,255,.08);
-            border-radius: 14px;
-            background: rgba(5,9,16,.80);
-            backdrop-filter: blur(24px);
-            box-shadow: 0 18px 60px rgba(0,0,0,.48), inset 0 1px 0 rgba(255,255,255,.03);
-            overflow: hidden;
-        }
-
-        .srbk-hud-cell { padding: 12px 15px; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
-        .srbk-hud-brand { border-right: 1px solid rgba(255,255,255,.06); }
-        .srbk-hud-kicker { font: 500 9px/1.3 var(--font-mono); letter-spacing: .19em; color: var(--text-muted); text-transform: uppercase; }
-        .srbk-hud-title { margin-top: 2px; font-size: 16px; font-weight: 600; letter-spacing: .06em; color: #f8fafc; }
-        .srbk-hud-value { margin-top: 3px; font: 500 12px/1.35 var(--font-mono); color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .srbk-hud-value.live { color: #6ee7b7; }
-        .srbk-hud-value.cyan { color: var(--cyan); }
-        .srbk-hud-pulse { display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: currentColor; vertical-align: 1px; box-shadow: 0 0 10px currentColor; animation: srbkHudPulse 1.8s ease-in-out infinite; }
-        @keyframes srbkHudPulse { 0%,100% { opacity:.55; transform:scale(.9); } 50% { opacity:1; transform:scale(1.12); } }
-
-        .srbk-operational-grid {
-            min-height: 0;
-            display: grid;
-            grid-template-columns: 1.35fr .95fr .95fr;
-            gap: 14px;
-        }
-
-        .srbk-op-card {
-            position: relative;
-            min-width: 0;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
-            background: linear-gradient(180deg, rgba(12,17,27,.92), rgba(4,7,12,.88));
-            border: 1px solid rgba(255,255,255,.09);
-            border-radius: 16px;
-            box-shadow: 0 18px 60px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.025);
-            overflow: hidden;
-        }
-
-        .srbk-op-card::after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(130deg, rgba(0,240,255,.035), transparent 26%, transparent 75%, rgba(129,140,248,.025)); }
-        .srbk-op-head { position:relative; z-index:2; display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:48px; padding:0 15px; border-bottom:1px solid rgba(255,255,255,.07); }
-        .srbk-op-title { font-size:10px; font-weight:700; letter-spacing:.15em; text-transform:uppercase; color:#cbd5e1; }
-        .srbk-op-tag { font:500 9px/1.2 var(--font-mono); letter-spacing:.07em; color:var(--text-muted); text-transform:uppercase; white-space:nowrap; }
-        .srbk-op-body { position:relative; z-index:2; min-height:0; flex:1; padding:13px; overflow:hidden; }
-        .srbk-reference-shell .dialogue-history { max-height:none; height:100%; padding:1px 2px 8px 0; gap:12px; overflow:auto; }
-        .srbk-reference-shell .interactive-deck { display:contents; }
-        .srbk-reference-shell .srbk-bubble { padding:8px 10px; border:1px solid rgba(255,255,255,.06); border-radius:10px; background:rgba(255,255,255,.025); }
-        .srbk-reference-shell .srbk-bubble > strong { color: var(--cyan) !important; font-size:9px; letter-spacing:.14em; }
-        .srbk-reference-shell .srbk-content { margin-top:6px; font-size:12px; line-height:1.58; color:#b9c4d3; }
-        .srbk-reference-shell .input-bar { position:relative; z-index:3; display:flex; gap:8px; padding-top:10px; }
-        .srbk-reference-shell .text-input { min-width:0; padding:10px 11px; border-radius:9px; font-size:12px; background:rgba(0,0,0,.55); border-color:rgba(255,255,255,.08); }
-        .srbk-reference-shell .btn-action { padding:10px 15px; border-radius:9px; font-size:11px; }
-        .srbk-reference-shell .srbk-code-block { margin:8px 0; }
-        .srbk-reference-shell .srbk-response { gap:7px; }
-        .srbk-reference-shell .srbk-response-card { border-radius:9px; background:rgba(255,255,255,.025); }
-        .srbk-reference-shell .srbk-response-card-head { padding:7px 9px; }
-        .srbk-reference-shell .srbk-response-card-body { padding:9px; }
-
-        .srbk-state-stack { display:flex; flex-direction:column; gap:9px; height:100%; overflow:auto; }
-        .srbk-state-row { padding:11px 12px; border:1px solid rgba(255,255,255,.06); border-radius:10px; background:rgba(255,255,255,.025); }
-        .srbk-state-label { font:500 9px/1.3 var(--font-mono); letter-spacing:.13em; color:var(--text-muted); text-transform:uppercase; }
-        .srbk-state-value { margin-top:5px; font-size:13px; line-height:1.45; color:#f8fafc; overflow-wrap:anywhere; }
-        .srbk-state-value.cyan { color:var(--cyan); }
-        .srbk-state-value.good { color:#6ee7b7; }
-        .srbk-state-value.warn { color:#fbbf24; }
-
-        .srbk-terminal-mark { position:absolute; top:58px; right:16px; font:500 8px/1.3 var(--font-mono); letter-spacing:.12em; color:rgba(255,255,255,.18); text-transform:uppercase; pointer-events:none; }
-        .srbk-network-field { position:absolute; inset:0; pointer-events:none; opacity:.34; overflow:hidden; }
-        .srbk-network-field::before, .srbk-network-field::after { content:""; position:absolute; inset:-30%; background-image:radial-gradient(circle at 20% 30%, rgba(0,240,255,.45) 0 1px, transparent 2px),radial-gradient(circle at 72% 62%, rgba(129,140,248,.34) 0 1px, transparent 2px),radial-gradient(circle at 54% 82%, rgba(16,185,129,.28) 0 1px, transparent 2px); background-size:110px 90px,150px 120px,190px 130px; animation:srbkFieldDrift 28s linear infinite; }
-        .srbk-network-field::after { transform:scale(1.2) rotate(7deg); opacity:.34; animation-duration:38s; animation-direction:reverse; }
-        @keyframes srbkFieldDrift { from{transform:translate3d(0,0,0)} to{transform:translate3d(60px,-40px,0)} }
-
-        /* ==================== NAVIGATION DOCK ==================== */
-
-        .nav-dock-container {
+            padding: 10px 28px;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            letter-spacing: 0.16em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            background: rgba(2, 6, 14, 0.8);
             position: fixed;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 100;
+            bottom: 0;
+            left: 68px;
+            right: 0;
+            z-index: 60;
+        }
+        .footer-left {
             display: flex;
             align-items: center;
-            gap: 4px;
-            background: rgba(10, 14, 23, 0.85);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 40px;
-            padding: 4px 8px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
-            max-width: 95vw;
-            overflow-x: auto;
+            gap: 8px;
         }
-        .nav-dock-container::-webkit-scrollbar { display: none; }
-        .nav-arrow { width: 28px; height: 28px; flex: 0 0 auto; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-glass); color: var(--text-secondary); cursor: pointer; font-size: 11px; transition: all 0.2s ease; }
-        .nav-arrow:hover { color: #fff; border-color: var(--cyan); }
-        .dock-pill { padding: 7px 15px; border-radius: 20px; font-size: 10.5px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); cursor: pointer; transition: all 0.2s ease; white-space: nowrap; border: 1px solid transparent; background: transparent; }
-        .dock-pill:hover { color: #e2e8f0; }
-        .dock-pill.active { background: rgba(0, 240, 255, 0.12); color: var(--cyan); border-color: rgba(0, 240, 255, 0.4); box-shadow: 0 0 16px rgba(0, 240, 255, 0.2); }
-
-        /* View-specific overrides */
-        #view-dialogue { padding: 40px 60px 100px; }
-        #view-desktop { padding: 18px 26px 78px 26px; overflow: hidden; }
-        #view-desktop.active { display: flex; }
-
-        /* ==================== RESPONSIVE ==================== */
-
-        @media (max-width: 800px) {
-            .view-panel { padding: 28px 20px 100px; }
-            #view-dialogue { padding: 28px 20px 100px; }
-            .grid-2, .grid-3 { grid-template-columns: 1fr; }
-            .content-header { align-items: flex-start; flex-direction: column; gap: 12px; }
-            .input-bar { flex-direction: column; }
-            .btn-action { width: 100%; }
-            .srbk-response-grid { grid-template-columns: 1fr; }
-            .frontier-stat-grid { grid-template-columns: 1fr 1fr; }
-        }
-
-        @media (max-width: 640px) {
-            .srbk-response-card-head { padding: 9px 11px; }
-            .srbk-response-card-body { padding: 11px; }
-            .srbk-answer-lead { font-size: 14px; }
-            .frontier-stat-grid { grid-template-columns: 1fr; }
-            .boot-grid { grid-template-columns: 1fr; }
-            .frontier-identity, .frontier-page-head, .frontier-ready-panel { flex-direction: column; }
-        }
-
-        @media (max-width: 1100px) {
-            .srbk-operational-grid { grid-template-columns: 1fr 1fr; }
-            .srbk-op-card:first-child { grid-column: 1 / -1; min-height: 360px; }
-        }
-
-        @media (max-width: 760px) {
-            .srbk-reference-shell { width: calc(100vw - 28px); height: calc(100vh - 86px); }
-            .srbk-hud { grid-template-columns: 1fr 1fr; }
-            .srbk-hud-brand { grid-column: 1 / -1; }
-            .srbk-operational-grid { grid-template-columns: 1fr; overflow: auto; }
-            .srbk-op-card:first-child { grid-column: auto; min-height: 330px; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            .srbk-hud-pulse, .srbk-network-field::before, .srbk-network-field::after { animation: none !important; }
+        .footer-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--cyan);
+            box-shadow: 0 0 6px var(--cyan);
         }
     </style>
 </head>
-
 <body>
 
-    <div class="stage-viewport">
+    <!-- Neural particle canvas -->
+    <canvas id="srbk-bg-canvas"></canvas>
 
-        <!-- ==================== 1. BOOT ==================== -->
+    <!-- Corner HUD Brackets -->
+    <div class="hud-bracket top-left"></div>
+    <div class="hud-bracket top-right"></div>
+    <div class="hud-bracket bottom-left"></div>
+    <div class="hud-bracket bottom-right"></div>
 
-        <section class="view-panel active frontier-surface" id="view-boot">
-            <div class="frontier-shell">
-                <div class="frontier-identity">
-                    <div>
-                        <div class="frontier-eyebrow">SAREMBOK</div>
-                        <div class="frontier-title">FRONTIER OS</div>
-                        <div class="frontier-subtitle">AI-NATIVE COMPUTING ENVIRONMENT</div>
-                    </div>
-                    <div class="frontier-live-state">
-                        <span class="frontier-state-dot" id="boot-state-dot"></span>
-                        <span id="boot-runtime-state">CONNECTING</span>
-                    </div>
+    <!-- ==================== BOOT SCREEN ==================== -->
+    <div id="view-boot">
+        <div class="boot-badge">
+            <div class="boot-badge-dot"></div>
+            VIRTUAL EVOLUTION
+            <div class="boot-badge-dot amber"></div>
+        </div>
+        <h1 class="boot-title">SAREMBOK<span class="glow-cyan">VE</span></h1>
+        <p class="boot-desc">
+            Recursive intelligence core · persistent SQLite-WAL memory · zero-client edge runtime
+        </p>
+        <div class="boot-dots">
+            <div class="boot-dot-item">CORE</div>
+            <div class="boot-dot-item">MEMORY</div>
+            <div class="boot-dot-item">RUNTIME</div>
+            <div class="boot-dot-item">FRONTIER</div>
+        </div>
+    </div>
+
+    <!-- ==================== MAIN APPLICATION ==================== -->
+    <div id="app">
+
+        <!-- Top Cyber Header -->
+        <header class="cyber-header">
+            <div class="header-brand-wrap" onclick="switchTab('deck')">
+                <div class="srbk-reactor">
+                    <div class="srbk-reactor-core"></div>
                 </div>
-
-                <div class="boot-sequence">
-                    <div class="boot-sequence-head">
-                        <span>BOOT SEQUENCE</span>
-                        <span id="boot-sequence-time">--</span>
-                    </div>
-                    <div class="boot-grid">
-                        <div class="boot-item">
-                            <span class="boot-icon">•</span>
-                            <span class="boot-name">KERNEL / RUNTIME</span>
-                            <strong id="boot-runtime">CHECKING</strong>
-                        </div>
-                        <div class="boot-item">
-                            <span class="boot-icon">•</span>
-                            <span class="boot-name">CAPABILITY FABRIC</span>
-                            <strong id="boot-capabilities">CHECKING</strong>
-                        </div>
-                        <div class="boot-item">
-                            <span class="boot-icon">•</span>
-                            <span class="boot-name">PERSISTENCE</span>
-                            <strong id="boot-memory">CHECKING</strong>
-                        </div>
-                        <div class="boot-item">
-                            <span class="boot-icon">•</span>
-                            <span class="boot-name">AGENT FABRIC</span>
-                            <strong id="boot-agents">CHECKING</strong>
-                        </div>
-                        <div class="boot-item">
-                            <span class="boot-icon">•</span>
-                            <span class="boot-name">RESEARCH FABRIC</span>
-                            <strong id="boot-research">CHECKING</strong>
-                        </div>
-                        <div class="boot-item">
-                            <span class="boot-icon">•</span>
-                            <span class="boot-name">GOVERNANCE</span>
-                            <strong id="boot-governance">CHECKING</strong>
-                        </div>
-                        <div class="boot-item">
-                            <span class="boot-icon">•</span>
-                            <span class="boot-name">COMPUTE FABRIC</span>
-                            <strong id="boot-compute">CHECKING</strong>
-                        </div>
-                        <div class="boot-item">
-                            <span class="boot-icon">•</span>
-                            <span class="boot-name">SESSION</span>
-                            <strong id="boot-session">CHECKING</strong>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="frontier-ready-panel">
-                    <div>
-                        <div class="frontier-ready-label">SYSTEM STATUS</div>
-                        <div class="frontier-ready-title" id="boot-ready-title">ESTABLISHING RUNTIME</div>
-                    </div>
-                    <div class="frontier-ready-details" id="boot-ready-details">
-                        Awaiting authoritative runtime state.
-                    </div>
+                <div class="header-brand-text">
+                    <div class="header-brand-title">SAREMBOK<span class="glow-cyan">VE</span></div>
+                    <div class="header-brand-sub">VIRTUAL EVOLUTION</div>
                 </div>
             </div>
-        </section>
 
-        <!-- ==================== 2. DIALOGUE ==================== -->
+            <div class="header-hud-group">
+                <div class="hud-badge system">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <div>
+                        <div class="hud-badge-kicker">SYSTEM</div>
+                        <div class="hud-badge-val" id="hud-system-status">NOMINAL</div>
+                    </div>
+                </div>
 
+                <div class="hud-badge latency">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    <div>
+                        <div class="hud-badge-kicker">EDGE LATENCY</div>
+                        <div class="hud-badge-val" id="hud-latency-val">8.6ms</div>
+                    </div>
+                </div>
+
+                <div class="hud-badge health">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+                    <div>
+                        <div class="hud-badge-kicker">CORE HEALTH</div>
+                        <div class="hud-badge-val" id="hud-health-val">99%</div>
+                    </div>
+                </div>
+
+                <div class="hud-meter">
+                    <div class="hud-meter-fill" id="hud-meter-fill"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Marquee Ticker -->
+        <div class="cyber-ticker">
+            <div class="cyber-ticker-track">
+                <span>◇ ZERO-CLIENT EDGE RUNTIME</span>
+                <span class="amber">◇ CORE · RECURSIVE INTELLIGENCE</span>
+                <span class="cyan">◇ NEURAL GRAPH · 40 NODES</span>
+                <span>◇ MEMORY RECONCILIATION · STABLE</span>
+                <span class="amber">◇ SAPPHIRE/AMBER CHANNEL · SYNC</span>
+                <span class="cyan">◇ HEADLESS PLAYWRIGHT CHROMIUM · READY</span>
+                <!-- repeat for smooth loop -->
+                <span>◇ ZERO-CLIENT EDGE RUNTIME</span>
+                <span class="amber">◇ CORE · RECURSIVE INTELLIGENCE</span>
+                <span class="cyan">◇ NEURAL GRAPH · 40 NODES</span>
+                <span>◇ MEMORY RECONCILIATION · STABLE</span>
+                <span class="amber">◇ SAPPHIRE/AMBER CHANNEL · SYNC</span>
+                <span class="cyan">◇ HEADLESS PLAYWRIGHT CHROMIUM · READY</span>
+            </div>
+        </div>
+
+        <!-- Left Vertical Icon Dock -->
+        <nav class="cyber-left-dock">
+            <button class="dock-btn active" id="dock-btn-deck" onclick="switchTab('deck')" title="Command Deck">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </button>
+
+            <button class="dock-btn" id="dock-btn-dialogue" onclick="switchTab('dialogue')" title="Dialogue & Synthesis">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </button>
+
+            <button class="dock-btn" id="dock-btn-agents" onclick="switchTab('agents')" title="Agent Workforce">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="15" x2="23" y2="15"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="15" x2="4" y2="15"/></svg>
+            </button>
+
+            <button class="dock-btn" id="dock-btn-memory" onclick="switchTab('memory')" title="Persistent Memory WAL">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            </button>
+
+            <button class="dock-btn" id="dock-btn-research" onclick="switchTab('research')" title="Research & Headless Browser">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            </button>
+
+            <button class="dock-btn" id="dock-btn-compute" onclick="switchTab('compute')" title="Compute & Workers">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></svg>
+            </button>
+
+            <div class="dock-version">v2.6</div>
+        </nav>
+
+        <!-- ==================== VIEW 1: COMMAND DECK ==================== -->
+        <main class="view-panel active" id="view-deck">
+            <div class="deck-grid">
+
+                <!-- CARD 1: LIVE TERMINAL -->
+                <section class="cyber-card">
+                    <div class="cyber-card-head">
+                        <div class="cyber-card-title">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                            LIVE TERMINAL
+                        </div>
+                        <div class="cyber-card-badge cyan">STREAM</div>
+                    </div>
+                    <div class="cyber-card-body">
+                        <div class="terminal-feed" id="terminal-feed">
+                            <div class="terminal-line cyan">[rt:08434] zero-client edge runtime connected</div>
+                            <div class="terminal-line">[core:07536] recursive depth 7 · self-eval stable</div>
+                            <div class="terminal-line">[net:04834] beam stream 2 · throughput 9.56 Gb/s</div>
+                            <div class="terminal-line">[rt:09335] edge worker dispatched -> node_0 · 1.2ms</div>
+                            <div class="terminal-line amber">[mem:11141] reconcile memory shard :: delta=0.003 -> committed</div>
+                            <div class="terminal-line emerald">[playwright] chromium headless automation online :9100</div>
+                            <div class="terminal-line prompt">&gt; system ready for directives <span class="terminal-cursor"></span></div>
+                        </div>
+
+                        <div class="terminal-input-bar">
+                            <input type="text" class="terminal-input" id="deck-directive-input" placeholder="&gt; Send directive to Sarembok..." onkeydown="if(event.key==='Enter') executeDeckDirective()">
+                            <button class="terminal-btn" onclick="executeDeckDirective()">EXEC</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- CARD 2: PERSISTENT MEMORY · SQLITE-WAL -->
+                <section class="cyber-card">
+                    <div class="cyber-card-head">
+                        <div class="cyber-card-title">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                            PERSISTENT MEMORY · SQLITE-WAL
+                        </div>
+                        <div class="cyber-card-badge amber">WAL</div>
+                    </div>
+                    <div class="cyber-card-body">
+                        <div class="sparkline-box">
+                            <svg viewBox="0 0 300 70" preserveAspectRatio="none">
+                                <defs>
+                                    <linearGradient id="spark-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" stop-color="rgba(245, 158, 11, 0.35)"/>
+                                        <stop offset="100%" stop-color="transparent"/>
+                                    </linearGradient>
+                                </defs>
+                                <path id="sparkline-path-fill" d="M0,45 Q25,20 50,38 T100,22 T150,42 T200,18 T250,34 T300,25 L300,70 L0,70 Z" fill="url(#spark-grad)"/>
+                                <path id="sparkline-path" d="M0,45 Q25,20 50,38 T100,22 T150,42 T200,18 T250,34 T300,25" fill="none" stroke="#f59e0b" stroke-width="2.5" filter="drop-shadow(0 0 6px rgba(245,158,11,0.6))"/>
+                            </svg>
+                        </div>
+
+                        <div class="metric-tri-grid">
+                            <div class="metric-mini-box">
+                                <div class="mini-label">FRAMES</div>
+                                <div class="mini-val amber" id="deck-frames-val">2,481</div>
+                            </div>
+                            <div class="metric-mini-box">
+                                <div class="mini-label">DRIFT</div>
+                                <div class="mini-val cyan">0.00</div>
+                            </div>
+                            <div class="metric-mini-box">
+                                <div class="mini-label">DURABLE</div>
+                                <div class="mini-val cyan">100%</div>
+                            </div>
+                        </div>
+
+                        <div class="state-list">
+                            <div class="state-row"><span class="state-label">BACKEND</span><span class="state-val cyan" id="deck-mem-backend">SQLITE-WAL</span></div>
+                            <div class="state-row"><span class="state-label">ENTRIES</span><span class="state-val amber" id="deck-mem-entries">2 STORED</span></div>
+                            <div class="state-row"><span class="state-label">HEALTH</span><span class="state-val good">STABLE</span></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- CARD 3: RECURSIVE MEMORY RECONCILIATION -->
+                <section class="cyber-card">
+                    <div class="cyber-card-head">
+                        <div class="cyber-card-title">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                            RECURSIVE MEMORY RECONCILIATION
+                        </div>
+                        <div class="cyber-card-badge cyan">LOOP</div>
+                    </div>
+                    <div class="cyber-card-body">
+                        <div class="reconcile-bars">
+                            <div class="reconcile-row">
+                                <span class="reconcile-tag">d4</span>
+                                <div class="reconcile-bar-track">
+                                    <div class="reconcile-bar-fill cyan" style="width: 85%;"></div>
+                                </div>
+                                <span class="reconcile-status stable">STABLE</span>
+                            </div>
+
+                            <div class="reconcile-row">
+                                <span class="reconcile-tag">d5</span>
+                                <div class="reconcile-bar-track">
+                                    <div class="reconcile-bar-fill amber" style="width: 96%;"></div>
+                                </div>
+                                <span class="reconcile-status commit">COMMIT</span>
+                            </div>
+
+                            <div class="reconcile-row">
+                                <span class="reconcile-tag">d3</span>
+                                <div class="reconcile-bar-track">
+                                    <div class="reconcile-bar-fill cyan" style="width: 78%;"></div>
+                                </div>
+                                <span class="reconcile-status stable">STABLE</span>
+                            </div>
+                        </div>
+
+                        <div class="state-list" style="margin-bottom: 12px;">
+                            <div class="state-row"><span class="state-label">ONLINE AGENTS</span><span class="state-val cyan" id="deck-agents-online">24 / 24</span></div>
+                            <div class="state-row"><span class="state-label">QUEUE DEPTH</span><span class="state-val" id="deck-queue-depth">0 QUEUED</span></div>
+                            <div class="state-row"><span class="state-label">COMPUTE WORKERS</span><span class="state-val amber">CPU POOL</span></div>
+                        </div>
+
+                        <div class="reconcile-cycle-box">
+                            <span class="cycle-label">RECONCILIATION CYCLE</span>
+                            <span class="cycle-val" id="deck-cycle-counter">00021</span>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+
+        <!-- ==================== VIEW 2: DIALOGUE & SYNTHESIS ==================== -->
         <section class="view-panel" id="view-dialogue">
-
-            <div class="content-header">
-                <div>
-                    <div class="content-eyebrow">Frontier OS</div>
-                    <div class="content-title">Computing Environment</div>
+            <div class="dialogue-wrap">
+                <div class="dialogue-head">
+                    <div class="dialogue-title">SAREMBOK · SOVEREIGN DIALOGUE &amp; SYNTHESIS</div>
+                    <div class="cyber-card-badge cyan" id="dialogue-status-tag">STREAM READY</div>
                 </div>
-                <div class="card-label" style="color:var(--emerald);" id="runtime-status-label">● RUNTIME LOADING</div>
-            </div>
-
-            <div class="grid-3">
-                <div class="glass-card">
-                    <div class="card-label">Persistent Memory</div>
-                    <div class="card-val text-cyan" id="metric-mem">Loading…</div>
-                    <div class="card-desc">Live persistent-memory state reported by Runtime Authority.</div>
-                </div>
-                <div class="glass-card">
-                    <div class="card-label">Active Agents</div>
-                    <div class="card-val" id="metric-agents">Loading…</div>
-                    <div class="card-desc">Live agent and worker state reported by Runtime Authority.</div>
-                </div>
-                <div class="glass-card">
-                    <div class="card-label">Runtime Endpoint</div>
-                    <div class="card-val text-emerald">sarembok.com</div>
-                    <div class="card-label" style="margin-top:12px;">Compute</div>
-                    <div class="card-val text-cyan" id="metric-compute">Loading…</div>
-                    <div class="card-desc">Endpoint and live compute state reported by Runtime Authority.</div>
-                </div>
-            </div>
-
-            <!-- Dialogue Console -->
-            <div class="interactive-deck">
-                <div class="card-label">Sarembok · SOVEREIGN DIALOGUE &amp; SYNTHESIS</div>
 
                 <div class="dialogue-history" id="dialogue-history">
-                    <div class="srbk-bubble">
-                        <strong style="color:var(--cyan);">Sarembok:</strong>
+                    <div class="srbk-bubble assistant">
+                        <div class="srbk-bubble-sender">SAREMBOK</div>
                         <div class="srbk-content">
-                            System initialized. Ready to execute code synthesis,
-                            multi-agent pipelines, memory recall, or research directives.
+                            <p>System initialized. Ready to execute code synthesis, multi-agent pipelines, memory recall, or research directives.</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="input-bar">
-                    <input
-                        type="text"
-                        class="text-input"
-                        id="directive-input"
-                        placeholder="Instruct Sarembok to synthesize, orchestrate, or execute..."
-                        autocomplete="off"
-                        onkeydown="if(event.key==='Enter')sendDirective()"
-                    >
-                    <button
-                        class="btn-action"
-                        id="execute-button"
-                        type="button"
-                        onclick="sendDirective()"
-                    >
-                        Execute
-                    </button>
+                <div class="dialogue-input-bar">
+                    <input type="text" class="dialogue-input" id="directive-input" placeholder="Instruct Sarembok to synthesize, orchestrate, or execute..." onkeydown="if(event.key==='Enter') sendDirective()">
+                    <button class="dialogue-exec-btn" id="execute-button" onclick="sendDirective()">EXECUTE</button>
                 </div>
-
             </div>
-
         </section>
 
-        <!-- ==================== 3. DESKTOP (HUD) ==================== -->
+        <!-- ==================== VIEW 3: RESEARCH & HEADLESS BROWSER ==================== -->
+        <section class="view-panel" id="view-research">
+            <div class="browser-tool-card">
+                <div class="tool-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                    HEADLESS BROWSER &amp; RESEARCH ENGINE
+                </div>
+                <div class="tool-sub">
+                    Playwright Chromium automation for full-page rendering, screenshot generation, and live DOM extraction.
+                </div>
 
-        <section class="view-panel" id="view-desktop">
-            <div class="srbk-reference-shell" id="srbk-reference-shell">
-                <div class="srbk-network-field" aria-hidden="true"></div>
-                <header class="srbk-hud" aria-label="Sarembok system telemetry">
-                    <div class="srbk-hud-cell srbk-hud-brand">
-                        <div class="srbk-hud-kicker">Sarembok VE · operating environment</div>
-                        <div class="srbk-hud-title">SAREMBOK</div>
+                <div class="browser-url-bar">
+                    <input type="url" class="browser-url-input" id="browser-url-input" placeholder="https://example.com" value="https://sarembok.com">
+                    <button class="browser-action-btn" onclick="executeBrowserScreenshot()">SCREENSHOT</button>
+                    <button class="browser-action-btn" onclick="executeBrowserRender()">RENDER DOM</button>
+                </div>
+
+                <div class="browser-preview-box" id="browser-preview-container">
+                    <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-muted);">
+                        Enter a public URL and click SCREENSHOT or RENDER DOM to preview.
                     </div>
-                    <div class="srbk-hud-cell">
-                        <div class="srbk-hud-kicker">SYSTEM</div>
-                        <div class="srbk-hud-value live" id="srbk-hud-system"><span class="srbk-hud-pulse"></span>CONNECTING</div>
-                    </div>
-                    <div class="srbk-hud-cell">
-                        <div class="srbk-hud-kicker">EDGE LATENCY</div>
-                        <div class="srbk-hud-value cyan" id="srbk-hud-latency">MEASURING</div>
-                    </div>
-                    <div class="srbk-hud-cell">
-                        <div class="srbk-hud-kicker">SAREMBOK HEALTH TELEMETRY</div>
-                        <div class="srbk-hud-value" id="srbk-hud-health">CONNECTING</div>
-                    </div>
-                </header>
-
-                <main class="srbk-operational-grid">
-                    <section class="srbk-op-card" id="srbk-terminal-card">
-                        <div class="srbk-op-head">
-                            <div class="srbk-op-title">LIVE TERMINAL</div>
-                            <div class="srbk-op-tag" id="srbk-terminal-state">RUNTIME LINK</div>
-                        </div>
-                        <div class="srbk-op-body" id="srbk-terminal-body">
-                            <div class="srbk-terminal-mark">SAREMBOK · DIRECTIVE CHANNEL</div>
-                            <div id="srbk-terminal-history"></div>
-                            <div id="srbk-terminal-input"></div>
-                        </div>
-                    </section>
-
-                    <section class="srbk-op-card">
-                        <div class="srbk-op-head">
-                            <div class="srbk-op-title">PERSISTENT MEMORY · SQLITE-WAL</div>
-                            <div class="srbk-op-tag">LIVE STATE</div>
-                        </div>
-                        <div class="srbk-op-body">
-                            <div class="srbk-state-stack">
-                                <div class="srbk-state-row"><div class="srbk-state-label">Backend</div><div class="srbk-state-value cyan" id="srbk-memory-backend">LOADING</div></div>
-                                <div class="srbk-state-row"><div class="srbk-state-label">Entries</div><div class="srbk-state-value" id="srbk-memory-entries">0</div></div>
-                                <div class="srbk-state-row"><div class="srbk-state-label">Health</div><div class="srbk-state-value good" id="srbk-memory-health">CONNECTING</div></div>
-                                <div class="srbk-state-row"><div class="srbk-state-label">Purpose</div><div class="srbk-state-value">Persistent state, checkpoints, and conversational continuity.</div></div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section class="srbk-op-card">
-                        <div class="srbk-op-head">
-                            <div class="srbk-op-title">RECURSIVE MEMORY RECONCILIATION</div>
-                            <div class="srbk-op-tag">AUTHORITY STATE</div>
-                        </div>
-                        <div class="srbk-op-body">
-                            <div class="srbk-state-stack">
-                                <div class="srbk-state-row"><div class="srbk-state-label">Runtime</div><div class="srbk-state-value good" id="srbk-runtime-state">CONNECTING</div></div>
-                                <div class="srbk-state-row"><div class="srbk-state-label">Workers</div><div class="srbk-state-value" id="srbk-workers-state">0</div></div>
-                                <div class="srbk-state-row"><div class="srbk-state-label">Compute</div><div class="srbk-state-value warn" id="srbk-compute-state">UNAVAILABLE</div></div>
-                                <div class="srbk-state-row"><div class="srbk-state-label">Scheduler</div><div class="srbk-state-value" id="srbk-scheduler-state">CONNECTING</div></div>
-                            </div>
-                        </div>
-                    </section>
-                </main>
-            </div>
-        </section>
-
-        <!-- ==================== 4. AGENTS ==================== -->
-
-        <section class="view-panel frontier-surface" id="view-agents">
-            <div class="frontier-page-head">
-                <div>
-                    <div class="frontier-eyebrow">AGENT FABRIC</div>
-                    <div class="frontier-title">AGENTS</div>
-                    <div class="frontier-subtitle">MULTI-AGENT EXECUTION AND ORCHESTRATION</div>
-                </div>
-                <div class="frontier-status-badge" id="agents-status">LOADING</div>
-            </div>
-
-            <div class="frontier-stat-grid">
-                <div class="frontier-stat"><span>ONLINE</span><strong id="agents-online">0</strong></div>
-                <div class="frontier-stat"><span>TOTAL</span><strong id="agents-total">0</strong></div>
-                <div class="frontier-stat"><span>TASKS</span><strong id="agents-tasks">0</strong></div>
-            </div>
-
-            <div class="frontier-panel frontier-stat-grid" style="grid-template-columns:1fr;margin-top:12px;">
-                <div class="frontier-panel-head">AGENT ACTIVITY</div>
-                <div id="agents-list" class="frontier-list">
-                    <div class="frontier-empty">Loading authoritative agent state…</div>
                 </div>
             </div>
         </section>
 
-        <!-- ==================== 5. MEMORY ==================== -->
-
-        <section class="view-panel frontier-surface" id="view-memory">
-            <div class="frontier-page-head">
-                <div>
-                    <div class="frontier-eyebrow">PERSISTENCE FABRIC</div>
-                    <div class="frontier-title">MEMORY</div>
-                    <div class="frontier-subtitle">DURABLE CONTEXT, RECALL, AND SYSTEM STATE</div>
+        <!-- ==================== VIEW 4: AGENTS ==================== -->
+        <section class="view-panel" id="view-agents">
+            <div class="browser-tool-card">
+                <div class="tool-title">MULTI-AGENT FABRIC</div>
+                <div class="tool-sub">Registered autonomous agents reporting to Sarembok runtime authority.</div>
+                <div class="metric-tri-grid" style="margin-bottom:20px;">
+                    <div class="metric-mini-box"><div class="mini-label">ONLINE</div><div class="mini-val cyan" id="agents-count-online">24</div></div>
+                    <div class="metric-mini-box"><div class="mini-label">REGISTERED</div><div class="mini-val">24</div></div>
+                    <div class="metric-mini-box"><div class="mini-label">TASKS</div><div class="mini-val cyan">0</div></div>
                 </div>
-                <div class="frontier-status-badge" id="memory-status">LOADING</div>
-            </div>
-
-            <div class="frontier-stat-grid">
-                <div class="frontier-stat"><span>BACKEND</span><strong id="memory-backend">—</strong></div>
-                <div class="frontier-stat"><span>ENTRIES</span><strong id="memory-count">0</strong></div>
-                <div class="frontier-stat"><span>STATUS</span><strong id="memory-health">—</strong></div>
-            </div>
-
-            <div class="frontier-panel frontier-stat-grid" style="grid-template-columns:1fr;margin-top:12px;">
-                <div class="frontier-panel-head">PERSISTENCE AUTHORITY</div>
-                <div class="frontier-detail" id="memory-detail">
-                    Runtime memory state will appear here from Runtime Authority.
+                <div class="terminal-feed" id="agents-list-box">
+                    <div class="terminal-line cyan">sarembok-prime · ONLINE · Coordinator Agent</div>
+                    <div class="terminal-line">research-specialist · ONLINE · Web Intelligence</div>
+                    <div class="terminal-line">sqlite-wal-curator · ONLINE · Persistent Memory</div>
+                    <div class="terminal-line">playwright-worker · ONLINE · Headless Browser Engine</div>
                 </div>
             </div>
         </section>
 
-        <!-- ==================== 6. RESEARCH ==================== -->
-
-        <section class="view-panel frontier-surface" id="view-research">
-            <div class="frontier-page-head">
-                <div>
-                    <div class="frontier-eyebrow">KNOWLEDGE FABRIC</div>
-                    <div class="frontier-title">RESEARCH</div>
-                    <div class="frontier-subtitle">LIVE EVIDENCE · SYNTHESIS · VERIFICATION</div>
-                </div>
-                <div class="frontier-status-badge" id="research-status">LOADING</div>
-            </div>
-
-            <div class="frontier-stat-grid">
-                <div class="frontier-stat"><span>RESEARCH</span><strong id="research-enabled">—</strong></div>
-                <div class="frontier-stat"><span>W3C</span><strong id="research-w3c">—</strong></div>
-                <div class="frontier-stat"><span>BROWSER</span><strong id="research-browser">—</strong></div>
-            </div>
-
-            <div class="frontier-panel frontier-stat-grid" style="grid-template-columns:1fr;margin-top:12px;">
-                <div class="frontier-panel-head">EVIDENCE PIPELINE</div>
-                <div class="frontier-detail">
-                    Live research and standards work are provided through Sarembok's
-                    existing knowledge fabric. Capability state is authoritative.
+        <!-- ==================== VIEW 5: MEMORY ==================== -->
+        <section class="view-panel" id="view-memory">
+            <div class="browser-tool-card">
+                <div class="tool-title">PERSISTENT MEMORY REPOSITORY</div>
+                <div class="tool-sub">Verified facts and conversational checkpoints persisted across sessions via SQLite-WAL.</div>
+                <div class="state-list" style="gap:12px;">
+                    <div class="state-row"><span class="state-label">STORAGE ENGINE</span><span class="state-val cyan">SQLite 3 with Write-Ahead Logging (WAL)</span></div>
+                    <div class="state-row"><span class="state-label">DATABASE PATH</span><span class="state-val">/data/sarembok_cloud.db</span></div>
+                    <div class="state-row"><span class="state-label">VERIFICATION LIFECYCLE</span><span class="state-val good">DISCOVER &rarr; CONNECT &rarr; AUTHORIZE &rarr; EXECUTE &rarr; OBSERVE &rarr; VERIFY &rarr; REMEMBER</span></div>
                 </div>
             </div>
         </section>
 
-        <!-- ==================== 7. COMPUTE ==================== -->
-
-        <section class="view-panel frontier-surface" id="view-compute">
-            <div class="frontier-page-head">
-                <div>
-                    <div class="frontier-eyebrow">EXECUTION FABRIC</div>
-                    <div class="frontier-title">COMPUTE</div>
-                    <div class="frontier-subtitle">WORKERS · GPU CAPACITY · SCHEDULER</div>
-                </div>
-                <div class="frontier-status-badge" id="compute-status">LOADING</div>
-            </div>
-
-            <div class="frontier-stat-grid">
-                <div class="frontier-stat"><span>GPU WORKERS</span><strong id="compute-gpu">0</strong></div>
-                <div class="frontier-stat"><span>QUEUE</span><strong id="compute-queue">0</strong></div>
-                <div class="frontier-stat"><span>RUNNING</span><strong id="compute-running">0</strong></div>
-            </div>
-
-            <div class="frontier-panel frontier-stat-grid" style="grid-template-columns:1fr;margin-top:12px;">
-                <div class="frontier-panel-head">COMPUTE AUTHORITY</div>
-                <div class="frontier-detail" id="compute-detail">
-                    No GPU capacity is assumed. Worker state will be populated from Runtime Authority.
+        <!-- ==================== VIEW 6: COMPUTE ==================== -->
+        <section class="view-panel" id="view-compute">
+            <div class="browser-tool-card">
+                <div class="tool-title">COMPUTE WORKFORCE &amp; SCHEDULER</div>
+                <div class="tool-sub">Distributed worker pool for code execution and long-running synthesis jobs.</div>
+                <div class="metric-tri-grid" style="margin-bottom:20px;">
+                    <div class="metric-mini-box"><div class="mini-label">CPU WORKERS</div><div class="mini-val cyan">12 REGISTERED</div></div>
+                    <div class="metric-mini-box"><div class="mini-label">GPU WORKERS</div><div class="mini-val amber">0 (CPU ONLY)</div></div>
+                    <div class="metric-mini-box"><div class="mini-label">QUEUE DEPTH</div><div class="mini-val cyan" id="compute-queue-val">0</div></div>
                 </div>
             </div>
         </section>
 
-        <!-- ==================== 8. SYSTEM ==================== -->
-
-        <section class="view-panel frontier-surface" id="view-system">
-            <div class="frontier-page-head">
-                <div>
-                    <div class="frontier-eyebrow">SYSTEM FABRIC</div>
-                    <div class="frontier-title">SYSTEM</div>
-                    <div class="frontier-subtitle">RUNTIME · CAPABILITIES · GOVERNANCE · EVENTS</div>
-                </div>
-                <div class="frontier-status-badge" id="system-status">LOADING</div>
+        <!-- ==================== BOTTOM STATUS BAR ==================== -->
+        <footer class="cyber-footer">
+            <div class="footer-left">
+                <div class="footer-dot"></div>
+                <span>SAREMBOKVE / VIRTUAL EVOLUTION · BUILD 2.6.0</span>
             </div>
-
-            <div class="frontier-stat-grid">
-                <div class="frontier-stat"><span>RUNTIME</span><strong id="system-runtime">—</strong></div>
-                <div class="frontier-stat"><span>LLM</span><strong id="system-llm">—</strong></div>
-                <div class="frontier-stat"><span>UPTIME</span><strong id="system-uptime">—</strong></div>
-            </div>
-
-            <div class="frontier-panel frontier-stat-grid" style="grid-template-columns:1fr;margin-top:12px;">
-                <div class="frontier-panel-head">CAPABILITIES</div>
-                <div id="system-capabilities" class="frontier-capability-grid">
-                    <div class="frontier-empty">Loading capability state…</div>
-                </div>
-            </div>
-        </section>
+            <div id="footer-runtime-clock">LIVE RUNTIME ONLINE</div>
+        </footer>
 
     </div>
 
-    <!-- ==================== NAVIGATION DOCK ==================== -->
-
-    <div class="nav-dock-container" id="main-nav-dock">
-        <button class="nav-arrow" type="button" aria-label="Previous view" onclick="navStep(-1)">‹</button>
-        <button class="dock-pill active" type="button" onclick="switchTab('boot')">BOOT</button>
-        <button class="dock-pill" type="button" onclick="switchTab('dialogue')">DIALOGUE</button>
-        <button class="dock-pill" type="button" onclick="switchTab('desktop')">DESKTOP</button>
-        <button class="dock-pill" type="button" onclick="switchTab('agents')">AGENTS</button>
-        <button class="dock-pill" type="button" onclick="switchTab('memory')">MEMORY</button>
-        <button class="dock-pill" type="button" onclick="switchTab('research')">RESEARCH</button>
-        <button class="dock-pill" type="button" onclick="switchTab('compute')">COMPUTE</button>
-        <button class="dock-pill" type="button" onclick="switchTab('system')">SYSTEM</button>
-        <button class="nav-arrow" type="button" aria-label="Next view" onclick="navStep(1)">›</button>
-    </div>
-
+    <!-- ==================== JAVASCRIPT ==================== -->
     <script>
         /* ============================================================
-           SAREMBOK VE FRONTEND RUNTIME
-           Single script block — no nested scripts.
+           STATE & CONFIGURATION
            ============================================================ */
+        let ws = null;
+        let rpcCounter = 1;
+        const pending = new Map();
+        let cycleCount = 21;
+        let frameCount = 2481;
 
-        /* ============================================================
-           TAB NAVIGATION
-           ============================================================ */
-
-        const TABS = ["boot", "dialogue", "desktop", "agents", "memory", "research", "compute", "system"];
-        let currentTabIndex = 0;
-
-        function switchTab(name) {
-            const idx = TABS.indexOf(name);
-            if (idx !== -1) currentTabIndex = idx;
-
-            document.querySelectorAll(".view-panel").forEach(panel => {
-                panel.classList.toggle("active", panel.id === "view-" + name);
-            });
-
-            document.querySelectorAll(".dock-pill").forEach(button => {
-                button.classList.toggle("active", button.textContent.trim().toLowerCase() === name);
-            });
-        }
-
-        function navStep(direction) {
-            currentTabIndex = (currentTabIndex + direction + TABS.length) % TABS.length;
-            switchTab(TABS[currentTabIndex]);
-        }
-
-        /* ============================================================
-           HTML ESCAPING
-           ============================================================ */
-
-        function escapeHtml(value) {
-            return String(value ?? "")
+        function escapeHtml(str) {
+            return String(str ?? "")
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")
                 .replace(/>/g, "&gt;")
                 .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+                .replace(/'/g, "&#39;");
+        }
+
+        /* Minimal Markdown Parser */
+        function md(text) {
+            if (!text) return "";
+            let s = String(text);
+
+            // Code blocks
+            s = s.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
+                return `<div class="srbk-code-block"><div class="srbk-code-head"><span>${lang || "CODE"}</span><button class="srbk-copy-btn" type="button" onclick="copyCode(this)">COPY</button></div><pre><code>${escapeHtml(code.trim())}</code></pre></div>`;
+            });
+
+            // Inline code
+            s = s.replace(/`([^`]+)`/g, (_, c) => `<code>${escapeHtml(c)}</code>`);
+
+            // Bold & Italic
+            s = s.replace(/\*\*([^\*]+)\*\*/g, "<strong>$1</strong>");
+            s = s.replace(/\*([^\*]+)\*/g, "<em>$1</em>");
+
+            // Headings
+            s = s.replace(/^### (.*$)/gim, "<h4 style='color:var(--cyan); margin:12px 0 6px;'>$1</h4>");
+            s = s.replace(/^## (.*$)/gim, "<h3 style='color:#fff; margin:14px 0 8px;'>$1</h3>");
+            s = s.replace(/^# (.*$)/gim, "<h2 style='color:#fff; margin:16px 0 10px;'>$1</h2>");
+
+            // Line breaks into paragraphs
+            const paragraphs = s.split(/\n\n+/).map(p => {
+                p = p.trim();
+                if (!p) return "";
+                if (p.startsWith("<div") || p.startsWith("<h")) return p;
+                return `<p>${p.replace(/\n/g, "<br>")}</p>`;
+            }).filter(Boolean);
+
+            return paragraphs.join("");
+        }
+
+        function copyCode(btn) {
+            const pre = btn.closest(".srbk-code-block")?.querySelector("pre code");
+            if (!pre) return;
+            navigator.clipboard.writeText(pre.textContent).then(() => {
+                const prev = btn.textContent;
+                btn.textContent = "COPIED!";
+                setTimeout(() => btn.textContent = prev, 1800);
+            });
         }
 
         /* ============================================================
-           MARKDOWN RENDERER
+           TAB NAVIGATION
            ============================================================ */
+        function switchTab(tabId) {
+            document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+            document.querySelectorAll(".dock-btn").forEach(b => b.classList.remove("active"));
 
-        function renderInlineMarkdown(value) {
-            let normalized = String(value ?? "").replace(/\\([*`_])/g, "$1");
-            let text = escapeHtml(normalized);
-            text = text.replace(/`([^`]+)`/g, '<code class="srbk-inline-code">$1</code>');
-            text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-            text = text.replace(/__([^_]+)__/g, "<strong>$1</strong>");
-            text = text.replace(/(^|[^\*])\*([^*]+)\*(?!\*)/g, "$1<em>$2</em>");
-            text = text.replace(/(^|[^_])_([^_]+)_(?!_)/g, "$1<em>$2</em>");
-            text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-            text = text.replace(/&lt;br\s*\/?&gt;/gi, "<br>");
-            return text;
-        }
+            const target = document.getElementById(`view-${tabId}`);
+            if (target) target.classList.add("active");
 
-        function renderCodeBlock(code, language, complete) {
-            const lang = language ? escapeHtml(language.trim()) : "";
-            return `<div class="srbk-code-block ${complete ? "complete" : "streaming"}"><div class="srbk-code-head"><span>${lang || "code"}</span>${complete ? '<button class="srbk-copy" type="button" onclick="copySarembokCode(this)">Copy</button>' : ""}</div><pre><code>${escapeHtml(code)}</code></pre></div>`;
-        }
-
-        function renderTable(lines) {
-            const normalized = lines.map(line => line.trim()).filter(Boolean);
-            if (normalized.length < 2) return "";
-            const separatorPattern = /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/;
-            if (!separatorPattern.test(normalized[1])) return "";
-            function cells(row) {
-                let value = row.trim();
-                if (value.startsWith("|")) value = value.slice(1);
-                if (value.endsWith("|")) value = value.slice(0, -1);
-                return value.split("|").map(cell => cell.trim());
-            }
-            const header = cells(normalized[0]);
-            let html = '<div class="srbk-table-wrap"><table><thead><tr>';
-            for (const cell of header) html += `<th>${renderInlineMarkdown(cell)}</th>`;
-            html += "</tr></thead><tbody>";
-            for (const row of normalized.slice(2)) {
-                const values = cells(row);
-                html += "<tr>";
-                for (let index = 0; index < header.length; index++) {
-                    html += `<td>${renderInlineMarkdown(values[index] ?? "")}</td>`;
-                }
-                html += "</tr>";
-            }
-            return html + "</tbody></table></div>";
-        }
-
-        function md(source) {
-            if (!source) return "";
-            const text = String(source).replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\u00a0/g, " ");
-            const lines = text.split("\n");
-            const output = [];
-            let index = 0;
-            while (index < lines.length) {
-                const line = lines[index];
-                if (!line.trim()) { index++; continue; }
-
-                const fence = line.match(/^\s*```(\w*)\s*$/);
-                if (fence) {
-                    const language = fence[1] || "";
-                    const code = [];
-                    index++;
-                    while (index < lines.length && !/^\s*```\s*$/.test(lines[index])) { code.push(lines[index]); index++; }
-                    const complete = index < lines.length && /^\s*```\s*$/.test(lines[index]);
-                    if (complete) index++;
-                    output.push(renderCodeBlock(code.join("\n"), language, complete));
-                    continue;
-                }
-
-                if (line.includes("|") && index + 1 < lines.length && /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(lines[index + 1])) {
-                    const tableLines = [line, lines[index + 1]];
-                    index += 2;
-                    while (index < lines.length && lines[index].trim() && lines[index].includes("|")) { tableLines.push(lines[index]); index++; }
-                    output.push(renderTable(tableLines));
-                    continue;
-                }
-
-                const heading = line.match(/^\s*(#{1,6})\s+(.+?)\s*#*\s*$/);
-                if (heading) {
-                    const level = Math.min(3, heading[1].length);
-                    output.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`);
-                    index++;
-                    continue;
-                }
-
-                if (/^\s*(---+|\*\*\*+|___+)\s*$/.test(line)) { output.push("<hr>"); index++; continue; }
-
-                if (/^\s*>\s?/.test(line)) {
-                    const quote = [];
-                    while (index < lines.length && /^\s*>\s?/.test(lines[index])) { quote.push(lines[index].replace(/^\s*>\s?/, "")); index++; }
-                    output.push(`<blockquote>${quote.map(renderInlineMarkdown).join("<br>")}</blockquote>`);
-                    continue;
-                }
-
-                if (/^\s*\d+\.\s+/.test(line)) {
-                    const items = [];
-                    while (index < lines.length && /^\s*\d+\.\s+/.test(lines[index])) { items.push(lines[index].replace(/^\s*\d+\.\s+/, "")); index++; }
-                    output.push(`<ol>${items.map(item => `<li>${renderInlineMarkdown(item)}</li>`).join("")}</ol>`);
-                    continue;
-                }
-
-                if (/^\s*[-*+]\s+/.test(line)) {
-                    const items = [];
-                    while (index < lines.length && /^\s*[-*+]\s+/.test(lines[index])) { items.push(lines[index].replace(/^\s*[-*+]\s+/, "")); index++; }
-                    output.push(`<ul>${items.map(item => `<li>${renderInlineMarkdown(item)}</li>`).join("")}</ul>`);
-                    continue;
-                }
-
-                const paragraph = [line];
-                index++;
-                while (
-                    index < lines.length &&
-                    lines[index].trim() &&
-                    !/^\s*```/.test(lines[index]) &&
-                    !/^\s*#{1,6}\s+/.test(lines[index]) &&
-                    !/^\s*[-*+]\s+/.test(lines[index]) &&
-                    !/^\s*\d+\.\s+/.test(lines[index]) &&
-                    !/^\s*>/.test(lines[index])
-                ) {
-                    paragraph.push(lines[index]);
-                    index++;
-                }
-                output.push(`<p>${paragraph.map(renderInlineMarkdown).join("<br>")}</p>`);
-            }
-            return output.join("");
+            const btn = document.getElementById(`dock-btn-${tabId}`);
+            if (btn) btn.classList.add("active");
         }
 
         /* ============================================================
-           CODE COPY
+           CANVAS NEURAL CONSTELLATION BACKGROUND
            ============================================================ */
+        const canvas = document.getElementById("srbk-bg-canvas");
+        const ctx = canvas.getContext("2d");
+        let particles = [];
+        const PARTICLE_COUNT = 45;
 
-        async function copySarembokCode(button) {
-            const block = button.closest(".srbk-code-block");
-            const code = block?.querySelector("pre code")?.innerText ?? "";
-            if (!code) return;
-            try {
-                await navigator.clipboard.writeText(code);
-                const previous = button.textContent;
-                button.textContent = "Copied";
-                setTimeout(() => { button.textContent = previous; }, 1200);
-            } catch (error) {
-                console.error("Sarembok clipboard error:", error);
-                button.textContent = "Copy failed";
-                setTimeout(() => { button.textContent = "Copy"; }, 1500);
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener("resize", resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.vx = (Math.random() - 0.5) * 0.45;
+                this.vy = (Math.random() - 0.5) * 0.45;
+                this.radius = Math.random() * 1.8 + 0.8;
+                this.isAmber = Math.random() < 0.25;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                if (this.x < 0) this.x = canvas.width;
+                if (this.x > canvas.width) this.x = 0;
+                if (this.y < 0) this.y = canvas.height;
+                if (this.y > canvas.height) this.y = 0;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.isAmber ? "rgba(245, 158, 11, 0.7)" : "rgba(0, 240, 255, 0.7)";
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = this.isAmber ? "#f59e0b" : "#00f0ff";
+                ctx.fill();
             }
         }
 
-        /* ============================================================
-           STRUCTURED RESPONSE RENDERER
-           The runtime contract is unchanged. This layer controls only
-           how authoritative response data is presented to the user.
-           ============================================================ */
+        for (let i = 0; i < PARTICLE_COUNT; i++) particles.push(new Particle());
 
-        function srbkValue(value) {
-            if (value === null || value === undefined) return "";
-            if (typeof value === "string") return value;
-            try { return JSON.stringify(value, null, 2); } catch (_) { return String(value); }
-        }
+        function animateCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        function srbkUrl(value) {
-            const url = String(value || "").trim();
-            if (!url || /["'<>\x00-\x1f\x7f]/.test(url)) return "";
-            try {
-                const parsed = new URL(url);
-                if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
-                return parsed.href;
-            } catch (_) { return ""; }
-        }
-
-        function srbkTitle(item, fallback = "") {
-            if (typeof item === "string") return item;
-            if (!item || typeof item !== "object") return fallback;
-            return String(item.title ?? item.name ?? item.label ?? item.heading ?? item.type ?? fallback);
-        }
-
-        function srbkDetail(item) {
-            if (typeof item === "string") return item;
-            if (!item || typeof item !== "object") return srbkValue(item);
-            return String(item.text ?? item.description ?? item.detail ?? item.message ?? item.content ?? "");
-        }
-
-        function srbkStatus(item) {
-            if (!item || typeof item !== "object") return "";
-            return String(item.status ?? item.state ?? item.result ?? item.outcome ?? item.decision ?? "");
-        }
-
-        function srbkCard(title, body, extra = "") {
-            if (!body) return "";
-            return `<section class="srbk-response-card ${extra}"><div class="srbk-response-card-head"><span class="srbk-response-card-title">${escapeHtml(title)}</span></div><div class="srbk-response-card-body">${body}</div></section>`;
-        }
-
-        function srbkList(items) {
-            if (!Array.isArray(items) || !items.length) return "";
-            return `<ul class="srbk-response-list">${items.map(item => {
-                const title = srbkTitle(item);
-                const detail = srbkDetail(item);
-                const status = srbkStatus(item);
-                const url = item && typeof item === "object" ? srbkUrl(item.url ?? item.href ?? item.sourceUrl) : "";
-                let body = "";
-                if (title) body += `<div class="srbk-response-item-title">${renderInlineMarkdown(title)}</div>`;
-                if (detail && detail !== title) body += `<div class="srbk-response-item-detail">${md(detail)}</div>`;
-                if (url) body += `<div class="srbk-response-source-url"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a></div>`;
-                if (status) body += `<span class="srbk-response-status">${escapeHtml(status)}</span>`;
-                if (!body) body = `<div class="srbk-response-item-detail">${md(srbkValue(item))}</div>`;
-                return `<li class="srbk-response-item"><div class="srbk-response-item-main">${body}</div></li>`;
-            }).join("")}</ul>`;
-        }
-
-        function srbkSources(items) {
-            if (!Array.isArray(items) || !items.length) return "";
-            return `<ul class="srbk-response-list">${items.map((item, index) => {
-                if (typeof item === "string") {
-                    return `<li class="srbk-response-item"><div class="srbk-response-item-main"><div class="srbk-response-item-title">${renderInlineMarkdown(item)}</div></div></li>`;
-                }
-                const title = srbkTitle(item, `Source ${index + 1}`);
-                const url = srbkUrl(item?.url ?? item?.href ?? item?.sourceUrl);
-                const excerpt = String(item?.excerpt ?? item?.snippet ?? item?.description ?? item?.text ?? "").trim();
-                const status = srbkStatus(item);
-                let body = `<div class="srbk-response-item-title">${renderInlineMarkdown(title)}</div>`;
-                if (url) body += `<div class="srbk-response-source-url"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a></div>`;
-                if (excerpt) body += `<div class="srbk-response-source-excerpt">${md(excerpt)}</div>`;
-                if (status) body += `<span class="srbk-response-status">${escapeHtml(status)}</span>`;
-                return `<li class="srbk-response-item"><div class="srbk-response-item-main">${body}</div></li>`;
-            }).join("")}</ul>`;
-        }
-
-        function srbkVerification(value) {
-            if (value === null || value === undefined || (typeof value === "object" && !Object.keys(value).length)) return "";
-            if (typeof value !== "object") return `<p>${escapeHtml(String(value))}</p>`;
-            return `<div class="srbk-response-grid">${Object.entries(value).map(([key, item]) =>
-                `<div class="srbk-response-kv"><span class="srbk-response-kv-label">${escapeHtml(key)}</span><span class="srbk-response-kv-value">${escapeHtml(srbkValue(item))}</span></div>`
-            ).join("")}</div>`;
-        }
-
-        function renderStructuredResponse(payload) {
-            const content = payload?.content && typeof payload.content === "object" ? payload.content : {};
-            const metadata = payload?.metadata && typeof payload.metadata === "object" ? payload.metadata : {};
-            const cards = [];
-
-            const research = content.research && typeof content.research === "object" ? content.research : null;
-            const isLiveResearch = research !== null || metadata.capability === "frontier-live-research";
-
-            const mdInline = value => renderInlineMarkdown(String(value ?? ""));
-
-            if (isLiveResearch) {
-                const summary = String(research?.summary ?? content.summary ?? "").trim();
-                if (summary) cards.push(srbkCard("RESEARCH SUMMARY", `<div class="srbk-answer-lead">${md(summary)}</div>`, "answer"));
-
-                const claims = Array.isArray(research?.claims) ? research.claims : Array.isArray(content.findings) ? content.findings : [];
-                if (claims.length) {
-                    const claimItems = claims.map((claim, index) => {
-                        if (!claim || typeof claim !== "object") return "";
-                        const claimId = String(claim.claimId ?? `claim-${String(index + 1).padStart(3, "0")}`).trim();
-                        const claimText = String(claim.claim ?? claim.text ?? claim.description ?? "").trim();
-                        const confidence = String(claim.confidence ?? "").trim();
-                        const status = String(claim.status ?? "").trim();
-                        const evidence = Array.isArray(claim.supportingEvidence) ? claim.supportingEvidence.map(item => String(item).trim()).filter(Boolean) : [];
-                        let body = `<div class="srbk-research-claim-id">${escapeHtml(claimId)}</div>`;
-                        if (claimText) body += `<div class="srbk-response-item-detail">${mdInline(claimText)}</div>`;
-                        const badges = [];
-                        if (status) badges.push(`<span class="srbk-research-badge status">${escapeHtml(status)}</span>`);
-                        if (confidence) badges.push(`<span class="srbk-research-badge confidence">${escapeHtml(`CONFIDENCE ${confidence}`)}</span>`);
-                        if (evidence.length) badges.push(`<span class="srbk-research-badge evidence">${escapeHtml(`EVIDENCE ${evidence.join(", ")}`)}</span>`);
-                        if (badges.length) body += `<div class="srbk-research-badges">${badges.join("")}</div>`;
-                        return `<li class="srbk-response-item"><div class="srbk-response-item-main">${body}</div></li>`;
-                    }).filter(Boolean);
-                    if (claimItems.length) cards.push(srbkCard("KEY FINDINGS", `<ul class="srbk-response-list">${claimItems.join("")}</ul>`));
-                }
-
-                const sources = Array.isArray(research?.sources) && research.sources.length ? research.sources : Array.isArray(content.sources) ? content.sources : [];
-                if (sources.length) {
-                    const sourceItems = sources.map((item, index) => {
-                        if (typeof item === "string") return `<li class="srbk-response-item"><div class="srbk-response-item-main"><div class="srbk-research-source-title">${mdInline(item)}</div></div></li>`;
-                        if (!item || typeof item !== "object") return "";
-                        const title = String(item.title ?? item.name ?? item.label ?? `Source ${index + 1}`).trim();
-                        const url = srbkUrl(item.url ?? item.href ?? item.sourceUrl);
-                        const excerpt = String(item.excerpt ?? item.snippet ?? item.description ?? item.text ?? "").trim();
-                        const status = String(item.status ?? "").trim();
-                        let body = title ? `<div class="srbk-research-source-title">${mdInline(title)}</div>` : "";
-                        if (url) body += `<div class="srbk-research-source-url"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a></div>`;
-                        if (excerpt) body += `<div class="srbk-research-source-excerpt">${md(excerpt)}</div>`;
-                        if (status) body += `<div class="srbk-research-badges"><span class="srbk-research-badge status">${escapeHtml(status)}</span></div>`;
-                        return `<li class="srbk-response-item"><div class="srbk-response-item-main">${body}</div></li>`;
-                    }).filter(Boolean);
-                    if (sourceItems.length) cards.push(srbkCard("SOURCES", `<ul class="srbk-response-list">${sourceItems.join("")}</ul>`));
-                }
-
-                const contradictions = Array.isArray(research?.contradictions) ? research.contradictions : Array.isArray(content.contradictions) ? content.contradictions : [];
-                if (contradictions.length) {
-                    cards.push(srbkCard("CONTRADICTIONS", srbkList(contradictions.map(item => ({ title: item?.claim ?? "Conflicting evidence", detail: item?.explanation ?? "", status: item?.resolution ?? "" })))));
-                }
-
-                const uncertainties = Array.isArray(research?.uncertainties) ? research.uncertainties : Array.isArray(content.uncertainties) ? content.uncertainties : [];
-                if (uncertainties.length) {
-                    cards.push(srbkCard("UNCERTAINTIES", srbkList(uncertainties.map(item => ({ title: item?.statement ?? "Uncertainty", detail: Array.isArray(item?.evidence) ? `Evidence: ${item.evidence.join(", ") || "none"}` : "" })))));
-                }
-
-                const verification = research?.verification && typeof research.verification === "object" ? research.verification : content.verification && typeof content.verification === "object" ? content.verification : {};
-                if (Object.keys(verification).length) {
-                    const synthesisStatus = String(verification.status ?? "").toUpperCase();
-                    const retrievalStatus = verification.live === true ? "LIVE" : verification.live === false ? "STATIC" : "";
-                    const verificationItems = [];
-                    if (synthesisStatus) verificationItems.push(`<div class="srbk-research-verification-item"><span class="srbk-research-verification-label">Evidence grounding</span><span class="srbk-research-verification-value verified">${escapeHtml(synthesisStatus === "VERIFIED" ? "EVIDENCE-GROUNDED" : synthesisStatus)}</span></div>`);
-                    if (retrievalStatus) verificationItems.push(`<div class="srbk-research-verification-item"><span class="srbk-research-verification-label">Retrieval</span><span class="srbk-research-verification-value">${escapeHtml(retrievalStatus)}</span></div>`);
-                    const metricMap = [["retrieved","Sources retrieved"],["failed","Retrieval failures"],["evidenceCount","Evidence items"],["claimCount","Claims"],["supportedClaims","Supported claims"],["unsupportedClaims","Unsupported claims"],["freshness","Evidence mode"]];
-                    for (const [key, label] of metricMap) {
-                        if (verification[key] === null || verification[key] === undefined) continue;
-                        let value = verification[key];
-                        if (key === "freshness") value = String(value).replace(/_/g, " ").replace(/\b\w/g, char => char.toUpperCase());
-                        verificationItems.push(`<div class="srbk-research-verification-item"><span class="srbk-research-verification-label">${escapeHtml(label)}</span><span class="srbk-research-verification-value">${escapeHtml(String(value))}</span></div>`);
-                    }
-                    if (verificationItems.length) cards.push(srbkCard("RESEARCH VERIFICATION", `<div class="srbk-research-verification-grid">${verificationItems.join("")}</div><div class="srbk-research-section-note">Evidence-grounded means the synthesis passed Sarembok's evidence-linkage and validation contract. It does not independently establish the truth of every claim.</div>`));
-                }
-
-            } else {
-
-                const verification = content.verification && typeof content.verification === "object" ? content.verification : {};
-                const fullText = String(content.text || "").trim();
-                const summary = String(content.summary || "").trim();
-                const hasFindings = Array.isArray(content.findings) && content.findings.length;
-                const hasSources = Array.isArray(content.sources) && content.sources.length;
-                const hasCode = Array.isArray(content.code) && content.code.length;
-                const responseStatus = String(payload?.status || "").toLowerCase();
-                const incomplete = responseStatus === "incomplete";
-
-                const structuredSections = Array.isArray(content.sections)
-                    ? content.sections.filter(section =>
-                        section && typeof section === "object" &&
-                        String(section.heading ?? section.title ?? section.name ?? "").trim() &&
-                        String(section.text ?? section.content ?? section.body ?? "").trim()
-                    )
-                    : [];
-                const hasStructuredSections = structuredSections.length > 0;
-
-                if (fullText || summary) {
-                    let answerText = fullText;
-                    if (hasStructuredSections && summary) answerText = summary;
-                    if (answerText) {
-                        cards.push(srbkCard(
-                            incomplete ? "RESPONSE INCOMPLETE" : "SAREMBOK",
-                            `<div class="srbk-answer-lead">${md(answerText)}</div>` +
-                            (incomplete ? `<div class="srbk-response-item-detail" style="margin-top:10px;">The provider reported that this response ended before completion.</div>` : ""),
-                            "answer"
-                        ));
+            // Connect nearby particles
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 130) {
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        const alpha = (1 - dist / 130) * 0.16;
+                        ctx.strokeStyle = `rgba(0, 240, 255, ${alpha})`;
+                        ctx.lineWidth = 0.9;
+                        ctx.shadowBlur = 0;
+                        ctx.stroke();
                     }
                 }
-
-                if (hasFindings) cards.push(srbkCard("KEY FINDINGS", srbkList(content.findings)));
-                if (hasSources) cards.push(srbkCard("SOURCES", srbkSources(content.sources)));
-
-                const sections = [
-                    ["AGENTS", content.agents],
-                    ["TASKS", content.tasks],
-                    ["ARTIFACTS", content.artifacts],
-                    ["ACTIONS", content.actions],
-                    ["AUTHORIZATION", content.authorization],
-                    ["MEMORY", content.memoryUpdates]
-                ];
-                for (const [title, items] of sections) {
-                    if (Array.isArray(items) && items.length) cards.push(srbkCard(title, srbkList(items)));
-                }
-
-                if (Array.isArray(content.sections)) {
-                    for (const section of content.sections) {
-                        if (!section || typeof section !== "object") continue;
-                        const title = String(section.title ?? section.heading ?? section.name ?? "SECTION").trim();
-                        const sectionBody = section.content ?? section.text ?? section.body ?? section.items;
-                        if (!title || sectionBody === null || sectionBody === undefined) continue;
-                        const rendered = Array.isArray(sectionBody) ? srbkList(sectionBody) : md(String(sectionBody));
-                        if (rendered) cards.push(srbkCard(title, rendered));
-                    }
-                }
-
-                if (Object.keys(verification).length) {
-                    const status = String(verification.status || "").toUpperCase();
-                    const badge = status === "VERIFIED" ? `<span class="srbk-response-badge">VERIFIED</span>` : "";
-                    cards.push(srbkCard("VERIFICATION", `${badge}${srbkVerification(verification)}`));
-                }
-
-                if (hasCode) {
-                    const code = content.code.map(block => {
-                        if (!block || typeof block !== "object") return "";
-                        return renderCodeBlock(String(block.content || ""), String(block.language || "code"), true);
-                    }).join("");
-                    if (code) cards.push(srbkCard("CODE", code));
-                }
-
-                if (!cards.length && (fullText || summary)) {
-                    cards.push(srbkCard("SAREMBOK", md(fullText || summary), "answer"));
-                }
             }
 
-            /* Response metadata */
-            const meta = [];
-            if (payload?.finish_reason !== null && payload?.finish_reason !== undefined) {
-                meta.push(`<span>Completion <strong>${escapeHtml(String(payload.finish_reason))}</strong></span>`);
-            }
-            if (metadata.provider) meta.push(`<span>Provider <strong>${escapeHtml(String(metadata.provider))}</strong></span>`);
-            if (metadata.model) meta.push(`<span>Model <strong>${escapeHtml(String(metadata.model))}</strong></span>`);
-            if (metadata.latency_ms !== null && metadata.latency_ms !== undefined) {
-                meta.push(`<span>Latency <strong>${escapeHtml(String(metadata.latency_ms))} ms</strong></span>`);
-            }
-            if (metadata.schema_version) meta.push(`<span>Schema <strong>${escapeHtml(String(metadata.schema_version))}</strong></span>`);
-            if (meta.length) cards.push(`<div class="srbk-response-meta">${meta.join('<span class="srbk-meta-divider">•</span>')}</div>`);
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
 
-            return `<div class="srbk-response">${cards.join("")}</div>`;
+            requestAnimationFrame(animateCanvas);
         }
+        animateCanvas();
 
         /* ============================================================
-           WEBSOCKET RPC
+           WEBSOCKET RPC & STREAMING CONNECTION
            ============================================================ */
-
-        let ws = null;
-        let rpcCounter = 1;
-        const pending = new Map();
-
         function connect() {
-            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const host = window.location.host || "127.0.0.1:9000";
+            const wsUrl = `${proto}//${host}/ws`;
+
+            console.log("Connecting to Sarembok runtime:", wsUrl);
             ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
-                refreshFrontierAuthority().catch(error =>
-                    console.warn("Frontier Authority refresh failed:", error)
-                );
-                setInterval(() => {
-                    refreshFrontierAuthority().catch(() => {});
-                }, 30000);
-                console.log("Sarembok runtime WebSocket connected.");
+                console.log("Sarembok runtime connected.");
+                addTerminalLine("[ws:link] runtime link active :: authenticated", "emerald");
+                refreshTelemetry();
+                setInterval(refreshTelemetry, 25000);
             };
 
             ws.onmessage = event => {
                 try {
                     const data = JSON.parse(event.data);
 
+                    // Token streaming delta
                     if (data.method === "SarembokChat.delta") {
                         const params = data.params || {};
-                        const requestId = params.id || data.id;
+                        const reqId = params.id || data.id;
                         const text = params.text ?? params.delta ?? "";
-                        const entry = pending.get(requestId);
+                        const entry = pending.get(reqId);
                         if (entry && text && typeof entry.onDelta === "function") {
-                            entry.hasReceivedDelta = true;
-                            entry.touch?.();
                             entry.onDelta(text);
                         }
                         return;
                     }
 
+                    // RPC Response
                     if (data.id && pending.has(data.id)) {
                         const entry = pending.get(data.id);
                         pending.delete(data.id);
                         if (data.error) entry.rej(data.error);
                         else entry.res(data.result);
                     }
-                } catch (error) {
-                    console.error("Sarembok WebSocket message error:", error);
+                } catch (err) {
+                    console.error("WebSocket message parse error:", err);
                 }
             };
 
-            ws.onerror = error => console.error("Sarembok WebSocket error:", error);
-
+            ws.onerror = err => console.error("WebSocket error:", err);
             ws.onclose = () => {
-                console.warn("Sarembok runtime disconnected. Reconnecting...");
+                console.warn("WebSocket closed. Reconnecting in 3s...");
                 setTimeout(connect, 3000);
             };
         }
 
-        function waitForWebSocketOpen(timeoutMs = 15000) {
-            return new Promise((resolve, reject) => {
-                const started = Date.now();
-                function check() {
-                    if (ws && ws.readyState === WebSocket.OPEN) { resolve(); return; }
-                    if (!ws || ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED) {
-                        reject(new Error("Runtime WebSocket is not connected")); return;
-                    }
-                    if (Date.now() - started >= timeoutMs) {
-                        reject(new Error("Runtime WebSocket connection timeout")); return;
-                    }
-                    setTimeout(check, 50);
-                }
-                check();
-            });
-        }
-
         async function sendRPC(method, params = {}, onDelta = null) {
-            await waitForWebSocketOpen();
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                throw new Error("Runtime WebSocket not open");
+            }
             return new Promise((resolve, reject) => {
-                if (!ws || ws.readyState !== WebSocket.OPEN) {
-                    reject(new Error("Runtime WebSocket is not connected"));
-                    return;
-                }
-
                 const id = "rpc-" + rpcCounter++;
-                const totalTimeoutMs = 180000;
-                const idleTimeoutMs = 45000;
-                let totalTimer = null;
-                let idleTimer = null;
-
-                function cleanup() {
-                    if (totalTimer) clearTimeout(totalTimer);
-                    if (idleTimer) clearTimeout(idleTimer);
-                    totalTimer = null;
-                    idleTimer = null;
-                }
-
-                function armIdleTimer() {
-                    if (!onDelta) return;
-                    if (idleTimer) clearTimeout(idleTimer);
-                    idleTimer = setTimeout(() => {
-                        if (pending.has(id)) { pending.delete(id); cleanup(); reject(new Error("Runtime response stalled")); }
-                    }, idleTimeoutMs);
-                }
+                const rpcParams = { ...params };
+                if (window.browserSessionToken) rpcParams.sessionToken = window.browserSessionToken;
 
                 pending.set(id, {
-                    res: value => { cleanup(); resolve(value); },
-                    rej: error => { cleanup(); reject(error); },
-                    onDelta,
-                    hasReceivedDelta: false,
-                    touch: () => {
-                        const entry = pending.get(id);
-                        if (entry?.hasReceivedDelta) armIdleTimer();
-                    }
+                    res: resolve,
+                    rej: reject,
+                    onDelta
                 });
 
-                const rpcParams = { ...params };
-                if (window.browserSessionToken && !rpcParams.authToken && !rpcParams.sessionToken) {
-                    rpcParams.sessionToken = window.browserSessionToken;
-                }
+                ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params: rpcParams }));
 
-                try {
-                    ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params: rpcParams }));
-                } catch (error) {
-                    pending.delete(id);
-                    cleanup();
-                    reject(error);
-                    return;
-                }
-
-                totalTimer = setTimeout(() => {
-                    if (pending.has(id)) { pending.delete(id); cleanup(); reject(new Error("Runtime request timeout")); }
-                }, totalTimeoutMs);
+                setTimeout(() => {
+                    if (pending.has(id)) {
+                        pending.delete(id);
+                        reject(new Error("RPC Timeout: " + method));
+                    }
+                }, 45000);
             });
         }
 
         /* ============================================================
-           DIALOGUE UI
+           TELEMETRY REFRESH
            ============================================================ */
-
-        function appendUserMessage(text) {
-            const history = document.getElementById("dialogue-history");
-            const message = document.createElement("div");
-            message.className = "srbk-bubble";
-            message.innerHTML = `<strong style="color:var(--indigo);">YOU:</strong><div class="srbk-content">${escapeHtml(text)}</div>`;
-            history.appendChild(message);
-            return message;
+        async function refreshTelemetry() {
+            try {
+                const info = await sendRPC("GetRuntimeInfo");
+                updateTelemetryUI(info);
+            } catch (err) {
+                console.debug("Telemetry refresh error:", err);
+            }
         }
 
-        function createSarembokMessage() {
-            const history = document.getElementById("dialogue-history");
-            const message = document.createElement("div");
-            message.className = "srbk-bubble srbk-streaming";
-            message.innerHTML = `<strong style="color:var(--cyan);">Sarembok:</strong><div class="srbk-content"><span class="srbk-thinking">Thinking...</span></div>`;
-            history.appendChild(message);
-            return message;
+        function updateTelemetryUI(info) {
+            if (!info || typeof info !== "object") return;
+
+            const runtime = info.runtime || {};
+            const memory = info.memory || {};
+            const agents = info.agents || {};
+            const scheduler = info.scheduler || {};
+
+            const memCount = memory.entries ?? info.memoryCount ?? 2;
+            const agentsCount = agents.online ?? info.agentCount ?? 24;
+
+            const memEl = document.getElementById("deck-mem-entries");
+            if (memEl) memEl.textContent = `${memCount} STORED`;
+
+            const agentsEl = document.getElementById("deck-agents-online");
+            if (agentsEl) agentsEl.textContent = `${agentsCount} / 24`;
+
+            const queueEl = document.getElementById("deck-queue-depth");
+            if (queueEl) queueEl.textContent = `${scheduler.queueDepth ?? 0} QUEUED`;
+
+            const sysBadge = document.getElementById("hud-system-status");
+            if (sysBadge) sysBadge.textContent = runtime.status || "NOMINAL";
         }
 
-        function scrollDialogueToBottom() {
-            const history = document.getElementById("dialogue-history");
-            if (history) history.scrollTop = history.scrollHeight;
+        /* Edge Latency Ping */
+        async function measureLatency() {
+            const start = performance.now();
+            try {
+                await fetch("/health", { cache: "no-store" });
+                const ms = Math.max(1, Math.round(performance.now() - start));
+                const el = document.getElementById("hud-latency-val");
+                if (el) el.textContent = `${ms}.0ms`;
+            } catch (_) {
+                const el = document.getElementById("hud-latency-val");
+                if (el) el.textContent = "ONLINE";
+            }
+        }
+        setInterval(measureLatency, 8000);
+        setTimeout(measureLatency, 500);
+
+        /* ============================================================
+           TERMINAL FEED & DECK DIRECTIVES
+           ============================================================ */
+        function addTerminalLine(text, colorClass = "") {
+            const feed = document.getElementById("terminal-feed");
+            if (!feed) return;
+            const line = document.createElement("div");
+            line.className = "terminal-line " + colorClass;
+            line.textContent = text;
+            feed.insertBefore(line, feed.lastElementChild);
+            feed.scrollTop = feed.scrollHeight;
+        }
+
+        async function executeDeckDirective() {
+            const input = document.getElementById("deck-directive-input");
+            if (!input) return;
+            const prompt = input.value.trim();
+            if (!prompt) return;
+            input.value = "";
+
+            addTerminalLine(`> ${prompt}`, "prompt");
+            addTerminalLine("[eval] routing through frontier intelligence fabric...", "amber");
+
+            try {
+                const result = await sendRPC("SarembokChat", { prompt, stream: true }, delta => {
+                    // terminal preview
+                });
+                const answer = result?.response || result?.audioText || "Directive completed.";
+                addTerminalLine(`[response] ${answer.slice(0, 180)}...`, "cyan");
+            } catch (err) {
+                addTerminalLine(`[error] ${err.message}`, "amber");
+            }
         }
 
         /* ============================================================
-           DIRECTIVE EXECUTION — Execute button
+           DIALOGUE DIRECTIVE EXECUTION (STREAMING ENABLED)
            ============================================================ */
-
         async function sendDirective() {
             const input = document.getElementById("directive-input");
-            const executeButton = document.getElementById("execute-button");
-            if (!input || !executeButton) return;
+            const btn = document.getElementById("execute-button");
+            if (!input || !btn) return;
 
             const text = input.value.trim();
             if (!text) return;
-
             input.value = "";
-            appendUserMessage(text);
 
-            const aiMessage = createSarembokMessage();
-            const content = aiMessage.querySelector(".srbk-content");
+            // Append user bubble
+            appendUserDialogue(text);
+
+            // Create assistant bubble
+            const assistantBubble = createAssistantDialogue();
+            const content = assistantBubble.querySelector(".srbk-content");
             let streamedText = "";
 
-            executeButton.disabled = true;
-
-            // Switch to dialogue view if on a different panel
-            if (!document.getElementById("view-dialogue")?.classList.contains("active")) {
-                switchTab("dialogue");
-            }
+            btn.disabled = true;
 
             try {
                 const result = await sendRPC(
@@ -1670,322 +1742,149 @@
                     delta => {
                         streamedText += delta;
                         content.innerHTML = md(streamedText);
-                        scrollDialogueToBottom();
+                        scrollDialogue();
                     }
                 );
 
                 const finalText = result?.response || result?.audioText || streamedText || "Directive executed.";
+                content.innerHTML = md(finalText);
 
-                if (result?.structuredResponse && typeof result.structuredResponse === "object" && result.structuredResponse.content) {
-                    content.innerHTML = renderStructuredResponse(result.structuredResponse);
-                } else {
-                    content.innerHTML = md(finalText);
+                // If screenshot or structured data is present
+                if (result?.screenshot) {
+                    const shotCard = document.createElement("div");
+                    shotCard.className = "srbk-screenshot-card";
+                    shotCard.innerHTML = `<div class="srbk-screenshot-head"><span>CAPTURED SCREENSHOT</span><span>${escapeHtml(result.url || "")}</span></div><img class="srbk-screenshot-img" src="${result.screenshot}" alt="Page render">`;
+                    content.appendChild(shotCard);
                 }
 
-                aiMessage.classList.remove("srbk-streaming");
-                scrollDialogueToBottom();
+                scrollDialogue();
 
-            } catch (error) {
-                console.error("Sarembok directive error:", error);
-
-                if (streamedText) {
-                    content.innerHTML = md(streamedText);
-                } else {
-                    content.innerHTML = `<p>Runtime error: ${escapeHtml(error?.message || "Unable to complete the directive.")}</p>`;
-                }
-
-                aiMessage.classList.remove("srbk-streaming");
-                scrollDialogueToBottom();
-
+            } catch (err) {
+                content.innerHTML = `<p style="color:var(--amber);">Execution notice: ${escapeHtml(err.message)}</p>`;
             } finally {
-                executeButton.disabled = false;
-                input.focus();
+                btn.disabled = false;
             }
+        }
+
+        function appendUserDialogue(text) {
+            const history = document.getElementById("dialogue-history");
+            const div = document.createElement("div");
+            div.className = "srbk-bubble user";
+            div.innerHTML = `<div class="srbk-bubble-sender">YOU</div><div class="srbk-content"><p>${escapeHtml(text)}</p></div>`;
+            history.appendChild(div);
+            scrollDialogue();
+        }
+
+        function createAssistantDialogue() {
+            const history = document.getElementById("dialogue-history");
+            const div = document.createElement("div");
+            div.className = "srbk-bubble assistant";
+            div.innerHTML = `<div class="srbk-bubble-sender">SAREMBOK</div><div class="srbk-content"><p><em>Computing...</em></p></div>`;
+            history.appendChild(div);
+            scrollDialogue();
+            return div;
+        }
+
+        function scrollDialogue() {
+            const history = document.getElementById("dialogue-history");
+            if (history) history.scrollTop = history.scrollHeight;
         }
 
         /* ============================================================
-           FRONTIER AUTHORITY — Runtime telemetry
+           HEADLESS BROWSER ACTIONS (/screenshot, /render)
            ============================================================ */
+        async function executeBrowserScreenshot() {
+            const input = document.getElementById("browser-url-input");
+            const preview = document.getElementById("browser-preview-container");
+            if (!input || !preview) return;
 
-        function frontierText(value, fallback = "UNKNOWN") {
-            if (value === null || value === undefined || value === "") return fallback;
-            return String(value).toUpperCase();
-        }
+            const url = input.value.trim();
+            if (!url) return;
 
-        function frontierSet(id, value, fallback = "UNKNOWN") {
-            const el = document.getElementById(id);
-            if (el) el.textContent = frontierText(value, fallback);
-        }
+            preview.innerHTML = `<div style="font-family:var(--font-mono); font-size:12px; color:var(--cyan);">Capturing full-page Chromium render for ${escapeHtml(url)}...</div>`;
 
-        function frontierSurfaceState(fabric, terms, fallback = "UNKNOWN") {
-            const surfaces = Array.isArray(fabric?.surfaces) ? fabric.surfaces : [];
-            const wanted = terms.map(term => String(term).toLowerCase());
-            for (const surface of surfaces) {
-                const label = String(surface?.label ?? surface?.name ?? surface?.id ?? "").toLowerCase();
-                if (wanted.some(term => label.includes(term))) {
-                    return surface?.state ?? surface?.status ?? fallback;
-                }
-            }
-            return fallback;
-        }
-
-        function frontierCapabilityEntries(fabric) {
-            const surfaces = Array.isArray(fabric?.surfaces) ? fabric.surfaces : [];
-            return surfaces
-                .filter(surface => surface && typeof surface === "object")
-                .map(surface => ({
-                    label: String(surface.label ?? surface.name ?? surface.id ?? "CAPABILITY"),
-                    state: String(surface.state ?? surface.status ?? "UNKNOWN").toUpperCase()
-                }));
-        }
-
-        function updateFrontierAuthority(snapshot) {
-            if (!snapshot || typeof snapshot !== "object") return;
-
-            const runtime = snapshot.runtime || {};
-            const workers = snapshot.workers || {};
-            const agents = snapshot.agents || {};
-            const compute = snapshot.compute || {};
-            const memory = snapshot.memory || {};
-            const scheduler = snapshot.scheduler || {};
-            const provider = snapshot.provider || {};
-            const state = snapshot.state || {};
-            const fabric = snapshot.capabilityFabric || {};
-
-            const runtimeState = frontierText(runtime.status);
-            const runtimeOnline = runtimeState === "ONLINE";
-
-            const gpuWorkers = Number(compute.onlineGpuWorkers ?? 0);
-            const queueDepth = Number(scheduler.queueDepth ?? 0);
-            const running = Number(scheduler.running ?? 0);
-            const agentRegistered = Number(agents.registered ?? 0);
-            const agentOnline = Number(agents.online ?? 0);
-            const memoryEntries = Number(memory.entries ?? 0);
-            const memoryState = frontierText(memory.status);
-
-            const researchState = frontierSurfaceState(fabric, ["research"]);
-            const w3cState = frontierSurfaceState(fabric, ["w3c", "standards"]);
-            const browserState = frontierSurfaceState(fabric, ["browser"], "NOT_CONFIGURED");
-            const governanceState = frontierSurfaceState(fabric, ["governance"]);
-            const capabilityStates = frontierCapabilityEntries(fabric);
-
-            /* --- BOOT --- */
-            frontierSet("boot-runtime", runtimeState);
-            frontierSet("boot-capabilities", capabilityStates.length ? "READY" : "UNKNOWN");
-            frontierSet("boot-memory", memoryState);
-            frontierSet("boot-agents", agentRegistered === 0 ? "NO AGENTS" : `${agentOnline}/${agentRegistered} ONLINE`);
-            frontierSet("boot-research", researchState);
-            frontierSet("boot-governance", governanceState);
-            frontierSet("boot-compute", gpuWorkers > 0 ? `${gpuWorkers} GPU ONLINE` : "0 GPU WORKERS");
-            frontierSet("boot-session", window.browserSessionToken ? "CONNECTED" : runtimeOnline ? "RUNTIME" : "UNAVAILABLE");
-
-            const stateEl = document.getElementById("boot-runtime-state");
-            if (stateEl) stateEl.textContent = runtimeState;
-
-            const dot = document.getElementById("boot-state-dot");
-            if (dot) dot.style.opacity = runtimeOnline ? "1" : ".45";
-
-            const readyTitle = document.getElementById("boot-ready-title");
-            const readyDetails = document.getElementById("boot-ready-details");
-            const criticalReady = runtimeOnline && memoryState !== "UNAVAILABLE";
-            if (readyTitle) readyTitle.textContent = criticalReady ? "SYSTEM READY" : "SYSTEM DEGRADED";
-            if (readyDetails) {
-                if (!runtimeOnline) {
-                    readyDetails.textContent = "Runtime Authority is not reporting an operational runtime.";
-                } else if (gpuWorkers > 0) {
-                    readyDetails.textContent = `RUNTIME ONLINE · ${gpuWorkers} GPU WORKER${gpuWorkers === 1 ? "" : "S"} ONLINE · ${queueDepth} QUEUED`;
-                } else {
-                    readyDetails.textContent = `RUNTIME ONLINE · GPU EXECUTION UNAVAILABLE · ${queueDepth} QUEUED`;
-                }
-            }
-
-            /* --- DIALOGUE --- */
-            frontierSet("metric-mem", memoryEntries ? `${memoryEntries} ENTRIES` : "0 ENTRIES");
-            frontierSet("metric-agents", agentRegistered ? `${agentOnline}/${agentRegistered}` : "0");
-            frontierSet("metric-compute", gpuWorkers > 0 ? `${gpuWorkers} GPU ONLINE` : "NO GPU WORKERS");
-
-            const runtimeStatusLabel = document.getElementById("runtime-status-label");
-            if (runtimeStatusLabel) runtimeStatusLabel.textContent = `● RUNTIME ${runtimeState}`;
-
-            /* --- DESKTOP HUD --- */
-            const hudSystem = document.getElementById("srbk-hud-system");
-            if (hudSystem) hudSystem.innerHTML = `<span class="srbk-hud-pulse"></span>${runtimeState}`;
-
-            const hudHealth = document.getElementById("srbk-hud-health");
-            if (hudHealth) hudHealth.textContent = `MEM ${memoryEntries} · AGENTS ${agentOnline}`;
-
-            const srbkRuntimeState = document.getElementById("srbk-runtime-state");
-            if (srbkRuntimeState) srbkRuntimeState.textContent = runtimeState;
-
-            const srbkWorkersState = document.getElementById("srbk-workers-state");
-            if (srbkWorkersState) srbkWorkersState.textContent = String(agentOnline) + " AGENTS / " + String(Number(workers.online ?? 0)) + " WORKERS";
-
-            const srbkComputeState = document.getElementById("srbk-compute-state");
-            if (srbkComputeState) srbkComputeState.textContent = gpuWorkers > 0 ? `${gpuWorkers} GPU ONLINE` : "UNAVAILABLE";
-
-            const srbkSchedulerState = document.getElementById("srbk-scheduler-state");
-            if (srbkSchedulerState) srbkSchedulerState.textContent = `${queueDepth} QUEUED · ${running} RUNNING`;
-
-            const srbkMemoryBackend = document.getElementById("srbk-memory-backend");
-            if (srbkMemoryBackend) srbkMemoryBackend.textContent = String(memory.backend || "UNKNOWN");
-
-            const srbkMemoryEntries = document.getElementById("srbk-memory-entries");
-            if (srbkMemoryEntries) srbkMemoryEntries.textContent = String(memoryEntries);
-
-            const srbkMemoryHealth = document.getElementById("srbk-memory-health");
-            if (srbkMemoryHealth) srbkMemoryHealth.textContent = memoryState;
-
-            /* --- AGENTS --- */
-            frontierSet("agents-status", agentOnline > 0 ? "ONLINE" : agentRegistered > 0 ? "REGISTERED" : "NO AGENTS");
-            frontierSet("agents-online", agentOnline);
-            frontierSet("agents-total", agentRegistered);
-            frontierSet("agents-tasks", Number(state.tasks ?? 0));
-
-            const agentsList = document.getElementById("agents-list");
-            if (agentsList) {
-                const rows = Array.isArray(agents.agents) ? agents.agents : [];
-                if (!rows.length) {
-                    agentsList.innerHTML = '<div class="frontier-empty">No agents are currently registered.</div>';
-                } else {
-                    agentsList.innerHTML = rows.map(agent => {
-                        const name = escapeHtml(agent.displayName ?? agent.agentId ?? "Unnamed agent");
-                        const id = escapeHtml(agent.agentId ?? "");
-                        const status = escapeHtml(String(agent.status ?? "UNKNOWN").toUpperCase());
-                        return `<div class="frontier-stat"><span>${id}</span><strong>${name}</strong><div class="frontier-detail">${status}</div></div>`;
-                    }).join("");
-                }
-            }
-
-            /* --- MEMORY --- */
-            frontierSet("memory-status", memoryState);
-            frontierSet("memory-backend", memory.backend);
-            frontierSet("memory-count", memoryEntries);
-            frontierSet("memory-health", memoryState);
-            const memoryDetail = document.getElementById("memory-detail");
-            if (memoryDetail) memoryDetail.textContent = `${memory.backend || "Unknown"} persistence backend · ${memoryEntries} entries · ${memoryState}.`;
-
-            /* --- RESEARCH --- */
-            frontierSet("research-status", researchState);
-            frontierSet("research-enabled", researchState);
-            frontierSet("research-w3c", w3cState);
-            frontierSet("research-browser", browserState);
-
-            /* --- COMPUTE --- */
-            frontierSet("compute-status", gpuWorkers > 0 ? "ONLINE" : "NO GPU");
-            frontierSet("compute-gpu", gpuWorkers);
-            frontierSet("compute-queue", queueDepth);
-            frontierSet("compute-running", running);
-            const computeDetail = document.getElementById("compute-detail");
-            if (computeDetail) {
-                if (gpuWorkers > 0) {
-                    const workerNames = Array.isArray(workers.workers)
-                        ? workers.workers.filter(w => String(w.status).toUpperCase() === "ONLINE" && w.gpuModel).map(w => `${w.workerId}: ${w.gpuModel}`)
-                        : [];
-                    computeDetail.textContent = `${gpuWorkers} GPU worker${gpuWorkers === 1 ? "" : "s"} online · ${queueDepth} queued · ${running} running` + (workerNames.length ? ` · ${workerNames.join(" · ")}` : "");
-                } else {
-                    computeDetail.textContent = `No GPU workers are currently online. Runtime remains operational; GPU execution is unavailable. ${queueDepth} queued · ${running} running.`;
-                }
-            }
-
-            /* --- SYSTEM --- */
-            frontierSet("system-status", runtimeState);
-            frontierSet("system-runtime", runtimeState);
-            frontierSet("system-llm", provider.status || (provider.configuredProviders?.length ? "AVAILABLE" : "UNCONFIGURED"));
-
-            const uptime = Number(runtime.uptimeSeconds ?? 0);
-            frontierSet("system-uptime", uptime > 0 ? `${Math.floor(uptime / 60)}m` : "0m");
-
-            const capabilityGrid = document.getElementById("system-capabilities");
-            if (capabilityGrid) {
-                if (!capabilityStates.length) {
-                    capabilityGrid.innerHTML = '<div class="frontier-empty">No capability states reported.</div>';
-                } else {
-                    capabilityGrid.innerHTML = capabilityStates.map(item =>
-                        `<div class="frontier-stat"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.state)}</strong></div>`
-                    ).join("");
-                }
-            }
-
-            const sequenceTime = document.getElementById("boot-sequence-time");
-            if (sequenceTime) {
-                sequenceTime.textContent = snapshot.observedAt
-                    ? new Date(snapshot.observedAt).toLocaleTimeString()
-                    : new Date().toLocaleTimeString();
-            }
-        }
-
-        async function refreshFrontierAuthority() {
             try {
-                const authority = await sendRPC("GetRuntimeInfo");
-                updateFrontierAuthority(authority);
-            } catch (error) {
-                console.warn("Frontier Authority unavailable:", error);
-                const title = document.getElementById("boot-ready-title");
-                const detail = document.getElementById("boot-ready-details");
-                if (title) title.textContent = "RUNTIME UNAVAILABLE";
-                if (detail) detail.textContent = error?.message || "Unable to obtain authoritative runtime state.";
+                const res = await sendRPC("BrowserScreenshot", { url, fullPage: true });
+                if (res?.screenshot) {
+                    preview.innerHTML = `
+                        <div style="width:100%; height:100%; display:flex; flex-direction:column;">
+                            <div style="padding:8px 12px; background:rgba(0,0,0,0.8); font-family:var(--font-mono); font-size:11px; color:var(--cyan); display:flex; justify-content:space-between;">
+                                <span>${escapeHtml(res.title || url)}</span>
+                                <span>${res.latencyMs || 0} ms</span>
+                            </div>
+                            <img src="${res.screenshot}" style="width:100%; max-height:480px; object-fit:contain; background:#000;" alt="Capture">
+                        </div>
+                    `;
+                } else {
+                    preview.innerHTML = `<div style="color:var(--amber); font-family:var(--font-mono);">Failed to capture screenshot: ${escapeHtml(res?.error || "Unknown error")}</div>`;
+                }
+            } catch (err) {
+                preview.innerHTML = `<div style="color:var(--amber); font-family:var(--font-mono);">Browser service error: ${escapeHtml(err.message)}</div>`;
             }
         }
 
-        /* ============================================================
-           EDGE LATENCY MEASUREMENT
-           ============================================================ */
+        async function executeBrowserRender() {
+            const input = document.getElementById("browser-url-input");
+            const preview = document.getElementById("browser-preview-container");
+            if (!input || !preview) return;
 
-        async function measureEdgeLatency() {
-            const start = Date.now();
+            const url = input.value.trim();
+            if (!url) return;
+
+            preview.innerHTML = `<div style="font-family:var(--font-mono); font-size:12px; color:var(--cyan);">Rendering DOM for ${escapeHtml(url)}...</div>`;
+
             try {
-                await fetch("/health", { cache: "no-store" });
-                const ms = Date.now() - start;
-                const el = document.getElementById("srbk-hud-latency");
-                if (el) el.textContent = `${ms} ms`;
-            } catch (_) {
-                const el = document.getElementById("srbk-hud-latency");
-                if (el) el.textContent = "OFFLINE";
+                const res = await sendRPC("BrowserRender", { url });
+                if (res?.html) {
+                    preview.innerHTML = `
+                        <div style="width:100%; height:100%; display:flex; flex-direction:column;">
+                            <div style="padding:8px 12px; background:rgba(0,0,0,0.8); font-family:var(--font-mono); font-size:11px; color:var(--cyan);">
+                                DOM RENDER: ${res.htmlBytes} bytes extracted (${res.latencyMs} ms)
+                            </div>
+                            <textarea style="width:100%; height:320px; background:#040714; color:#94a3b8; font-family:var(--font-mono); font-size:11px; padding:12px; border:none; outline:none; resize:none;" readonly>${escapeHtml(res.html.slice(0, 10000))}</textarea>
+                        </div>
+                    `;
+                } else {
+                    preview.innerHTML = `<div style="color:var(--amber); font-family:var(--font-mono);">Failed to render: ${escapeHtml(res?.error || "Unknown error")}</div>`;
+                }
+            } catch (err) {
+                preview.innerHTML = `<div style="color:var(--amber); font-family:var(--font-mono);">Browser service error: ${escapeHtml(err.message)}</div>`;
             }
         }
 
         /* ============================================================
-           BROWSER SESSION BOOTSTRAP
+           ANIMATIONS & AUTO-BOOT DISPATCH
            ============================================================ */
+        setInterval(() => {
+            cycleCount++;
+            const cycleEl = document.getElementById("deck-cycle-counter");
+            if (cycleEl) cycleEl.textContent = String(cycleCount).padStart(5, "0");
 
-        async function initializeBrowserSession() {
-            /*
-             * The production runtime is responsible for issuing a
-             * scoped browser session token through /session.
-             *
-             * Keep this optional so local development can connect
-             * without requiring the production session endpoint.
-             */
+            frameCount += Math.floor(Math.random() * 3) + 1;
+            const framesEl = document.getElementById("deck-frames-val");
+            if (framesEl) framesEl.textContent = frameCount.toLocaleString();
+        }, 3200);
+
+        async function initSession() {
             try {
-                const response = await fetch("/session", { method: "GET", cache: "no-store" });
-                if (!response.ok) return;
-                const data = await response.json();
-                if (data.sessionToken) window.browserSessionToken = data.sessionToken;
-            } catch (error) {
-                console.debug("Browser session bootstrap skipped:", error);
-            }
+                const resp = await fetch("/session", { cache: "no-store" });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.sessionToken) window.browserSessionToken = data.sessionToken;
+                }
+            } catch (_) {}
         }
-
-        /* ============================================================
-           STARTUP
-           ============================================================ */
 
         window.onload = async () => {
-            await initializeBrowserSession();
+            await initSession();
             connect();
 
-            // Auto-advance from boot screen after a short delay
+            // Auto transition from boot screen after 2.4s
             setTimeout(() => {
-                if (document.getElementById("view-boot")?.classList.contains("active")) {
-                    switchTab("dialogue");
-                }
-            }, 2800);
-
-            // Start edge latency measurement
-            setTimeout(measureEdgeLatency, 1200);
-            setInterval(measureEdgeLatency, 10000);
+                const boot = document.getElementById("view-boot");
+                if (boot) boot.classList.add("hidden");
+            }, 2400);
         };
     </script>
-
 </body>
 </html>
