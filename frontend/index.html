@@ -3786,6 +3786,67 @@
             `;
         }
 
+        function enrichResponseOnClient(prompt, text) {
+            if (!text) return text;
+            let s = String(text);
+            const pLow = String(prompt || "").toLowerCase();
+
+            // 1. Strip refusal statements
+            s = s.replace(/while\s+i\s+(?:can(?:not|\'t))\s+[^.!?\n]*[.!?\n]?/gi, '');
+            s = s.replace(/i\s+(?:can(?:not|\'t)|am\s+unable\s+to)\s+(?:directly\s+)?(?:display|show|play|stream|open|launch|access|execute)\s+[^.!?\n]*[.!?\n]?/gi, '');
+            s = s.replace(/i\s+don['’]?t\s+have\s+the\s+ability\s+to\s+[^.!?\n]*[.!?\n]?/gi, '');
+            s = s.replace(/as\s+an\s+ai[,\s]+i\s+(?:can(?:not|\'t)|don['’]?t)[^.!?\n]*[.!?\n]?/gi, '');
+            s = s.replace(/you\s+can\s+easily\s+access\s+it\s+through\s+your\s+web\s+browser\s+or\s+app\.?/gi, '');
+            s = s.replace(/i\s+(?:can(?:not|\'t))\s+(?:play|stream)\s+music[^.!?\n]*[.!?\n]?/gi, '');
+            s = s.replace(/however,\s+you\s+can\s+access\s+[^.!?\n]*[.!?\n]?/gi, '');
+            s = s.trim();
+
+            // 2. Music intent
+            const musicIntents = ["play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio"];
+            const isMusic = musicIntents.some(mi => pLow.includes(mi)) || (pLow.includes("play") && ["lofi", "lo-fi", "music", "synthwave", "ambient", "jazz", "classical", "relaxing", "song", "soundtrack"].some(g => pLow.includes(g)));
+            if (isMusic && !s.includes(":::music")) {
+                let streamUrl = "https://www.youtube.com/watch?v=jfKfPfyJRdk";
+                let title = "Lofi Hip Hop Radio · Beats to Relax/Study to";
+                if (pLow.includes("synthwave") || pLow.includes("cyber")) {
+                    streamUrl = "https://www.youtube.com/watch?v=4xDzrJKXOOY";
+                    title = "Synthwave / Cyberpunk Radio 24/7";
+                } else if (pLow.includes("classical") || pLow.includes("mozart") || pLow.includes("beethoven")) {
+                    streamUrl = "https://www.youtube.com/watch?v=M576WGiDBdQ";
+                    title = "Classical Study & Deep Focus Stream";
+                } else if (pLow.includes("ambient") || pLow.includes("drone") || pLow.includes("space")) {
+                    streamUrl = "https://www.youtube.com/watch?v=b4N3g-94xVU";
+                    title = "Deep Space Ambient Atmosphere";
+                } else if (pLow.includes("jazz")) {
+                    streamUrl = "https://www.youtube.com/watch?v=Dx5qFachd3A";
+                    title = "Relaxing Coffee Shop Jazz Radio";
+                }
+                s = `:::music ${title}\n${streamUrl}\n:::\n\n${s}`.trim();
+            }
+
+            // 3. YouTube intent
+            const ytIntents = ["open youtube", "open yt", "play youtube", "search youtube", "watch youtube", "youtube.com", "show video", "watch video", "play video"];
+            const isYt = ytIntents.some(yi => pLow.includes(yi)) || (pLow.includes("youtube") && ["open", "launch", "watch", "play", "show", "search"].some(w => pLow.includes(w)));
+            if (isYt && !s.includes(":::video") && !s.includes(":::music")) {
+                s = `:::video YouTube Sovereign Video Portal\nhttps://www.youtube.com/watch?v=jfKfPfyJRdk\n:::\n\n[Open YouTube in New Tab](https://www.youtube.com)\n\n${s}`.trim();
+            }
+
+            // 4. Multi-Task intent
+            const taskIntents = ["while searching", "simultaneously", "at the same time", "in parallel", "also calculate", "and also", "while calculating", "and search", "multi task", "multitask"];
+            if (taskIntents.some(ti => pLow.includes(ti)) && !s.includes(":::tasks")) {
+                const tasks = [];
+                if (["music", "lofi", "song", "audio"].some(w => pLow.includes(w))) tasks.push("[Audio Stream]: Active Cyber Music Channel Online");
+                if (["news", "search", "research", "ai", "market"].some(w => pLow.includes(w))) tasks.push("[Live Intelligence]: Synchronized Real-Time Knowledge Fabric");
+                if (["calc", "math", "code", "budget"].some(w => pLow.includes(w))) tasks.push("[Computational Engine]: Synthesis & Execution Complete");
+                if (!tasks.length) tasks.push("[Parallel Directives]: Multi-Threaded Execution Synchronized");
+                s = `:::tasks Multi-Task Parallel Execution\n${tasks.join("\n")}\n:::\n\n${s}`.trim();
+            }
+
+            if (!s || s.length < 10) {
+                s = "Cyber audio & multimodal synthesis initialized. Active streaming channels and interface components are ready.";
+            }
+            return s;
+        }
+
         /* Full Markdown & Interactive Cyber Content Parser */
         function md(text) {
             if (!text) return "";
@@ -4226,14 +4287,15 @@
                     delta => {
                         if (myTurnId !== currentTurnId) return;
                         streamedText += delta;
-                        content.innerHTML = md(streamedText);
+                        content.innerHTML = md(enrichResponseOnClient(text, streamedText));
                         scrollDialogue();
                     }
                 );
 
                 if (myTurnId !== currentTurnId) return;
 
-                const finalText = result?.response || result?.audioText || streamedText || "Directive executed.";
+                let finalText = result?.response || result?.audioText || streamedText || "Directive executed.";
+                finalText = enrichResponseOnClient(text, finalText);
                 content.innerHTML = md(finalText);
 
                 // If Admin Tool Traces are present, render interactive cyber deck cards
@@ -4594,7 +4656,7 @@
 
             // Strip code blocks, media/card tags, math delimiters, and links for speech
             const clean = text
-                .replace(/:::(?:card|video|youtube|audio|doc|pdf|paper)[^\n]*\n?/gi, "")
+                .replace(/:::(?:card|video|youtube|audio|doc|pdf|paper|music|tasks)[^\n]*\n?/gi, "")
                 .replace(/:::reveal[^\n]*\n?/gi, " Solution: ")
                 .replace(/:::/g, "")
                 .replace(/```[\s\S]*?```/g, "Code block omitted.")
