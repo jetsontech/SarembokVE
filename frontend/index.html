@@ -2040,6 +2040,27 @@
             gap: 8px;
         }
 
+        .live-mic-meter-wrap {
+            width: 70px;
+            height: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 240, 255, 0.4);
+            border-radius: 5px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            padding: 1px;
+            box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.6);
+        }
+        .live-mic-meter-bar {
+            width: 0%;
+            height: 100%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #10b981, #00f0ff);
+            transition: width 0.06s ease-out;
+            box-shadow: 0 0 8px #10b981;
+        }
+
         /* FLOATING INTERRUPT / BARGE-IN PILL */
         .srbk-interrupt-pill {
             position: fixed;
@@ -2632,11 +2653,14 @@
                         <div class="live-conv-orb" id="live-conv-orb"></div>
                         <div class="live-conv-info">
                             <div class="live-conv-state" id="live-conv-state">STANDBY</div>
-                            <div class="live-conv-hint" id="live-conv-hint">Say "Hey Sarembok" or "Sarembok" to activate · Echo-canceling wake word engine</div>
+                            <div class="live-conv-hint" id="live-conv-hint">Hands-free duplex 2-way conversation · Speak naturally · Instant barge-in</div>
                         </div>
                     </div>
                     <div class="live-conv-actions">
-                        <button class="browser-action-btn" id="wake-word-toggle-btn" style="padding:4px 10px; font-size:10px; border-color:var(--cyan); color:var(--cyan);" onclick="toggleWakeWordRequirement()" title="Toggle Wake Word requirement (Hey Sarembok)">WAKE WORD: ON</button>
+                        <div class="live-mic-meter-wrap" id="live-mic-meter-wrap" title="Microphone Activity Level">
+                            <div class="live-mic-meter-bar" id="live-mic-meter-bar"></div>
+                        </div>
+                        <button class="browser-action-btn" id="wake-word-toggle-btn" style="padding:4px 10px; font-size:10px; border-color:#10b981; color:#10b981;" onclick="toggleWakeWordRequirement()" title="Toggle Wake Word requirement (Hey Sarembok)">WAKE WORD: OFF (HANDS-FREE)</button>
                         <button class="browser-action-btn" style="padding:4px 10px; font-size:10px; border-color:var(--amber); color:var(--amber);" onclick="interruptSpeech()">STOP / BARGE-IN</button>
                     </div>
                 </div>
@@ -3723,46 +3747,67 @@
             const input = document.getElementById("directive-input");
 
             if (isRecordingSpeech) {
-                if (speechRecognition) speechRecognition.stop();
+                if (speechRecognition) {
+                    try { speechRecognition.stop(); } catch(e) {}
+                }
                 isRecordingSpeech = false;
                 if (micBtn) micBtn.classList.remove("recording");
                 setAvatarSignal("IDLE");
+                if (input && input.value.trim()) {
+                    showToast("DIRECTIVE CAPTURED · EXECUTING");
+                    sendDirective();
+                }
                 return;
             }
 
-            speechRecognition = new SpeechRec();
-            speechRecognition.continuous = false;
-            speechRecognition.interimResults = true;
-            speechRecognition.lang = "en-US";
+            try {
+                speechRecognition = new SpeechRec();
+                speechRecognition.continuous = false;
+                speechRecognition.interimResults = true;
+                speechRecognition.lang = "en-US";
 
-            speechRecognition.onstart = () => {
-                isRecordingSpeech = true;
-                if (micBtn) micBtn.classList.add("recording");
-                setAvatarSignal("LISTENING");
-            };
+                speechRecognition.onstart = () => {
+                    isRecordingSpeech = true;
+                    if (micBtn) micBtn.classList.add("recording");
+                    setAvatarSignal("LISTENING");
+                    showToast("LISTENING: Speak your directive now...");
+                };
 
-            speechRecognition.onresult = event => {
-                let interim = "";
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    interim += event.results[i][0].transcript;
-                }
-                if (input) input.value = interim;
-            };
+                speechRecognition.onresult = event => {
+                    let interim = "";
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        interim += event.results[i][0].transcript;
+                    }
+                    if (input) input.value = interim;
+                };
 
-            speechRecognition.onend = () => {
+                speechRecognition.onend = () => {
+                    isRecordingSpeech = false;
+                    if (micBtn) micBtn.classList.remove("recording");
+                    setAvatarSignal("IDLE");
+                    if (input && input.value.trim()) {
+                        showToast("DIRECTIVE CAPTURED · EXECUTING");
+                        sendDirective();
+                    }
+                };
+
+                speechRecognition.onerror = err => {
+                    console.warn("Speech recognition error:", err);
+                    isRecordingSpeech = false;
+                    if (micBtn) micBtn.classList.remove("recording");
+                    setAvatarSignal("IDLE");
+                    if (err.error === "not-allowed") {
+                        showToast("MIC PERMISSION NEEDED: Click lock/mic icon in browser address bar");
+                    }
+                };
+
+                speechRecognition.start();
+            } catch (err) {
+                console.warn("Could not start speech recognition:", err);
                 isRecordingSpeech = false;
                 if (micBtn) micBtn.classList.remove("recording");
                 setAvatarSignal("IDLE");
-            };
-
-            speechRecognition.onerror = err => {
-                console.warn("Speech recognition error:", err);
-                isRecordingSpeech = false;
-                if (micBtn) micBtn.classList.remove("recording");
-                setAvatarSignal("IDLE");
-            };
-
-            speechRecognition.start();
+            }
         }
 
         function testVoiceGreeting() {
@@ -4699,7 +4744,7 @@
         let audioHardwareStream = null;
 
         // Matches: "hey sarembok", "hi sarembok", "ok sarembok", "sarembok", "sarambok", "sarem bock", "sarah mbok", etc.
-        const WAKE_WORD_PATTERN = /\b(?:hey|hi|ok|okay)?\s*(?:sarembok|sarambok|sarem\s*bock?|sarah\s*mbok|saren\s*bock?|sarem\s*box|saremboc|sare\s*bok|sara\s*bok|sarem|saren|sarah\s*book|sara\s*book)\b/i;
+        const WAKE_WORD_PATTERN = /\b(?:hey|hi|ok|okay|yo|hello)?\s*(?:sarembok|sarambok|sarem\s*bock?|sarah\s*mbok|saren\s*bock?|sarem\s*box|saremboc|sare\s*bok|sara\s*bok|sarem|saren|sarah\s*book|sara\s*book|sarah\s*back|sara\s*back|seven\s*buck|cerebro|serebro|assistant|computer)\b/i;
 
         function showInterruptPill() {
             const pill = document.getElementById("srbk-interrupt-pill");
@@ -4709,6 +4754,70 @@
         function hideInterruptPill() {
             const pill = document.getElementById("srbk-interrupt-pill");
             if (pill) pill.classList.remove("visible");
+        }
+
+        // Live visual decibel/energy meter
+        let liveAudioContext = null;
+        let liveAnalyser = null;
+        let liveMeterAnimFrame = null;
+
+        function setupLiveMicMeter(stream) {
+            if (!stream) return;
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                if (!liveAudioContext) {
+                    liveAudioContext = new AudioCtx();
+                }
+                if (liveAudioContext.state === "suspended") {
+                    liveAudioContext.resume();
+                }
+                const source = liveAudioContext.createMediaStreamSource(stream);
+                liveAnalyser = liveAudioContext.createAnalyser();
+                liveAnalyser.fftSize = 64;
+                liveAnalyser.smoothingTimeConstant = 0.5;
+                source.connect(liveAnalyser);
+
+                const dataArray = new Uint8Array(liveAnalyser.frequencyBinCount);
+                const meterBar = document.getElementById("live-mic-meter-bar");
+                const orb = document.getElementById("live-conv-orb");
+
+                function updateMeter() {
+                    if (!liveConversationActive || !liveAnalyser) {
+                        if (meterBar) meterBar.style.width = "0%";
+                        return;
+                    }
+                    liveAnalyser.getByteFrequencyData(dataArray);
+                    let sum = 0;
+                    for (let i = 0; i < dataArray.length; i++) {
+                        sum += dataArray[i];
+                    }
+                    const avg = sum / dataArray.length;
+                    const pct = Math.min(100, Math.round((avg / 128) * 100));
+
+                    if (meterBar) {
+                        meterBar.style.width = pct + "%";
+                        if (pct > 35) {
+                            meterBar.style.background = "linear-gradient(90deg, #10b981, #00f0ff, #f59e0b)";
+                        } else {
+                            meterBar.style.background = "linear-gradient(90deg, #10b981, #00f0ff)";
+                        }
+                    }
+
+                    if (orb && pct > 6 && !isSpeakingTurn) {
+                        orb.style.transform = `scale(${1 + Math.min(0.35, pct / 200)})`;
+                    } else if (orb && !isSpeakingTurn) {
+                        orb.style.transform = "";
+                    }
+
+                    liveMeterAnimFrame = requestAnimationFrame(updateMeter);
+                }
+
+                if (liveMeterAnimFrame) cancelAnimationFrame(liveMeterAnimFrame);
+                liveMeterAnimFrame = requestAnimationFrame(updateMeter);
+            } catch (err) {
+                console.warn("[duplex] setupLiveMicMeter notice:", err);
+            }
         }
 
         // Smart Acoustic Self-Echo Detector: verifies if microphone input is assistant's own voice playing from speakers
@@ -4768,13 +4877,14 @@
             const banner = document.getElementById("live-audio-notice");
 
             if (liveConversationActive) {
+                recognitionPermissionDenied = false; // Always re-allow attempt on user click
                 if (banner) banner.style.display = "none";
                 if (btn) btn.classList.add("active");
                 if (btnText) btnText.textContent = "LIVE CONVERSATION: ACTIVE";
                 if (hud) hud.classList.add("active");
                 voiceEnabled = true;
                 startLiveConversationLoop();
-                showToast("LIVE 2-WAY CONVERSATION ACTIVE");
+                showToast("LIVE 2-WAY CONVERSATION ACTIVE · SPEAK FREELY");
             } else {
                 if (btn) btn.classList.remove("active");
                 if (btnText) btnText.textContent = "LIVE CONVERSATION";
@@ -4807,7 +4917,7 @@
                 return;
             }
 
-            // 1. Explicitly request microphone stream from browser to trigger permission prompt and initialize hardware
+            // 1. Microphone hardware stream for visual meter (non-fatal fallback)
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 try {
                     if (!audioHardwareStream) {
@@ -4815,12 +4925,10 @@
                         console.log("[duplex] Microphone hardware stream acquired.");
                     }
                     recognitionPermissionDenied = false;
+                    setupLiveMicMeter(audioHardwareStream);
                 } catch (err) {
-                    console.warn("[duplex] getUserMedia failed:", err);
-                    recognitionPermissionDenied = true;
-                    setLiveConvUI("MIC BLOCKED", "Click lock icon in address bar to allow microphone");
-                    showToast("MIC PERMISSION NEEDED: Click lock/mic icon in browser address bar");
-                    return;
+                    console.warn("[duplex] getUserMedia non-fatal fallback (Web Speech API will proceed directly):", err);
+                    // Do NOT return! Web Speech API works independently of getUserMedia!
                 }
             }
 
@@ -4983,14 +5091,22 @@
 
                 liveRecContinuous.onerror = err => {
                     console.warn("[duplex] Recognition error:", err.error);
+                    if (err.error === "no-speech") {
+                        // Ambient silence is completely normal during continuous duplex listening
+                        return;
+                    }
+                    if (err.error === "network") {
+                        setLiveConvUI("CONNECTING...", "Speech recognition link reconnecting...");
+                        return;
+                    }
                     if (err.error === "not-allowed" || err.error === "service-not-allowed") {
                         recognitionPermissionDenied = true;
-                        setLiveConvUI("MIC BLOCKED", "Click the lock icon in address bar -> Allow Microphone");
-                        showToast("MIC ACCESS BLOCKED: Click lock icon in URL address bar");
+                        setLiveConvUI("MIC PERMISSION NEEDED", "Click lock icon in URL address bar -> Allow Microphone");
+                        showToast("MIC PERMISSION NEEDED: Click the lock icon in address bar -> Allow Microphone");
                         stopLiveConversationLoop();
                     } else if (err.error === "audio-capture") {
-                        setLiveConvUI("NO MIC DETECTED", "Check microphone hardware in Windows settings");
-                        showToast("NO MIC FOUND: Ensure microphone is connected");
+                        setLiveConvUI("NO MIC DETECTED", "Select microphone in Chrome / Windows sound settings");
+                        showToast("NO MIC FOUND: Check microphone selection in Chrome settings");
                         stopLiveConversationLoop();
                     }
                 };
