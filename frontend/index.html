@@ -3985,6 +3985,15 @@
         let musicVolume = 0.7;
 
         const TOPIC_PRESETS = {
+            "bbc news": { id: "lRJiLBhrJTI", title: "BBC NEWS LIVE" },
+            "bbc": { id: "lRJiLBhrJTI", title: "BBC NEWS LIVE" },
+            "abc news": { id: "iipR5yUp36o", title: "ABC NEWS LIVE" },
+            "abc": { id: "iipR5yUp36o", title: "ABC NEWS LIVE" },
+            "sky news": { id: "9Auq9mYxFEE", title: "SKY NEWS LIVE" },
+            "nbc news": { id: "_4xFk8B876E", title: "NBC NEWS NOW LIVE" },
+            "bloomberg": { id: "dp8PhLsUcFE", title: "BLOOMBERG TV LIVE" },
+            "t.i.": { id: "nQJACVmankY", title: "T.I. MUSIC & VIDEOS" },
+            "ti": { id: "nQJACVmankY", title: "T.I. MUSIC & VIDEOS" },
             "synthwave": { id: "4xDzrJKXOOY", title: "SYNTHWAVE CYBER STREAM" },
             "synth": { id: "4xDzrJKXOOY", title: "SYNTHWAVE CYBER STREAM" },
             "lofi": { id: "jfKfPfyJRdk", title: "LO-FI STUDY & RELAX BEATS" },
@@ -4411,18 +4420,33 @@
             let cleanTopic = prompt.replace(/(?:can you\s+)?(?:please\s+)?(?:play|show|open|stream|watch|listen to)\s+(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:video\s+about\s+|on\s+youtube\s+|youtube\s+)?/gi, "").replace(/["']/g, "").trim();
             if (!cleanTopic || cleanTopic.length < 2) cleanTopic = "lofi study music";
 
+            const topicKey = cleanTopic.toLowerCase();
+            let matchedPreset = null;
+            for (const [k, p] of Object.entries(TOPIC_PRESETS)) {
+                if (topicKey === k || topicKey.includes(k)) {
+                    matchedPreset = p;
+                    break;
+                }
+            }
+            if (matchedPreset) {
+                const realYtUrl = `https://www.youtube.com/watch?v=${matchedPreset.id}`;
+                s = s.replace(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?[^\s\)\"]+|youtu\.be\/[\w-]+)/gi, realYtUrl);
+            }
+
             // 2. Music & Video intent
             const musicIntents = ["play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio", "play "];
             const isMusic = musicIntents.some(mi => pLow.startsWith(mi) || pLow.includes(mi));
             const ytIntents = ["open youtube", "open yt", "play youtube", "search youtube", "watch youtube", "youtube.com", "show video", "watch video", "play video", "video of", "video about"];
             const isVideo = ytIntents.some(yi => pLow.includes(yi)) || (pLow.includes("video") && ["open", "launch", "watch", "play", "show", "search"].some(w => pLow.includes(w)));
 
+            const mediaBody = matchedPreset ? `https://www.youtube.com/watch?v=${matchedPreset.id}` : cleanTopic;
+
             if (isVideo && !s.includes(":::video") && !s.includes(":::music")) {
                 const vidTitle = `${cleanTopic.toUpperCase()} · VIDEO STREAM`;
-                s = `:::video ${vidTitle}\n${cleanTopic}\n:::\n\n${s}`.trim();
+                s = `:::video ${vidTitle}\n${mediaBody}\n:::\n\n${s}`.trim();
             } else if (isMusic && !s.includes(":::music") && !s.includes(":::video")) {
                 const musicTitle = `${cleanTopic.toUpperCase()} · AUDIO STREAM`;
-                s = `:::music ${musicTitle}\n${cleanTopic}\n:::\n\n${s}`.trim();
+                s = `:::music ${musicTitle}\n${mediaBody}\n:::\n\n${s}`.trim();
             }
 
             // 4. Multi-Task intent
