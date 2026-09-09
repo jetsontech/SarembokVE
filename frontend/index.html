@@ -3629,10 +3629,10 @@
 
             const pool = femaleCandidates.length > 0 ? femaleCandidates : voices;
 
-            // 2. High priority natural female voices for Ada (Samantha on Apple/iOS, Jenny/Aria/Zira on Windows)
+            // 2. High priority natural female voices for Ada (Natural/Neural, Google US/UK, Samantha on iOS/macOS, Jenny/Aria on Windows)
             const priorityNames = [
-                "samantha", "victoria", "ava", "jenny", "aria", "zira", "karen",
-                "google uk english female", "google us english", "hazel", "susan", "natural", "neural"
+                "natural", "neural", "google uk english female", "google us english",
+                "samantha", "jenny", "aria", "victoria", "ava", "hazel", "karen", "susan", "zira"
             ];
 
             for (const p of priorityNames) {
@@ -3709,8 +3709,8 @@
 
             isSpeakingTurn = true;
             currentAssistantSpokenText = clean;
-            currentUtteranceHistory.push(clean.toLowerCase());
-            if (currentUtteranceHistory.length > 8) currentUtteranceHistory.shift();
+            currentUtteranceHistory.push({ text: clean.toLowerCase(), time: Date.now() });
+            if (currentUtteranceHistory.length > 25) currentUtteranceHistory.shift();
             showInterruptPill();
 
             const utterance = new SpeechSynthesisUtterance(clean);
@@ -3733,6 +3733,7 @@
             const finishSpeaking = () => {
                 isSpeakingTurn = false;
                 currentAssistantSpokenText = "";
+                lastSpeechEndTime = Date.now();
                 setAvatarSignal("IDLE");
                 morphTargets.jawOpen = 0;
                 updateMorphMeters();
@@ -4848,23 +4849,40 @@
             }
         }
 
-        // Smart Acoustic Self-Echo Detector: verifies if microphone input is assistant's own voice playing from speakers
+        // Robust Acoustic Self-Echo Detector: verifies if microphone input is assistant's own voice playing from speakers
         function isSelfEcho(heardText) {
             if (!heardText) return false;
-            const h = heardText.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+            const h = heardText.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
             if (!h) return false;
-            const candidates = [currentAssistantSpokenText.toLowerCase(), ...currentUtteranceHistory].filter(Boolean);
+
+            const now = Date.now();
+            const candidates = [];
+            if (currentAssistantSpokenText) {
+                candidates.push(currentAssistantSpokenText.toLowerCase());
+            }
+            for (const item of currentUtteranceHistory) {
+                const itemText = typeof item === "string" ? item : item.text;
+                const itemTime = typeof item === "object" ? item.time : 0;
+                if (!itemTime || (now - itemTime < 30000)) { // 30s acoustic retention window
+                    if (itemText) candidates.push(itemText);
+                }
+            }
             if (candidates.length === 0) return false;
 
+            const hWords = h.split(/\s+/).filter(w => w.length > 2);
+
             for (const cand of candidates) {
-                const cleanCand = cand.replace(/[^a-z0-9 ]/g, "").trim();
+                const cleanCand = cand.replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
                 if (!cleanCand) continue;
-                if (cleanCand.includes(h)) return true;
-                const hWords = h.split(/\s+/).filter(w => w.length > 2);
+
+                // 1. Direct or reverse substring match
+                if (cleanCand.includes(h) || h.includes(cleanCand)) return true;
+
+                // 2. Word overlap check (handles acoustic distortion and duplicated words from echo)
                 if (hWords.length > 0) {
-                    const candWords = new Set(cleanCand.split(/\s+/));
-                    const matches = hWords.filter(w => candWords.has(w));
-                    if (matches.length / hWords.length >= 0.65) return true;
+                    const candWords = new Set(cleanCand.split(/\s+/).filter(w => w.length > 2));
+                    const matchCount = hWords.filter(w => candWords.has(w)).length;
+                    if (matchCount / hWords.length >= 0.35) return true;
                 }
             }
             return false;
@@ -4945,18 +4963,23 @@
                 return;
             }
 
-            // 1. Microphone hardware stream for visual meter (non-fatal fallback)
+            // 1. Microphone hardware stream with browser acoustic echo cancellation & noise suppression
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 try {
                     if (!audioHardwareStream) {
-                        audioHardwareStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        console.log("[duplex] Microphone hardware stream acquired.");
+                        audioHardwareStream = await navigator.mediaDevices.getUserMedia({
+                            audio: {
+                                echoCancellation: true,
+                                noiseSuppression: true,
+                                autoGainControl: true
+                            }
+                        });
+                        console.log("[duplex] Microphone hardware stream acquired with hardware AEC/NS.");
                     }
                     recognitionPermissionDenied = false;
                     setupLiveMicMeter(audioHardwareStream);
                 } catch (err) {
                     console.warn("[duplex] getUserMedia non-fatal fallback (Web Speech API will proceed directly):", err);
-                    // Do NOT return! Web Speech API works independently of getUserMedia!
                 }
             }
 
@@ -4978,7 +5001,7 @@
                 wakeWordAwake = false;
                 setLiveConvUI(
                     wakeWordRequired ? "LISTENING (WAKE WORD)" : "LISTENING (HANDS-FREE 2-WAY)",
-                    wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok" to activate' : "Speak naturally · Instant barge-in interruption enabled"
+                    wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok" to activate' : "Speak naturally · Say 'Stop' or 'Hey Sarembok' to interrupt"
                 );
                 setAvatarSignal("LISTENING");
 
@@ -5013,6 +5036,10 @@
                     const currentHeard = (finalChunk || interim).trim();
                     if (!currentHeard) return;
 
+                    // Filter out noise pops and single-character transcripts (e.g. '?', '.')
+                    const cleanAlpha = currentHeard.replace(/[^a-zA-Z0-9]/g, "").trim();
+                    if (cleanAlpha.length < 2) return;
+
                     const currentlySpeaking = isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking);
 
                     // ========================================================
@@ -5020,20 +5047,22 @@
                     // ========================================================
                     if (currentlySpeaking) {
                         const isWake = WAKE_WORD_PATTERN.test(currentHeard);
-                        const isExplicitStop = /\b(?:stop|halt|cancel|quiet|shh|wait|hold on|pause|listen|excuse me|no|hey)\b/i.test(currentHeard);
-                        const isEcho = isSelfEcho(currentHeard);
+                        const isExplicitStop = /\b(?:stop|halt|cancel|quiet|shh|wait|hold on|pause|listen|excuse me|no|shut up|hey sarembok|sarembok)\b/i.test(currentHeard);
 
-                        // If user said wake word, stop command, or spoke distinct words (not echo):
-                        if (isWake || isExplicitStop || !isEcho) {
-                            console.log("[barge-in] Human speech detected during assistant response:", currentHeard);
+                        // WHILE THE ASSISTANT IS SPEAKING:
+                        // Laptop speakers are firing audio directly into the laptop microphone.
+                        // ONLY interrupt if the user provides an explicit stop or wake command.
+                        // All other microphone sound during speech is speaker acoustic bleed and MUST be dropped!
+                        if (isWake || isExplicitStop) {
+                            console.log("[barge-in] Explicit human interrupt trigger:", currentHeard);
                             interruptSpeech();
 
                             const cleanHeard = currentHeard
                                 .replace(WAKE_WORD_PATTERN, "")
-                                .replace(/^(?:stop|halt|cancel|quiet|shh|wait|hold on|pause|no)[,.:;!?-]*\s*/i, "")
+                                .replace(/^(?:stop|halt|cancel|quiet|shh|wait|hold on|pause|no|shut up)[,.:;!?-]*\s*/i, "")
                                 .trim();
 
-                            if (cleanHeard.length > 0) {
+                            if (cleanHeard.length >= 2 && /[a-zA-Z]{2,}/.test(cleanHeard) && !isSelfEcho(cleanHeard)) {
                                 liveTranscriptBuffer = cleanHeard;
                                 setLiveConvUI("HEARING DIRECTIVE...", `"${cleanHeard}"`);
                                 setAvatarSignal("LISTENING");
@@ -5044,21 +5073,38 @@
                                         liveTranscriptBuffer = "";
                                         executeLiveConversationTurn(directiveToRun);
                                     }
-                                }, 950);
+                                }, 1000);
+                            } else {
+                                setLiveConvUI("INTERRUPTED · LISTENING", "Interrupted. Speak your directive...");
+                                setAvatarSignal("LISTENING");
                             }
                             return;
                         } else {
-                            // Suppress speaker feedback
+                            // Suppress acoustic speaker feedback while speech synthesis is active
                             return;
                         }
                     }
 
-                    // 2. REVERB COOLDOWN: Discard audio within 350ms after speech ends if it's echo
-                    if (Date.now() - lastSpeechEndTime < 350) {
-                        if (isSelfEcho(currentHeard)) return;
+                    // ========================================================
+                    // 2. ACOUSTIC ECHO SUPPRESSION (POST-SPEECH REVERB & HISTORY)
+                    // ========================================================
+                    // Discard delayed audio arriving within 2.5 seconds of assistant finishing speech if it's echo
+                    if (Date.now() - lastSpeechEndTime < 2500) {
+                        if (isSelfEcho(currentHeard)) {
+                            console.log("[duplex] Suppressed post-speech acoustic echo:", currentHeard);
+                            return;
+                        }
                     }
 
+                    // Global echo suppression against recent assistant utterances
+                    if (isSelfEcho(currentHeard)) {
+                        console.log("[duplex] Suppressed acoustic echo from assistant history:", currentHeard);
+                        return;
+                    }
+
+                    // ========================================================
                     // 3. WAKE WORD ENGINE
+                    // ========================================================
                     if (wakeWordRequired) {
                         if (!wakeWordAwake) {
                             if (WAKE_WORD_PATTERN.test(currentHeard)) {
@@ -5072,7 +5118,7 @@
                                 }, 8500);
 
                                 const afterWake = currentHeard.replace(WAKE_WORD_PATTERN, "").replace(/^[,.:;!?-]+\s*/, "").trim();
-                                if (afterWake.length > 0) {
+                                if (afterWake.length >= 2 && /[a-zA-Z]{2,}/.test(afterWake) && !isSelfEcho(afterWake)) {
                                     setLiveConvUI("HEARD: " + afterWake.toUpperCase(), "Processing directive...");
                                     setAvatarSignal("ATTENTION");
                                     clearTimeout(liveSilenceTimer);
@@ -5098,22 +5144,25 @@
                         }
                     }
 
+                    // ========================================================
                     // 4. ACCUMULATE DIRECTIVE & SILENCE DISPATCH
+                    // ========================================================
                     liveTranscriptBuffer = (liveTranscriptBuffer + " " + finalChunk).trim() || currentHeard;
                     const cleanDirective = liveTranscriptBuffer.replace(WAKE_WORD_PATTERN, "").replace(/^[,.:;!?-]+\s*/, "").trim();
 
-                    if (cleanDirective) {
+                    // Discard if input does not contain at least 2 alphanumeric characters, or if it matches assistant echo
+                    if (cleanDirective.length >= 2 && /[a-zA-Z0-9]{2,}/.test(cleanDirective) && !isSelfEcho(cleanDirective)) {
                         setLiveConvUI("HEARING DIRECTIVE...", `"${cleanDirective}"`);
                         setAvatarSignal("LISTENING");
 
                         clearTimeout(liveSilenceTimer);
                         liveSilenceTimer = setTimeout(() => {
-                            if (cleanDirective && !isWaitingForAIResponse && !isSpeakingTurn) {
+                            if (cleanDirective.length >= 2 && /[a-zA-Z0-9]{2,}/.test(cleanDirective) && !isSelfEcho(cleanDirective) && !isWaitingForAIResponse && !isSpeakingTurn) {
                                 executeLiveConversationTurn(cleanDirective);
                                 wakeWordAwake = false;
                                 liveTranscriptBuffer = "";
                             }
-                        }, 1000);
+                        }, 1050);
                     }
                 };
 
@@ -5225,8 +5274,12 @@
         }
 
         async function executeLiveConversationTurn(userSpeech) {
-            const cleanSpeech = userSpeech.trim();
-            if (!cleanSpeech) return;
+            const cleanSpeech = (userSpeech || "").trim();
+            // Guard against empty, punctuation-only, or self-echo loops
+            if (!cleanSpeech || cleanSpeech.length < 2 || !/[a-zA-Z0-9]{2,}/.test(cleanSpeech) || isSelfEcho(cleanSpeech)) {
+                console.log("[duplex] Suppressed invalid or echo turn execution:", cleanSpeech);
+                return;
+            }
 
             const myTurnId = ++currentTurnId;
             isWaitingForAIResponse = true;
@@ -5321,10 +5374,10 @@
 
             isSpeakingTurn = true;
             currentAssistantSpokenText = clean;
-            currentUtteranceHistory.push(clean.toLowerCase());
-            if (currentUtteranceHistory.length > 8) currentUtteranceHistory.shift();
+            currentUtteranceHistory.push({ text: clean.toLowerCase(), time: Date.now() });
+            if (currentUtteranceHistory.length > 25) currentUtteranceHistory.shift();
 
-            setLiveConvUI("SPEAKING (DUPLEX 2-WAY)", clean);
+            setLiveConvUI("SPEAKING (DUPLEX 2-WAY)", `Say "Stop" or "Hey Sarembok" to interrupt · "${clean}"`);
             setAvatarSignal("SPEAKING");
             showInterruptPill();
 
@@ -5354,7 +5407,7 @@
                 if (liveConversationActive && liveSpeechQueue.length === 0) {
                     setLiveConvUI(
                         wakeWordRequired ? "LISTENING (WAKE WORD)" : "LISTENING (HANDS-FREE 2-WAY)",
-                        wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok"...' : "Speak naturally · Barge-in active"
+                        wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok"...' : "Speak naturally · Hands-free 2-way conversation"
                     );
                     setAvatarSignal("LISTENING");
                 } else if (!liveConversationActive) {
