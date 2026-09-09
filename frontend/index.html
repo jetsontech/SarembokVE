@@ -974,6 +974,84 @@
             background: rgba(0, 240, 255, 0.05);
         }
 
+        
+        /* Persistent Background Music & Cyber Synth Deck */
+        #srbk-persistent-music-deck {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 950;
+            background: rgba(4, 9, 20, 0.92);
+            border: 1px solid rgba(0, 240, 255, 0.35);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.2);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border-radius: 10px;
+            padding: 8px 14px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: #fff;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            max-width: 440px;
+        }
+        #srbk-persistent-music-deck.active {
+            display: flex;
+        }
+        .srbk-eq-viz {
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 16px;
+            width: 18px;
+        }
+        .srbk-eq-bar {
+            flex: 1;
+            background: var(--cyan);
+            border-radius: 1px;
+            animation: eqBounce 0.8s ease-in-out infinite alternate;
+        }
+        .srbk-eq-bar:nth-child(2) { animation-delay: 0.2s; background: #f472b6; }
+        .srbk-eq-bar:nth-child(3) { animation-delay: 0.4s; background: #38bdf8; }
+        .srbk-eq-bar:nth-child(4) { animation-delay: 0.15s; background: #a78bfa; }
+        @keyframes eqBounce {
+            0% { height: 3px; opacity: 0.4; }
+            100% { height: 16px; opacity: 1; }
+        }
+        .srbk-deck-title {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--cyan);
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 140px;
+        }
+        .srbk-deck-btn {
+            background: rgba(0, 240, 255, 0.1);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 10px;
+            font-family: var(--font-mono);
+            transition: all 0.15s ease;
+        }
+        .srbk-deck-btn:hover {
+            background: rgba(0, 240, 255, 0.25);
+            border-color: var(--cyan);
+        }
+        .srbk-deck-vol {
+            accent-color: var(--cyan);
+            width: 55px;
+            cursor: pointer;
+        }
+
         /* Cyber Callout Banners */
         .srbk-callout {
             margin: 12px 0;
@@ -3588,6 +3666,24 @@
 
     </div>
 
+    
+    <!-- Persistent Background Music & Synth Deck -->
+    <div id="srbk-persistent-music-deck">
+        <div class="srbk-eq-viz">
+            <div class="srbk-eq-bar"></div>
+            <div class="srbk-eq-bar"></div>
+            <div class="srbk-eq-bar"></div>
+            <div class="srbk-eq-bar"></div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:8px; color:#94a3b8; letter-spacing:0.1em;">BACKGROUND AUDIO</span>
+            <span class="srbk-deck-title" id="srbk-deck-title-text">LO-FI FOCUS CHILL</span>
+        </div>
+        <button class="srbk-deck-btn" id="srbk-deck-play-btn" type="button" onclick="toggleGlobalMusicPlayback()" title="Pause/Play">⏸ PAUSE</button>
+        <input type="range" class="srbk-deck-vol" id="srbk-deck-vol-slider" min="0" max="1" step="0.05" value="0.7" oninput="setGlobalMusicVolume(this.value)" title="Volume">
+        <button class="srbk-deck-btn" type="button" onclick="stopGlobalMusicPlayback()" style="color:#ef4444; border-color:rgba(239,68,68,0.3);" title="Close Deck">✕</button>
+    </div>
+
     <!-- ==================== JAVASCRIPT ==================== -->
     <script>
         /* ============================================================
@@ -3679,8 +3775,69 @@
             return `<div class="srbk-doc-card"><div class="srbk-doc-head"><span class="srbk-doc-badge">📄 RESEARCH DOCUMENT</span><span class="srbk-doc-title">${escapeHtml(cardTitle)}</span></div><div class="srbk-doc-body">${md(raw)}</div>${actionBtn}</div>`;
         }
 
-        /* Cyber Procedural Web Audio Engine */
+        /* Cyber Procedural Web Audio Engine & Persistent Audio Ducking */
         let activeSynthAudio = null;
+        let globalMusicVolume = 0.7;
+        let isAudioDucked = false;
+
+        function setAudioDucking(ducked) {
+            isAudioDucked = Boolean(ducked);
+            const targetVol = isAudioDucked ? 0.03 : (0.18 * globalMusicVolume);
+            if (activeSynthAudio && activeSynthAudio.masterGain && activeSynthAudio.ctx) {
+                try {
+                    activeSynthAudio.masterGain.gain.cancelScheduledValues(activeSynthAudio.ctx.currentTime);
+                    activeSynthAudio.masterGain.gain.linearRampToValueAtTime(targetVol, activeSynthAudio.ctx.currentTime + 0.25);
+                } catch(e) {}
+            }
+            document.querySelectorAll("audio, video").forEach(el => {
+                try {
+                    el.volume = isAudioDucked ? (0.12 * globalMusicVolume) : globalMusicVolume;
+                } catch(e) {}
+            });
+        }
+
+        function updatePersistentMusicDeck(title, genre) {
+            const deck = document.getElementById("srbk-persistent-music-deck");
+            const titleEl = document.getElementById("srbk-deck-title-text");
+            const playBtn = document.getElementById("srbk-deck-play-btn");
+            if (deck) {
+                deck.classList.add("active");
+                if (titleEl) titleEl.textContent = (title || genre || "CYBER STREAM").toUpperCase();
+                if (playBtn) playBtn.textContent = "⏸ PAUSE";
+            }
+        }
+
+        function stopGlobalMusicPlayback() {
+            if (activeSynthAudio) {
+                activeSynthAudio.stop();
+                activeSynthAudio = null;
+            }
+            document.querySelectorAll("audio").forEach(a => { try { a.pause(); } catch(e){} });
+            document.querySelectorAll(".srbk-synth-btn").forEach(b => b.classList.remove("active"));
+            const deck = document.getElementById("srbk-persistent-music-deck");
+            if (deck) deck.classList.remove("active");
+            showToast("BACKGROUND AUDIO STOPPED");
+        }
+
+        function setGlobalMusicVolume(val) {
+            globalMusicVolume = parseFloat(val) || 0.7;
+            setAudioDucking(isAudioDucked);
+        }
+
+        function toggleGlobalMusicPlayback() {
+            const btn = document.getElementById("srbk-deck-play-btn");
+            if (activeSynthAudio) {
+                activeSynthAudio.stop();
+                activeSynthAudio = null;
+                document.querySelectorAll(".srbk-synth-btn").forEach(b => b.classList.remove("active"));
+                if (btn) btn.textContent = "▶ PLAY";
+                showToast("CYBER SYNTH: PAUSED");
+            } else {
+                playProceduralCyberMusic("lofi");
+                if (btn) btn.textContent = "⏸ PAUSE";
+            }
+        }
+
         function playProceduralCyberMusic(genre = "synthwave", btn = null) {
             if (activeSynthAudio) {
                 activeSynthAudio.stop();
@@ -3737,6 +3894,9 @@
                 });
 
                 activeSynthAudio = {
+                    ctx: ctx,
+                    masterGain: masterGain,
+                    genre: genre,
                     stop: () => {
                         try {
                             masterGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
@@ -3747,6 +3907,7 @@
                         } catch(e) {}
                     }
                 };
+                updatePersistentMusicDeck(`${genre.toUpperCase()} CYBER SYNTH`, genre);
 
                 if (btn) {
                     btn.classList.add("active");
@@ -4682,7 +4843,9 @@
             window.voiceEnabled = voiceEnabled;
             if (!voiceEnabled && window.speechSynthesis) {
                 window.speechSynthesis.cancel();
+            setAudioDucking(false);
                 setAvatarSignal("IDLE");
+                setAudioDucking(false);
             }
             const label = document.getElementById("hud-voice-label");
             const btn = document.getElementById("hud-voice-toggle");
@@ -4706,6 +4869,7 @@
             if (!text || !window.speechSynthesis) return;
 
             window.speechSynthesis.cancel();
+            setAudioDucking(false);
 
             // Strip code blocks, media/card tags, math delimiters, and links for speech
             const clean = text
@@ -4743,6 +4907,7 @@
             }
 
             setAvatarSignal("SPEAKING");
+            setAudioDucking(true);
 
             // Drive lip-sync visemes on word boundaries
             utterance.onboundary = event => {
@@ -4754,6 +4919,7 @@
                 currentAssistantSpokenText = "";
                 lastSpeechEndTime = Date.now();
                 setAvatarSignal("IDLE");
+                setAudioDucking(false);
                 morphTargets.jawOpen = 0;
                 updateMorphMeters();
                 hideInterruptPill();
@@ -4802,6 +4968,7 @@
                 isRecordingSpeech = false;
                 if (micBtn) micBtn.classList.remove("recording");
                 setAvatarSignal("IDLE");
+                setAudioDucking(false);
                 if (input && input.value.trim()) {
                     showToast("DIRECTIVE CAPTURED · EXECUTING");
                     sendDirective();
@@ -4834,6 +5001,7 @@
                     isRecordingSpeech = false;
                     if (micBtn) micBtn.classList.remove("recording");
                     setAvatarSignal("IDLE");
+                setAudioDucking(false);
                     const val = (input?.value || "").trim();
                     if (val && val.replace(/[^a-zA-Z0-9]/g, "").length >= 2 && !isSelfEcho(val)) {
                         showToast("DIRECTIVE CAPTURED · EXECUTING");
@@ -4848,6 +5016,7 @@
                     isRecordingSpeech = false;
                     if (micBtn) micBtn.classList.remove("recording");
                     setAvatarSignal("IDLE");
+                setAudioDucking(false);
                     if (err.error === "not-allowed") {
                         showToast("MIC PERMISSION NEEDED: Click lock/mic icon in browser address bar");
                     }
@@ -4859,6 +5028,7 @@
                 isRecordingSpeech = false;
                 if (micBtn) micBtn.classList.remove("recording");
                 setAvatarSignal("IDLE");
+                setAudioDucking(false);
             }
         }
 
@@ -4877,6 +5047,7 @@
             updateMorphMeters();
             setTimeout(() => {
                 setAvatarSignal("IDLE");
+                setAudioDucking(false);
                 morphTargets.mouthSmile = 0.2;
                 morphTargets.browInnerUp = 0.15;
                 updateMorphMeters();
@@ -6137,10 +6308,12 @@
             pauseRecognitionForSpeech();
             if (window.speechSynthesis) {
                 window.speechSynthesis.cancel();
+            setAudioDucking(false);
             }
             isSpeakingTurn = false;
             isWaitingForAIResponse = false;
             setAvatarSignal("IDLE");
+                setAudioDucking(false);
             hideInterruptPill();
         }
 
@@ -6154,6 +6327,7 @@
             liveTranscriptBuffer = "";
             if (window.speechSynthesis) {
                 window.speechSynthesis.cancel();
+            setAudioDucking(false);
             }
             isSpeakingTurn = false;
             isWaitingForAIResponse = false;
@@ -6174,6 +6348,7 @@
                 }, 200);
             } else {
                 setAvatarSignal("IDLE");
+                setAudioDucking(false);
             }
         }
 
@@ -6283,6 +6458,7 @@
                 content.innerHTML = `<p style="color:var(--amber);">Live conversation notice: ${escapeHtml(err.message)}</p>`;
                 setLiveConvUI("LISTENING (READY)", "Speak your next directive...");
                 setAvatarSignal("IDLE");
+                setAudioDucking(false);
                 if (liveConversationActive) resumeRecognitionAfterSpeech(500);
             } finally {
                 if (myTurnId === currentTurnId) {
@@ -6330,6 +6506,7 @@
 
             setLiveConvUI("SPEAKING (DUPLEX 2-WAY)", `Say "Stop" or click orb to interrupt · "${clean}"`);
             setAvatarSignal("SPEAKING");
+            setAudioDucking(true);
             showInterruptPill();
 
             const utterance = new SpeechSynthesisUtterance(clean);
@@ -6371,6 +6548,7 @@
                     resumeRecognitionAfterSpeech(600);
                 } else if (!liveConversationActive) {
                     setAvatarSignal("IDLE");
+                setAudioDucking(false);
                 }
             };
 
