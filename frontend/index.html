@@ -4006,10 +4006,14 @@
             "ai news": { id: "5eT0GZqj3yE", title: "AI & TECH NEWS STREAM" }
         };
 
+        /* Monotonic counter for unresolved media cards so each gets a unique ID */
+        let _resolveCardCounter = 0;
+
         function resolvePlayableMedia(rawUrlOrQuery, title = "") {
             const raw = String(rawUrlOrQuery || "").trim();
             const rawLower = raw.toLowerCase();
 
+            // 1. Check TOPIC_PRESETS
             for (const [key, preset] of Object.entries(TOPIC_PRESETS)) {
                 if (rawLower === key || rawLower.includes(key)) {
                     return {
@@ -4017,11 +4021,13 @@
                         embedUrl: `https://www.youtube-nocookie.com/embed/${preset.id}?autoplay=1&rel=0`,
                         directWatchUrl: `https://www.youtube.com/watch?v=${preset.id}`,
                         displayTitle: title || preset.title,
-                        raw
+                        raw,
+                        needsResolve: false
                     };
                 }
             }
 
+            // 2. Check if raw contains a valid YouTube URL / ID
             const ytIdMatch = raw.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
             const isPlainId = /^[a-zA-Z0-9_-]{11}$/.test(raw) && !raw.includes(" ");
             const ytId = ytIdMatch ? ytIdMatch[1] : (isPlainId ? raw : null);
@@ -4029,6 +4035,8 @@
             let embedUrl = "";
             let directWatchUrl = "";
             let displayTitle = title || "MEDIA STREAM";
+            let needsResolve = false;
+            let resolveQuery = "";
 
             if (ytId) {
                 embedUrl = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0`;
@@ -4037,14 +4045,71 @@
                 embedUrl = raw;
                 directWatchUrl = raw;
             } else {
+                // 3. Unknown topic — mark for async resolution
                 const cleanQ = raw.replace(/[^\w\s-]/g, " ").replace(/\s+/g, " ").trim();
-                const q = encodeURIComponent(cleanQ || title || "lofi study music");
-                embedUrl = `https://www.youtube-nocookie.com/embed?listType=search&list=${q}&autoplay=1`;
-                directWatchUrl = `https://www.youtube.com/results?search_query=${q}`;
+                resolveQuery = cleanQ || title || "lofi study music";
+                needsResolve = true;
+                // Use a temporary loading placeholder — will be swapped by resolveAndUpdateMediaCards
+                const resolveId = `srbk-resolve-${++_resolveCardCounter}`;
+                embedUrl = `about:blank`;
+                directWatchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(resolveQuery)}`;
                 if (!title) displayTitle = cleanQ.toUpperCase();
+                return { ytId: null, embedUrl, directWatchUrl, displayTitle, raw, needsResolve, resolveQuery, resolveId };
             }
 
-            return { ytId, embedUrl, directWatchUrl, displayTitle, raw };
+            return { ytId, embedUrl, directWatchUrl, displayTitle, raw, needsResolve: false };
+        }
+
+        /**
+         * After a media card is rendered, call the backend SearchYouTube RPC
+         * to get a verified real video ID, then update all matching iframes/links.
+         */
+        async function resolveAndUpdateMediaCards(containerEl, query, displayTitle) {
+            if (!query) return;
+            try {
+                const result = await sendRPC("SearchYouTube", { query });
+                const videoId = result?.videoId;
+                if (!videoId) return;
+
+                const realEmbedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0`;
+                const realWatchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+                // Update all iframes with about:blank src inside this container
+                const iframes = containerEl.querySelectorAll('iframe[src="about:blank"]');
+                iframes.forEach(iframe => {
+                    iframe.src = realEmbedUrl;
+                });
+
+                // Update YOUTUBE ↗ links that point to search results
+                const ytLinks = containerEl.querySelectorAll('a.srbk-video-link');
+                ytLinks.forEach(link => {
+                    if (link.href.includes('results?search_query=')) {
+                        link.href = realWatchUrl;
+                    }
+                });
+
+                // Update POP OUT and WINDOW buttons' onclick handlers
+                const popBtns = containerEl.querySelectorAll('.srbk-video-pop-btn, .srbk-big-pop-btn');
+                popBtns.forEach(btn => {
+                    const onclick = btn.getAttribute('onclick') || '';
+                    if (onclick.includes('popOutFloatingVideo')) {
+                        btn.setAttribute('onclick', `popOutFloatingVideo('${videoId}', '${escapeHtml(displayTitle || query.toUpperCase())}')`);
+                    } else if (onclick.includes('openDetachedPipWindowFromUrl')) {
+                        btn.setAttribute('onclick', `openDetachedPipWindowFromUrl('${videoId}')`);
+                    }
+                });
+
+                // Also cache this for future use in TOPIC_PRESETS
+                TOPIC_PRESETS[query.toLowerCase()] = { id: videoId, title: (displayTitle || query).toUpperCase() };
+
+            } catch (err) {
+                console.warn('[Sarembok] SearchYouTube RPC failed, falling back to search embed:', err);
+                // Fallback: set iframes to the search embed URL
+                const q = encodeURIComponent(query);
+                const fallbackEmbed = `https://www.youtube-nocookie.com/embed?listType=search&list=${q}&autoplay=1`;
+                const iframes = containerEl.querySelectorAll('iframe[src="about:blank"]');
+                iframes.forEach(iframe => { iframe.src = fallbackEmbed; });
+            }
         }
 
         function extractYouTubeId(url) {
@@ -4053,8 +4118,20 @@
             return match ? match[1] : (/^[a-zA-Z0-9_-]{11}$/.test(url.trim()) ? url.trim() : null);
         }
 
-        function popOutFloatingVideo(urlOrQuery, title = "") {
-            const media = resolvePlayableMedia(urlOrQuery, title);
+        async function popOutFloatingVideo(urlOrQuery, title = "") {
+            let media = resolvePlayableMedia(urlOrQuery, title);
+
+            // If unresolved, try backend RPC first
+            if (media.needsResolve && media.resolveQuery) {
+                try {
+                    const result = await sendRPC("SearchYouTube", { query: media.resolveQuery });
+                    if (result?.videoId) {
+                        TOPIC_PRESETS[media.resolveQuery.toLowerCase()] = { id: result.videoId, title: (title || media.resolveQuery).toUpperCase() };
+                        media = resolvePlayableMedia(result.videoId, title);
+                    }
+                } catch (e) { console.warn('[Sarembok] POP OUT resolve failed:', e); }
+            }
+
             currentPipMedia = media;
 
             const pipEl = document.getElementById("srbk-floating-pip-player");
@@ -4099,8 +4176,17 @@
             }
         }
 
-        function openDetachedPipWindowFromUrl(urlOrQuery) {
-            const media = resolvePlayableMedia(urlOrQuery);
+        async function openDetachedPipWindowFromUrl(urlOrQuery) {
+            let media = resolvePlayableMedia(urlOrQuery);
+            if (media.needsResolve && media.resolveQuery) {
+                try {
+                    const result = await sendRPC("SearchYouTube", { query: media.resolveQuery });
+                    if (result?.videoId) {
+                        TOPIC_PRESETS[media.resolveQuery.toLowerCase()] = { id: result.videoId, title: media.resolveQuery.toUpperCase() };
+                        media = resolvePlayableMedia(result.videoId);
+                    }
+                } catch (e) { console.warn('[Sarembok] Window resolve failed:', e); }
+            }
             window.open(media.embedUrl, "SarembokMediaPopout", "width=640,height=380,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
         }
 
@@ -4917,8 +5003,21 @@
                 finalText = enrichResponseOnClient(text, finalText);
                 content.innerHTML = md(finalText);
 
-                // Auto-start procedural cyber audio deck on explicit playback request
+                // Async-resolve any unresolved media cards via backend SearchYouTube RPC
                 const pLow = text.toLowerCase();
+                const isPlayIntent = pLow.startsWith("play ") || pLow.includes("play music") || pLow.includes("listen to") || pLow.includes("watch ") || pLow.includes("stream ");
+                if (isPlayIntent) {
+                    // Extract topic from prompt
+                    let resolveTopic = text.replace(/(?:can you\s+)?(?:please\s+)?(?:play|show|open|stream|watch|listen to)\s+(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:video\s+about\s+|on\s+youtube\s+|youtube\s+)?/gi, "").replace(/["']/g, "").trim();
+                    if (!resolveTopic || resolveTopic.length < 2) resolveTopic = "lofi study music";
+                    // Check if the rendered content has unresolved iframes (about:blank)
+                    const unresolvedIframes = content.querySelectorAll('iframe[src="about:blank"]');
+                    if (unresolvedIframes.length > 0) {
+                        resolveAndUpdateMediaCards(content, resolveTopic, resolveTopic.toUpperCase());
+                    }
+                }
+
+                // Auto-start procedural cyber audio deck on explicit synth playback
                 if (pLow.includes("play music") || pLow.includes("play synthwave") || pLow.includes("play lofi") || pLow.includes("play ambient") || pLow.includes("play classical")) {
                     const g = pLow.includes("synthwave") ? "synthwave" : pLow.includes("ambient") ? "ambient" : pLow.includes("classical") ? "classical" : "lofi";
                     setTimeout(() => { if (!activeSynthAudio) playProceduralCyberMusic(g); }, 300);
