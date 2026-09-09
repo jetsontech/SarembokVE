@@ -2040,7 +2040,53 @@
             gap: 8px;
         }
 
-    
+        /* FLOATING INTERRUPT / BARGE-IN PILL */
+        .srbk-interrupt-pill {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(90px);
+            background: rgba(15, 23, 42, 0.94);
+            border: 1px solid var(--amber);
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.45), inset 0 0 15px rgba(245, 158, 11, 0.12);
+            border-radius: 30px;
+            padding: 9px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 99999;
+            cursor: pointer;
+            backdrop-filter: blur(14px);
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+            opacity: 0;
+            pointer-events: none;
+            font-family: var(--font-display);
+            font-size: 11.5px;
+            font-weight: 700;
+            color: #fbbf24;
+            letter-spacing: 0.06em;
+            user-select: none;
+        }
+        .srbk-interrupt-pill.visible {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .srbk-interrupt-pill:hover {
+            background: rgba(245, 158, 11, 0.22);
+            box-shadow: 0 0 35px rgba(245, 158, 11, 0.7);
+            border-color: #fef08a;
+        }
+        .srbk-interrupt-pill kbd {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            color: #fef08a;
+        }
+
         /* ADMIN EXECUTION CONSOLE & CYBER DECK TRACE */
         .admin-exec-toggle-btn {
             background: rgba(245, 158, 11, 0.08);
@@ -2194,6 +2240,11 @@
                 <button class="hud-voice-btn muted" id="hud-voice-toggle" onclick="toggleVoiceOutput()" title="Toggle Voice Audio">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
                     <span id="hud-voice-label">VOICE: OFF</span>
+                </button>
+
+                <button class="hud-voice-btn" id="hud-live-2way-btn" onclick="switchTab('dialogue'); if(!liveConversationActive) toggleLiveConversation();" title="Activate Live 2-Way Duplex Conversation" style="border-color:rgba(0,240,255,0.4); color:var(--cyan);">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                    <span>LIVE 2-WAY</span>
                 </button>
 
                 <div class="hud-meter">
@@ -2604,7 +2655,7 @@
                     <button class="dialogue-mic-btn" id="dialogue-mic-btn" onclick="toggleSpeechRecognition()" title="Voice Dictation (Speech-to-Text)">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
                     </button>
-                    <input type="text" class="dialogue-input" id="directive-input" placeholder="Instruct Sarembok or tap mic to speak..." onkeydown="if(event.key==='Enter') sendDirective()">
+                    <input type="text" class="dialogue-input" id="directive-input" placeholder="Instruct Sarembok or tap mic to speak..." onfocus="if(window.speechSynthesis&amp;&amp;window.speechSynthesis.speaking)interruptSpeech()" onkeydown="if(event.key==='Enter') sendDirective()">
                     <button class="dialogue-exec-btn" id="execute-button" onclick="sendDirective()">EXECUTE</button>
                 </div>
             </div>
@@ -3317,6 +3368,7 @@
            DIALOGUE DIRECTIVE EXECUTION (STREAMING ENABLED)
            ============================================================ */
         async function sendDirective() {
+            interruptSpeech();
             const input = document.getElementById("directive-input");
             const btn = document.getElementById("execute-button");
             if (!input || !btn) return;
@@ -3324,6 +3376,8 @@
             const text = input.value.trim();
             if (!text) return;
             input.value = "";
+
+            const myTurnId = ++currentTurnId;
 
             // Append user bubble
             appendUserDialogue(text);
@@ -3343,11 +3397,14 @@
                     "SarembokChat",
                     { prompt: text, model: selectedModel, language: selectedLang, stream: true, admin: isAdm },
                     delta => {
+                        if (myTurnId !== currentTurnId) return;
                         streamedText += delta;
                         content.innerHTML = md(streamedText);
                         scrollDialogue();
                     }
                 );
+
+                if (myTurnId !== currentTurnId) return;
 
                 const finalText = result?.response || result?.audioText || streamedText || "Directive executed.";
                 content.innerHTML = md(finalText);
@@ -3381,8 +3438,7 @@
                     content.appendChild(shotCard);
                 }
 
-                
-                if (voiceEnabled && finalText) {
+                if (voiceEnabled && finalText && myTurnId === currentTurnId) {
                     speakText(finalText);
                 }
 
@@ -3604,6 +3660,12 @@
 
             if (!clean) return;
 
+            isSpeakingTurn = true;
+            currentAssistantSpokenText = clean;
+            currentUtteranceHistory.push(clean.toLowerCase());
+            if (currentUtteranceHistory.length > 8) currentUtteranceHistory.shift();
+            showInterruptPill();
+
             const utterance = new SpeechSynthesisUtterance(clean);
             utterance.rate = 1.0;
 
@@ -3623,20 +3685,23 @@
                 triggerSpeechViseme();
             };
 
-            utterance.onend = () => {
+            const finishSpeaking = () => {
+                isSpeakingTurn = false;
+                currentAssistantSpokenText = "";
                 setAvatarSignal("IDLE");
                 morphTargets.jawOpen = 0;
                 updateMorphMeters();
+                hideInterruptPill();
             };
 
-            utterance.onerror = () => {
-                setAvatarSignal("IDLE");
-            };
+            utterance.onend = finishSpeaking;
+            utterance.onerror = finishSpeaking;
 
             window.speechSynthesis.speak(utterance);
         }
 
         function toggleSpeechRecognition() {
+            interruptSpeech();
             const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRec) {
                 alert("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
@@ -4601,7 +4666,8 @@
         }
 
         /* ============================================================
-           LIVE INTERACTIVE CONVERSATION ENGINE (WAKE WORD & ECHO CANCELLATION)
+           LIVE INTERACTIVE 2-WAY DUPLEX CONVERSATION ENGINE
+           (INSTANT BARGE-IN INTERRUPTION & ACOUSTIC SELF-ECHO SUPPRESSION)
            ============================================================ */
         let liveConversationActive = false;
         let liveRecContinuous = null;
@@ -4615,25 +4681,60 @@
         let lastSpeechEndTime = 0;
         let liveSpeechQueue = [];
         let isProcessingSpeechQueue = false;
+        let currentAssistantSpokenText = "";
+        let currentUtteranceHistory = [];
+        let currentTurnId = 0;
 
         // Matches: "hey sarembok", "hi sarembok", "ok sarembok", "sarembok", "sarambok", "sarem bock", "sarah mbok", etc.
         const WAKE_WORD_PATTERN = /\b(?:hey|hi|ok|okay)?\s*(?:sarembok|sarambok|sarem\s*bock?|sarah\s*mbok|saren\s*bock?|sarem\s*box|saremboc)\b/i;
+
+        function showInterruptPill() {
+            const pill = document.getElementById("srbk-interrupt-pill");
+            if (pill) pill.classList.add("visible");
+        }
+
+        function hideInterruptPill() {
+            const pill = document.getElementById("srbk-interrupt-pill");
+            if (pill) pill.classList.remove("visible");
+        }
+
+        // Smart Acoustic Self-Echo Detector: verifies if microphone input is assistant's own voice playing from speakers
+        function isSelfEcho(heardText) {
+            if (!heardText) return false;
+            const h = heardText.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+            if (!h) return false;
+            const candidates = [currentAssistantSpokenText.toLowerCase(), ...currentUtteranceHistory].filter(Boolean);
+            if (candidates.length === 0) return false;
+
+            for (const cand of candidates) {
+                const cleanCand = cand.replace(/[^a-z0-9 ]/g, "").trim();
+                if (!cleanCand) continue;
+                if (cleanCand.includes(h)) return true;
+                const hWords = h.split(/\s+/).filter(w => w.length > 2);
+                if (hWords.length > 0) {
+                    const candWords = new Set(cleanCand.split(/\s+/));
+                    const matches = hWords.filter(w => candWords.has(w));
+                    if (matches.length / hWords.length >= 0.65) return true;
+                }
+            }
+            return false;
+        }
 
         function toggleWakeWordRequirement() {
             wakeWordRequired = !wakeWordRequired;
             const btn = document.getElementById("wake-word-toggle-btn");
             if (btn) {
-                btn.textContent = wakeWordRequired ? "WAKE WORD: ON" : "WAKE WORD: OFF";
-                btn.style.color = wakeWordRequired ? "var(--cyan)" : "var(--text-muted)";
-                btn.style.borderColor = wakeWordRequired ? "var(--cyan)" : "rgba(255,255,255,0.15)";
+                btn.textContent = wakeWordRequired ? "WAKE WORD: ON" : "WAKE WORD: OFF (HANDS-FREE)";
+                btn.style.color = wakeWordRequired ? "var(--cyan)" : "#10b981";
+                btn.style.borderColor = wakeWordRequired ? "var(--cyan)" : "#10b981";
             }
             if (wakeWordRequired) {
                 wakeWordAwake = false;
                 setLiveConvUI("LISTENING (WAKE WORD)", 'Say "Hey Sarembok" or "Sarembok"...');
                 showToast("WAKE WORD ACTIVE: Say 'Hey Sarembok' or 'Sarembok'");
             } else {
-                setLiveConvUI("LISTENING (CONTINUOUS)", "Continuous hands-free loop active");
-                showToast("CONTINUOUS MODE: No wake word required");
+                setLiveConvUI("LISTENING (HANDS-FREE 2-WAY)", "Duplex conversational mode active · Speak naturally");
+                showToast("HANDS-FREE DUPLEX: Speak anytime · Instant interruption active");
             }
         }
 
@@ -4649,11 +4750,13 @@
                 if (hud) hud.classList.add("active");
                 voiceEnabled = true;
                 startLiveConversationLoop();
+                showToast("LIVE 2-WAY CONVERSATION ACTIVE");
             } else {
                 if (btn) btn.classList.remove("active");
                 if (btnText) btnText.textContent = "LIVE CONVERSATION";
                 if (hud) hud.classList.remove("active");
                 stopLiveConversationLoop();
+                showToast("LIVE CONVERSATION STOPPED");
             }
         }
 
@@ -4692,13 +4795,13 @@
 
                 wakeWordAwake = false;
                 setLiveConvUI(
-                    wakeWordRequired ? "LISTENING (WAKE WORD)" : "LISTENING (HANDS-FREE)",
-                    wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok" to activate' : "Speak naturally · Echo-cancellation active"
+                    wakeWordRequired ? "LISTENING (WAKE WORD)" : "LISTENING (HANDS-FREE 2-WAY)",
+                    wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok" to activate' : "Speak naturally · Instant barge-in interruption enabled"
                 );
                 setAvatarSignal("LISTENING");
 
                 liveRecContinuous.onstart = () => {
-                    console.log("Live conversation recognizer started.");
+                    console.log("[duplex] Live conversation recognizer started.");
                 };
 
                 liveRecContinuous.onresult = event => {
@@ -4716,22 +4819,49 @@
                     const currentHeard = (finalChunk || interim).trim();
                     if (!currentHeard) return;
 
-                    // 1. ACOUSTIC ECHO SUPPRESSION: If assistant is speaking, NEVER let assistant's own voice cut itself off!
-                    if (isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking)) {
-                        // Only allow barge-in if the user explicitly says wake word or stop command
-                        const isBargeIn = WAKE_WORD_PATTERN.test(currentHeard) || /\b(?:stop|halt|cancel|quiet|shh)\b/i.test(currentHeard);
-                        if (isBargeIn) {
-                            console.log("Explicit user interruption via wake word / stop:", currentHeard);
+                    const currentlySpeaking = isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking);
+
+                    // ========================================================
+                    // 1. REAL-TIME 2-WAY DUPLEX INTERRUPTION (BARGE-IN)
+                    // ========================================================
+                    if (currentlySpeaking) {
+                        const isWake = WAKE_WORD_PATTERN.test(currentHeard);
+                        const isExplicitStop = /\b(?:stop|halt|cancel|quiet|shh|wait|hold on|pause|listen|excuse me|no|hey)\b/i.test(currentHeard);
+                        const isEcho = isSelfEcho(currentHeard);
+
+                        // If user said wake word, stop command, or spoke distinct words (not echo):
+                        if (isWake || isExplicitStop || !isEcho) {
+                            console.log("[barge-in] Human speech detected during assistant response:", currentHeard);
                             interruptSpeech();
+
+                            const cleanHeard = currentHeard
+                                .replace(WAKE_WORD_PATTERN, "")
+                                .replace(/^(?:stop|halt|cancel|quiet|shh|wait|hold on|pause|no)[,.:;!?-]*\s*/i, "")
+                                .trim();
+
+                            if (cleanHeard.length > 0) {
+                                liveTranscriptBuffer = cleanHeard;
+                                setLiveConvUI("HEARING DIRECTIVE...", `"${cleanHeard}"`);
+                                setAvatarSignal("LISTENING");
+                                clearTimeout(liveSilenceTimer);
+                                liveSilenceTimer = setTimeout(() => {
+                                    if (liveTranscriptBuffer && !isWaitingForAIResponse && !isSpeakingTurn) {
+                                        const directiveToRun = liveTranscriptBuffer;
+                                        liveTranscriptBuffer = "";
+                                        executeLiveConversationTurn(directiveToRun);
+                                    }
+                                }, 950);
+                            }
+                            return;
                         } else {
-                            // Suppress assistant's own voice reverberating into the microphone!
+                            // Suppress speaker feedback
                             return;
                         }
                     }
 
-                    // 2. REVERB COOLDOWN: Discard audio within 650ms after speech ends
-                    if (Date.now() - lastSpeechEndTime < 650) {
-                        return;
+                    // 2. REVERB COOLDOWN: Discard audio within 350ms after speech ends if it's echo
+                    if (Date.now() - lastSpeechEndTime < 350) {
+                        if (isSelfEcho(currentHeard)) return;
                     }
 
                     // 3. WAKE WORD ENGINE
@@ -4758,7 +4888,7 @@
                                             wakeWordAwake = false;
                                             liveTranscriptBuffer = "";
                                         }
-                                    }, 1000);
+                                    }, 900);
                                 } else {
                                     setLiveConvUI("WAKE WORD DETECTED", 'Say your directive...');
                                     setAvatarSignal("ATTENTION");
@@ -4789,13 +4919,13 @@
                                 wakeWordAwake = false;
                                 liveTranscriptBuffer = "";
                             }
-                        }, 1150);
+                        }, 1000);
                     }
                 };
 
                 liveRecContinuous.onerror = err => {
                     if (err.error !== "no-speech") {
-                        console.warn("Live conversation recognition error:", err);
+                        console.warn("[duplex] Recognition error:", err);
                     }
                 };
 
@@ -4807,7 +4937,7 @@
                                     liveRecContinuous.start();
                                 }
                             } catch(e) {}
-                        }, 250);
+                        }, 200);
                     }
                 };
 
@@ -4824,6 +4954,7 @@
             wakeWordAwake = false;
             liveSpeechQueue = [];
             isProcessingSpeechQueue = false;
+            currentAssistantSpokenText = "";
             if (liveRecContinuous) {
                 try { liveRecContinuous.stop(); } catch(e) {}
                 liveRecContinuous = null;
@@ -4834,19 +4965,31 @@
             isSpeakingTurn = false;
             isWaitingForAIResponse = false;
             setAvatarSignal("IDLE");
+            hideInterruptPill();
         }
 
         function interruptSpeech() {
+            console.log("[barge-in] interruptSpeech called.");
+            currentTurnId++; // Invalidate active AI generation
             liveSpeechQueue = [];
             isProcessingSpeechQueue = false;
+            currentAssistantSpokenText = "";
             if (window.speechSynthesis) {
                 window.speechSynthesis.cancel();
             }
             isSpeakingTurn = false;
             lastSpeechEndTime = Date.now();
-            wakeWordAwake = true;
-            setLiveConvUI("INTERRUPTED · LISTENING", "Listening for your next directive...");
-            setAvatarSignal("LISTENING");
+            morphTargets.jawOpen = 0;
+            updateMorphMeters();
+            hideInterruptPill();
+
+            if (liveConversationActive) {
+                wakeWordAwake = true; // Instantly stay awake for user's follow-up directive
+                setLiveConvUI("INTERRUPTED · LISTENING", "Interrupted. Listening for your directive...");
+                setAvatarSignal("LISTENING");
+            } else {
+                setAvatarSignal("IDLE");
+            }
         }
 
         function enqueueLiveSpeech(text) {
@@ -4867,7 +5010,7 @@
             speakCalmConversational(nextText, () => {
                 isProcessingSpeechQueue = false;
                 if (liveSpeechQueue.length > 0) {
-                    setTimeout(processLiveSpeechQueue, 120);
+                    setTimeout(processLiveSpeechQueue, 100);
                 }
             });
         }
@@ -4876,6 +5019,7 @@
             const cleanSpeech = userSpeech.trim();
             if (!cleanSpeech) return;
 
+            const myTurnId = ++currentTurnId;
             isWaitingForAIResponse = true;
             setLiveConvUI("SYNTHESIZING...", `Routing through frontier fabric: "${cleanSpeech}"`);
             setAvatarSignal("ATTENTION");
@@ -4903,19 +5047,20 @@
                         stream: true
                     },
                     delta => {
+                        if (myTurnId !== currentTurnId) return; // User interrupted
                         streamedResponse += delta;
                         sentenceBuffer += delta;
                         content.innerHTML = md(streamedResponse);
                         scrollDialogue();
 
-                        // Stream sentence by sentence into the speech queue to eliminate perceived latency
+                        // Stream sentence by sentence into speech queue
                         if (liveConversationActive) {
                             const match = sentenceBuffer.match(/([.!?])\s+/);
                             if (match) {
                                 const splitIdx = match.index + 1;
                                 const readySentence = sentenceBuffer.slice(0, splitIdx).trim();
                                 sentenceBuffer = sentenceBuffer.slice(splitIdx);
-                                if (readySentence) {
+                                if (readySentence && myTurnId === currentTurnId) {
                                     enqueueLiveSpeech(readySentence);
                                 }
                             }
@@ -4923,22 +5068,27 @@
                     }
                 );
 
+                if (myTurnId !== currentTurnId) return;
+
                 const finalText = result?.response || streamedResponse || "Directive completed.";
                 content.innerHTML = md(finalText);
                 scrollDialogue();
 
-                if (sentenceBuffer.trim() && liveConversationActive) {
+                if (sentenceBuffer.trim() && liveConversationActive && myTurnId === currentTurnId) {
                     enqueueLiveSpeech(sentenceBuffer.trim());
-                } else if (liveConversationActive && liveSpeechQueue.length === 0 && !isSpeakingTurn) {
+                } else if (liveConversationActive && liveSpeechQueue.length === 0 && !isSpeakingTurn && myTurnId === currentTurnId) {
                     enqueueLiveSpeech(finalText);
                 }
 
             } catch (err) {
-                content.innerHTML = `<p style="color:var(--amber);">Live conversation error: ${escapeHtml(err.message)}</p>`;
+                if (myTurnId !== currentTurnId) return;
+                content.innerHTML = `<p style="color:var(--amber);">Live conversation notice: ${escapeHtml(err.message)}</p>`;
                 setLiveConvUI("LISTENING (READY)", "Speak your next directive...");
                 setAvatarSignal("IDLE");
             } finally {
-                isWaitingForAIResponse = false;
+                if (myTurnId === currentTurnId) {
+                    isWaitingForAIResponse = false;
+                }
             }
         }
 
@@ -4961,8 +5111,13 @@
             }
 
             isSpeakingTurn = true;
-            setLiveConvUI("SPEAKING (CALM & CONVERSATIONAL)", clean);
+            currentAssistantSpokenText = clean;
+            currentUtteranceHistory.push(clean.toLowerCase());
+            if (currentUtteranceHistory.length > 8) currentUtteranceHistory.shift();
+
+            setLiveConvUI("SPEAKING (DUPLEX 2-WAY)", clean);
             setAvatarSignal("SPEAKING");
+            showInterruptPill();
 
             const utterance = new SpeechSynthesisUtterance(clean);
             utterance.volume = 0.76;
@@ -4982,14 +5137,16 @@
 
             const finishSpeaking = () => {
                 isSpeakingTurn = false;
+                currentAssistantSpokenText = "";
                 lastSpeechEndTime = Date.now();
                 morphTargets.jawOpen = 0;
                 updateMorphMeters();
+                hideInterruptPill();
 
                 if (liveConversationActive && liveSpeechQueue.length === 0) {
                     setLiveConvUI(
-                        wakeWordRequired ? "LISTENING (WAKE WORD)" : "LISTENING (HANDS-FREE)",
-                        wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok"...' : "Speak naturally · Auto silence detection"
+                        wakeWordRequired ? "LISTENING (WAKE WORD)" : "LISTENING (HANDS-FREE 2-WAY)",
+                        wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok"...' : "Speak naturally · Barge-in active"
                     );
                     setAvatarSignal("LISTENING");
                 } else if (!liveConversationActive) {
@@ -5006,6 +5163,17 @@
 
             window.speechSynthesis.speak(utterance);
         }
+
+        // Global hotkey interruption listener (Escape or Spacebar outside input)
+        window.addEventListener("keydown", e => {
+            if (e.key === "Escape" || (e.key === " " && e.target === document.body)) {
+                if (isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking)) {
+                    e.preventDefault();
+                    interruptSpeech();
+                    showToast("SPEECH INTERRUPTED");
+                }
+            }
+        });
 
     
 
@@ -5096,6 +5264,13 @@
         }
 
     </script>
+
+    <!-- FLOATING INTERRUPT / BARGE-IN BUTTON -->
+    <div class="srbk-interrupt-pill" id="srbk-interrupt-pill" onclick="interruptSpeech()" title="Tap to interrupt AI speech immediately">
+        <span style="width:8px; height:8px; border-radius:50%; background:#f59e0b; box-shadow:0 0 8px #f59e0b; display:inline-block; animation:liveConvPulse 0.8s infinite;"></span>
+        <span>AI SPEAKING · TAP OR PRESS ESC TO INTERRUPT</span>
+        <kbd>ESC / SPACE</kbd>
+    </div>
 
     <div class="srbk-toast" id="srbk-toast-box">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
