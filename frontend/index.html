@@ -2650,7 +2650,7 @@
                 <!-- LIVE CONVERSATION STATUS HUD -->
                 <div class="live-conv-hud" id="live-conv-hud">
                     <div class="live-conv-orb-wrap">
-                        <div class="live-conv-orb" id="live-conv-orb"></div>
+                        <div class="live-conv-orb" id="live-conv-orb" onclick="handleOrbClick()" style="cursor:pointer;" title="Click to interrupt or speak"></div>
                         <div class="live-conv-info">
                             <div class="live-conv-state" id="live-conv-state">STANDBY</div>
                             <div class="live-conv-hint" id="live-conv-hint">Hands-free duplex 2-way conversation · Speak naturally · Instant barge-in</div>
@@ -3412,7 +3412,11 @@
             if (!input || !btn) return;
 
             const text = input.value.trim();
-            if (!text) return;
+            if (!text || text.replace(/[^a-zA-Z0-9]/g, "").length < 2) return;
+            if (typeof isSelfEcho === "function" && isSelfEcho(text)) {
+                input.value = "";
+                return;
+            }
             input.value = "";
 
             const myTurnId = ++currentTurnId;
@@ -3609,6 +3613,108 @@
         let isRecordingSpeech = false;
         let selectedVoiceLang = "en-GB";
 
+        // Live interactive 2-way duplex conversation state
+        let liveConversationActive = false;
+        let liveRecContinuous = null;
+        let liveSilenceTimer = null;
+        let liveTranscriptBuffer = "";
+        let isSpeakingTurn = false;
+        let isWaitingForAIResponse = false;
+        let wakeWordRequired = false;
+        let wakeWordAwake = false;
+        let wakeWordAwakeTimer = null;
+        let lastSpeechEndTime = 0;
+        let liveSpeechQueue = [];
+        let isProcessingSpeechQueue = false;
+        let currentAssistantSpokenText = "";
+        let currentUtteranceHistory = [];
+        let currentTurnId = 0;
+        let recognitionPermissionDenied = false;
+        let audioHardwareStream = null;
+
+        function showInterruptPill() {
+            const pill = document.getElementById("srbk-interrupt-pill");
+            if (pill) pill.classList.add("visible");
+        }
+
+        function hideInterruptPill() {
+            const pill = document.getElementById("srbk-interrupt-pill");
+            if (pill) pill.classList.remove("visible");
+        }
+
+        function pauseRecognitionForSpeech() {
+            if (liveRecContinuous) {
+                try {
+                    liveRecContinuous.onend = null;
+                    liveRecContinuous.onerror = null;
+                    liveRecContinuous.onresult = null;
+                    liveRecContinuous.stop();
+                } catch(e) {}
+                liveRecContinuous = null;
+            }
+            clearTimeout(liveSilenceTimer);
+            liveTranscriptBuffer = "";
+        }
+
+        function resumeRecognitionAfterSpeech(delayMs = 600) {
+            if (!liveConversationActive) return;
+            setTimeout(() => {
+                if (!liveConversationActive) return;
+                if (isSpeakingTurn || isWaitingForAIResponse || (window.speechSynthesis && window.speechSynthesis.speaking) || liveSpeechQueue.length > 0) {
+                    return;
+                }
+                startLiveConversationLoop();
+            }, delayMs);
+        }
+
+        function handleOrbClick() {
+            if (isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking) || isWaitingForAIResponse) {
+                interruptSpeech();
+                showToast("INTERRUPTED · LISTENING");
+            } else if (!liveConversationActive) {
+                toggleLiveConversation();
+            }
+        }
+
+        // Robust Acoustic Self-Echo Detector: verifies if microphone input is assistant's own voice playing from speakers
+        function isSelfEcho(heardText) {
+            if (!heardText) return false;
+            const h = heardText.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+            if (!h) return false;
+
+            const now = Date.now();
+            const candidates = [];
+            if (currentAssistantSpokenText) {
+                candidates.push(currentAssistantSpokenText.toLowerCase());
+            }
+            for (const item of currentUtteranceHistory) {
+                const itemText = typeof item === "string" ? item : item.text;
+                const itemTime = typeof item === "object" ? item.time : 0;
+                if (!itemTime || (now - itemTime < 30000)) { // 30s acoustic retention window
+                    if (itemText) candidates.push(itemText);
+                }
+            }
+            if (candidates.length === 0) return false;
+
+            const hWords = h.split(/\s+/).filter(w => w.length > 2);
+
+            for (const cand of candidates) {
+                const cleanCand = cand.replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+                if (!cleanCand) continue;
+
+                // 1. Direct or reverse substring match
+                if (cleanCand.includes(h) || h.includes(cleanCand)) return true;
+
+                // 2. Word overlap check (handles acoustic distortion and duplicated words from echo)
+                if (hWords.length > 0) {
+                    const candWords = new Set(cleanCand.split(/\s+/).filter(w => w.length > 2));
+                    const matchCount = hWords.filter(w => candWords.has(w)).length;
+                    if (matchCount / hWords.length >= 0.35) return true;
+                }
+            }
+            return false;
+        }
+
         // Strict blacklist to eliminate Microsoft David and all robotic male voices
         const MALE_VOICE_BLACKLIST = [
             "david", "mark", "george", "guy", "male", "boy", "man", "richard", "james",
@@ -3707,6 +3813,7 @@
 
             if (!clean) return;
 
+            pauseRecognitionForSpeech();
             isSpeakingTurn = true;
             currentAssistantSpokenText = clean;
             currentUtteranceHistory.push({ text: clean.toLowerCase(), time: Date.now() });
@@ -3739,6 +3846,10 @@
                 updateMorphMeters();
                 hideInterruptPill();
                 window._activeSpeechUtterance = null;
+
+                if (liveConversationActive) {
+                    resumeRecognitionAfterSpeech(600);
+                }
             };
 
             utterance.onend = finishSpeaking;
@@ -3757,6 +3868,7 @@
                 }, 60);
             } catch (err) {
                 console.warn("[tts] speakText error:", err);
+                finishSpeaking();
             }
         }
 
@@ -3810,10 +3922,11 @@
                     isRecordingSpeech = false;
                     if (micBtn) micBtn.classList.remove("recording");
                     setAvatarSignal("IDLE");
-                    if (input && input.value.trim() && !isSelfEcho(input.value.trim())) {
+                    const val = (input?.value || "").trim();
+                    if (val && val.replace(/[^a-zA-Z0-9]/g, "").length >= 2 && !isSelfEcho(val)) {
                         showToast("DIRECTIVE CAPTURED · EXECUTING");
                         sendDirective();
-                    } else if (input && isSelfEcho(input.value.trim())) {
+                    } else if (input) {
                         input.value = "";
                     }
                 };
@@ -4756,36 +4869,9 @@
            LIVE INTERACTIVE 2-WAY DUPLEX CONVERSATION ENGINE
            (INSTANT BARGE-IN INTERRUPTION & ACOUSTIC SELF-ECHO SUPPRESSION)
            ============================================================ */
-        let liveConversationActive = false;
-        let liveRecContinuous = null;
-        let liveSilenceTimer = null;
-        let liveTranscriptBuffer = "";
-        let isSpeakingTurn = false;
-        let isWaitingForAIResponse = false;
-        let wakeWordRequired = false; // Default to hands-free duplex so user can speak immediately
-        let wakeWordAwake = false;
-        let wakeWordAwakeTimer = null;
-        let lastSpeechEndTime = 0;
-        let liveSpeechQueue = [];
-        let isProcessingSpeechQueue = false;
-        let currentAssistantSpokenText = "";
-        let currentUtteranceHistory = [];
-        let currentTurnId = 0;
-        let recognitionPermissionDenied = false;
-        let audioHardwareStream = null;
 
         // Matches: "hey sarembok", "hi sarembok", "ok sarembok", "sarembok", "sarambok", "sarem bock", "sarah mbok", etc.
         const WAKE_WORD_PATTERN = /\b(?:hey|hi|ok|okay|yo|hello)?\s*(?:sarembok|sarambok|sarem\s*bock?|sarah\s*mbok|saren\s*bock?|sarem\s*box|saremboc|sare\s*bok|sara\s*bok|sarem|saren|sarah\s*book|sara\s*book|sarah\s*back|sara\s*back|seven\s*buck|cerebro|serebro|assistant|computer)\b/i;
-
-        function showInterruptPill() {
-            const pill = document.getElementById("srbk-interrupt-pill");
-            if (pill) pill.classList.add("visible");
-        }
-
-        function hideInterruptPill() {
-            const pill = document.getElementById("srbk-interrupt-pill");
-            if (pill) pill.classList.remove("visible");
-        }
 
         // Live visual decibel/energy meter
         let liveAudioContext = null;
@@ -4849,45 +4935,6 @@
             } catch (err) {
                 console.warn("[duplex] setupLiveMicMeter notice:", err);
             }
-        }
-
-        // Robust Acoustic Self-Echo Detector: verifies if microphone input is assistant's own voice playing from speakers
-        function isSelfEcho(heardText) {
-            if (!heardText) return false;
-            const h = heardText.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
-            if (!h) return false;
-
-            const now = Date.now();
-            const candidates = [];
-            if (currentAssistantSpokenText) {
-                candidates.push(currentAssistantSpokenText.toLowerCase());
-            }
-            for (const item of currentUtteranceHistory) {
-                const itemText = typeof item === "string" ? item : item.text;
-                const itemTime = typeof item === "object" ? item.time : 0;
-                if (!itemTime || (now - itemTime < 30000)) { // 30s acoustic retention window
-                    if (itemText) candidates.push(itemText);
-                }
-            }
-            if (candidates.length === 0) return false;
-
-            const hWords = h.split(/\s+/).filter(w => w.length > 2);
-
-            for (const cand of candidates) {
-                const cleanCand = cand.replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
-                if (!cleanCand) continue;
-
-                // 1. Direct or reverse substring match
-                if (cleanCand.includes(h) || h.includes(cleanCand)) return true;
-
-                // 2. Word overlap check (handles acoustic distortion and duplicated words from echo)
-                if (hWords.length > 0) {
-                    const candWords = new Set(cleanCand.split(/\s+/).filter(w => w.length > 2));
-                    const matchCount = hWords.filter(w => candWords.has(w)).length;
-                    if (matchCount / hWords.length >= 0.35) return true;
-                }
-            }
-            return false;
         }
 
         function toggleWakeWordRequirement() {
@@ -4958,6 +5005,12 @@
         }
 
         async function startLiveConversationLoop() {
+            if (!liveConversationActive) return;
+            if (isSpeakingTurn || isWaitingForAIResponse || (window.speechSynthesis && window.speechSynthesis.speaking) || liveSpeechQueue.length > 0) {
+                console.log("[duplex] Deferring live recognition loop: assistant is currently speaking or synthesizing.");
+                return;
+            }
+
             const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRec) {
                 alert("Live speech recognition requires Chrome, Edge, or a WebSpeech-compatible browser.");
@@ -4965,7 +5018,6 @@
                 return;
             }
 
-            // Speech recognition runs directly through Web Speech API (no getUserMedia conflict on iOS/Android/Desktop)
             try {
                 if (liveRecContinuous) {
                     try {
@@ -4986,7 +5038,7 @@
                 liveTranscriptBuffer = "";
                 setLiveConvUI(
                     wakeWordRequired ? "LISTENING (WAKE WORD)" : "LISTENING (HANDS-FREE 2-WAY)",
-                    wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok" to activate' : "Speak naturally · Say 'Stop' or 'Hey Sarembok' to interrupt"
+                    wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok" to activate' : "Speak naturally · Say 'Stop' or click orb to interrupt"
                 );
                 setAvatarSignal("LISTENING");
 
@@ -5025,49 +5077,37 @@
                     const cleanAlpha = currentHeard.replace(/[^a-zA-Z0-9]/g, "").trim();
                     if (cleanAlpha.length < 2) return;
 
-                    const currentlySpeaking = isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking);
+                    const currentlySpeaking = isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking) || isWaitingForAIResponse || liveSpeechQueue.length > 0;
 
-                    // ========================================================
-                    // 1. REAL-TIME 2-WAY DUPLEX INTERRUPTION (BARGE-IN)
-                    // ========================================================
+                    // 1. DROP ALL AUDIO WHILE ASSISTANT SPEAKS OR PROCESSES (PHYSICAL FEEDBACK SUPPRESSION)
                     if (currentlySpeaking) {
                         const isWake = WAKE_WORD_PATTERN.test(currentHeard);
                         const isExplicitStop = /\b(?:stop|halt|cancel|quiet|shh|wait|hold on|pause|listen|excuse me|no|shut up|hey sarembok|sarembok)\b/i.test(currentHeard);
 
-                        // WHILE THE ASSISTANT IS SPEAKING:
-                        // Laptop speakers fire audio directly into the laptop microphone.
-                        // ONLY interrupt if the user provides an explicit stop or wake command.
                         if (isWake || isExplicitStop) {
                             console.log("[barge-in] Explicit human interrupt trigger:", currentHeard);
                             interruptSpeech();
                             return;
                         } else {
-                            // While assistant is speaking, continuously wipe buffer and drop all microphone audio
                             liveTranscriptBuffer = "";
                             return;
                         }
                     }
 
-                    // ========================================================
-                    // 2. POST-SPEECH ACOUSTIC TAIL SUPPRESSION
-                    // ========================================================
-                    // For 1.5 seconds after assistant finishes speaking, speaker audio/reverb
-                    // is still arriving at the microphone. Wipe buffer and drop completely!
-                    if (Date.now() - lastSpeechEndTime < 1500) {
+                    // 2. POST-SPEECH ACOUSTIC TAIL SUPPRESSION (1200ms)
+                    if (Date.now() - lastSpeechEndTime < 1200) {
                         liveTranscriptBuffer = "";
                         return;
                     }
 
-                    // Global echo suppression against recent assistant utterances
+                    // 3. GLOBAL ACOUSTIC SELF-ECHO DETECTOR
                     if (isSelfEcho(currentHeard)) {
                         liveTranscriptBuffer = "";
                         console.log("[duplex] Suppressed acoustic echo from assistant history:", currentHeard);
                         return;
                     }
 
-                    // ========================================================
-                    // 3. WAKE WORD ENGINE
-                    // ========================================================
+                    // 4. WAKE WORD ENGINE
                     if (wakeWordRequired) {
                         if (!wakeWordAwake) {
                             if (WAKE_WORD_PATTERN.test(currentHeard)) {
@@ -5107,13 +5147,10 @@
                         }
                     }
 
-                    // ========================================================
-                    // 4. ACCUMULATE DIRECTIVE & SILENCE DISPATCH
-                    // ========================================================
+                    // 5. ACCUMULATE DIRECTIVE & SILENCE DISPATCH
                     liveTranscriptBuffer = (liveTranscriptBuffer + " " + finalChunk).trim() || currentHeard;
                     const cleanDirective = liveTranscriptBuffer.replace(WAKE_WORD_PATTERN, "").replace(/^[,.:;!?-]+\s*/, "").trim();
 
-                    // Discard if input does not contain at least 2 alphanumeric characters, or if it matches assistant echo
                     if (cleanDirective.length >= 2 && /[a-zA-Z0-9]{2,}/.test(cleanDirective) && !isSelfEcho(cleanDirective)) {
                         setLiveConvUI("HEARING DIRECTIVE...", `"${cleanDirective}"`);
                         setAvatarSignal("LISTENING");
@@ -5126,21 +5163,18 @@
                                 !isWaitingForAIResponse && 
                                 !isSpeakingTurn && 
                                 !(window.speechSynthesis && window.speechSynthesis.speaking) &&
-                                Date.now() - lastSpeechEndTime >= 1500) {
+                                Date.now() - lastSpeechEndTime >= 1200) {
                                 executeLiveConversationTurn(cleanDirective);
                                 wakeWordAwake = false;
                                 liveTranscriptBuffer = "";
                             }
-                        }, 1100);
+                        }, 1000);
                     }
                 };
 
                 liveRecContinuous.onerror = err => {
                     console.warn("[duplex] Recognition error:", err.error);
-                    if (err.error === "no-speech") {
-                        // Ambient silence is completely normal during continuous duplex listening
-                        return;
-                    }
+                    if (err.error === "no-speech") return;
                     if (err.error === "network") {
                         setLiveConvUI("CONNECTING...", "Speech recognition link reconnecting...");
                         return;
@@ -5148,7 +5182,7 @@
                     if (err.error === "not-allowed" || err.error === "service-not-allowed") {
                         recognitionPermissionDenied = true;
                         setLiveConvUI("MIC PERMISSION NEEDED", "Click lock icon in URL address bar -> Allow Microphone");
-                        showToast("MIC PERMISSION NEEDED: Click the lock icon in address bar -> Allow Microphone");
+                        showToast("MIC PERMISSION NEEDED: Click lock icon in address bar -> Allow Microphone");
                         stopLiveConversationLoop();
                     } else if (err.error === "audio-capture") {
                         setLiveConvUI("NO MIC DETECTED", "Select microphone in browser sound settings");
@@ -5159,9 +5193,9 @@
 
                 liveRecContinuous.onend = () => {
                     console.log("[duplex] Speech recognition ended.");
-                    if (liveConversationActive && !recognitionPermissionDenied) {
+                    if (liveConversationActive && !recognitionPermissionDenied && !isSpeakingTurn && !isWaitingForAIResponse && !(window.speechSynthesis && window.speechSynthesis.speaking) && liveSpeechQueue.length === 0) {
                         setTimeout(() => {
-                            if (liveConversationActive && !recognitionPermissionDenied) {
+                            if (liveConversationActive && !recognitionPermissionDenied && !isSpeakingTurn && !isWaitingForAIResponse && !(window.speechSynthesis && window.speechSynthesis.speaking) && liveSpeechQueue.length === 0) {
                                 startLiveConversationLoop();
                             }
                         }, 250);
@@ -5183,15 +5217,7 @@
             isProcessingSpeechQueue = false;
             currentAssistantSpokenText = "";
             liveTranscriptBuffer = "";
-            if (liveRecContinuous) {
-                try {
-                    liveRecContinuous.onend = null;
-                    liveRecContinuous.onerror = null;
-                    liveRecContinuous.onresult = null;
-                    liveRecContinuous.stop();
-                } catch(e) {}
-                liveRecContinuous = null;
-            }
+            pauseRecognitionForSpeech();
             if (window.speechSynthesis) {
                 window.speechSynthesis.cancel();
             }
@@ -5213,15 +5239,22 @@
                 window.speechSynthesis.cancel();
             }
             isSpeakingTurn = false;
+            isWaitingForAIResponse = false;
             lastSpeechEndTime = Date.now();
             morphTargets.jawOpen = 0;
             updateMorphMeters();
             hideInterruptPill();
+            pauseRecognitionForSpeech();
 
             if (liveConversationActive) {
                 wakeWordAwake = true; // Instantly stay awake for user's follow-up directive
                 setLiveConvUI("INTERRUPTED · LISTENING", "Interrupted. Listening for your directive...");
                 setAvatarSignal("LISTENING");
+                setTimeout(() => {
+                    if (liveConversationActive && !isSpeakingTurn && !isWaitingForAIResponse && !(window.speechSynthesis && window.speechSynthesis.speaking)) {
+                        startLiveConversationLoop();
+                    }
+                }, 200);
             } else {
                 setAvatarSignal("IDLE");
             }
@@ -5251,15 +5284,17 @@
         }
 
         async function executeLiveConversationTurn(userSpeech) {
+            pauseRecognitionForSpeech();
             const cleanSpeech = (userSpeech || "").trim();
             // Guard against empty, punctuation-only, or self-echo loops
             if (!cleanSpeech || cleanSpeech.length < 2 || !/[a-zA-Z0-9]{2,}/.test(cleanSpeech) || isSelfEcho(cleanSpeech)) {
                 console.log("[duplex] Suppressed invalid or echo turn execution:", cleanSpeech);
+                if (liveConversationActive) resumeRecognitionAfterSpeech(300);
                 return;
             }
 
-            // Strictly prevent turn execution while assistant is speaking or within the 1.5s post-speech tail
-            if (isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking) || Date.now() - lastSpeechEndTime < 1500) {
+            // Strictly prevent turn execution while assistant is speaking or within the 1.2s post-speech tail
+            if (isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking) || Date.now() - lastSpeechEndTime < 1200) {
                 console.log("[duplex] Suppressed turn execution during speech or cooldown:", cleanSpeech);
                 liveTranscriptBuffer = "";
                 return;
@@ -5331,6 +5366,7 @@
                 content.innerHTML = `<p style="color:var(--amber);">Live conversation notice: ${escapeHtml(err.message)}</p>`;
                 setLiveConvUI("LISTENING (READY)", "Speak your next directive...");
                 setAvatarSignal("IDLE");
+                if (liveConversationActive) resumeRecognitionAfterSpeech(500);
             } finally {
                 if (myTurnId === currentTurnId) {
                     isWaitingForAIResponse = false;
@@ -5339,6 +5375,7 @@
         }
 
         function speakCalmConversational(text, onCompleteCallback) {
+            pauseRecognitionForSpeech();
             if (!text || !window.speechSynthesis) {
                 if (onCompleteCallback) onCompleteCallback();
                 return;
@@ -5356,6 +5393,7 @@
                 return;
             }
 
+            pauseRecognitionForSpeech();
             isSpeakingTurn = true;
             currentAssistantSpokenText = clean;
             currentUtteranceHistory.push({ text: clean.toLowerCase(), time: Date.now() });
@@ -5365,7 +5403,7 @@
             clearTimeout(liveSilenceTimer);
             liveTranscriptBuffer = "";
 
-            setLiveConvUI("SPEAKING (DUPLEX 2-WAY)", `Say "Stop" or "Hey Sarembok" to interrupt · "${clean}"`);
+            setLiveConvUI("SPEAKING (DUPLEX 2-WAY)", `Say "Stop" or click orb to interrupt · "${clean}"`);
             setAvatarSignal("SPEAKING");
             showInterruptPill();
 
@@ -5394,18 +5432,20 @@
                 hideInterruptPill();
                 window._activeSpeechUtterance = null;
 
-                if (liveConversationActive && liveSpeechQueue.length === 0) {
+                if (typeof onCompleteCallback === "function") {
+                    onCompleteCallback();
+                }
+
+                if (liveConversationActive && liveSpeechQueue.length === 0 && !isWaitingForAIResponse) {
                     setLiveConvUI(
                         wakeWordRequired ? "LISTENING (WAKE WORD)" : "LISTENING (HANDS-FREE 2-WAY)",
                         wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok"...' : "Speak naturally · Hands-free 2-way conversation"
                     );
                     setAvatarSignal("LISTENING");
+                    // Wait 600ms for room echo and speaker vibrations to dissipate before opening mic
+                    resumeRecognitionAfterSpeech(600);
                 } else if (!liveConversationActive) {
                     setAvatarSignal("IDLE");
-                }
-
-                if (typeof onCompleteCallback === "function") {
-                    onCompleteCallback();
                 }
             };
 
@@ -5425,6 +5465,7 @@
                 }, 60);
             } catch (err) {
                 console.warn("[duplex] speak error:", err);
+                finishSpeaking();
             }
         }
 
