@@ -1107,6 +1107,115 @@
             cursor: pointer;
         }
 
+        
+        /* Floating Picture-in-Picture Video & Media Player */
+        #srbk-floating-pip-player {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 400px;
+            max-width: calc(100vw - 48px);
+            z-index: 990;
+            background: rgba(4, 9, 22, 0.96);
+            border: 1px solid rgba(0, 240, 255, 0.4);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.85), 0 0 24px rgba(0, 240, 255, 0.25);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 12px;
+            overflow: hidden;
+            display: none;
+            flex-direction: column;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s;
+        }
+        #srbk-floating-pip-player.active {
+            display: flex;
+        }
+        #srbk-floating-pip-player.minimized {
+            height: 42px;
+        }
+        #srbk-floating-pip-player.minimized .srbk-pip-body {
+            display: none;
+        }
+        .srbk-pip-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: rgba(0, 240, 255, 0.08);
+            border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+            cursor: move;
+            user-select: none;
+        }
+        .srbk-pip-title {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--cyan);
+            letter-spacing: 0.08em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 220px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .srbk-pip-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .srbk-pip-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #94a3b8;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .srbk-pip-btn:hover {
+            background: rgba(0, 240, 255, 0.2);
+            border-color: var(--cyan);
+            color: #fff;
+        }
+        .srbk-pip-body {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000;
+        }
+        .srbk-pip-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        /* Video Card Popout Action Buttons */
+        .srbk-video-pop-btn {
+            background: rgba(0, 240, 255, 0.12);
+            border: 1px solid rgba(0, 240, 255, 0.35);
+            color: var(--cyan);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .srbk-video-pop-btn:hover {
+            background: var(--cyan);
+            color: #000;
+            box-shadow: 0 0 10px var(--cyan-glow);
+        }
+
         /* Cyber Callout Banners */
         .srbk-callout {
             margin: 12px 0;
@@ -2897,14 +3006,7 @@
 
                 
                 
-                <!-- Cyber Background Audio Deck (Always-On Stream & Synth Engine) -->
-                <div class="hud-cyber-audio-dock" id="hud-cyber-audio-dock" title="Cyber Background Stream Controller">
-                    <button class="hud-audio-quick-btn" id="hud-audio-master-btn" onclick="toggleGlobalMusicPlayback()" title="Toggle Background Music">
-                        <div class="srbk-eq-viz" id="hud-eq-viz">
-                            <div class="srbk-eq-bar"></div>
-                            <div class="srbk-eq-bar"></div>
-                            <div class="srbk-eq-bar"></div>
-                        </div>
+                
                         <span id="hud-audio-master-label">🎵 MUSIC DECK</span>
                     </button>
                     <div class="hud-audio-genre-pills">
@@ -3741,14 +3843,7 @@
     </div>
 
     
-    <!-- Persistent Background Music & Synth Deck -->
-    <div id="srbk-persistent-music-deck">
-        <div class="srbk-eq-viz">
-            <div class="srbk-eq-bar"></div>
-            <div class="srbk-eq-bar"></div>
-            <div class="srbk-eq-bar"></div>
-            <div class="srbk-eq-bar"></div>
-        </div>
+    
         <div style="display:flex; flex-direction:column; gap:2px;">
             <span style="font-size:8px; color:#94a3b8; letter-spacing:0.1em;">BACKGROUND AUDIO</span>
             <span class="srbk-deck-title" id="srbk-deck-title-text">LO-FI FOCUS CHILL</span>
@@ -3756,6 +3851,24 @@
         <button class="srbk-deck-btn" id="srbk-deck-play-btn" type="button" onclick="toggleGlobalMusicPlayback()" title="Pause/Play">⏸ PAUSE</button>
         <input type="range" class="srbk-deck-vol" id="srbk-deck-vol-slider" min="0" max="1" step="0.05" value="0.7" oninput="setGlobalMusicVolume(this.value)" title="Volume">
         <button class="srbk-deck-btn" type="button" onclick="stopGlobalMusicPlayback()" style="color:#ef4444; border-color:rgba(239,68,68,0.3);" title="Close Deck">✕</button>
+    </div>
+
+    
+    <!-- Floating Picture-in-Picture / Pop-Out Video Deck -->
+    <div id="srbk-floating-pip-player">
+        <div class="srbk-pip-header" id="srbk-pip-drag-handle">
+            <span class="srbk-pip-title" id="srbk-pip-title-text">
+                <span class="boot-badge-dot"></span> 🎬 POP-OUT VIDEO PLAYER
+            </span>
+            <div class="srbk-pip-controls">
+                <button class="srbk-pip-btn" onclick="toggleMinimizePip()" title="Minimize / Expand">_</button>
+                <button class="srbk-pip-btn" onclick="openDetachedPipWindow()" title="Pop Out into Detached Window">↗</button>
+                <button class="srbk-pip-btn" onclick="closeFloatingPip()" style="color:#ef4444;" title="Close Video">✕</button>
+            </div>
+        </div>
+        <div class="srbk-pip-body" id="srbk-pip-body-container">
+            <!-- Iframe injected dynamically -->
+        </div>
     </div>
 
     <!-- ==================== JAVASCRIPT ==================== -->
@@ -3816,6 +3929,73 @@
             s = s.replace(/_([a-zA-Z0-9+-])/g, "<sub>$1</sub>");
             return s;
         }
+
+        
+        /* ============================================================
+           FLOATING PICTURE-IN-PICTURE & POP-OUT VIDEO ENGINE
+           ============================================================ */
+        let currentPipYtId = "";
+        let currentPipTitle = "";
+        let currentPipUrl = "";
+
+        function popOutFloatingVideo(urlOrYtId, title = "") {
+            const raw = String(urlOrYtId || "");
+            const ytId = extractYouTubeId(raw) || (raw.length === 11 ? raw : null);
+            const cleanUrl = (raw.match(/https?:\/\/[^\s\)"]+/) || [raw])[0];
+            const displayTitle = title || (ytId ? "YOUTUBE STREAM" : "MEDIA PLAYBACK");
+
+            currentPipYtId = ytId;
+            currentPipTitle = displayTitle;
+            currentPipUrl = cleanUrl;
+
+            const pipEl = document.getElementById("srbk-floating-pip-player");
+            const titleEl = document.getElementById("srbk-pip-title-text");
+            const bodyEl = document.getElementById("srbk-pip-body-container");
+
+            if (!pipEl || !bodyEl) return;
+
+            if (titleEl) {
+                titleEl.innerHTML = `<span class="boot-badge-dot"></span> 🎬 ${escapeHtml(displayTitle)}`;
+            }
+
+            if (ytId) {
+                bodyEl.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0" class="srbk-pip-iframe" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
+            } else if (cleanUrl) {
+                bodyEl.innerHTML = `<video controls autoplay src="${escapeHtml(cleanUrl)}" style="width:100%; height:100%; object-fit:contain;"></video>`;
+            }
+
+            pipEl.classList.remove("minimized");
+            pipEl.classList.add("active");
+            showToast(`POP-OUT ACTIVE: ${displayTitle.toUpperCase()}`);
+        }
+
+        function toggleMinimizePip() {
+            const pipEl = document.getElementById("srbk-floating-pip-player");
+            if (pipEl) pipEl.classList.toggle("minimized");
+        }
+
+        function closeFloatingPip() {
+            const pipEl = document.getElementById("srbk-floating-pip-player");
+            const bodyEl = document.getElementById("srbk-pip-body-container");
+            if (bodyEl) bodyEl.innerHTML = "";
+            if (pipEl) pipEl.classList.remove("active");
+            showToast("POP-OUT VIDEO CLOSED");
+        }
+
+        function openDetachedPipWindow() {
+            if (currentPipYtId) {
+                const url = `https://www.youtube-nocookie.com/embed/${currentPipYtId}?autoplay=1`;
+                window.open(url, "SarembokMediaPopout", "width=560,height=340,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
+                closeFloatingPip();
+            } else if (currentPipUrl) {
+                window.open(currentPipUrl, "SarembokMediaPopout", "width=560,height=340,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
+                closeFloatingPip();
+            }
+        }
+        window.popOutFloatingVideo = popOutFloatingVideo;
+        window.openDetachedPipWindow = openDetachedPipWindow;
+        window.closeFloatingPip = closeFloatingPip;
+        window.toggleMinimizePip = toggleMinimizePip;
 
         function extractYouTubeId(url) {
             if (!url) return null;
