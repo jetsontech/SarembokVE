@@ -975,6 +975,61 @@
         }
 
         
+        
+        /* Header Cyber Audio Controller */
+        .hud-cyber-audio-dock {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(4, 9, 22, 0.85);
+            border: 1px solid rgba(0, 240, 255, 0.28);
+            box-shadow: 0 0 14px rgba(0, 240, 255, 0.12);
+            border-radius: 8px;
+            padding: 4px 10px;
+        }
+        .hud-audio-quick-btn {
+            background: transparent;
+            border: none;
+            color: var(--cyan);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .hud-audio-quick-btn:hover {
+            background: rgba(0, 240, 255, 0.15);
+            text-shadow: 0 0 8px var(--cyan);
+        }
+        .hud-audio-genre-pills {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            border-left: 1px solid rgba(255, 255, 255, 0.12);
+            padding-left: 6px;
+        }
+        .hud-genre-pill {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 4px;
+            font-size: 11px;
+            padding: 3px 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-secondary);
+        }
+        .hud-genre-pill:hover, .hud-genre-pill.active {
+            background: rgba(0, 240, 255, 0.25);
+            border-color: var(--cyan);
+            color: #fff;
+            box-shadow: 0 0 8px var(--cyan-glow);
+        }
+
         /* Persistent Background Music & Cyber Synth Deck */
         #srbk-persistent-music-deck {
             position: fixed;
@@ -2841,6 +2896,25 @@
                 </div>
 
                 
+                
+                <!-- Cyber Background Audio Deck (Always-On Stream & Synth Engine) -->
+                <div class="hud-cyber-audio-dock" id="hud-cyber-audio-dock" title="Cyber Background Stream Controller">
+                    <button class="hud-audio-quick-btn" id="hud-audio-master-btn" onclick="toggleGlobalMusicPlayback()" title="Toggle Background Music">
+                        <div class="srbk-eq-viz" id="hud-eq-viz">
+                            <div class="srbk-eq-bar"></div>
+                            <div class="srbk-eq-bar"></div>
+                            <div class="srbk-eq-bar"></div>
+                        </div>
+                        <span id="hud-audio-master-label">🎵 MUSIC DECK</span>
+                    </button>
+                    <div class="hud-audio-genre-pills">
+                        <button class="hud-genre-pill" id="pill-lofi" onclick="playProceduralCyberMusic('lofi', this)" title="Play Lo-Fi Chill Stream">☕ Lo-Fi</button>
+                        <button class="hud-genre-pill" id="pill-synthwave" onclick="playProceduralCyberMusic('synthwave', this)" title="Play Synthwave Cyber Stream">⚡ Synth</button>
+                        <button class="hud-genre-pill" id="pill-ambient" onclick="playProceduralCyberMusic('ambient', this)" title="Play Deep Ambient Space">🌌 Space</button>
+                        <button class="hud-genre-pill" id="pill-classical" onclick="playProceduralCyberMusic('classical', this)" title="Play Classical Focus">🎻 Classical</button>
+                    </div>
+                </div>
+
                 <button class="hud-voice-btn" id="hud-voice-toggle" onclick="toggleVoiceOutput()" title="Toggle Voice Audio">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
                     <span id="hud-voice-label">VOICE: ON</span>
@@ -3800,11 +3874,22 @@
             const deck = document.getElementById("srbk-persistent-music-deck");
             const titleEl = document.getElementById("srbk-deck-title-text");
             const playBtn = document.getElementById("srbk-deck-play-btn");
+            const hudMasterLabel = document.getElementById("hud-audio-master-label");
+            const hudPills = document.querySelectorAll(".hud-genre-pill");
+
             if (deck) {
                 deck.classList.add("active");
                 if (titleEl) titleEl.textContent = (title || genre || "CYBER STREAM").toUpperCase();
                 if (playBtn) playBtn.textContent = "⏸ PAUSE";
             }
+
+            if (hudMasterLabel) {
+                hudMasterLabel.textContent = `🎵 ${((genre || title || "MUSIC").toUpperCase())}`;
+            }
+
+            hudPills.forEach(p => {
+                p.classList.toggle("active", p.id === `pill-${genre}`);
+            });
         }
 
         function stopGlobalMusicPlayback() {
@@ -4511,6 +4596,13 @@
                 let finalText = result?.response || result?.audioText || streamedText || "Directive executed.";
                 finalText = enrichResponseOnClient(text, finalText);
                 content.innerHTML = md(finalText);
+
+                // Auto-start procedural cyber audio deck on explicit playback request
+                const pLow = text.toLowerCase();
+                if (pLow.includes("play music") || pLow.includes("play synthwave") || pLow.includes("play lofi") || pLow.includes("play ambient") || pLow.includes("play classical")) {
+                    const g = pLow.includes("synthwave") ? "synthwave" : pLow.includes("ambient") ? "ambient" : pLow.includes("classical") ? "classical" : "lofi";
+                    setTimeout(() => { if (!activeSynthAudio) playProceduralCyberMusic(g); }, 300);
+                }
 
                 // If Admin Tool Traces are present, render interactive cyber deck cards
                 if (result?.toolTraces && Array.isArray(result.toolTraces) && result.toolTraces.length > 0) {
