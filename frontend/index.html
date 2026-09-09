@@ -2191,9 +2191,9 @@
                 </div>
 
                 
-                <button class="hud-voice-btn" id="hud-voice-toggle" onclick="toggleVoiceOutput()" title="Toggle Voice Audio">
+                <button class="hud-voice-btn muted" id="hud-voice-toggle" onclick="toggleVoiceOutput()" title="Toggle Voice Audio">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                    <span id="hud-voice-label">VOICE: ON</span>
+                    <span id="hud-voice-label">VOICE: OFF</span>
                 </button>
 
                 <div class="hud-meter">
@@ -2562,9 +2562,9 @@
                             <span id="admin-exec-btn-text">ADMIN: OFF</span>
                         </button>
                         <div class="cyber-card-badge cyan" id="dialogue-gpu-badge" title="Active Engine">ENGINE: GPT-4O-MINI</div>
-                        <button class="dialogue-voice-chip" id="dialogue-voice-toggle-chip" onclick="toggleVoiceOutput()" title="Toggle voice narration">
+                        <button class="dialogue-voice-chip muted" id="dialogue-voice-toggle-chip" onclick="toggleVoiceOutput()" title="Toggle voice narration">
                             <span class="voice-chip-dot"></span>
-                            <span id="dialogue-voice-chip-text">VOICE: ON</span>
+                            <span id="dialogue-voice-chip-text">VOICE: OFF</span>
                         </button>
                         <button class="live-conv-toggle-btn" id="live-conv-btn" onclick="toggleLiveConversation()" title="Toggle Hands-Free Live Interactive Conversation Mode">
                             <span class="live-conv-dot"></span>
@@ -3508,10 +3508,62 @@
         /* ============================================================
            INTERACTIVE VOICE & SPEECH RECOGNITION (STT / TTS)
            ============================================================ */
-        let voiceEnabled = true;
+        let voiceEnabled = false;
         let speechRecognition = null;
         let isRecordingSpeech = false;
         let selectedVoiceLang = "en-GB";
+
+        // Strict blacklist to eliminate Microsoft David and all robotic male voices
+        const MALE_VOICE_BLACKLIST = [
+            "david", "mark", "george", "guy", "male", "boy", "man", "richard", "james",
+            "stefan", "frank", "paul", "charles", "ryan", "christopher", "eric", "brian",
+            "daniel", "oliver", "tom", "alex", "microsoft david", "microsoft mark", "desktop"
+        ];
+
+        function getAdaFemaleVoice() {
+            if (!window.speechSynthesis) return null;
+            const voices = window.speechSynthesis.getVoices() || [];
+            if (voices.length === 0) return null;
+
+            // 1. Strict blacklist of robotic and male voices
+            const femaleCandidates = voices.filter(v => {
+                const name = (v.name || "").toLowerCase();
+                return !MALE_VOICE_BLACKLIST.some(m => name.includes(m));
+            });
+
+            const pool = femaleCandidates.length > 0 ? femaleCandidates : voices;
+
+            // 2. High priority warm natural female voices for Ada
+            const priorityNames = [
+                "jenny", "aria", "zira", "samantha", "victoria", "ava", "karen",
+                "natural", "google uk english female", "google us english", "neural"
+            ];
+
+            for (const p of priorityNames) {
+                const match = pool.find(v => {
+                    const n = (v.name || "").toLowerCase();
+                    const isLangOk = (v.lang || "").toLowerCase().startsWith("en") || !v.lang;
+                    return n.includes(p) && isLangOk && !MALE_VOICE_BLACKLIST.some(m => n.includes(m));
+                });
+                if (match) return match;
+            }
+
+            // 3. Any English non-male voice
+            const anyEnFemale = pool.find(v => {
+                const n = (v.name || "").toLowerCase();
+                return (v.lang || "").toLowerCase().startsWith("en") && !MALE_VOICE_BLACKLIST.some(m => n.includes(m));
+            });
+            if (anyEnFemale) return anyEnFemale;
+
+            // 4. Any non-male candidate
+            return femaleCandidates[0] || null;
+        }
+
+        if (window.speechSynthesis) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                getAdaFemaleVoice();
+            };
+        }
 
         function toggleVoiceOutput() {
             voiceEnabled = !voiceEnabled;
@@ -3552,13 +3604,16 @@
             if (!clean) return;
 
             const utterance = new SpeechSynthesisUtterance(clean);
-            utterance.rate = 1.02;
-            utterance.pitch = 1.05;
+            utterance.rate = 1.0;
 
-            // Pick natural sounding English voice if available
-            const voices = window.speechSynthesis.getVoices();
-            const preferred = voices.find(v => (v.lang.includes("en-GB") || v.lang.includes("en-US")) && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Samantha") || v.name.includes("Victoria")));
-            if (preferred) utterance.voice = preferred;
+            // Strictly assign female voice and avoid robotic man default
+            const preferred = getAdaFemaleVoice();
+            if (preferred) {
+                utterance.voice = preferred;
+                utterance.pitch = 1.08;
+            } else {
+                utterance.pitch = 1.28;
+            }
 
             setAvatarSignal("SPEAKING");
 
@@ -4771,12 +4826,15 @@
             const utterance = new SpeechSynthesisUtterance(clean);
             // Calm, conversational parameters (never loud or jarring)
             utterance.volume = 0.76;
-            utterance.rate = 1.02;
-            utterance.pitch = 1.02;
+            utterance.rate = 1.0;
 
-            const voices = window.speechSynthesis.getVoices();
-            const preferred = voices.find(v => (v.lang.includes("en-GB") || v.lang.includes("en-US")) && (v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Samantha") || v.name.includes("Victoria") || v.name.includes("Ava")));
-            if (preferred) utterance.voice = preferred;
+            const preferred = getAdaFemaleVoice();
+            if (preferred) {
+                utterance.voice = preferred;
+                utterance.pitch = 1.08;
+            } else {
+                utterance.pitch = 1.25;
+            }
 
             utterance.onboundary = () => {
                 triggerSpeechViseme();
