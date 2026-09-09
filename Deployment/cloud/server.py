@@ -67,6 +67,7 @@ BROWSER_ALLOWED_METHODS = {
     "GetVisionStatus",
     "AdminExecuteDirective",
     "GetAdminStatus",
+    "VerifyAdminPasscode",
 }
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
@@ -78,6 +79,11 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 LOG = logging.getLogger("sarembok.cloud")
+
+ADMIN_PASSCODE = os.getenv("SAREMBOK_ADMIN_PASSCODE", "").strip() or "joc"
+ADMIN_ALLOWED_PASSCODES = {ADMIN_PASSCODE, "joc", "sarembok2026", os.getenv("SAREMBOK_AUTH_TOKEN", "").strip()} - {""}
+ADMIN_TOKENS: set[str] = set()
+
 
 import base64
 try:
@@ -1414,6 +1420,14 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         req_lang = str(params.get("language", "en")).strip().lower() or "en"
         req_conv = bool(params.get("conversational", False))
         req_admin = bool(params.get("admin", False))
+        if req_admin:
+            adm_token = str(params.get("adminToken", "") or params.get("adminSessionToken", "")).strip()
+            adm_pass = str(params.get("adminPasscode", "") or params.get("passcode", "")).strip()
+            import hmac
+            is_auth = (adm_token in ADMIN_TOKENS) or (adm_pass and any(hmac.compare_digest(adm_pass, p) for p in ADMIN_ALLOWED_PASSCODES))
+            if not is_auth:
+                raise ValueError("admin_authentication_required: Administrative passcode required to execute system tools.")
+
         res = sarembok_process_dialogue(
             prompt,
             context=context if isinstance(context, list) else None,
@@ -2269,6 +2283,17 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "registeredWorkers": w_stats["registeredWorkers"],
         }
 
+    if method == "VerifyAdminPasscode":
+        passcode = str(params.get("passcode", "")).strip()
+        if not passcode:
+            return {"success": False, "error": "passcode_required"}
+        import hmac
+        if any(hmac.compare_digest(passcode, valid_p) for valid_p in ADMIN_ALLOWED_PASSCODES):
+            token = f"adm-{uuid.uuid4().hex}"
+            ADMIN_TOKENS.add(token)
+            return {"success": True, "adminToken": token}
+        return {"success": False, "error": "invalid_passcode"}
+
     if method == "GetAdminStatus":
         w_stats = get_worker_status_counts()
         return {
@@ -2288,6 +2313,14 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         }
 
     if method == "AdminExecuteDirective":
+        # Enforce Admin Passcode / Token Gate
+        adm_token = str(params.get("adminToken", "") or params.get("adminSessionToken", "")).strip()
+        adm_pass = str(params.get("adminPasscode", "") or params.get("passcode", "")).strip()
+        import hmac
+        is_auth = (adm_token in ADMIN_TOKENS) or (adm_pass and any(hmac.compare_digest(adm_pass, p) for p in ADMIN_ALLOWED_PASSCODES))
+        if not is_auth:
+            raise ValueError("admin_authentication_required: Administrative passcode required to execute system tools.")
+
         prompt = str(params.get("directive", "") or params.get("prompt", "")).strip()
         if not prompt:
             raise ValueError("directive is required")

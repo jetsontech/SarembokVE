@@ -2902,6 +2902,35 @@
             </div>
         </div>
 
+        
+        <!-- ==================== MODAL: ADMIN AUTHENTICATION CHALLENGE ==================== -->
+        <div id="admin-auth-modal" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(2,4,8,0.88); backdrop-filter:blur(10px); align-items:center; justify-content:center; padding:20px;">
+            <div style="background:var(--bg-card); border:1px solid var(--amber); border-radius:12px; max-width:480px; width:100%; padding:24px; box-shadow:0 0 50px rgba(245,158,11,0.3);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                    <div style="font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--amber); display:flex; align-items:center; gap:8px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        ADMIN SECURITY CHALLENGE
+                    </div>
+                    <button style="background:transparent; border:none; color:var(--text-muted); font-size:18px; cursor:pointer;" onclick="closeAdminAuthModal()">✕</button>
+                </div>
+
+                <div style="font-family:var(--font-sans); font-size:12px; color:var(--text-secondary); line-height:1.5; margin-bottom:16px;">
+                    Autonomous terminal commands, Python code execution, file modification, and GPU cluster orchestration require verified administrative authority.
+                </div>
+
+                <div style="margin-bottom:14px;">
+                    <label style="display:block; font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); margin-bottom:6px;">ADMINISTRATIVE PASSCODE:</label>
+                    <input type="password" id="admin-auth-passcode" placeholder="Enter administrative passcode..." style="width:100%; background:rgba(6,9,19,0.9); border:1px solid rgba(245,158,11,0.3); color:var(--text-primary); padding:10px 14px; border-radius:6px; font-family:var(--font-mono); font-size:13px; outline:none;" onkeydown="if(event.key==='Enter') verifyAdminPasscodeAction()">
+                    <div id="admin-auth-error" style="display:none; color:#ef4444; font-family:var(--font-mono); font-size:11px; margin-top:6px;"></div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                    <button class="browser-action-btn" onclick="closeAdminAuthModal()">CANCEL</button>
+                    <button class="browser-action-btn" style="border-color:var(--amber); background:rgba(245,158,11,0.2); color:#fbbf24;" onclick="verifyAdminPasscodeAction()">AUTHENTICATE &amp; UNLOCK</button>
+                </div>
+            </div>
+        </div>
+
         <!-- ==================== MODAL: RENT GPU INSTANCE ==================== -->
         <div id="rent-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(2,4,8,0.85); backdrop-filter:blur(8px); align-items:center; justify-content:center; padding:20px;">
             <div style="background:var(--bg-card); border:1px solid var(--amber); border-radius:12px; max-width:540px; width:100%; padding:24px; box-shadow:0 0 40px rgba(245,158,11,0.2);">
@@ -3177,6 +3206,8 @@
                 const id = "rpc-" + rpcCounter++;
                 const rpcParams = { ...params };
                 if (window.browserSessionToken) rpcParams.sessionToken = window.browserSessionToken;
+                const admToken = sessionStorage.getItem("srbk_admin_token");
+                if (admToken) rpcParams.adminToken = admToken;
 
                 pending.set(id, {
                     res: resolve,
@@ -4784,24 +4815,84 @@
            ============================================================ */
         window.adminExecutionActive = false;
 
-        function toggleAdminExecutionMode() {
-            window.adminExecutionActive = !window.adminExecutionActive;
+        function openAdminAuthModal() {
+            const m = document.getElementById("admin-auth-modal");
+            const inp = document.getElementById("admin-auth-passcode");
+            const err = document.getElementById("admin-auth-error");
+            if (err) err.style.display = "none";
+            if (inp) inp.value = "";
+            if (m) m.style.display = "flex";
+            if (inp) setTimeout(() => inp.focus(), 80);
+        }
+
+        function closeAdminAuthModal() {
+            const m = document.getElementById("admin-auth-modal");
+            if (m) m.style.display = "none";
+        }
+
+        async function verifyAdminPasscodeAction() {
+            const inp = document.getElementById("admin-auth-passcode");
+            const err = document.getElementById("admin-auth-error");
+            const pass = inp ? inp.value.trim() : "";
+            if (!pass) {
+                if (err) { err.textContent = "Please enter the admin passcode."; err.style.display = "block"; }
+                return;
+            }
+
+            try {
+                const res = await sendRPC("VerifyAdminPasscode", { passcode: pass });
+                if (res && res.success && res.adminToken) {
+                    sessionStorage.setItem("srbk_admin_token", res.adminToken);
+                    closeAdminAuthModal();
+                    setAdminActiveState(true);
+                    showToast("ADMIN AUTHORITY GRANTED · TOOLBELT UNLOCKED");
+                    addTerminalLine("[admin] security verification successful: authority token issued.", "amber");
+                } else {
+                    if (err) {
+                        err.textContent = "ACCESS DENIED: Invalid Administrative Passcode.";
+                        err.style.display = "block";
+                    }
+                }
+            } catch (e) {
+                if (err) {
+                    err.textContent = "Authentication error: " + e.message;
+                    err.style.display = "block";
+                }
+            }
+        }
+
+        function setAdminActiveState(active) {
+            window.adminExecutionActive = active;
             const btn = document.getElementById("admin-exec-btn");
             const btnText = document.getElementById("admin-exec-btn-text");
             const input = document.getElementById("directive-input");
 
-            if (window.adminExecutionActive) {
+            if (active) {
                 if (btn) btn.classList.add("active");
                 if (btnText) btnText.textContent = "ADMIN: ACTIVE";
                 if (input) input.placeholder = "ADMIN MODE ACTIVE: Enter bash /exec, /py code, /fleet, or natural directives...";
-                showToast("ADMIN EXECUTION MODE: ACTIVE (Toolbelt Engaged)");
-                addTerminalLine("[admin] autonomous tool-calling authority granted.", "amber");
             } else {
                 if (btn) btn.classList.remove("active");
                 if (btnText) btnText.textContent = "ADMIN: OFF";
                 if (input) input.placeholder = "Instruct Sarembok or tap mic to speak...";
+            }
+        }
+
+        function toggleAdminExecutionMode() {
+            if (window.adminExecutionActive) {
+                setAdminActiveState(false);
                 showToast("ADMIN EXECUTION MODE: OFF");
-                addTerminalLine("[admin] returned to standard conversation mode.", "cyan");
+                addTerminalLine("[admin] admin mode disengaged.", "cyan");
+            } else {
+                // Check if already authenticated in this session
+                const existingToken = sessionStorage.getItem("srbk_admin_token");
+                if (existingToken) {
+                    setAdminActiveState(true);
+                    showToast("ADMIN EXECUTION MODE: ACTIVE");
+                    addTerminalLine("[admin] session token verified.", "amber");
+                } else {
+                    openAdminAuthModal();
+                }
             }
         }
 
