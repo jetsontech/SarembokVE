@@ -4196,6 +4196,16 @@
             }
         }
 
+        function setAudioDucking(duck = false) {
+            if (activeSynthAudio && activeSynthAudio.masterGain && activeSynthAudio.ctx) {
+                const targetVol = duck ? musicVolume * 0.05 : musicVolume * 0.25;
+                try {
+                    activeSynthAudio.masterGain.gain.setValueAtTime(targetVol, activeSynthAudio.ctx.currentTime);
+                } catch (_) {}
+            }
+        }
+        window.setAudioDucking = setAudioDucking;
+
         // Draggable floating PiP Player
         (function initPipDrag() {
             let isDragging = false;
