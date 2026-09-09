@@ -806,6 +806,236 @@
             color: #cbd5e1;
         }
 
+        /* ==================== CYBER FLASHCARDS & RICH MULTIMODAL CONTENT ==================== */
+        .srbk-flashcard {
+            background: linear-gradient(135deg, rgba(8, 16, 36, 0.92) 0%, rgba(4, 9, 22, 0.96) 100%);
+            border: 1px solid rgba(0, 240, 255, 0.35);
+            border-radius: 12px;
+            margin: 14px 0;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(0, 240, 255, 0.2);
+            transition: all 0.25s ease;
+        }
+        .srbk-flashcard:hover {
+            border-color: rgba(0, 240, 255, 0.65);
+            box-shadow: 0 10px 40px rgba(0, 240, 255, 0.15), inset 0 1px 0 rgba(0, 240, 255, 0.4);
+        }
+        .srbk-card-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: rgba(0, 240, 255, 0.08);
+            border-bottom: 1px solid rgba(0, 240, 255, 0.16);
+        }
+        .srbk-card-badge {
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            color: var(--cyan);
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .srbk-card-title {
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.06em;
+        }
+        .srbk-card-body {
+            padding: 14px 16px;
+            font-size: 13.5px;
+            line-height: 1.65;
+            color: #e2e8f0;
+        }
+        .srbk-card-reveal {
+            margin-top: 14px;
+            border-top: 1px dashed rgba(0, 240, 255, 0.2);
+            padding-top: 10px;
+        }
+        .srbk-card-reveal summary {
+            list-style: none;
+        }
+        .srbk-card-reveal summary::-webkit-details-marker {
+            display: none;
+        }
+        .srbk-card-reveal-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: rgba(0, 240, 255, 0.1);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            border-radius: 6px;
+            color: var(--cyan);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        .srbk-card-reveal-btn:hover {
+            background: rgba(0, 240, 255, 0.22);
+            border-color: var(--cyan);
+            box-shadow: 0 0 14px rgba(0, 240, 255, 0.35);
+        }
+        .srbk-card-reveal[open] .srbk-card-reveal-btn {
+            background: rgba(245, 158, 11, 0.12);
+            border-color: rgba(245, 158, 11, 0.4);
+            color: var(--amber);
+        }
+        .srbk-card-answer {
+            margin-top: 10px;
+            padding: 12px 14px;
+            background: rgba(0, 0, 0, 0.45);
+            border-left: 3px solid var(--emerald);
+            border-radius: 0 8px 8px 0;
+            font-size: 13px;
+            line-height: 1.6;
+            animation: fadeIn 0.25s ease;
+        }
+
+        /* Math & LaTeX Equation Styling */
+        .srbk-math {
+            font-family: 'Cambria Math', 'Latin Modern Math', 'Times New Roman', serif;
+            font-style: italic;
+            font-size: 1.08em;
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.08);
+            padding: 1px 5px;
+            border-radius: 4px;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+        .srbk-math-block {
+            margin: 12px 0;
+            padding: 14px 18px;
+            background: rgba(2, 6, 18, 0.85);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            border-radius: 8px;
+            text-align: center;
+            position: relative;
+        }
+        .srbk-math-badge {
+            position: absolute;
+            top: 6px;
+            right: 10px;
+            font-family: var(--font-mono);
+            font-size: 8.5px;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+        }
+        .srbk-math-inner {
+            font-family: 'Cambria Math', 'Latin Modern Math', 'Times New Roman', serif;
+            font-style: italic;
+            font-size: 1.22em;
+            color: #38bdf8;
+            letter-spacing: 0.04em;
+        }
+
+        /* Rich Cyber Matrix Tables */
+        .srbk-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            margin: 14px 0;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 240, 255, 0.2);
+        }
+        .srbk-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px;
+            font-family: var(--font-mono);
+            text-align: left;
+        }
+        .srbk-table th {
+            background: rgba(0, 240, 255, 0.12);
+            color: var(--cyan);
+            padding: 10px 14px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(0, 240, 255, 0.25);
+        }
+        .srbk-table td {
+            padding: 9px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            color: #e2e8f0;
+        }
+        .srbk-table tr:nth-child(even) td {
+            background: rgba(255, 255, 255, 0.015);
+        }
+        .srbk-table tr:hover td {
+            background: rgba(0, 240, 255, 0.05);
+        }
+
+        /* Cyber Callout Banners */
+        .srbk-callout {
+            margin: 12px 0;
+            padding: 12px 16px;
+            border-radius: 8px;
+            background: rgba(0, 240, 255, 0.06);
+            border-left: 3px solid var(--cyan);
+            font-size: 13px;
+        }
+        .srbk-callout.tip {
+            background: rgba(16, 185, 129, 0.06);
+            border-left-color: var(--emerald);
+        }
+        .srbk-callout.warning, .srbk-callout.important {
+            background: rgba(245, 158, 11, 0.06);
+            border-left-color: var(--amber);
+        }
+        .srbk-callout-title {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--cyan);
+            margin-bottom: 4px;
+        }
+        .srbk-callout.tip .srbk-callout-title { color: var(--emerald); }
+        .srbk-callout.warning .srbk-callout-title, .srbk-callout.important .srbk-callout-title { color: var(--amber); }
+
+        /* Lists */
+        .srbk-ul, .srbk-ol {
+            margin: 10px 0 10px 22px;
+            padding: 0;
+        }
+        .srbk-ul li, .srbk-ol li {
+            margin-bottom: 5px;
+            line-height: 1.6;
+        }
+
+        /* Images */
+        .srbk-img-wrap {
+            margin: 14px 0;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            background: #000;
+        }
+        .srbk-img {
+            width: 100%;
+            max-height: 480px;
+            object-fit: contain;
+            display: block;
+        }
+        .srbk-img-caption {
+            padding: 6px 12px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--text-muted);
+            background: rgba(2, 6, 14, 0.85);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
         /* Dialogue Input Bar */
         .dialogue-input-bar {
             padding: 14px 20px;
@@ -3103,33 +3333,130 @@
                 .replace(/'/g, "&#39;");
         }
 
-        /* Minimal Markdown Parser */
+        /* Mathematical Notation Formatter */
+        function formatMath(latex) {
+            if (!latex) return "";
+            let s = escapeHtml(latex.trim());
+            // Common LaTeX replacements
+            s = s.replace(/\\frac\{([^\}]+)\}\{([^\}]+)\}/g, "($1 / $2)");
+            s = s.replace(/\\sqrt\{([^\}]+)\}/g, "√($1)");
+            s = s.replace(/\\sqrt\s*([a-zA-Z0-9])/g, "√$1");
+            s = s.replace(/\\times/g, "×");
+            s = s.replace(/\\div/g, "÷");
+            s = s.replace(/\\pm/g, "±");
+            s = s.replace(/\\approx/g, "≈");
+            s = s.replace(/\\neq/g, "≠");
+            s = s.replace(/\\le(?:q)?/g, "≤");
+            s = s.replace(/\\ge(?:q)?/g, "≥");
+            s = s.replace(/\\cdot/g, "·");
+            s = s.replace(/\\implies/g, "⟹");
+            s = s.replace(/\\to/g, "→");
+            s = s.replace(/\\infty/g, "∞");
+            s = s.replace(/\\alpha/g, "α");
+            s = s.replace(/\\beta/g, "β");
+            s = s.replace(/\\gamma/g, "γ");
+            s = s.replace(/\\delta/g, "δ");
+            s = s.replace(/\\theta/g, "θ");
+            s = s.replace(/\\pi/g, "π");
+            s = s.replace(/\\sigma/g, "σ");
+            s = s.replace(/\\Delta/g, "Δ");
+            s = s.replace(/\\Sigma/g, "Σ");
+            s = s.replace(/\\int/g, "∫");
+            s = s.replace(/\\sum/g, "∑");
+            s = s.replace(/\\prod/g, "∏");
+            // Superscripts and Subscripts
+            s = s.replace(/\^\{([^\}]+)\}/g, "<sup>$1</sup>");
+            s = s.replace(/\^([a-zA-Z0-9+-])/g, "<sup>$1</sup>");
+            s = s.replace(/_\{([^\}]+)\}/g, "<sub>$1</sub>");
+            s = s.replace(/_([a-zA-Z0-9+-])/g, "<sub>$1</sub>");
+            return s;
+        }
+
+        /* Full Markdown & Interactive Cyber Content Parser */
         function md(text) {
             if (!text) return "";
             let s = String(text);
 
-            // Code blocks
+            // 1. Code blocks
             s = s.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
                 return `<div class="srbk-code-block"><div class="srbk-code-head"><span>${lang || "CODE"}</span><button class="srbk-copy-btn" type="button" onclick="copyCode(this)">COPY</button></div><pre><code>${escapeHtml(code.trim())}</code></pre></div>`;
             });
 
-            // Inline code
+            // 2. Interactive Flashcards & Cyber Cards (:::card ... :::)
+            s = s.replace(/:::card(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
+                const cardTitle = (title || "").trim() || "STUDY FLASHCARD";
+                return `<div class="srbk-flashcard"><div class="srbk-card-head"><span class="srbk-card-badge"><span class="boot-badge-dot"></span> 🎴 FLASHCARD</span><span class="srbk-card-title">${escapeHtml(cardTitle)}</span></div><div class="srbk-card-body">${md(body)}</div></div>`;
+            });
+
+            // 3. Click-to-Reveal Solutions & Explanations (:::reveal ... :::)
+            s = s.replace(/:::reveal(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, label, body) => {
+                const btnLabel = (label || "").trim() || "Reveal Answer & Step-by-Step Solution";
+                return `<details class="srbk-card-reveal"><summary class="srbk-card-reveal-btn"><span>💡</span> <span>${escapeHtml(btnLabel)}</span> <span style="font-size:9px; opacity:0.7;">▼</span></summary><div class="srbk-card-answer">${md(body)}</div></details>`;
+            });
+
+            // 4. Markdown Tables
+            s = s.replace(/(?:^|\n)(\|.+?\|\n\|[-:\s|]+\|\n(?:\|.+?\|\n?)+)/g, match => {
+                const lines = match.trim().split("\n");
+                if (lines.length < 3) return match;
+                const headerCols = lines[0].split("|").slice(1, -1).map(c => c.trim());
+                const bodyRows = lines.slice(2).map(r => r.split("|").slice(1, -1).map(c => c.trim()));
+                let html = '<div class="srbk-table-wrap"><table class="srbk-table"><thead><tr>';
+                headerCols.forEach(h => { html += `<th>${escapeHtml(h)}</th>`; });
+                html += '</tr></thead><tbody>';
+                bodyRows.forEach(row => {
+                    html += '<tr>';
+                    row.forEach(cell => { html += `<td>${escapeHtml(cell)}</td>`; });
+                    html += '</tr>';
+                });
+                html += '</tbody></table></div>';
+                return html;
+            });
+
+            // 5. Math equations: Block $$...$$ and Inline $...$
+            s = s.replace(/\$\$([\s\S]*?)\$\$/g, (_, eq) => {
+                return `<div class="srbk-math-block"><div class="srbk-math-badge">EQUATION</div><div class="srbk-math-inner">${formatMath(eq)}</div></div>`;
+            });
+            s = s.replace(/\$([^\$\n]+)\$/g, (_, eq) => {
+                return `<span class="srbk-math">${formatMath(eq)}</span>`;
+            });
+
+            // 6. Inline code
             s = s.replace(/`([^`]+)`/g, (_, c) => `<code>${escapeHtml(c)}</code>`);
 
-            // Bold & Italic
+            // 7. Images
+            s = s.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s\)]+)\)/g, (_, alt, url) => {
+                return `<div class="srbk-img-wrap"><img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" class="srbk-img"><div class="srbk-img-caption">${escapeHtml(alt || "IMAGE CAPTURE")}</div></div>`;
+            });
+
+            // 8. Links
+            s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, (_, text, url) => {
+                return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="color:var(--cyan); text-decoration:underline;">${escapeHtml(text)}</a>`;
+            });
+
+            // 9. Callout blockquotes (> [!NOTE], > [!TIP], > [!WARNING], > [!CARD])
+            s = s.replace(/^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|MATH|CARD)\]\s*(.*$)/gim, (_, type, rest) => {
+                const cls = type.toLowerCase();
+                return `<div class="srbk-callout ${cls}"><div class="srbk-callout-title">${type}</div><div class="srbk-callout-body">${rest}</div></div>`;
+            });
+
+            // 10. Bold & Italic
             s = s.replace(/\*\*([^\*]+)\*\*/g, "<strong>$1</strong>");
             s = s.replace(/\*([^\*]+)\*/g, "<em>$1</em>");
 
-            // Headings
+            // 11. Headings
             s = s.replace(/^### (.*$)/gim, "<h4 style='color:var(--cyan); margin:12px 0 6px;'>$1</h4>");
             s = s.replace(/^## (.*$)/gim, "<h3 style='color:#fff; margin:14px 0 8px;'>$1</h3>");
             s = s.replace(/^# (.*$)/gim, "<h2 style='color:#fff; margin:16px 0 10px;'>$1</h2>");
 
-            // Line breaks into paragraphs
+            // 12. Lists
+            s = s.replace(/^[\*\-]\s+(.*$)/gim, "<li style='margin-left:18px;'>$1</li>");
+            s = s.replace(/^\d+\.\s+(.*$)/gim, "<li style='margin-left:18px; list-style-type:decimal;'>$1</li>");
+
+            // 13. Line breaks into paragraphs
             const paragraphs = s.split(/\n\n+/).map(p => {
                 p = p.trim();
                 if (!p) return "";
-                if (p.startsWith("<div") || p.startsWith("<h")) return p;
+                if (p.startsWith("<div") || p.startsWith("<h") || p.startsWith("<table") || p.startsWith("<details") || p.startsWith("<li")) return p;
                 return `<p>${p.replace(/\n/g, "<br>")}</p>`;
             }).filter(Boolean);
 
@@ -3815,11 +4142,17 @@
 
             window.speechSynthesis.cancel();
 
-            // Strip code blocks and markdown punctuation for speech
+            // Strip code blocks, card tags, math delimiters, and markdown punctuation for speech
             const clean = text
+                .replace(/:::card[^\n]*\n?/gi, "")
+                .replace(/:::reveal[^\n]*\n?/gi, " Solution: ")
+                .replace(/:::/g, "")
                 .replace(/```[\s\S]*?```/g, "Code block omitted.")
+                .replace(/\$\$([\s\S]*?)\$\$/g, " $1 ")
+                .replace(/\$([^\$]+)\$/g, " $1 ")
                 .replace(/`([^`]+)`/g, "$1")
-                .replace(/[*#_~]/g, "")
+                .replace(/[*#_~|]/g, "")
+                .replace(/https?:\/\/\S+/g, "link")
                 .trim();
 
             if (!clean) return;
@@ -5398,9 +5731,14 @@
             }
 
             const clean = text
+                .replace(/:::card[^\n]*\n?/gi, "")
+                .replace(/:::reveal[^\n]*\n?/gi, " Solution: ")
+                .replace(/:::/g, "")
                 .replace(/```[\s\S]*?```/g, "Code block omitted.")
+                .replace(/\$\$([\s\S]*?)\$\$/g, " $1 ")
+                .replace(/\$([^\$]+)\$/g, " $1 ")
                 .replace(/`([^`]+)`/g, "$1")
-                .replace(/[*#_~]/g, "")
+                .replace(/[*#_~|]/g, "")
                 .replace(/https?:\/\/\S+/g, "link")
                 .trim();
 

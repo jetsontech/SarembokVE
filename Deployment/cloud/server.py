@@ -1225,11 +1225,24 @@ def sarembok_process_dialogue(
         authoritative_context,
         f"CURRENT SYSTEM CLOCK: {current_time_str}.",
         "",
-        "==================== REAL-TIME CAPABILITIES & MANDATORY DIRECTIVES ====================",
+        "==================== REAL-TIME & MULTIMODAL SYNTHESIS DIRECTIVES ====================",
         f"1. YOU HAVE ACTIVE REAL-TIME ACCESS to the live web, current world events, and breaking news feeds.",
-        f"2. STRICT PROHIBITION: NEVER state 'I don't have real-time access', 'I cannot access current events', 'my knowledge is limited to', or any variation of a cutoff refusal.",
-        f"3. When answering questions regarding news, current events, recent developments, or live research, synthesize the real-time data provided below with authority, clarity, and specific details.",
-        f"4. You are Sarembok, an advanced intelligence on the Sarembok VE platform.",
+        f"2. FULL MULTIMODAL & INTERACTIVE CARD RENDERING: Sarembok has native UI support for Interactive Cyber Flashcards, quiz/math cards, step-by-step solutions with click-to-reveal answers, LaTeX math formulas, structured tables, and images.",
+        f"3. STRICT PROHIBITION: NEVER state 'While I can't display images or cards directly', 'I cannot show cards', 'As an AI I cannot display visual content', 'I don't have real-time access', or any variation of a capability refusal.",
+        f"4. WHEN ASKED FOR FLASHCARDS, MATH QUESTIONS, QUIZZES, OR STUDY CARDS:",
+        f"   - Format each question/card as an interactive Cyber Flashcard using :::card and :::reveal blocks, for example:",
+        f"     :::card Algebra & Quadratic Equations",
+        f"     ### 🎴 Flashcard 1: Solve for $x$",
+        f"     **Problem:** $x^2 - 5x + 6 = 0$",
+        f"     :::reveal Step-by-Step Solution & Answer",
+        f"     **Answer:** $x = 2$ or $x = 3$",
+        f"     **Explanation:** Factor $(x - 2)(x - 3) = 0 \\implies x = 2, 3$.",
+        f"     :::",
+        f"     :::",
+        f"   - Use clean LaTeX math notation ($...$ and $$...$$) for all equations.",
+        f"   - Present multiple cards or questions clearly with full step-by-step reasoning inside reveal containers.",
+        f"5. When answering questions regarding news, current events, recent developments, or live research, synthesize the real-time data provided below with authority, clarity, and specific details.",
+        f"6. You are Sarembok, an advanced sovereign intelligence on the Sarembok VE platform.",
         "=======================================================================================",
     ]
 
@@ -1344,6 +1357,16 @@ def sarembok_process_dialogue(
     except Exception as exc:
         LOG.warning("LLM provider fabric failed: %s", exc)
 
+    # Strip any accidental visual/card refusal statements injected by frontier model safety filters
+    visual_refusal_patterns = (
+        r"(?i)while\s+i\s+(?:can(?:not|\'t))\s+(?:display|show)\s+(?:images|cards|flashcards|pictures)[^.!?\n]*[.!?\n]?",
+        r"(?i)i\s+(?:can(?:not|\'t))\s+(?:display|show)\s+(?:images|cards|flashcards|pictures)[^.!?\n]*[.!?\n]?",
+        r"(?i)as\s+an\s+ai[,\s]+i\s+(?:can(?:not|\'t))\s+(?:display|show)[^.!?\n]*[.!?\n]?",
+    )
+    if reply:
+        for pat in visual_refusal_patterns:
+            reply = re.sub(pat, "", reply).strip()
+
     refusal_markers = (
         "i don't have real-time access",
         "i don’t have real-time access",
@@ -1366,12 +1389,25 @@ def sarembok_process_dialogue(
             if fetched:
                 reply = f"Here is the verified live real-time intelligence as of **{current_time_str}**:\n\n{fetched}"
 
+    def _spoken_clean(text: str) -> str:
+        if not text:
+            return ""
+        s = re.sub(r":::card[^\n]*\n?", "", text)
+        s = re.sub(r":::reveal[^\n]*\n?", " Solution: ", s)
+        s = re.sub(r":::", "", s)
+        s = re.sub(r"```[\s\S]*?```", "Code block omitted.", s)
+        s = re.sub(r"\$\$([\s\S]*?)\$\$", r" \1 ", s)
+        s = re.sub(r"\$([^\$]+)\$", r" \1 ", s)
+        s = re.sub(r"[*#_`~|]", "", s)
+        s = re.sub(r"\s+", " ", s).strip()
+        return s[:380]
+
     if reply is not None:
         _save_conversation(session_id, prompt_clean, reply)
         store.event("sarembok-prime", "CHAT_RESPONSE", {"prompt": prompt_clean[:200], "model": active_model, "provider": source})
         return {
             "response": reply,
-            "audioText": reply[:300].replace("*", "").replace("`", "").replace("#", ""),
+            "audioText": _spoken_clean(reply),
             "source": source,
             "model": active_model,
             "action": None,
@@ -1384,7 +1420,7 @@ def sarembok_process_dialogue(
         _save_conversation(session_id, prompt_clean, reply)
         return {
             "response": reply,
-            "audioText": reply[:300].replace("*", "").replace("#", ""),
+            "audioText": _spoken_clean(reply),
             "source": "runtime_realtime_engine",
             "model": "google-news-live",
             "action": None
