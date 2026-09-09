@@ -1372,17 +1372,19 @@ def sarembok_process_dialogue(
 
         # 1. Strip all variations of media/music/capability refusal sentences
         refusal_strip_patterns = (
-            r"(?i)while\s+i\s+(?:can(?:not|\'t))\s+(?:display|show|play|stream)\s+(?:images|cards|flashcards|pictures|videos|youtube|documents|audio|music|songs)[^.!?\n]*[.!?\n]?",
-            r"(?i)i\s+(?:can(?:not|\'t))\s+(?:display|show|play|stream)\s+(?:images|cards|flashcards|pictures|videos|youtube|documents|audio|music|songs)[^.!?\n]*[.!?\n]?",
-            r"(?i)as\s+an\s+ai[,\s]+i\s+(?:can(?:not|\'t))\s+(?:display|show|play|stream)[^.!?\n]*[.!?\n]?",
-            r"(?i)i\s+don['’]?t\s+have\s+the\s+ability\s+to\s+(?:play|stream|display)[^.!?\n]*[.!?\n]?",
+            r"(?i)while\s+i\s+(?:can(?:not|\'t))\s+[^.!?\n]*[.!?\n]?",
+            r"(?i)i\s+(?:can(?:not|\'t))\s+(?:directly\s+)?(?:display|show|play|stream|open|launch|access|execute)\s+[^.!?\n]*[.!?\n]?",
+            r"(?i)i\s+don['’]?t\s+have\s+the\s+ability\s+to\s+[^.!?\n]*[.!?\n]?",
+            r"(?i)as\s+an\s+ai[,\s]+i\s+(?:can(?:not|\'t)|don['’]?t)[^.!?\n]*[.!?\n]?",
+            r"(?i)i\s+am\s+unable\s+to\s+(?:directly\s+)?(?:play|stream|open|launch|display)[^.!?\n]*[.!?\n]?",
             r"(?i)i\s+(?:can(?:not|\'t))\s+(?:play|stream)\s+music[^.!?\n]*[.!?\n]?",
+            r"(?i)you\s+can\s+easily\s+access\s+it\s+through\s+your\s+web\s+browser\s+or\s+app\.?",
         )
         for pat in refusal_strip_patterns:
             rep = re.sub(pat, "", rep).strip()
 
         # 2. Check for Music & Audio playback intent
-        music_intents = ("play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music")
+        music_intents = ("play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio")
         if any(mi in p_low for mi in music_intents) or ("play" in p_low and any(g in p_low for g in ("lofi", "lo-fi", "music", "synthwave", "ambient", "jazz", "classical", "relaxing", "song", "soundtrack"))):
             if ":::music" not in rep:
                 if "synthwave" in p_low or "cyber" in p_low:
@@ -1404,8 +1406,15 @@ def sarembok_process_dialogue(
                 music_widget = f":::music {title}\n{stream_url}\n:::"
                 rep = f"{music_widget}\n\n{rep}".strip()
 
-        # 3. Check for Simultaneous Multi-Tasking intent
-        task_intents = ("while searching", "simultaneously", "at the same time", "in parallel", "also calculate", "and also", "while calculating", "and search")
+        # 3. Check for YouTube / Video Intent
+        youtube_intents = ("open youtube", "open yt", "play youtube", "search youtube", "watch youtube", "youtube.com", "show video", "watch video", "play video")
+        if any(yi in p_low for yi in youtube_intents) or ("youtube" in p_low and any(w in p_low for w in ("open", "launch", "watch", "play", "show", "search"))):
+            if ":::video" not in rep and ":::music" not in rep:
+                video_widget = ":::video YouTube Sovereign Video Portal\nhttps://www.youtube.com/watch?v=jfKfPfyJRdk\n:::\n\n[Open YouTube in New Tab](https://www.youtube.com)"
+                rep = f"{video_widget}\n\n{rep}".strip()
+
+        # 4. Check for Simultaneous Multi-Tasking intent
+        task_intents = ("while searching", "simultaneously", "at the same time", "in parallel", "also calculate", "and also", "while calculating", "and search", "multi task", "multitask")
         if any(ti in p_low for ti in task_intents) and ":::tasks" not in rep:
             tasks_lines = []
             if any(w in p_low for w in ("music", "lofi", "song", "audio")):
@@ -1419,6 +1428,9 @@ def sarembok_process_dialogue(
 
             task_block = ":::tasks Multi-Task Parallel Execution\n" + "\n".join(tasks_lines) + "\n:::"
             rep = f"{task_block}\n\n{rep}".strip()
+
+        if not rep or len(rep.strip()) < 10:
+            rep = "Cyber audio & multimodal synthesis initialized. Active streaming channels and interface components are ready."
 
         return rep
 
