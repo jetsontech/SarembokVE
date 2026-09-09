@@ -1034,7 +1034,7 @@
         #srbk-persistent-music-deck {
             position: fixed;
             bottom: 24px;
-            right: 24px;
+            left: 24px;
             z-index: 950;
             background: rgba(4, 9, 20, 0.94);
             border: 1px solid rgba(0, 240, 255, 0.35);
@@ -1043,7 +1043,7 @@
             -webkit-backdrop-filter: blur(14px);
             border-radius: 10px;
             padding: 8px 14px;
-            display: flex;
+            display: none;
             align-items: center;
             gap: 12px;
             font-family: var(--font-mono);
@@ -1051,6 +1051,9 @@
             color: #fff;
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             max-width: 440px;
+        }
+        #srbk-persistent-music-deck.active {
+            display: flex;
         }
         #srbk-persistent-music-deck.hidden {
             display: none !important;
@@ -3040,9 +3043,8 @@
                     </div>
                 </div>
 
-                
-                
-                
+                <div class="hud-badge audio">
+                    <button class="hud-audio-master-btn" id="hud-audio-master" onclick="toggleGlobalMusicPlayback()" title="Toggle Background Cyber Music">
                         <span id="hud-audio-master-label">🎵 MUSIC DECK</span>
                     </button>
                     <div class="hud-audio-genre-pills">
@@ -3878,8 +3880,14 @@
 
     </div>
 
-    
-    
+    <!-- Persistent Floating Cyber Music Deck -->
+    <div id="srbk-persistent-music-deck">
+        <div class="srbk-deck-eq" id="srbk-deck-eq-bars">
+            <span class="srbk-deck-bar"></span>
+            <span class="srbk-deck-bar"></span>
+            <span class="srbk-deck-bar"></span>
+            <span class="srbk-deck-bar"></span>
+        </div>
         <div style="display:flex; flex-direction:column; gap:2px;">
             <span style="font-size:8px; color:#94a3b8; letter-spacing:0.1em;">BACKGROUND AUDIO</span>
             <span class="srbk-deck-title" id="srbk-deck-title-text">LO-FI FOCUS CHILL</span>
@@ -3971,11 +3979,42 @@
            UNIVERSAL PLAYABLE VIDEO & MEDIA ENGINE (SEARCH & STREAMS)
            ============================================================ */
         let currentPipMedia = null;
+        let activeSynthAudio = null;
+        let activeMusicGenre = "lofi";
+        let musicPlaying = false;
+        let musicVolume = 0.7;
+
+        const TOPIC_PRESETS = {
+            "synthwave": { id: "4xDzrJKXOOY", title: "SYNTHWAVE CYBER STREAM" },
+            "synth": { id: "4xDzrJKXOOY", title: "SYNTHWAVE CYBER STREAM" },
+            "lofi": { id: "jfKfPfyJRdk", title: "LO-FI STUDY & RELAX BEATS" },
+            "lo-fi": { id: "jfKfPfyJRdk", title: "LO-FI STUDY & RELAX BEATS" },
+            "chill": { id: "5yx6BWlEVcY", title: "CHILL STUDY RADIO" },
+            "ambient": { id: "S_MOd40zlsk", title: "SPACE AMBIENT FOCUS" },
+            "space": { id: "S_MOd40zlsk", title: "SPACE AMBIENT FOCUS" },
+            "classical": { id: "mIYzp5rcTvU", title: "CLASSICAL MASTERPIECES" },
+            "cyberpunk": { id: "s0WBvK41Uyo", title: "CYBERPUNK HIGH ENERGY SYNTH" },
+            "ai news": { id: "5eT0GZqj3yE", title: "AI & TECH NEWS STREAM" }
+        };
 
         function resolvePlayableMedia(rawUrlOrQuery, title = "") {
             const raw = String(rawUrlOrQuery || "").trim();
+            const rawLower = raw.toLowerCase();
+
+            for (const [key, preset] of Object.entries(TOPIC_PRESETS)) {
+                if (rawLower === key || rawLower.includes(key)) {
+                    return {
+                        ytId: preset.id,
+                        embedUrl: `https://www.youtube-nocookie.com/embed/${preset.id}?autoplay=1&rel=0`,
+                        directWatchUrl: `https://www.youtube.com/watch?v=${preset.id}`,
+                        displayTitle: title || preset.title,
+                        raw
+                    };
+                }
+            }
+
             const ytIdMatch = raw.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
-            const isPlainId = /^[a-zA-Z0-9_-]{11}$/.test(raw);
+            const isPlainId = /^[a-zA-Z0-9_-]{11}$/.test(raw) && !raw.includes(" ");
             const ytId = ytIdMatch ? ytIdMatch[1] : (isPlainId ? raw : null);
             
             let embedUrl = "";
@@ -3989,10 +4028,11 @@
                 embedUrl = raw;
                 directWatchUrl = raw;
             } else {
-                const q = encodeURIComponent(raw || title || "lofi study music");
+                const cleanQ = raw.replace(/[^\w\s-]/g, " ").replace(/\s+/g, " ").trim();
+                const q = encodeURIComponent(cleanQ || title || "lofi study music");
                 embedUrl = `https://www.youtube-nocookie.com/embed?listType=search&list=${q}&autoplay=1`;
                 directWatchUrl = `https://www.youtube.com/results?search_query=${q}`;
-                if (!title) displayTitle = raw.toUpperCase();
+                if (!title) displayTitle = cleanQ.toUpperCase();
             }
 
             return { ytId, embedUrl, directWatchUrl, displayTitle, raw };
@@ -4055,11 +4095,159 @@
             window.open(media.embedUrl, "SarembokMediaPopout", "width=640,height=380,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
         }
 
+        /* Procedural Web Audio Ambient Synth Engine */
+        function playProceduralCyberMusic(genre = "lofi", btn = null) {
+            activeMusicGenre = genre;
+            musicPlaying = true;
+
+            const deck = document.getElementById("srbk-persistent-music-deck");
+            const titleEl = document.getElementById("srbk-deck-title-text");
+            const playBtn = document.getElementById("srbk-deck-play-btn");
+
+            if (deck) {
+                deck.classList.add("active");
+                deck.classList.remove("hidden");
+            }
+            if (titleEl) {
+                titleEl.textContent = `${genre.toUpperCase()} CYBER STREAM`;
+            }
+            if (playBtn) {
+                playBtn.textContent = "⏸ PAUSE";
+            }
+
+            try {
+                if (!window.AudioContext && !window.webkitAudioContext) return;
+                if (!activeSynthAudio) {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const masterGain = ctx.createGain();
+                    masterGain.gain.setValueAtTime(musicVolume * 0.25, ctx.currentTime);
+                    masterGain.connect(ctx.destination);
+
+                    const rootFreq = genre === "synthwave" ? 110 : genre === "ambient" ? 65.41 : genre === "classical" ? 130.81 : 82.41;
+                    const chordOffsets = genre === "synthwave" ? [0, 7, 12, 16] : [0, 4, 7, 11];
+
+                    const oscs = chordOffsets.map(semi => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = genre === "synthwave" ? "sawtooth" : "sine";
+                        osc.frequency.setValueAtTime(rootFreq * Math.pow(2, semi / 12), ctx.currentTime);
+                        
+                        // Subtle LFO modulation
+                        const lfo = ctx.createOscillator();
+                        lfo.frequency.setValueAtTime(0.2, ctx.currentTime);
+                        const lfoGain = ctx.createGain();
+                        lfoGain.gain.setValueAtTime(1.5, ctx.currentTime);
+                        lfo.connect(osc.frequency);
+                        lfo.start();
+
+                        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                        osc.connect(gain);
+                        gain.connect(masterGain);
+                        osc.start();
+                        return { osc, gain, lfo };
+                    });
+
+                    activeSynthAudio = { ctx, masterGain, oscs };
+                } else if (activeSynthAudio.ctx.state === "suspended") {
+                    activeSynthAudio.ctx.resume();
+                }
+            } catch (e) {
+                console.warn("Procedural synth audio init notice:", e);
+            }
+
+            showToast(`AUDIO ONLINE: ${genre.toUpperCase()}`);
+        }
+
+        function toggleGlobalMusicPlayback() {
+            if (musicPlaying) {
+                if (activeSynthAudio && activeSynthAudio.ctx) {
+                    activeSynthAudio.ctx.suspend();
+                }
+                musicPlaying = false;
+                const playBtn = document.getElementById("srbk-deck-play-btn");
+                if (playBtn) playBtn.textContent = "▶ PLAY";
+                showToast("CYBER AUDIO PAUSED");
+            } else {
+                playProceduralCyberMusic(activeMusicGenre);
+            }
+        }
+
+        function stopGlobalMusicPlayback() {
+            if (activeSynthAudio) {
+                try {
+                    activeSynthAudio.oscs.forEach(o => { o.osc.stop(); o.lfo.stop(); });
+                    activeSynthAudio.ctx.close();
+                } catch (e) {}
+                activeSynthAudio = null;
+            }
+            musicPlaying = false;
+            const deck = document.getElementById("srbk-persistent-music-deck");
+            if (deck) {
+                deck.classList.remove("active");
+                deck.classList.add("hidden");
+            }
+            showToast("CYBER AUDIO STOPPED");
+        }
+
+        function setGlobalMusicVolume(val) {
+            musicVolume = parseFloat(val);
+            if (activeSynthAudio && activeSynthAudio.masterGain) {
+                activeSynthAudio.masterGain.gain.setValueAtTime(musicVolume * 0.25, activeSynthAudio.ctx.currentTime);
+            }
+        }
+
+        // Draggable floating PiP Player
+        (function initPipDrag() {
+            let isDragging = false;
+            let startX, startY, initialLeft, initialTop;
+
+            document.addEventListener("DOMContentLoaded", () => {
+                const handle = document.getElementById("srbk-pip-drag-handle");
+                const pip = document.getElementById("srbk-floating-pip-player");
+                if (!handle || !pip) return;
+
+                handle.addEventListener("mousedown", (e) => {
+                    if (e.target.tagName === "BUTTON") return;
+                    isDragging = true;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    const rect = pip.getBoundingClientRect();
+                    initialLeft = rect.left;
+                    initialTop = rect.top;
+                    pip.style.right = "auto";
+                    pip.style.bottom = "auto";
+                    pip.style.left = `${initialLeft}px`;
+                    pip.style.top = `${initialTop}px`;
+                    pip.style.transition = "none";
+                });
+
+                document.addEventListener("mousemove", (e) => {
+                    if (!isDragging) return;
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    pip.style.left = `${Math.max(10, Math.min(window.innerWidth - pip.offsetWidth - 10, initialLeft + dx))}px`;
+                    pip.style.top = `${Math.max(10, Math.min(window.innerHeight - pip.offsetHeight - 10, initialTop + dy))}px`;
+                });
+
+                document.addEventListener("mouseup", () => {
+                    if (isDragging) {
+                        isDragging = false;
+                        pip.style.transition = "";
+                    }
+                });
+            });
+        })();
+
         window.popOutFloatingVideo = popOutFloatingVideo;
         window.openDetachedPipWindow = openDetachedPipWindow;
         window.openDetachedPipWindowFromUrl = openDetachedPipWindowFromUrl;
         window.closeFloatingPip = closeFloatingPip;
         window.toggleMinimizePip = toggleMinimizePip;
+        window.playProceduralCyberMusic = playProceduralCyberMusic;
+        window.toggleGlobalMusicPlayback = toggleGlobalMusicPlayback;
+        window.stopGlobalMusicPlayback = stopGlobalMusicPlayback;
+        window.setGlobalMusicVolume = setGlobalMusicVolume;
+        window.extractYouTubeId = extractYouTubeId;
 
         function renderVideoCard(title, urlOrBody) {
             const media = resolvePlayableMedia(urlOrBody, title);
@@ -4652,15 +4840,13 @@
             interruptSpeech();
             const input = document.getElementById("directive-input");
             const btn = document.getElementById("execute-button");
-            if (!input || !btn) return;
+            if (!input) return;
 
             const text = input.value.trim();
-            if (!text || text.replace(/[^a-zA-Z0-9]/g, "").length < 2) return;
-            if (typeof isSelfEcho === "function" && isSelfEcho(text)) {
-                input.value = "";
-                return;
-            }
+            if (!text) return;
             input.value = "";
+
+            if (btn) btn.disabled = true;
 
             const myTurnId = ++currentTurnId;
 
@@ -4671,8 +4857,6 @@
             const assistantBubble = createAssistantDialogue();
             const content = assistantBubble.querySelector(".srbk-content");
             let streamedText = "";
-
-            btn.disabled = true;
 
             try {
                 const selectedModel = document.getElementById("active-model-select")?.value || "gpt-4o-mini";
