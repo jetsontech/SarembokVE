@@ -1036,14 +1036,14 @@
             bottom: 24px;
             right: 24px;
             z-index: 950;
-            background: rgba(4, 9, 20, 0.92);
+            background: rgba(4, 9, 20, 0.94);
             border: 1px solid rgba(0, 240, 255, 0.35);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.75), 0 0 16px rgba(0, 240, 255, 0.25);
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
             border-radius: 10px;
             padding: 8px 14px;
-            display: none;
+            display: flex;
             align-items: center;
             gap: 12px;
             font-family: var(--font-mono);
@@ -1052,8 +1052,8 @@
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             max-width: 440px;
         }
-        #srbk-persistent-music-deck.active {
-            display: flex;
+        #srbk-persistent-music-deck.hidden {
+            display: none !important;
         }
         .srbk-eq-viz {
             display: flex;
@@ -3878,7 +3878,7 @@
             const hudPills = document.querySelectorAll(".hud-genre-pill");
 
             if (deck) {
-                deck.classList.add("active");
+                deck.classList.remove("hidden");
                 if (titleEl) titleEl.textContent = (title || genre || "CYBER STREAM").toUpperCase();
                 if (playBtn) playBtn.textContent = "⏸ PAUSE";
             }
@@ -3899,9 +3899,20 @@
             }
             document.querySelectorAll("audio").forEach(a => { try { a.pause(); } catch(e){} });
             document.querySelectorAll(".srbk-synth-btn").forEach(b => b.classList.remove("active"));
-            const deck = document.getElementById("srbk-persistent-music-deck");
-            if (deck) deck.classList.remove("active");
+            document.querySelectorAll(".hud-genre-pill").forEach(p => p.classList.remove("active"));
+            const titleEl = document.getElementById("srbk-deck-title-text");
+            const playBtn = document.getElementById("srbk-deck-play-btn");
+            const hudMasterLabel = document.getElementById("hud-audio-master-label");
+            if (titleEl) titleEl.textContent = "STANDBY · READY";
+            if (playBtn) playBtn.textContent = "▶ PLAY";
+            if (hudMasterLabel) hudMasterLabel.textContent = "🎵 MUSIC DECK";
             showToast("BACKGROUND AUDIO STOPPED");
+        }
+
+        function closePersistentMusicDeck() {
+            stopGlobalMusicPlayback();
+            const deck = document.getElementById("srbk-persistent-music-deck");
+            if (deck) deck.classList.add("hidden");
         }
 
         function setGlobalMusicVolume(val) {
@@ -3912,11 +3923,8 @@
         function toggleGlobalMusicPlayback() {
             const btn = document.getElementById("srbk-deck-play-btn");
             if (activeSynthAudio) {
-                activeSynthAudio.stop();
-                activeSynthAudio = null;
-                document.querySelectorAll(".srbk-synth-btn").forEach(b => b.classList.remove("active"));
+                stopGlobalMusicPlayback();
                 if (btn) btn.textContent = "▶ PLAY";
-                showToast("CYBER SYNTH: PAUSED");
             } else {
                 playProceduralCyberMusic("lofi");
                 if (btn) btn.textContent = "⏸ PAUSE";
