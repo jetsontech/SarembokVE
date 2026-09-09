@@ -2258,9 +2258,9 @@
                 </div>
 
                 
-                <button class="hud-voice-btn muted" id="hud-voice-toggle" onclick="toggleVoiceOutput()" title="Toggle Voice Audio">
+                <button class="hud-voice-btn" id="hud-voice-toggle" onclick="toggleVoiceOutput()" title="Toggle Voice Audio">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                    <span id="hud-voice-label">VOICE: OFF</span>
+                    <span id="hud-voice-label">VOICE: ON</span>
                 </button>
 
                 <button class="hud-voice-btn" id="hud-live-2way-btn" onclick="switchTab('dialogue'); if(!liveConversationActive) toggleLiveConversation();" title="Activate Live 2-Way Duplex Conversation" style="border-color:rgba(0,240,255,0.4); color:var(--cyan);">
@@ -2634,9 +2634,9 @@
                             <span id="admin-exec-btn-text">ADMIN: OFF</span>
                         </button>
                         <div class="cyber-card-badge cyan" id="dialogue-gpu-badge" title="Active Engine">ENGINE: GPT-4O-MINI</div>
-                        <button class="dialogue-voice-chip muted" id="dialogue-voice-toggle-chip" onclick="toggleVoiceOutput()" title="Toggle voice narration">
+                        <button class="dialogue-voice-chip" id="dialogue-voice-toggle-chip" onclick="toggleVoiceOutput()" title="Toggle voice narration">
                             <span class="voice-chip-dot"></span>
-                            <span id="dialogue-voice-chip-text">VOICE: OFF</span>
+                            <span id="dialogue-voice-chip-text">VOICE: ON</span>
                         </button>
                         <button class="live-conv-toggle-btn" id="live-conv-btn" onclick="toggleLiveConversation()" title="Toggle Hands-Free Live Interactive Conversation Mode">
                             <span class="live-conv-dot"></span>
@@ -3600,7 +3600,8 @@
         /* ============================================================
            INTERACTIVE VOICE & SPEECH RECOGNITION (STT / TTS)
            ============================================================ */
-        let voiceEnabled = false;
+        let voiceEnabled = true; // Default voice narration to ON so assistant responses are audible
+        window.voiceEnabled = true;
         let speechRecognition = null;
         let isRecordingSpeech = false;
         let selectedVoiceLang = "en-GB";
@@ -3625,10 +3626,12 @@
 
             const pool = femaleCandidates.length > 0 ? femaleCandidates : voices;
 
-            // 2. High priority warm natural female voices for Ada
+            // 2. High priority local offline system female voices for Ada
+            // NOTE: Local voices (Microsoft Hazel, Susan, Zira, Jenny, Aria) speak immediately with zero latency
+            // and never freeze or hang like Google cloud-streamed voices.
             const priorityNames = [
-                "jenny", "aria", "zira", "samantha", "victoria", "ava", "karen",
-                "natural", "google uk english female", "google us english", "neural"
+                "hazel", "susan", "zira", "jenny", "aria", "samantha", "victoria", "ava", "karen",
+                "natural", "neural"
             ];
 
             for (const p of priorityNames) {
@@ -3640,14 +3643,21 @@
                 if (match) return match;
             }
 
-            // 3. Any English non-male voice
+            // 3. Local service English female voice
+            const localEnFemale = pool.find(v => {
+                const n = (v.name || "").toLowerCase();
+                return v.localService && (v.lang || "").toLowerCase().startsWith("en") && !MALE_VOICE_BLACKLIST.some(m => n.includes(m));
+            });
+            if (localEnFemale) return localEnFemale;
+
+            // 4. Any English non-male voice
             const anyEnFemale = pool.find(v => {
                 const n = (v.name || "").toLowerCase();
                 return (v.lang || "").toLowerCase().startsWith("en") && !MALE_VOICE_BLACKLIST.some(m => n.includes(m));
             });
             if (anyEnFemale) return anyEnFemale;
 
-            // 4. Any non-male candidate
+            // 5. Any non-male candidate
             return femaleCandidates[0] || null;
         }
 
@@ -3659,6 +3669,7 @@
 
         function toggleVoiceOutput() {
             voiceEnabled = !voiceEnabled;
+            window.voiceEnabled = voiceEnabled;
             if (!voiceEnabled && window.speechSynthesis) {
                 window.speechSynthesis.cancel();
                 setAvatarSignal("IDLE");
@@ -3702,15 +3713,16 @@
             showInterruptPill();
 
             const utterance = new SpeechSynthesisUtterance(clean);
+            utterance.volume = 1.0;
             utterance.rate = 1.0;
 
-            // Strictly assign female voice and avoid robotic man default
+            // Strictly assign local female voice (Hazel / Susan / Zira)
             const preferred = getAdaFemaleVoice();
             if (preferred) {
                 utterance.voice = preferred;
                 utterance.pitch = 1.08;
             } else {
-                utterance.pitch = 1.28;
+                utterance.pitch = 1.25;
             }
 
             setAvatarSignal("SPEAKING");
@@ -3727,12 +3739,26 @@
                 morphTargets.jawOpen = 0;
                 updateMorphMeters();
                 hideInterruptPill();
+                window._activeSpeechUtterance = null;
             };
 
             utterance.onend = finishSpeaking;
             utterance.onerror = finishSpeaking;
 
-            window.speechSynthesis.speak(utterance);
+            // Prevent Chrome V8 garbage-collecting the utterance mid-speech
+            window._activeSpeechUtterance = utterance;
+
+            try {
+                window.speechSynthesis.resume();
+                window.speechSynthesis.speak(utterance);
+                setTimeout(() => {
+                    if (window.speechSynthesis && window.speechSynthesis.paused) {
+                        window.speechSynthesis.resume();
+                    }
+                }, 60);
+            } catch (err) {
+                console.warn("[tts] speakText error:", err);
+            }
         }
 
         function toggleSpeechRecognition() {
@@ -5301,7 +5327,7 @@
             showInterruptPill();
 
             const utterance = new SpeechSynthesisUtterance(clean);
-            utterance.volume = 0.76;
+            utterance.volume = 1.0;
             utterance.rate = 1.0;
 
             const preferred = getAdaFemaleVoice();
@@ -5323,6 +5349,7 @@
                 morphTargets.jawOpen = 0;
                 updateMorphMeters();
                 hideInterruptPill();
+                window._activeSpeechUtterance = null;
 
                 if (liveConversationActive && liveSpeechQueue.length === 0) {
                     setLiveConvUI(
@@ -5342,7 +5369,20 @@
             utterance.onend = finishSpeaking;
             utterance.onerror = finishSpeaking;
 
-            window.speechSynthesis.speak(utterance);
+            // Retain reference on window to prevent Chrome V8 garbage collection during playback
+            window._activeSpeechUtterance = utterance;
+
+            try {
+                window.speechSynthesis.resume();
+                window.speechSynthesis.speak(utterance);
+                setTimeout(() => {
+                    if (window.speechSynthesis && window.speechSynthesis.paused) {
+                        window.speechSynthesis.resume();
+                    }
+                }, 60);
+            } catch (err) {
+                console.warn("[duplex] speak error:", err);
+            }
         }
 
         // Global hotkey interruption listener (Escape or Spacebar outside input)
