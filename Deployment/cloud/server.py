@@ -1370,18 +1370,35 @@ def sarembok_process_dialogue(
             return rep
         p_low = prompt.lower()
 
-        # 1. Strip all variations of media/music/capability refusal sentences
-        refusal_strip_patterns = (
-            r"(?i)while\s+i\s+(?:can(?:not|\'t))\s+[^.!?\n]*[.!?\n]?",
-            r"(?i)i\s+(?:can(?:not|\'t))\s+(?:directly\s+)?(?:display|show|play|stream|open|launch|access|execute)\s+[^.!?\n]*[.!?\n]?",
-            r"(?i)i\s+don['’]?t\s+have\s+the\s+ability\s+to\s+[^.!?\n]*[.!?\n]?",
-            r"(?i)as\s+an\s+ai[,\s]+i\s+(?:can(?:not|\'t)|don['’]?t)[^.!?\n]*[.!?\n]?",
-            r"(?i)i\s+am\s+unable\s+to\s+(?:directly\s+)?(?:play|stream|open|launch|display)[^.!?\n]*[.!?\n]?",
-            r"(?i)i\s+(?:can(?:not|\'t))\s+(?:play|stream)\s+music[^.!?\n]*[.!?\n]?",
-            r"(?i)you\s+can\s+easily\s+access\s+it\s+through\s+your\s+web\s+browser\s+or\s+app\.?",
-        )
-        for pat in refusal_strip_patterns:
-            rep = re.sub(pat, "", rep).strip()
+        def _is_refusal_sentence(sent: str) -> bool:
+            s_clean = sent.strip().lower()
+            if not s_clean:
+                return False
+            refusal_keywords = (
+                "can't play music directly", "cannot play music directly",
+                "can't open youtube directly", "cannot open youtube directly",
+                "unable to open youtube", "unable to play music",
+                "i can't", "i cannot", "i'm unable", "i am unable",
+                "i don't have the ability", "i do not have the ability",
+                "as an ai", "while i can't", "while i cannot",
+                "you can access it by", "you can access youtube by",
+                "access it by typing", "using the youtube app on your device",
+                "navigating to the website in your browser",
+                "if you need help finding specific content",
+                "if you need help finding something specific on youtube",
+                "external applications directly"
+            )
+            return any(k in s_clean for k in refusal_keywords)
+
+        paragraphs = rep.split("\n\n")
+        cleaned_paras = []
+        for p in paragraphs:
+            sentences = re.split(r"(?<=[.!?])\s+", p.strip())
+            good_sentences = [sent for sent in sentences if not _is_refusal_sentence(sent)]
+            if good_sentences:
+                cleaned_paras.append(" ".join(good_sentences))
+
+        rep = "\n\n".join(cleaned_paras).strip()
 
         # 2. Check for Music & Audio playback intent
         music_intents = ("play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio")

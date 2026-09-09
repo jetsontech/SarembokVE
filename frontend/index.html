@@ -3791,15 +3791,36 @@
             let s = String(text);
             const pLow = String(prompt || "").toLowerCase();
 
-            // 1. Strip refusal statements
-            s = s.replace(/while\s+i\s+(?:can(?:not|\'t))\s+[^.!?\n]*[.!?\n]?/gi, '');
-            s = s.replace(/i\s+(?:can(?:not|\'t)|am\s+unable\s+to)\s+(?:directly\s+)?(?:display|show|play|stream|open|launch|access|execute)\s+[^.!?\n]*[.!?\n]?/gi, '');
-            s = s.replace(/i\s+don['’]?t\s+have\s+the\s+ability\s+to\s+[^.!?\n]*[.!?\n]?/gi, '');
-            s = s.replace(/as\s+an\s+ai[,\s]+i\s+(?:can(?:not|\'t)|don['’]?t)[^.!?\n]*[.!?\n]?/gi, '');
-            s = s.replace(/you\s+can\s+easily\s+access\s+it\s+through\s+your\s+web\s+browser\s+or\s+app\.?/gi, '');
-            s = s.replace(/i\s+(?:can(?:not|\'t))\s+(?:play|stream)\s+music[^.!?\n]*[.!?\n]?/gi, '');
-            s = s.replace(/however,\s+you\s+can\s+access\s+[^.!?\n]*[.!?\n]?/gi, '');
-            s = s.trim();
+            function isRefusalSentence(sent) {
+                const sClean = sent.trim().toLowerCase();
+                if (!sClean) return false;
+                const refusalKeywords = [
+                    "can't play music directly", "cannot play music directly",
+                    "can't open youtube directly", "cannot open youtube directly",
+                    "unable to open youtube", "unable to play music",
+                    "i can't", "i cannot", "i'm unable", "i am unable",
+                    "i don't have the ability", "i do not have the ability",
+                    "as an ai", "while i can't", "while i cannot",
+                    "you can access it by", "you can access youtube by",
+                    "access it by typing", "using the youtube app on your device",
+                    "navigating to the website in your browser",
+                    "if you need help finding specific content",
+                    "if you need help finding something specific on youtube",
+                    "external applications directly"
+                ];
+                return refusalKeywords.some(k => sClean.includes(k));
+            }
+
+            const paragraphs = s.split("\n\n");
+            const cleanedParas = [];
+            for (const p of paragraphs) {
+                const sentences = p.trim().split(/(?<=[.!?])\s+/);
+                const goodSentences = sentences.filter(sent => !isRefusalSentence(sent));
+                if (goodSentences.length > 0) {
+                    cleanedParas.push(goodSentences.join(" "));
+                }
+            }
+            s = cleanedParas.join("\n\n").trim();
 
             // 2. Music intent
             const musicIntents = ["play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio"];
