@@ -3880,14 +3880,14 @@
 
         const TOPIC_PRESETS = {
             "bbc news": { id: "lRJiLBhrJTI", title: "BBC NEWS LIVE" },
-            "bbc": { id: "lRJiLBhrJTI", title: "BBC NEWS LIVE" },
+            "bbc news live": { id: "lRJiLBhrJTI", title: "BBC NEWS LIVE" },
             "abc news": { id: "iipR5yUp36o", title: "ABC NEWS LIVE" },
-            "abc": { id: "iipR5yUp36o", title: "ABC NEWS LIVE" },
+            "abc news live": { id: "iipR5yUp36o", title: "ABC NEWS LIVE" },
             "sky news": { id: "9Auq9mYxFEE", title: "SKY NEWS LIVE" },
             "nbc news": { id: "_4xFk8B876E", title: "NBC NEWS NOW LIVE" },
             "bloomberg": { id: "dp8PhLsUcFE", title: "BLOOMBERG TV LIVE" },
-            "t.i.": { id: "nQJACVmankY", title: "T.I. MUSIC & VIDEOS" },
-            "ti": { id: "nQJACVmankY", title: "T.I. MUSIC & VIDEOS" },
+            "michael jackson": { id: "Zi_XLOBDo_Y", title: "MICHAEL JACKSON · BILLIE JEAN" },
+            "drake": { id: "SD4yRDY9mek", title: "DRAKE · OFFICIAL STREAM" },
             "synthwave": { id: "4xDzrJKXOOY", title: "SYNTHWAVE CYBER STREAM" },
             "synth": { id: "4xDzrJKXOOY", title: "SYNTHWAVE CYBER STREAM" },
             "lofi": { id: "jfKfPfyJRdk", title: "LO-FI STUDY & RELAX BEATS" },
@@ -3907,9 +3907,36 @@
             const raw = String(rawUrlOrQuery || "").trim();
             const rawLower = raw.toLowerCase();
 
-            // 1. Check TOPIC_PRESETS
+            // 1. Check if raw already contains a valid YouTube URL or 11-character video ID FIRST
+            const ytIdMatch = raw.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+            const isPlainId = /^[a-zA-Z0-9_-]{11}$/.test(raw) && !raw.includes(" ");
+            const ytId = ytIdMatch ? ytIdMatch[1] : (isPlainId ? raw : null);
+
+            if (ytId) {
+                return {
+                    ytId,
+                    embedUrl: `https://www.youtube.com/embed/${ytId}?rel=0&enablejsapi=1`,
+                    directWatchUrl: `https://www.youtube.com/watch?v=${ytId}`,
+                    displayTitle: title || "MEDIA STREAM",
+                    raw,
+                    needsResolve: false
+                };
+            }
+
+            if (raw.startsWith("http://") || raw.startsWith("https://")) {
+                return {
+                    ytId: null,
+                    embedUrl: raw,
+                    directWatchUrl: raw,
+                    displayTitle: title || "MEDIA STREAM",
+                    raw,
+                    needsResolve: false
+                };
+            }
+
+            // 2. Check TOPIC_PRESETS with whole-word or exact match
             for (const [key, preset] of Object.entries(TOPIC_PRESETS)) {
-                if (rawLower === key || rawLower.includes(key)) {
+                if (rawLower === key || (key.length >= 4 && rawLower.includes(key))) {
                     return {
                         ytId: preset.id,
                         embedUrl: `https://www.youtube.com/embed/${preset.id}?rel=0&enablejsapi=1`,
@@ -3921,37 +3948,14 @@
                 }
             }
 
-            // 2. Check if raw contains a valid YouTube URL / ID
-            const ytIdMatch = raw.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
-            const isPlainId = /^[a-zA-Z0-9_-]{11}$/.test(raw) && !raw.includes(" ");
-            const ytId = ytIdMatch ? ytIdMatch[1] : (isPlainId ? raw : null);
-            
-            let embedUrl = "";
-            let directWatchUrl = "";
-            let displayTitle = title || "MEDIA STREAM";
-            let needsResolve = false;
-            let resolveQuery = "";
-
-            if (ytId) {
-                embedUrl = `https://www.youtube.com/embed/${ytId}?rel=0&enablejsapi=1`;
-                directWatchUrl = `https://www.youtube.com/watch?v=${ytId}`;
-            } else if (raw.startsWith("http://") || raw.startsWith("https://")) {
-                embedUrl = raw;
-                directWatchUrl = raw;
-            } else {
-                // 3. Unknown topic — mark for async resolution
-                const cleanQ = raw.replace(/[^\w\s-]/g, " ").replace(/\s+/g, " ").trim();
-                resolveQuery = cleanQ || title || "lofi study music";
-                needsResolve = true;
-                // Use a temporary loading placeholder — will be swapped by resolveAndUpdateMediaCards
-                const resolveId = `srbk-resolve-${++_resolveCardCounter}`;
-                embedUrl = `about:blank`;
-                directWatchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(resolveQuery)}`;
-                if (!title) displayTitle = cleanQ.toUpperCase();
-                return { ytId: null, embedUrl, directWatchUrl, displayTitle, raw, needsResolve, resolveQuery, resolveId };
-            }
-
-            return { ytId, embedUrl, directWatchUrl, displayTitle, raw, needsResolve: false };
+            // 3. Unknown topic — mark for async resolution via SearchYouTube RPC
+            const cleanQ = raw.replace(/[^\w\s-]/g, " ").replace(/\s+/g, " ").trim();
+            const resolveQuery = cleanQ || title || "lofi study music";
+            const resolveId = `srbk-resolve-${++_resolveCardCounter}`;
+            const embedUrl = `about:blank`;
+            const directWatchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(resolveQuery)}`;
+            const displayTitle = title || cleanQ.toUpperCase();
+            return { ytId: null, embedUrl, directWatchUrl, displayTitle, raw, needsResolve: true, resolveQuery, resolveId };
         }
 
         /**

@@ -68,6 +68,8 @@ BROWSER_ALLOWED_METHODS = {
     "AdminExecuteDirective",
     "GetAdminStatus",
     "VerifyAdminPasscode",
+    "SearchYouTube",
+    "ResolveMediaStream",
 }
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
