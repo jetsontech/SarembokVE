@@ -3675,6 +3675,9 @@
                 toggleLiveConversation();
             }
         }
+        window.handleOrbClick = handleOrbClick;
+        window.pauseRecognitionForSpeech = pauseRecognitionForSpeech;
+        window.resumeRecognitionAfterSpeech = resumeRecognitionAfterSpeech;
 
         // Robust Acoustic Self-Echo Detector: verifies if microphone input is assistant's own voice playing from speakers
         function isSelfEcho(heardText) {
