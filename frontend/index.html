@@ -1210,6 +1210,42 @@
             transition: all 0.2s;
             text-decoration: none;
         }
+        
+        /* Prominent Video Pop-Out Banner */
+        .srbk-video-foot {
+            padding: 8px 12px;
+            background: rgba(0, 240, 255, 0.05);
+            border-top: 1px solid rgba(0, 240, 255, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .srbk-big-pop-btn {
+            width: 100%;
+            background: rgba(0, 240, 255, 0.15);
+            border: 1px solid var(--cyan);
+            color: #ffffff;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            padding: 9px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            box-shadow: 0 0 12px rgba(0, 240, 255, 0.15);
+        }
+        .srbk-big-pop-btn:hover {
+            background: var(--cyan);
+            color: #000;
+            box-shadow: 0 0 20px var(--cyan-glow);
+            transform: translateY(-1px);
+        }
+
         .srbk-video-pop-btn:hover {
             background: var(--cyan);
             color: #000;
@@ -3994,6 +4030,18 @@
         }
         window.popOutFloatingVideo = popOutFloatingVideo;
         window.openDetachedPipWindow = openDetachedPipWindow;
+        function openDetachedPipWindowFromUrl(urlOrYtId) {
+            const raw = String(urlOrYtId || "");
+            const ytId = extractYouTubeId(raw) || (raw.length === 11 ? raw : null);
+            if (ytId) {
+                const popUrl = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1`;
+                window.open(popUrl, "SarembokMediaPopout", "width=580,height=360,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
+            } else if (raw) {
+                window.open(raw, "SarembokMediaPopout", "width=580,height=360,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
+            }
+        }
+        window.openDetachedPipWindowFromUrl = openDetachedPipWindowFromUrl;
+
         window.closeFloatingPip = closeFloatingPip;
         window.toggleMinimizePip = toggleMinimizePip;
 
