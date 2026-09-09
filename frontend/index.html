@@ -3292,6 +3292,14 @@
             if (!ws || ws.readyState !== WebSocket.OPEN) {
                 throw new Error("Runtime WebSocket not open");
             }
+            if (!window.browserSessionToken) {
+                window.browserSessionToken = sessionStorage.getItem("srbk_browser_session_token") || null;
+            }
+            if (!window.browserSessionToken) {
+                try {
+                    await initSession();
+                } catch (_) {}
+            }
             return new Promise((resolve, reject) => {
                 const id = "rpc-" + rpcCounter++;
                 const rpcParams = { ...params };
@@ -4280,9 +4288,14 @@
                 const resp = await fetch("/session", { cache: "no-store" });
                 if (resp.ok) {
                     const data = await resp.json();
-                    if (data.sessionToken) window.browserSessionToken = data.sessionToken;
+                    if (data && data.sessionToken) {
+                        window.browserSessionToken = data.sessionToken;
+                        sessionStorage.setItem("srbk_browser_session_token", data.sessionToken);
+                    }
                 }
-            } catch (_) {}
+            } catch (err) {
+                console.debug("[session] initSession notice:", err);
+            }
         }
 
         let hasAppStarted = false;

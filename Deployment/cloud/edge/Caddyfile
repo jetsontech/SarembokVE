@@ -3,17 +3,23 @@
 }
 
 sarembok.com, www.sarembok.com {
-    # WebSocket and RPC endpoints to backend runtime
+    # WebSocket and RPC/Session endpoints to backend runtime
     handle /ws {
         reverse_proxy sarembok-runtime:9000
     }
     handle /rpc {
         reverse_proxy sarembok-runtime:9000
     }
+    handle /session {
+        reverse_proxy sarembok-runtime:9000
+    }
     handle /api/* {
         reverse_proxy sarembok-runtime:9000
     }
     handle /health {
+        reverse_proxy sarembok-runtime:9000
+    }
+    handle /healthz {
         reverse_proxy sarembok-runtime:9000
     }
     handle /live/* {
