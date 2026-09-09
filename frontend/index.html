@@ -3810,9 +3810,11 @@
                     isRecordingSpeech = false;
                     if (micBtn) micBtn.classList.remove("recording");
                     setAvatarSignal("IDLE");
-                    if (input && input.value.trim()) {
+                    if (input && input.value.trim() && !isSelfEcho(input.value.trim())) {
                         showToast("DIRECTIVE CAPTURED · EXECUTING");
                         sendDirective();
+                    } else if (input && isSelfEcho(input.value.trim())) {
+                        input.value = "";
                     }
                 };
 
@@ -4963,31 +4965,13 @@
                 return;
             }
 
-            // 1. Microphone hardware stream with browser acoustic echo cancellation & noise suppression
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                try {
-                    if (!audioHardwareStream) {
-                        audioHardwareStream = await navigator.mediaDevices.getUserMedia({
-                            audio: {
-                                echoCancellation: true,
-                                noiseSuppression: true,
-                                autoGainControl: true
-                            }
-                        });
-                        console.log("[duplex] Microphone hardware stream acquired with hardware AEC/NS.");
-                    }
-                    recognitionPermissionDenied = false;
-                    setupLiveMicMeter(audioHardwareStream);
-                } catch (err) {
-                    console.warn("[duplex] getUserMedia non-fatal fallback (Web Speech API will proceed directly):", err);
-                }
-            }
-
+            // Speech recognition runs directly through Web Speech API (no getUserMedia conflict on iOS/Android/Desktop)
             try {
                 if (liveRecContinuous) {
                     try {
                         liveRecContinuous.onend = null;
                         liveRecContinuous.onerror = null;
+                        liveRecContinuous.onresult = null;
                         liveRecContinuous.stop();
                     } catch(e) {}
                     liveRecContinuous = null;
@@ -4999,6 +4983,7 @@
                 liveRecContinuous.lang = "en-US";
 
                 wakeWordAwake = false;
+                liveTranscriptBuffer = "";
                 setLiveConvUI(
                     wakeWordRequired ? "LISTENING (WAKE WORD)" : "LISTENING (HANDS-FREE 2-WAY)",
                     wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok" to activate' : "Speak naturally · Say 'Stop' or 'Hey Sarembok' to interrupt"
@@ -5050,54 +5035,32 @@
                         const isExplicitStop = /\b(?:stop|halt|cancel|quiet|shh|wait|hold on|pause|listen|excuse me|no|shut up|hey sarembok|sarembok)\b/i.test(currentHeard);
 
                         // WHILE THE ASSISTANT IS SPEAKING:
-                        // Laptop speakers are firing audio directly into the laptop microphone.
+                        // Laptop speakers fire audio directly into the laptop microphone.
                         // ONLY interrupt if the user provides an explicit stop or wake command.
-                        // All other microphone sound during speech is speaker acoustic bleed and MUST be dropped!
                         if (isWake || isExplicitStop) {
                             console.log("[barge-in] Explicit human interrupt trigger:", currentHeard);
                             interruptSpeech();
-
-                            const cleanHeard = currentHeard
-                                .replace(WAKE_WORD_PATTERN, "")
-                                .replace(/^(?:stop|halt|cancel|quiet|shh|wait|hold on|pause|no|shut up)[,.:;!?-]*\s*/i, "")
-                                .trim();
-
-                            if (cleanHeard.length >= 2 && /[a-zA-Z]{2,}/.test(cleanHeard) && !isSelfEcho(cleanHeard)) {
-                                liveTranscriptBuffer = cleanHeard;
-                                setLiveConvUI("HEARING DIRECTIVE...", `"${cleanHeard}"`);
-                                setAvatarSignal("LISTENING");
-                                clearTimeout(liveSilenceTimer);
-                                liveSilenceTimer = setTimeout(() => {
-                                    if (liveTranscriptBuffer && !isWaitingForAIResponse && !isSpeakingTurn) {
-                                        const directiveToRun = liveTranscriptBuffer;
-                                        liveTranscriptBuffer = "";
-                                        executeLiveConversationTurn(directiveToRun);
-                                    }
-                                }, 1000);
-                            } else {
-                                setLiveConvUI("INTERRUPTED · LISTENING", "Interrupted. Speak your directive...");
-                                setAvatarSignal("LISTENING");
-                            }
                             return;
                         } else {
-                            // Suppress acoustic speaker feedback while speech synthesis is active
+                            // While assistant is speaking, continuously wipe buffer and drop all microphone audio
+                            liveTranscriptBuffer = "";
                             return;
                         }
                     }
 
                     // ========================================================
-                    // 2. ACOUSTIC ECHO SUPPRESSION (POST-SPEECH REVERB & HISTORY)
+                    // 2. POST-SPEECH ACOUSTIC TAIL SUPPRESSION
                     // ========================================================
-                    // Discard delayed audio arriving within 2.5 seconds of assistant finishing speech if it's echo
-                    if (Date.now() - lastSpeechEndTime < 2500) {
-                        if (isSelfEcho(currentHeard)) {
-                            console.log("[duplex] Suppressed post-speech acoustic echo:", currentHeard);
-                            return;
-                        }
+                    // For 1.5 seconds after assistant finishes speaking, speaker audio/reverb
+                    // is still arriving at the microphone. Wipe buffer and drop completely!
+                    if (Date.now() - lastSpeechEndTime < 1500) {
+                        liveTranscriptBuffer = "";
+                        return;
                     }
 
                     // Global echo suppression against recent assistant utterances
                     if (isSelfEcho(currentHeard)) {
+                        liveTranscriptBuffer = "";
                         console.log("[duplex] Suppressed acoustic echo from assistant history:", currentHeard);
                         return;
                     }
@@ -5157,12 +5120,18 @@
 
                         clearTimeout(liveSilenceTimer);
                         liveSilenceTimer = setTimeout(() => {
-                            if (cleanDirective.length >= 2 && /[a-zA-Z0-9]{2,}/.test(cleanDirective) && !isSelfEcho(cleanDirective) && !isWaitingForAIResponse && !isSpeakingTurn) {
+                            if (cleanDirective.length >= 2 && 
+                                /[a-zA-Z0-9]{2,}/.test(cleanDirective) && 
+                                !isSelfEcho(cleanDirective) && 
+                                !isWaitingForAIResponse && 
+                                !isSpeakingTurn && 
+                                !(window.speechSynthesis && window.speechSynthesis.speaking) &&
+                                Date.now() - lastSpeechEndTime >= 1500) {
                                 executeLiveConversationTurn(cleanDirective);
                                 wakeWordAwake = false;
                                 liveTranscriptBuffer = "";
                             }
-                        }, 1050);
+                        }, 1100);
                     }
                 };
 
@@ -5182,8 +5151,8 @@
                         showToast("MIC PERMISSION NEEDED: Click the lock icon in address bar -> Allow Microphone");
                         stopLiveConversationLoop();
                     } else if (err.error === "audio-capture") {
-                        setLiveConvUI("NO MIC DETECTED", "Select microphone in Chrome / Windows sound settings");
-                        showToast("NO MIC FOUND: Check microphone selection in Chrome settings");
+                        setLiveConvUI("NO MIC DETECTED", "Select microphone in browser sound settings");
+                        showToast("NO MIC FOUND: Check microphone selection in browser settings");
                         stopLiveConversationLoop();
                     }
                 };
@@ -5213,8 +5182,14 @@
             liveSpeechQueue = [];
             isProcessingSpeechQueue = false;
             currentAssistantSpokenText = "";
+            liveTranscriptBuffer = "";
             if (liveRecContinuous) {
-                try { liveRecContinuous.stop(); } catch(e) {}
+                try {
+                    liveRecContinuous.onend = null;
+                    liveRecContinuous.onerror = null;
+                    liveRecContinuous.onresult = null;
+                    liveRecContinuous.stop();
+                } catch(e) {}
                 liveRecContinuous = null;
             }
             if (window.speechSynthesis) {
@@ -5232,6 +5207,8 @@
             liveSpeechQueue = [];
             isProcessingSpeechQueue = false;
             currentAssistantSpokenText = "";
+            clearTimeout(liveSilenceTimer);
+            liveTranscriptBuffer = "";
             if (window.speechSynthesis) {
                 window.speechSynthesis.cancel();
             }
@@ -5278,6 +5255,13 @@
             // Guard against empty, punctuation-only, or self-echo loops
             if (!cleanSpeech || cleanSpeech.length < 2 || !/[a-zA-Z0-9]{2,}/.test(cleanSpeech) || isSelfEcho(cleanSpeech)) {
                 console.log("[duplex] Suppressed invalid or echo turn execution:", cleanSpeech);
+                return;
+            }
+
+            // Strictly prevent turn execution while assistant is speaking or within the 1.5s post-speech tail
+            if (isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking) || Date.now() - lastSpeechEndTime < 1500) {
+                console.log("[duplex] Suppressed turn execution during speech or cooldown:", cleanSpeech);
+                liveTranscriptBuffer = "";
                 return;
             }
 
@@ -5377,6 +5361,10 @@
             currentUtteranceHistory.push({ text: clean.toLowerCase(), time: Date.now() });
             if (currentUtteranceHistory.length > 25) currentUtteranceHistory.shift();
 
+            // Clear any pending recognition buffer and timer when assistant begins speaking
+            clearTimeout(liveSilenceTimer);
+            liveTranscriptBuffer = "";
+
             setLiveConvUI("SPEAKING (DUPLEX 2-WAY)", `Say "Stop" or "Hey Sarembok" to interrupt · "${clean}"`);
             setAvatarSignal("SPEAKING");
             showInterruptPill();
@@ -5399,6 +5387,8 @@
                 isSpeakingTurn = false;
                 currentAssistantSpokenText = "";
                 lastSpeechEndTime = Date.now();
+                liveTranscriptBuffer = "";
+                clearTimeout(liveSilenceTimer);
                 morphTargets.jawOpen = 0;
                 updateMorphMeters();
                 hideInterruptPill();
