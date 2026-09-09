@@ -15,7 +15,10 @@ from runtime_authority import render_markdown as render_runtime_diagnostic
 from runtime_authority import snapshot as runtime_authority_snapshot
 from runtime_response_composer import (
     build_runtime_context,
+    is_capability_query,
+    is_identity_query,
     is_self_state_query,
+    render_capabilities,
     render_identity,
     render_model_inventory,
 )
@@ -57,7 +60,45 @@ def _dispatch_chat_with_authority(params: dict) -> dict:
         or ""
     ).strip()
 
-    # Sarembok inventory/state questions that do not require an LLM
+    # 1. Capability questions answered directly by Runtime Authority
+    if is_capability_query(prompt):
+        response = render_capabilities(snapshot)
+        return {
+            **snapshot,
+            "response": response,
+            "audioText": "I am Sarembok VE. I can stream media and audio, conduct live two-way voice conversations, retrieve real-time news and intelligence, synthesize code, and orchestrate multi-agent pipelines.",
+            "source": "runtime_authority",
+            "model": "runtime-authority",
+            "action": None,
+            "structuredResponse": cloud_server.build_structured_response(
+                response,
+                provider="runtime_authority",
+                model="runtime-authority",
+            ),
+            "agentId": "sarembok-prime",
+            "timestamp": cloud_server.now(),
+        }
+
+    # 2. Identity / system architecture questions answered directly by Runtime Authority
+    if is_identity_query(prompt):
+        response = render_identity(snapshot)
+        return {
+            **snapshot,
+            "response": response,
+            "audioText": "I am Sarembok VE, the sovereign computing environment and AI multimodal runtime.",
+            "source": "runtime_authority",
+            "model": "runtime-authority",
+            "action": None,
+            "structuredResponse": cloud_server.build_structured_response(
+                response,
+                provider="runtime_authority",
+                model="runtime-authority",
+            ),
+            "agentId": "sarembok-prime",
+            "timestamp": cloud_server.now(),
+        }
+
+    # 3. Sarembok inventory/state questions that do not require an LLM
     # are answered directly from Runtime Authority.
     inventory_query_markers = (
         "what models are available",

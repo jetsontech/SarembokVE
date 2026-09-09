@@ -255,7 +255,7 @@ class ProviderRouter:
         body = self._http_error_body(exc)
         classification = self._classify_http_error(body)
         if exc.code == 429:
-            cooldown = 300.0 if classification == 'quota_exceeded' else 30.0
+            cooldown = 20.0 if classification == 'quota_exceeded' else 10.0
             self._set_provider_cooldown(spec.name, cooldown)
             raise RuntimeError(f'{spec.name} {classification}; provider cooldown={int(cooldown)}s')
         if exc.code not in TRANSIENT_HTTP or attempts >= 2:

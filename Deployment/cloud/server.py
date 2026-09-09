@@ -24,7 +24,15 @@ import urllib.parse
 import uuid
 
 from runtime_authority import snapshot as runtime_authority_snapshot
-from runtime_response_composer import build_runtime_context
+from runtime_response_composer import (
+    build_runtime_context,
+    is_capability_query,
+    is_identity_query,
+    is_self_state_query,
+    render_capabilities,
+    render_identity,
+    render_model_inventory,
+)
 from provider_router import ProviderRouter
 from capability_registry import CapabilityRegistry
 from structured_response import build_structured_response
@@ -1370,6 +1378,52 @@ def sarembok_process_dialogue(
         STARTED,
     )
 
+    # Direct Runtime Authority Handling (Capabilities, Identity, Model Inventory)
+    if is_capability_query(prompt_clean):
+        cap_reply = render_capabilities(authority_snapshot)
+        _save_conversation(session_id, prompt_clean, cap_reply)
+        return {
+            "response": cap_reply,
+            "audioText": "I am Sarembok VE. I can stream media and audio, conduct live two-way voice conversations, retrieve real-time news and intelligence, synthesize code, and orchestrate multi-agent pipelines.",
+            "source": "runtime_authority",
+            "model": "runtime-authority",
+            "action": None,
+            "structuredResponse": build_structured_response(cap_reply, provider="runtime_authority", model="runtime-authority"),
+            "metadata": {"provider": "runtime_authority", "model": "runtime-authority"}
+        }
+
+    if is_identity_query(prompt_clean):
+        id_reply = render_identity(authority_snapshot)
+        _save_conversation(session_id, prompt_clean, id_reply)
+        return {
+            "response": id_reply,
+            "audioText": "I am Sarembok VE, the sovereign computing environment and AI multimodal runtime.",
+            "source": "runtime_authority",
+            "model": "runtime-authority",
+            "action": None,
+            "structuredResponse": build_structured_response(id_reply, provider="runtime_authority", model="runtime-authority"),
+            "metadata": {"provider": "runtime_authority", "model": "runtime-authority"}
+        }
+
+    inventory_markers = (
+        "what models are available", "what other models", "other models", "which models are available",
+        "which models can i use", "what models can i use", "what llms are available", "what llms can i use",
+        "what language models are available", "what language models can i use", "what models are configured",
+        "which models are configured", "model availability", "available models", "configured models",
+    )
+    if is_self_state_query(prompt_clean) and any(m in prompt_lower for m in inventory_markers):
+        inv_reply = render_model_inventory(authority_snapshot)
+        _save_conversation(session_id, prompt_clean, inv_reply)
+        return {
+            "response": inv_reply,
+            "audioText": inv_reply.replace("*", "").replace("`", "").replace("#", "")[:1200],
+            "source": "runtime_authority",
+            "model": "runtime-authority",
+            "action": None,
+            "structuredResponse": build_structured_response(inv_reply, provider="runtime_authority", model="runtime-authority"),
+            "metadata": {"provider": "runtime_authority", "model": "runtime-authority"}
+        }
+
     authoritative_context = build_runtime_context(authority_snapshot)
     current_utc = datetime.now(timezone.utc)
     current_time_str = current_utc.strftime("%A, %B %d, %Y at %H:%M:%S UTC")
@@ -1587,9 +1641,35 @@ def sarembok_process_dialogue(
             "action": None
         }
 
-    reply = "I can't reach a language model right now. The runtime has no responding provider available. Local runtime capabilities remain available."
+    if is_capability_query(prompt_clean):
+        reply = render_capabilities(authority_snapshot)
+        source = "runtime_authority"
+        active_model = "runtime-authority"
+    elif is_identity_query(prompt_clean):
+        reply = render_identity(authority_snapshot)
+        source = "runtime_authority"
+        active_model = "runtime-authority"
+    else:
+        reply = (
+            "I am currently operating in **Local Runtime Authority mode** while upstream cloud models are reconnecting.\n\n"
+            "**All local capabilities remain fully operational:**\n"
+            "- 🎵 **Universal Media & Music:** `play <artist/song/podcast/news>` (e.g., `play kevin hart`, `play bbc news`, `play michael jackson`)\n"
+            "- 🕒 **System Clock & Time:** `what time is it`\n"
+            "- 🌐 **Live Real-Time Intelligence:** `latest tech news`\n"
+            "- ⚡ **System Overview & Commands:** `what can you do` or `what system is this`"
+        )
+        source = "local_runtime"
+        active_model = "runtime-fallback"
     _save_conversation(session_id, prompt_clean, reply)
-    return {"response": reply, "audioText": reply, "source": "offline", "action": None}
+    return {
+        "response": reply,
+        "audioText": _spoken_clean(reply),
+        "source": source,
+        "model": active_model,
+        "action": None,
+        "structuredResponse": build_structured_response(reply, provider=source, model=active_model),
+        "metadata": {"provider": source, "model": active_model}
+    }
 
 
 def _save_conversation(session_id: str, user_msg: str, assistant_msg: str) -> None:

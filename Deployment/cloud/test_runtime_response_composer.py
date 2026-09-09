@@ -1,6 +1,9 @@
 from runtime_response_composer import (
     build_runtime_context,
+    is_capability_query,
+    is_identity_query,
     is_self_state_query,
+    render_capabilities,
     render_identity,
     render_model_inventory,
 )
@@ -68,12 +71,40 @@ SNAPSHOT = {
 
 def test_self_state_queries():
     assert is_self_state_query("what system is this?")
+    assert is_self_state_query("what can you do?")
+    assert is_self_state_query("what are your capabilities?")
+    assert is_self_state_query("who are you?")
     assert is_self_state_query("what model is this?")
     assert is_self_state_query("what other models are available?")
     assert is_self_state_query("what models can I use?")
     assert is_self_state_query("which models are configured?")
     assert is_self_state_query("what providers are configured?")
     assert not is_self_state_query("write a Python function")
+
+
+def test_capability_and_identity_queries():
+    assert is_identity_query("what system is this?")
+    assert is_identity_query("who are you?")
+    assert is_identity_query("what is sarembok?")
+    assert not is_identity_query("what can you do?")
+
+    assert is_capability_query("what can you do?")
+    assert is_capability_query("what can u do")
+    assert is_capability_query("what do you do")
+    assert is_capability_query("what are your capabilities")
+    assert is_capability_query("help")
+    assert not is_capability_query("what is the weather")
+
+
+def test_capabilities():
+    text = render_capabilities(SNAPSHOT)
+    assert "SAREMBOK VE" in text
+    assert "Universal Media & Audio Streaming" in text
+    assert "Duplex Live Voice" in text
+    assert "Full-Stack Autonomous Code Synthesis" in text
+    assert "2 active compute workers" in text
+    assert "1 GPU acceleration nodes" in text
+    assert "7 stored entries" in text
 
 
 def test_identity():
@@ -113,6 +144,8 @@ def test_model_inventory():
 
 if __name__ == "__main__":
     test_self_state_queries()
+    test_capability_and_identity_queries()
+    test_capabilities()
     test_identity()
     test_runtime_context()
     test_model_inventory()

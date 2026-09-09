@@ -42,8 +42,7 @@
         html, body {
             width: 100%;
             height: 100%;
-            min-height: 100%;
-            overflow-x: hidden;
+            overflow: hidden;
             background: var(--bg-void);
             color: var(--text-main);
             font-family: var(--font-sans);
@@ -93,8 +92,13 @@
             z-index: 1;
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
+            height: 100vh;
+            height: 100dvh;
+            max-height: 100vh;
+            max-height: 100dvh;
+            overflow: hidden;
             padding-left: 72px; /* For left dock */
+            box-sizing: border-box;
         }
 
         /* ==================== TOP HEADER ==================== */
@@ -102,7 +106,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 16px 28px 12px;
+            padding: 12px 28px 10px;
             background: linear-gradient(180deg, rgba(2, 6, 14, 0.92), transparent);
             border-bottom: 1px solid rgba(0, 240, 255, 0.08);
             position: sticky;
@@ -110,6 +114,7 @@
             z-index: 80;
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
+            flex-shrink: 0;
         }
 
         .header-brand-wrap {
@@ -330,8 +335,11 @@
         .view-panel {
             display: none;
             flex: 1;
+            min-height: 0;
+            overflow-y: auto;
             padding: 24px 28px 60px;
             position: relative;
+            box-sizing: border-box;
         }
         .view-panel.active {
             display: flex;
@@ -629,9 +637,11 @@
 
         /* ==================== 2. DIALOGUE VIEW ==================== */
         #view-dialogue {
-            height: calc(100vh - 80px);
-            max-height: calc(100vh - 80px);
-            padding: 8px 24px 12px;
+            flex: 1;
+            min-height: 0;
+            height: 100%;
+            max-height: 100%;
+            padding: 6px 20px 10px;
             overflow: hidden;
             display: none;
             box-sizing: border-box;

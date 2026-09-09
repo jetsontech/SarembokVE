@@ -83,16 +83,103 @@ def build_runtime_context(
     return "\n".join(lines)
 
 
-def is_self_state_query(prompt: str) -> bool:
-    """Identify questions whose answer should be grounded directly in runtime state."""
+def is_identity_query(prompt: str) -> bool:
+    """Identify questions about Sarembok's identity or platform architecture."""
     text = (prompt or "").strip().lower()
-
     markers = (
         "what system is this",
         "what is this system",
+        "what system are you",
+        "what system am i using",
         "what is sarembok",
         "who are you",
         "what are you",
+        "what is your name",
+        "tell me about yourself",
+        "what is your identity",
+    )
+    return any(marker in text for marker in markers)
+
+
+def is_capability_query(prompt: str) -> bool:
+    """Identify questions inquiring what Sarembok can do or its supported features."""
+    text = (prompt or "").strip().lower()
+    if text in ("help", "?", "commands", "features", "capabilities"):
+        return True
+    markers = (
+        "what can you do",
+        "what can u do",
+        "what do you do",
+        "what are you able to do",
+        "what are your capabilities",
+        "what capabilities",
+        "what are your features",
+        "what features",
+        "how can you help",
+        "how do you work",
+        "what do you support",
+        "what commands",
+        "what can i ask",
+        "show capabilities",
+        "list capabilities",
+    )
+    return any(marker in text for marker in markers)
+
+
+def render_capabilities(
+    snapshot: dict[str, Any] | None = None,
+    capabilities: dict[str, Any] | None = None,
+) -> str:
+    """Produce an authoritative summary of Sarembok VE capabilities and modalities."""
+    workers_cnt = 0
+    gpu_cnt = 0
+    mem_entries = 0
+    if snapshot:
+        workers = snapshot.get("workers") or {}
+        workers_cnt = workers.get("online", 0)
+        compute = snapshot.get("compute") or {}
+        gpu_cnt = compute.get("onlineGpuWorkers", 0)
+        memory = snapshot.get("memory") or {}
+        mem_entries = memory.get("entries", 0)
+
+    return "\n".join([
+        "### ⚡ SAREMBOK VE · SOVEREIGN CAPABILITIES",
+        "",
+        "I am **Sarembok VE**, an autonomous AI computing environment and multimodal runtime. Here are the core capabilities available to you right now:",
+        "",
+        "1. 🎵 **Universal Media & Audio Streaming**",
+        "   - Play songs, comedy sets, live news broadcasts (e.g. BBC News), podcasts, or background beats directly in the chat with dedicated pop-out window support.",
+        "   - *Directives:* `play kevin hart`, `play bbc news`, `play richard pryor`, or `play synthwave`.",
+        "",
+        "2. 🎙️ **Duplex Live Voice & Hands-Free Conversation**",
+        "   - Real-time two-way spoken conversation with natural speech synthesis, instant barge-in, and speech recognition.",
+        "   - Click **Live Conversation** or the microphone icon in the input bar to talk.",
+        "",
+        "3. 🌐 **Real-Time Intelligence & World Clock**",
+        "   - Live web search, breaking news retrieval, and authoritative system clock / calendar verifications.",
+        "   - *Directives:* `what time is it`, `latest tech news`, or `current market updates`.",
+        "",
+        "4. 💻 **Full-Stack Autonomous Code Synthesis**",
+        "   - Architectural planning, code generation, refactoring, and debugging across Python, JavaScript, CSS, SQL, Docker, and shell.",
+        "",
+        "5. 🧠 **Persistent Long-Term Memory Recall**",
+        f"   - Continuous knowledge persistence with SQLite-WAL memory ({mem_entries} stored entries across sessions).",
+        "",
+        "6. 🤖 **Multi-Agent Orchestration & Cloud Tasks**",
+        f"   - Distributed task dispatching across {workers_cnt} active compute workers ({gpu_cnt} GPU acceleration nodes) with background agent lifecycles.",
+        "",
+        "Type or speak any instruction to begin!"
+    ])
+
+
+def is_self_state_query(prompt: str) -> bool:
+    """Identify questions whose answer should be grounded directly in runtime state."""
+    if is_identity_query(prompt) or is_capability_query(prompt):
+        return True
+
+    text = (prompt or "").strip().lower()
+
+    markers = (
         "what is your status",
         "runtime status",
         "how many workers",
@@ -100,7 +187,6 @@ def is_self_state_query(prompt: str) -> bool:
         "how much memory",
         "what providers",
         "what provider",
-        "what capabilities",
 
         # Model/provider state queries must never fall through to
         # general model knowledge.
