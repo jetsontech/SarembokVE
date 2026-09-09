@@ -3412,9 +3412,15 @@
                 return html;
             });
 
-            // 5. Math equations: Block $$...$$ and Inline $...$
+            // 5. Math equations: Block ($$, \[...\]) and Inline ($, \(...\))
+            s = s.replace(/\\\[([\s\S]*?)\\\]/g, (_, eq) => {
+                return `<div class="srbk-math-block"><div class="srbk-math-badge">EQUATION</div><div class="srbk-math-inner">${formatMath(eq)}</div></div>`;
+            });
             s = s.replace(/\$\$([\s\S]*?)\$\$/g, (_, eq) => {
                 return `<div class="srbk-math-block"><div class="srbk-math-badge">EQUATION</div><div class="srbk-math-inner">${formatMath(eq)}</div></div>`;
+            });
+            s = s.replace(/\\\(([\s\S]*?)\\\)/g, (_, eq) => {
+                return `<span class="srbk-math">${formatMath(eq)}</span>`;
             });
             s = s.replace(/\$([^\$\n]+)\$/g, (_, eq) => {
                 return `<span class="srbk-math">${formatMath(eq)}</span>`;
