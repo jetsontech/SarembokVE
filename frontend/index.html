@@ -1030,85 +1030,7 @@
             box-shadow: 0 0 8px var(--cyan-glow);
         }
 
-        /* Persistent Background Music & Cyber Synth Deck */
-        #srbk-persistent-music-deck {
-            position: fixed;
-            bottom: 24px;
-            left: 24px;
-            z-index: 950;
-            background: rgba(4, 9, 20, 0.94);
-            border: 1px solid rgba(0, 240, 255, 0.35);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.75), 0 0 16px rgba(0, 240, 255, 0.25);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            border-radius: 10px;
-            padding: 8px 14px;
-            display: none;
-            align-items: center;
-            gap: 12px;
-            font-family: var(--font-mono);
-            font-size: 11px;
-            color: #fff;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            max-width: 440px;
-        }
-        #srbk-persistent-music-deck.active {
-            display: flex;
-        }
-        #srbk-persistent-music-deck.hidden {
-            display: none !important;
-        }
-        .srbk-eq-viz {
-            display: flex;
-            align-items: flex-end;
-            gap: 2px;
-            height: 16px;
-            width: 18px;
-        }
-        .srbk-eq-bar {
-            flex: 1;
-            background: var(--cyan);
-            border-radius: 1px;
-            animation: eqBounce 0.8s ease-in-out infinite alternate;
-        }
-        .srbk-eq-bar:nth-child(2) { animation-delay: 0.2s; background: #f472b6; }
-        .srbk-eq-bar:nth-child(3) { animation-delay: 0.4s; background: #38bdf8; }
-        .srbk-eq-bar:nth-child(4) { animation-delay: 0.15s; background: #a78bfa; }
-        @keyframes eqBounce {
-            0% { height: 3px; opacity: 0.4; }
-            100% { height: 16px; opacity: 1; }
-        }
-        .srbk-deck-title {
-            font-family: var(--font-display);
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--cyan);
-            letter-spacing: 0.05em;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 140px;
-        }
-        .srbk-deck-btn {
-            background: rgba(0, 240, 255, 0.1);
-            border: 1px solid rgba(0, 240, 255, 0.3);
-            color: #fff;
-            padding: 4px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 10px;
-            font-family: var(--font-mono);
-            transition: all 0.15s ease;
-        }
-        .srbk-deck-btn:hover {
-            background: rgba(0, 240, 255, 0.25);
-            border-color: var(--cyan);
-        }
-        .srbk-deck-vol {
-            accent-color: var(--cyan);
-            width: 55px;
-            cursor: pointer;
-        }
+
 
         
         /* Floating Picture-in-Picture Video & Media Player */
@@ -3043,17 +2965,7 @@
                     </div>
                 </div>
 
-                <div class="hud-badge audio">
-                    <button class="hud-audio-master-btn" id="hud-audio-master" onclick="toggleGlobalMusicPlayback()" title="Toggle Background Cyber Music">
-                        <span id="hud-audio-master-label">🎵 MUSIC DECK</span>
-                    </button>
-                    <div class="hud-audio-genre-pills">
-                        <button class="hud-genre-pill" id="pill-lofi" onclick="playProceduralCyberMusic('lofi', this)" title="Play Lo-Fi Chill Stream">☕ Lo-Fi</button>
-                        <button class="hud-genre-pill" id="pill-synthwave" onclick="playProceduralCyberMusic('synthwave', this)" title="Play Synthwave Cyber Stream">⚡ Synth</button>
-                        <button class="hud-genre-pill" id="pill-ambient" onclick="playProceduralCyberMusic('ambient', this)" title="Play Deep Ambient Space">🌌 Space</button>
-                        <button class="hud-genre-pill" id="pill-classical" onclick="playProceduralCyberMusic('classical', this)" title="Play Classical Focus">🎻 Classical</button>
-                    </div>
-                </div>
+
 
                 <button class="hud-voice-btn" id="hud-voice-toggle" onclick="toggleVoiceOutput()" title="Toggle Voice Audio">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
@@ -3880,22 +3792,7 @@
 
     </div>
 
-    <!-- Persistent Floating Cyber Music Deck -->
-    <div id="srbk-persistent-music-deck">
-        <div class="srbk-deck-eq" id="srbk-deck-eq-bars">
-            <span class="srbk-deck-bar"></span>
-            <span class="srbk-deck-bar"></span>
-            <span class="srbk-deck-bar"></span>
-            <span class="srbk-deck-bar"></span>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:2px;">
-            <span style="font-size:8px; color:#94a3b8; letter-spacing:0.1em;">BACKGROUND AUDIO</span>
-            <span class="srbk-deck-title" id="srbk-deck-title-text">LO-FI FOCUS CHILL</span>
-        </div>
-        <button class="srbk-deck-btn" id="srbk-deck-play-btn" type="button" onclick="toggleGlobalMusicPlayback()" title="Pause/Play">⏸ PAUSE</button>
-        <input type="range" class="srbk-deck-vol" id="srbk-deck-vol-slider" min="0" max="1" step="0.05" value="0.7" oninput="setGlobalMusicVolume(this.value)" title="Volume">
-        <button class="srbk-deck-btn" type="button" onclick="stopGlobalMusicPlayback()" style="color:#ef4444; border-color:rgba(239,68,68,0.3);" title="Close Deck">✕</button>
-    </div>
+
 
     
     <!-- Floating Picture-in-Picture / Pop-Out Video Deck -->
@@ -3979,10 +3876,7 @@
            UNIVERSAL PLAYABLE VIDEO & MEDIA ENGINE (SEARCH & STREAMS)
            ============================================================ */
         let currentPipMedia = null;
-        let activeSynthAudio = null;
-        let activeMusicGenre = "lofi";
-        let musicPlaying = false;
-        let musicVolume = 0.7;
+
 
         const TOPIC_PRESETS = {
             "bbc news": { id: "lRJiLBhrJTI", title: "BBC NEWS LIVE" },
@@ -4190,115 +4084,7 @@
             window.open(media.embedUrl, "SarembokMediaPopout", "width=640,height=380,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
         }
 
-        /* Procedural Web Audio Ambient Synth Engine */
-        function playProceduralCyberMusic(genre = "lofi", btn = null) {
-            activeMusicGenre = genre;
-            musicPlaying = true;
-
-            const deck = document.getElementById("srbk-persistent-music-deck");
-            const titleEl = document.getElementById("srbk-deck-title-text");
-            const playBtn = document.getElementById("srbk-deck-play-btn");
-
-            if (deck) {
-                deck.classList.add("active");
-                deck.classList.remove("hidden");
-            }
-            if (titleEl) {
-                titleEl.textContent = `${genre.toUpperCase()} CYBER STREAM`;
-            }
-            if (playBtn) {
-                playBtn.textContent = "⏸ PAUSE";
-            }
-
-            try {
-                if (!window.AudioContext && !window.webkitAudioContext) return;
-                if (!activeSynthAudio) {
-                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    const masterGain = ctx.createGain();
-                    masterGain.gain.setValueAtTime(musicVolume * 0.25, ctx.currentTime);
-                    masterGain.connect(ctx.destination);
-
-                    const rootFreq = genre === "synthwave" ? 110 : genre === "ambient" ? 65.41 : genre === "classical" ? 130.81 : 82.41;
-                    const chordOffsets = genre === "synthwave" ? [0, 7, 12, 16] : [0, 4, 7, 11];
-
-                    const oscs = chordOffsets.map(semi => {
-                        const osc = ctx.createOscillator();
-                        const gain = ctx.createGain();
-                        osc.type = genre === "synthwave" ? "sawtooth" : "sine";
-                        osc.frequency.setValueAtTime(rootFreq * Math.pow(2, semi / 12), ctx.currentTime);
-                        
-                        // Subtle LFO modulation
-                        const lfo = ctx.createOscillator();
-                        lfo.frequency.setValueAtTime(0.2, ctx.currentTime);
-                        const lfoGain = ctx.createGain();
-                        lfoGain.gain.setValueAtTime(1.5, ctx.currentTime);
-                        lfo.connect(osc.frequency);
-                        lfo.start();
-
-                        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                        osc.connect(gain);
-                        gain.connect(masterGain);
-                        osc.start();
-                        return { osc, gain, lfo };
-                    });
-
-                    activeSynthAudio = { ctx, masterGain, oscs };
-                } else if (activeSynthAudio.ctx.state === "suspended") {
-                    activeSynthAudio.ctx.resume();
-                }
-            } catch (e) {
-                console.warn("Procedural synth audio init notice:", e);
-            }
-
-            showToast(`AUDIO ONLINE: ${genre.toUpperCase()}`);
-        }
-
-        function toggleGlobalMusicPlayback() {
-            if (musicPlaying) {
-                if (activeSynthAudio && activeSynthAudio.ctx) {
-                    activeSynthAudio.ctx.suspend();
-                }
-                musicPlaying = false;
-                const playBtn = document.getElementById("srbk-deck-play-btn");
-                if (playBtn) playBtn.textContent = "▶ PLAY";
-                showToast("CYBER AUDIO PAUSED");
-            } else {
-                playProceduralCyberMusic(activeMusicGenre);
-            }
-        }
-
-        function stopGlobalMusicPlayback() {
-            if (activeSynthAudio) {
-                try {
-                    activeSynthAudio.oscs.forEach(o => { o.osc.stop(); o.lfo.stop(); });
-                    activeSynthAudio.ctx.close();
-                } catch (e) {}
-                activeSynthAudio = null;
-            }
-            musicPlaying = false;
-            const deck = document.getElementById("srbk-persistent-music-deck");
-            if (deck) {
-                deck.classList.remove("active");
-                deck.classList.add("hidden");
-            }
-            showToast("CYBER AUDIO STOPPED");
-        }
-
-        function setGlobalMusicVolume(val) {
-            musicVolume = parseFloat(val);
-            if (activeSynthAudio && activeSynthAudio.masterGain) {
-                activeSynthAudio.masterGain.gain.setValueAtTime(musicVolume * 0.25, activeSynthAudio.ctx.currentTime);
-            }
-        }
-
-        function setAudioDucking(duck = false) {
-            if (activeSynthAudio && activeSynthAudio.masterGain && activeSynthAudio.ctx) {
-                const targetVol = duck ? musicVolume * 0.05 : musicVolume * 0.25;
-                try {
-                    activeSynthAudio.masterGain.gain.setValueAtTime(targetVol, activeSynthAudio.ctx.currentTime);
-                } catch (_) {}
-            }
-        }
+        function setAudioDucking() {} /* no-op, music deck removed */
         window.setAudioDucking = setAudioDucking;
 
         // Draggable floating PiP Player
@@ -4348,10 +4134,6 @@
         window.openDetachedPipWindowFromUrl = openDetachedPipWindowFromUrl;
         window.closeFloatingPip = closeFloatingPip;
         window.toggleMinimizePip = toggleMinimizePip;
-        window.playProceduralCyberMusic = playProceduralCyberMusic;
-        window.toggleGlobalMusicPlayback = toggleGlobalMusicPlayback;
-        window.stopGlobalMusicPlayback = stopGlobalMusicPlayback;
-        window.setGlobalMusicVolume = setGlobalMusicVolume;
         window.extractYouTubeId = extractYouTubeId;
 
         function renderVideoCard(title, urlOrBody) {
@@ -5015,12 +4797,6 @@
                     if (unresolvedIframes.length > 0) {
                         resolveAndUpdateMediaCards(content, resolveTopic, resolveTopic.toUpperCase());
                     }
-                }
-
-                // Auto-start procedural cyber audio deck on explicit synth playback
-                if (pLow.includes("play music") || pLow.includes("play synthwave") || pLow.includes("play lofi") || pLow.includes("play ambient") || pLow.includes("play classical")) {
-                    const g = pLow.includes("synthwave") ? "synthwave" : pLow.includes("ambient") ? "ambient" : pLow.includes("classical") ? "classical" : "lofi";
-                    setTimeout(() => { if (!activeSynthAudio) playProceduralCyberMusic(g); }, 300);
                 }
 
                 // If Admin Tool Traces are present, render interactive cyber deck cards
