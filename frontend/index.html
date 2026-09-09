@@ -3647,6 +3647,38 @@
             return s;
         }
 
+        function extractYouTubeId(url) {
+            if (!url) return null;
+            const match = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+            return match ? match[1] : null;
+        }
+
+        function renderVideoCard(title, urlOrBody) {
+            const raw = String(urlOrBody || "");
+            const cleanUrl = (raw.match(/https?:\/\/[^\s\)\"]+/) || [raw.trim()])[0];
+            const ytId = extractYouTubeId(cleanUrl);
+            const cardTitle = (title || "").trim() || (ytId ? "YOUTUBE VIDEO STREAM" : "VIDEO PLAYBACK");
+            if (ytId) {
+                return `<div class="srbk-video-card"><div class="srbk-video-head"><span class="srbk-video-badge">🎬 ${escapeHtml(cardTitle)}</span><a href="${escapeHtml(cleanUrl)}" target="_blank" rel="noopener" class="srbk-video-link">OPEN ↗</a></div><div class="srbk-video-player-wrap"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}?rel=0" class="srbk-video-iframe" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div></div>`;
+            }
+            return `<div class="srbk-video-card"><div class="srbk-video-head"><span class="srbk-video-badge">🎬 ${escapeHtml(cardTitle)}</span><a href="${escapeHtml(cleanUrl)}" target="_blank" rel="noopener" class="srbk-video-link">OPEN ↗</a></div><video controls src="${escapeHtml(cleanUrl)}" class="srbk-video-player"></video></div>`;
+        }
+
+        function renderAudioCard(title, urlOrBody) {
+            const raw = String(urlOrBody || "");
+            const cleanUrl = (raw.match(/https?:\/\/[^\s\)\"]+/) || [raw.trim()])[0];
+            const cardTitle = (title || "").trim() || "AUDIO STREAM";
+            return `<div class="srbk-audio-card"><div class="srbk-audio-head"><span class="srbk-audio-badge">🔊 AUDIO</span><span class="srbk-audio-title">${escapeHtml(cardTitle)}</span></div><audio controls src="${escapeHtml(cleanUrl)}" class="srbk-audio-player"></audio></div>`;
+        }
+
+        function renderDocCard(title, body) {
+            const cardTitle = (title || "").trim() || "RESEARCH DOCUMENT";
+            const raw = String(body || "");
+            const urlMatch = raw.match(/https?:\/\/[^\s\)\"]+/);
+            const actionBtn = urlMatch ? `<div class="srbk-doc-actions"><a href="${escapeHtml(urlMatch[0])}" target="_blank" rel="noopener" class="srbk-doc-btn"><span>📄</span> <span>VIEW FULL DOCUMENT / PDF ↗</span></a></div>` : "";
+            return `<div class="srbk-doc-card"><div class="srbk-doc-head"><span class="srbk-doc-badge">📄 RESEARCH DOCUMENT</span><span class="srbk-doc-title">${escapeHtml(cardTitle)}</span></div><div class="srbk-doc-body">${md(raw)}</div>${actionBtn}</div>`;
+        }
+
         /* Cyber Procedural Web Audio Engine */
         let activeSynthAudio = null;
         function playProceduralCyberMusic(genre = "synthwave", btn = null) {
