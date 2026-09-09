@@ -1202,7 +1202,116 @@
             box-shadow: 0 0 12px var(--cyan);
         }
 
-        /* Dialogue Input Bar */
+        /* Music Player & Cyber Synth Cards */
+        .srbk-music-card {
+            margin: 16px 0;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(6, 12, 28, 0.98) 100%);
+            border: 1px solid rgba(236, 72, 153, 0.4);
+            overflow: hidden;
+            box-shadow: 0 10px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(236, 72, 153, 0.15);
+        }
+        .srbk-music-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: rgba(236, 72, 153, 0.12);
+            border-bottom: 1px solid rgba(236, 72, 153, 0.2);
+        }
+        .srbk-music-badge {
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            color: #ec4899;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .srbk-music-title {
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+        .srbk-synth-ctrls {
+            display: flex;
+            gap: 8px;
+            padding: 12px 14px;
+            background: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .srbk-synth-btn {
+            background: rgba(236, 72, 153, 0.15);
+            border: 1px solid rgba(236, 72, 153, 0.4);
+            border-radius: 6px;
+            color: #f472b6;
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            font-weight: 600;
+            padding: 7px 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .srbk-synth-btn:hover {
+            background: rgba(236, 72, 153, 0.3);
+            box-shadow: 0 0 12px rgba(236, 72, 153, 0.4);
+        }
+        .srbk-synth-btn.active {
+            background: #ec4899;
+            color: #000;
+            font-weight: 700;
+            box-shadow: 0 0 16px rgba(236, 72, 153, 0.8);
+        }
+
+        /* Simultaneous Multi-Tasking Grid & Matrix */
+        .srbk-task-matrix {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+            margin: 14px 0;
+        }
+        .srbk-task-card {
+            background: rgba(4, 9, 22, 0.85);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .srbk-task-header {
+            display: flex;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            color: var(--cyan);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+        .srbk-task-desc {
+            font-size: 12px;
+            color: #e2e8f0;
+            line-height: 1.5;
+        }
+        .srbk-task-status {
+            font-family: var(--font-mono);
+            font-size: 8.5px;
+            color: var(--emerald);
+            letter-spacing: 0.08em;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .srbk-task-status.running {
+            color: var(--amber);
+        }
         .dialogue-input-bar {
             padding: 14px 20px;
             background: rgba(2, 6, 14, 0.7);
@@ -3538,36 +3647,143 @@
             return s;
         }
 
-        function extractYouTubeId(url) {
-            if (!url) return null;
-            const match = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
-            return match ? match[1] : null;
-        }
-
-        function renderVideoCard(title, urlOrBody) {
-            const raw = String(urlOrBody || "");
-            const cleanUrl = (raw.match(/https?:\/\/[^\s\)\"]+/) || [raw.trim()])[0];
-            const ytId = extractYouTubeId(cleanUrl);
-            const cardTitle = (title || "").trim() || (ytId ? "YOUTUBE VIDEO STREAM" : "VIDEO PLAYBACK");
-            if (ytId) {
-                return `<div class="srbk-video-card"><div class="srbk-video-head"><span class="srbk-video-badge">🎬 ${escapeHtml(cardTitle)}</span><a href="${escapeHtml(cleanUrl)}" target="_blank" rel="noopener" class="srbk-video-link">OPEN ↗</a></div><div class="srbk-video-player-wrap"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}?rel=0" class="srbk-video-iframe" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div></div>`;
+        /* Cyber Procedural Web Audio Engine */
+        let activeSynthAudio = null;
+        function playProceduralCyberMusic(genre = "synthwave", btn = null) {
+            if (activeSynthAudio) {
+                activeSynthAudio.stop();
+                activeSynthAudio = null;
+                document.querySelectorAll(".srbk-synth-btn").forEach(b => b.classList.remove("active"));
+                showToast("CYBER SYNTH: STOPPED");
+                if (btn && btn.dataset.currentGenre === genre) return;
             }
-            return `<div class="srbk-video-card"><div class="srbk-video-head"><span class="srbk-video-badge">🎬 ${escapeHtml(cardTitle)}</span><a href="${escapeHtml(cleanUrl)}" target="_blank" rel="noopener" class="srbk-video-link">OPEN ↗</a></div><video controls src="${escapeHtml(cleanUrl)}" class="srbk-video-player"></video></div>`;
-        }
 
-        function renderAudioCard(title, urlOrBody) {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+
+                const masterGain = ctx.createGain();
+                masterGain.gain.setValueAtTime(0.18, ctx.currentTime);
+                masterGain.connect(ctx.destination);
+
+                const filter = ctx.createBiquadFilter();
+                filter.type = "lowpass";
+                filter.frequency.setValueAtTime(genre === "synthwave" ? 1200 : genre === "ambient" ? 450 : 800, ctx.currentTime);
+                filter.connect(masterGain);
+
+                // Mood chord frequencies (Hz)
+                const chords = {
+                    synthwave: [220, 277.18, 329.63, 440], // A Major / Cyber
+                    lofi: [174.61, 220, 261.63, 329.63], // Fmaj7 / Warm
+                    ambient: [110, 164.81, 220, 293.66], // A minor 11 / Deep space
+                    classical: [261.63, 329.63, 392.00, 523.25] // C Major
+                };
+                const freqs = chords[genre] || chords.synthwave;
+                const oscs = [];
+
+                freqs.forEach((f, idx) => {
+                    const osc = ctx.createOscillator();
+                    osc.type = genre === "synthwave" ? (idx % 2 === 0 ? "sawtooth" : "triangle") : "sine";
+                    osc.frequency.setValueAtTime(f, ctx.currentTime);
+
+                    // Gentle slow detune LFO for lush analog warmth
+                    const lfo = ctx.createOscillator();
+                    lfo.frequency.setValueAtTime(0.2 + idx * 0.1, ctx.currentTime);
+                    const lfoGain = ctx.createGain();
+                    lfoGain.gain.setValueAtTime(3.5, ctx.currentTime);
+                    lfo.connect(lfoGain);
+                    lfoGain.connect(osc.detune);
+                    lfo.start();
+
+                    const oscGain = ctx.createGain();
+                    oscGain.gain.setValueAtTime(0.25 / freqs.length, ctx.currentTime);
+                    osc.connect(oscGain);
+                    oscGain.connect(filter);
+                    osc.start();
+                    oscs.push(osc, lfo);
+                });
+
+                activeSynthAudio = {
+                    stop: () => {
+                        try {
+                            masterGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
+                            setTimeout(() => {
+                                oscs.forEach(o => { try { o.stop(); } catch(e){} });
+                                ctx.close();
+                            }, 700);
+                        } catch(e) {}
+                    }
+                };
+
+                if (btn) {
+                    btn.classList.add("active");
+                    btn.dataset.currentGenre = genre;
+                }
+                showToast(`PLAYING: ${genre.toUpperCase()} CYBER SYNTH`);
+            } catch (err) {
+                console.warn("Synth engine error:", err);
+            }
+        }
+        window.playProceduralCyberMusic = playProceduralCyberMusic;
+
+        function renderMusicCard(title, urlOrBody) {
             const raw = String(urlOrBody || "");
-            const cleanUrl = (raw.match(/https?:\/\/[^\s\)\"]+/) || [raw.trim()])[0];
-            const cardTitle = (title || "").trim() || "AUDIO STREAM";
-            return `<div class="srbk-audio-card"><div class="srbk-audio-head"><span class="srbk-audio-badge">🔊 AUDIO</span><span class="srbk-audio-title">${escapeHtml(cardTitle)}</span></div><audio controls src="${escapeHtml(cleanUrl)}" class="srbk-audio-player"></audio></div>`;
+            const cleanUrl = (raw.match(/https?:\/\/[^\s\)\"]+/) || [""])[0];
+            const cardTitle = (title || "").trim() || "CYBERNETIC AUDIO & MUSIC STREAM";
+            let ytEmbed = "";
+
+            if (cleanUrl) {
+                const ytId = extractYouTubeId(cleanUrl);
+                if (ytId) {
+                    ytEmbed = `<div class="srbk-video-player-wrap" style="aspect-ratio:16/9; margin-top:8px;"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0" class="srbk-video-iframe" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+                } else {
+                    ytEmbed = `<div style="padding:10px 14px;"><audio controls src="${escapeHtml(cleanUrl)}" autoplay class="srbk-audio-player"></audio></div>`;
+                }
+            }
+
+            return `<div class="srbk-music-card">
+                <div class="srbk-music-head">
+                    <span class="srbk-music-badge">🎵 ${escapeHtml(cardTitle)}</span>
+                    <span style="font-family:var(--font-mono); font-size:9px; color:#f472b6;">ONLINE STREAM</span>
+                </div>
+                ${ytEmbed}
+                <div class="srbk-synth-ctrls">
+                    <span style="font-family:var(--font-mono); font-size:9.5px; color:#94a3b8; width:100%; margin-bottom:4px;">PROSTHETIC SYNTH GENERATOR:</span>
+                    <button class="srbk-synth-btn" type="button" onclick="playProceduralCyberMusic('lofi', this)"><span>☕</span> <span>Lo-Fi Chill</span></button>
+                    <button class="srbk-synth-btn" type="button" onclick="playProceduralCyberMusic('synthwave', this)"><span>⚡</span> <span>Synthwave</span></button>
+                    <button class="srbk-synth-btn" type="button" onclick="playProceduralCyberMusic('ambient', this)"><span>🌌</span> <span>Deep Ambient</span></button>
+                    <button class="srbk-synth-btn" type="button" onclick="playProceduralCyberMusic('classical', this)"><span>🎻</span> <span>Classical</span></button>
+                </div>
+            </div>`;
         }
 
-        function renderDocCard(title, body) {
-            const cardTitle = (title || "").trim() || "RESEARCH DOCUMENT";
-            const raw = String(body || "");
-            const urlMatch = raw.match(/https?:\/\/[^\s\)\"]+/);
-            const actionBtn = urlMatch ? `<div class="srbk-doc-actions"><a href="${escapeHtml(urlMatch[0])}" target="_blank" rel="noopener" class="srbk-doc-btn"><span>📄</span> <span>VIEW FULL DOCUMENT / PDF ↗</span></a></div>` : "";
-            return `<div class="srbk-doc-card"><div class="srbk-doc-head"><span class="srbk-doc-badge">📄 RESEARCH DOCUMENT</span><span class="srbk-doc-title">${escapeHtml(cardTitle)}</span></div><div class="srbk-doc-body">${md(raw)}</div>${actionBtn}</div>`;
+        function renderTaskMatrix(title, body) {
+            const lines = String(body || "").trim().split("\n").filter(Boolean);
+            let itemsHtml = "";
+            lines.forEach(l => {
+                const parts = l.split(":");
+                const tag = parts.length > 1 ? parts[0].replace(/^[*\-\d.]+\s*/, "").replace(/[\[\]]/g, "").trim() : "PARALLEL TASK";
+                const desc = parts.length > 1 ? parts.slice(1).join(":").trim() : l.trim();
+                itemsHtml += `
+                    <div class="srbk-task-card">
+                        <div class="srbk-task-header">
+                            <span>[${escapeHtml(tag)}]</span>
+                            <span class="srbk-task-status">● RUNNING / SYNCED</span>
+                        </div>
+                        <div class="srbk-task-desc">${escapeHtml(desc)}</div>
+                    </div>
+                `;
+            });
+
+            return `
+                <div style="margin:14px 0;">
+                    <div style="font-family:var(--font-mono); font-size:10px; color:var(--cyan); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:8px;">
+                        ⚡ CONCURRENT MULTI-TASK MATRIX · ${escapeHtml(title || "PARALLEL EXECUTION")}
+                    </div>
+                    <div class="srbk-task-matrix">${itemsHtml}</div>
+                </div>
+            `;
         }
 
         /* Full Markdown & Interactive Cyber Content Parser */
@@ -3580,39 +3796,49 @@
                 return `<div class="srbk-code-block"><div class="srbk-code-head"><span>${lang || "CODE"}</span><button class="srbk-copy-btn" type="button" onclick="copyCode(this)">COPY</button></div><pre><code>${escapeHtml(code.trim())}</code></pre></div>`;
             });
 
-            // 2. Videos & YouTube Embeds (:::video ... ::: or :::youtube ... :::)
+            // 2. Music Player & Cyber Synth (:::music ... :::)
+            s = s.replace(/:::music(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
+                return renderMusicCard(title, body);
+            });
+
+            // 3. Parallel Multi-Task Matrix (:::tasks ... :::)
+            s = s.replace(/:::tasks(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
+                return renderTaskMatrix(title, body);
+            });
+
+            // 4. Videos & YouTube Embeds (:::video ... ::: or :::youtube ... :::)
             s = s.replace(/:::(?:video|youtube)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 return renderVideoCard(title, body);
             });
 
-            // 3. Audio & Podcasts (:::audio ... :::)
+            // 5. Audio & Podcasts (:::audio ... :::)
             s = s.replace(/:::audio(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 return renderAudioCard(title, body);
             });
 
-            // 4. Research Documents, Specs & PDFs (:::doc ... ::: or :::pdf ... :::)
+            // 6. Research Documents, Specs & PDFs (:::doc ... ::: or :::pdf ... :::)
             s = s.replace(/:::(?:doc|pdf|paper)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 return renderDocCard(title, body);
             });
 
-            // 5. Interactive Flashcards & Cyber Cards (:::card ... :::)
+            // 7. Interactive Flashcards & Cyber Cards (:::card ... :::)
             s = s.replace(/:::card(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 const cardTitle = (title || "").trim() || "STUDY FLASHCARD";
                 return `<div class="srbk-flashcard"><div class="srbk-card-head"><span class="srbk-card-badge"><span class="boot-badge-dot"></span> 🎴 FLASHCARD</span><span class="srbk-card-title">${escapeHtml(cardTitle)}</span></div><div class="srbk-card-body">${md(body)}</div></div>`;
             });
 
-            // 6. Click-to-Reveal Solutions & Explanations (:::reveal ... :::)
+            // 8. Click-to-Reveal Solutions & Explanations (:::reveal ... :::)
             s = s.replace(/:::reveal(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, label, body) => {
                 const btnLabel = (label || "").trim() || "Reveal Answer & Step-by-Step Solution";
                 return `<details class="srbk-card-reveal"><summary class="srbk-card-reveal-btn"><span>💡</span> <span>${escapeHtml(btnLabel)}</span> <span style="font-size:9px; opacity:0.7;">▼</span></summary><div class="srbk-card-answer">${md(body)}</div></details>`;
             });
 
-            // 7. Standalone YouTube links on their own line
+            // 9. Standalone YouTube links on their own line
             s = s.replace(/(?:^|\n)(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?[^\s]+|youtu\.be\/[\w-]+))\b/gi, (match, url) => {
                 return "\n" + renderVideoCard("", url);
             });
 
-            // 8. Markdown Tables
+            // 10. Markdown Tables
             s = s.replace(/(?:^|\n)(\|.+?\|\n\|[-:\s|]+\|\n(?:\|.+?\|\n?)+)/g, match => {
                 const lines = match.trim().split("\n");
                 if (lines.length < 3) return match;
