@@ -3,11 +3,34 @@
 }
 
 sarembok.com, www.sarembok.com {
-    reverse_proxy sarembok-runtime:9000
+    # WebSocket and RPC endpoints to backend runtime
+    handle /ws {
+        reverse_proxy sarembok-runtime:9000
+    }
+    handle /rpc {
+        reverse_proxy sarembok-runtime:9000
+    }
+    handle /api/* {
+        reverse_proxy sarembok-runtime:9000
+    }
+    handle /health {
+        reverse_proxy sarembok-runtime:9000
+    }
+    handle /live/* {
+        reverse_proxy sarembok-runtime:9000
+    }
+
+    # Authoritative Frontend UI directly from /srv with zero-caching
+    handle {
+        root * /srv
+        header Cache-Control "no-cache, no-store, must-revalidate"
+        header Pragma "no-cache"
+        header Expires "0"
+        try_files {path} /index.html
+        file_server
+    }
 }
 
 :80 {
-    reverse_proxy sarembok-runtime:9000
+    redir https://{host}{uri} permanent
 }
-
-
