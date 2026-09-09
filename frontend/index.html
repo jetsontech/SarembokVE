@@ -3968,21 +3968,45 @@
 
         
         /* ============================================================
-           FLOATING PICTURE-IN-PICTURE & POP-OUT VIDEO ENGINE
+           UNIVERSAL PLAYABLE VIDEO & MEDIA ENGINE (SEARCH & STREAMS)
            ============================================================ */
-        let currentPipYtId = "";
-        let currentPipTitle = "";
-        let currentPipUrl = "";
+        let currentPipMedia = null;
 
-        function popOutFloatingVideo(urlOrYtId, title = "") {
-            const raw = String(urlOrYtId || "");
-            const ytId = extractYouTubeId(raw) || (raw.length === 11 ? raw : null);
-            const cleanUrl = (raw.match(/https?:\/\/[^\s\)"]+/) || [raw])[0];
-            const displayTitle = title || (ytId ? "YOUTUBE STREAM" : "MEDIA PLAYBACK");
+        function resolvePlayableMedia(rawUrlOrQuery, title = "") {
+            const raw = String(rawUrlOrQuery || "").trim();
+            const ytIdMatch = raw.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+            const isPlainId = /^[a-zA-Z0-9_-]{11}$/.test(raw);
+            const ytId = ytIdMatch ? ytIdMatch[1] : (isPlainId ? raw : null);
+            
+            let embedUrl = "";
+            let directWatchUrl = "";
+            let displayTitle = title || "MEDIA STREAM";
 
-            currentPipYtId = ytId;
-            currentPipTitle = displayTitle;
-            currentPipUrl = cleanUrl;
+            if (ytId) {
+                embedUrl = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0`;
+                directWatchUrl = `https://www.youtube.com/watch?v=${ytId}`;
+            } else if (raw.startsWith("http://") || raw.startsWith("https://")) {
+                embedUrl = raw;
+                directWatchUrl = raw;
+            } else {
+                const q = encodeURIComponent(raw || title || "lofi study music");
+                embedUrl = `https://www.youtube-nocookie.com/embed?listType=search&list=${q}&autoplay=1`;
+                directWatchUrl = `https://www.youtube.com/results?search_query=${q}`;
+                if (!title) displayTitle = raw.toUpperCase();
+            }
+
+            return { ytId, embedUrl, directWatchUrl, displayTitle, raw };
+        }
+
+        function extractYouTubeId(url) {
+            if (!url) return null;
+            const match = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+            return match ? match[1] : (/^[a-zA-Z0-9_-]{11}$/.test(url.trim()) ? url.trim() : null);
+        }
+
+        function popOutFloatingVideo(urlOrQuery, title = "") {
+            const media = resolvePlayableMedia(urlOrQuery, title);
+            currentPipMedia = media;
 
             const pipEl = document.getElementById("srbk-floating-pip-player");
             const titleEl = document.getElementById("srbk-pip-title-text");
@@ -3991,18 +4015,18 @@
             if (!pipEl || !bodyEl) return;
 
             if (titleEl) {
-                titleEl.innerHTML = `<span class="boot-badge-dot"></span> 🎬 ${escapeHtml(displayTitle)}`;
+                titleEl.innerHTML = `<span class="boot-badge-dot"></span> 🎬 ${escapeHtml(media.displayTitle)}`;
             }
 
-            if (ytId) {
-                bodyEl.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0" class="srbk-pip-iframe" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
-            } else if (cleanUrl) {
-                bodyEl.innerHTML = `<video controls autoplay src="${escapeHtml(cleanUrl)}" style="width:100%; height:100%; object-fit:contain;"></video>`;
+            if (media.embedUrl.includes("youtube") || media.embedUrl.includes("embed")) {
+                bodyEl.innerHTML = `<iframe src="${media.embedUrl}" class="srbk-pip-iframe" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
+            } else {
+                bodyEl.innerHTML = `<video controls autoplay src="${escapeHtml(media.embedUrl)}" style="width:100%; height:100%; object-fit:contain;"></video>`;
             }
 
             pipEl.classList.remove("minimized");
             pipEl.classList.add("active");
-            showToast(`POP-OUT ACTIVE: ${displayTitle.toUpperCase()}`);
+            showToast(`POP-OUT ACTIVE: ${media.displayTitle.toUpperCase()}`);
         }
 
         function toggleMinimizePip() {
@@ -4019,52 +4043,64 @@
         }
 
         function openDetachedPipWindow() {
-            if (currentPipYtId) {
-                const url = `https://www.youtube-nocookie.com/embed/${currentPipYtId}?autoplay=1`;
-                window.open(url, "SarembokMediaPopout", "width=560,height=340,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
-                closeFloatingPip();
-            } else if (currentPipUrl) {
-                window.open(currentPipUrl, "SarembokMediaPopout", "width=560,height=340,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
+            if (currentPipMedia) {
+                const url = currentPipMedia.embedUrl;
+                window.open(url, "SarembokMediaPopout", "width=640,height=380,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
                 closeFloatingPip();
             }
         }
+
+        function openDetachedPipWindowFromUrl(urlOrQuery) {
+            const media = resolvePlayableMedia(urlOrQuery);
+            window.open(media.embedUrl, "SarembokMediaPopout", "width=640,height=380,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
+        }
+
         window.popOutFloatingVideo = popOutFloatingVideo;
         window.openDetachedPipWindow = openDetachedPipWindow;
-        function openDetachedPipWindowFromUrl(urlOrYtId) {
-            const raw = String(urlOrYtId || "");
-            const ytId = extractYouTubeId(raw) || (raw.length === 11 ? raw : null);
-            if (ytId) {
-                const popUrl = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1`;
-                window.open(popUrl, "SarembokMediaPopout", "width=580,height=360,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
-            } else if (raw) {
-                window.open(raw, "SarembokMediaPopout", "width=580,height=360,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
-            }
-        }
         window.openDetachedPipWindowFromUrl = openDetachedPipWindowFromUrl;
-
         window.closeFloatingPip = closeFloatingPip;
         window.toggleMinimizePip = toggleMinimizePip;
 
-        function extractYouTubeId(url) {
-            if (!url) return null;
-            const match = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
-            return match ? match[1] : null;
-        }
-
         function renderVideoCard(title, urlOrBody) {
-            const raw = String(urlOrBody || "");
-            const cleanUrl = (raw.match(/https?:\/\/[^\s\)\"]+/) || [raw.trim()])[0];
-            const ytId = extractYouTubeId(cleanUrl);
-            const cardTitle = (title || "").trim() || (ytId ? "YOUTUBE VIDEO STREAM" : "VIDEO PLAYBACK");
-            if (ytId) {
-                return `<div class="srbk-video-card"><div class="srbk-video-head"><span class="srbk-video-badge">🎬 ${escapeHtml(cardTitle)}</span><a href="${escapeHtml(cleanUrl)}" target="_blank" rel="noopener" class="srbk-video-link">OPEN ↗</a></div><div class="srbk-video-player-wrap"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}?rel=0" class="srbk-video-iframe" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div></div>`;
+            const media = resolvePlayableMedia(urlOrBody, title);
+            const mediaTarget = media.ytId || media.raw || media.embedUrl;
+
+            const headerActions = `
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <button type="button" class="srbk-video-pop-btn" onclick="popOutFloatingVideo('${escapeHtml(mediaTarget)}', '${escapeHtml(media.displayTitle)}')">⧉ POP OUT</button>
+                    <button type="button" class="srbk-video-pop-btn" onclick="openDetachedPipWindowFromUrl('${escapeHtml(mediaTarget)}')">↗ WINDOW</button>
+                    <a href="${escapeHtml(media.directWatchUrl)}" target="_blank" rel="noopener" class="srbk-video-link">YOUTUBE ↗</a>
+                </div>
+            `;
+
+            let playerHtml = "";
+            if (media.embedUrl.includes("youtube") || media.embedUrl.includes("embed")) {
+                playerHtml = `<div class="srbk-video-player-wrap"><iframe src="${media.embedUrl}" class="srbk-video-iframe" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
+            } else {
+                playerHtml = `<video controls src="${escapeHtml(media.embedUrl)}" class="srbk-video-player"></video>`;
             }
-            return `<div class="srbk-video-card"><div class="srbk-video-head"><span class="srbk-video-badge">🎬 ${escapeHtml(cardTitle)}</span><a href="${escapeHtml(cleanUrl)}" target="_blank" rel="noopener" class="srbk-video-link">OPEN ↗</a></div><video controls src="${escapeHtml(cleanUrl)}" class="srbk-video-player"></video></div>`;
+
+            const footerHtml = `
+                <div class="srbk-video-foot">
+                    <button type="button" class="srbk-big-pop-btn" onclick="popOutFloatingVideo('${escapeHtml(mediaTarget)}', '${escapeHtml(media.displayTitle)}')">
+                        <span>⧉</span> <span>POP OUT VIDEO (KEEP WATCHING IN CORNER WHILE CHATTING)</span>
+                    </button>
+                </div>
+            `;
+
+            return `<div class="srbk-video-card">
+                <div class="srbk-video-head">
+                    <span class="srbk-video-badge">🎬 ${escapeHtml(media.displayTitle)}</span>
+                    ${headerActions}
+                </div>
+                ${playerHtml}
+                ${footerHtml}
+            </div>`;
         }
 
         function renderAudioCard(title, urlOrBody) {
             const raw = String(urlOrBody || "");
-            const cleanUrl = (raw.match(/https?:\/\/[^\s\)\"]+/) || [raw.trim()])[0];
+            const cleanUrl = (raw.match(/https?:\/\/[^\s\)"]+/) || [raw.trim()])[0];
             const cardTitle = (title || "").trim() || "AUDIO STREAM";
             return `<div class="srbk-audio-card"><div class="srbk-audio-head"><span class="srbk-audio-badge">🔊 AUDIO</span><span class="srbk-audio-title">${escapeHtml(cardTitle)}</span></div><audio controls src="${escapeHtml(cleanUrl)}" class="srbk-audio-player"></audio></div>`;
         }
@@ -4072,203 +4108,40 @@
         function renderDocCard(title, body) {
             const cardTitle = (title || "").trim() || "RESEARCH DOCUMENT";
             const raw = String(body || "");
-            const urlMatch = raw.match(/https?:\/\/[^\s\)\"]+/);
+            const urlMatch = raw.match(/https?:\/\/[^\s\)"]+/);
             const actionBtn = urlMatch ? `<div class="srbk-doc-actions"><a href="${escapeHtml(urlMatch[0])}" target="_blank" rel="noopener" class="srbk-doc-btn"><span>📄</span> <span>VIEW FULL DOCUMENT / PDF ↗</span></a></div>` : "";
             return `<div class="srbk-doc-card"><div class="srbk-doc-head"><span class="srbk-doc-badge">📄 RESEARCH DOCUMENT</span><span class="srbk-doc-title">${escapeHtml(cardTitle)}</span></div><div class="srbk-doc-body">${md(raw)}</div>${actionBtn}</div>`;
         }
 
-        /* Cyber Procedural Web Audio Engine & Persistent Audio Ducking */
-        let activeSynthAudio = null;
-        let globalMusicVolume = 0.7;
-        let isAudioDucked = false;
-
-        function setAudioDucking(ducked) {
-            isAudioDucked = Boolean(ducked);
-            const targetVol = isAudioDucked ? 0.03 : (0.18 * globalMusicVolume);
-            if (activeSynthAudio && activeSynthAudio.masterGain && activeSynthAudio.ctx) {
-                try {
-                    activeSynthAudio.masterGain.gain.cancelScheduledValues(activeSynthAudio.ctx.currentTime);
-                    activeSynthAudio.masterGain.gain.linearRampToValueAtTime(targetVol, activeSynthAudio.ctx.currentTime + 0.25);
-                } catch(e) {}
-            }
-            document.querySelectorAll("audio, video").forEach(el => {
-                try {
-                    el.volume = isAudioDucked ? (0.12 * globalMusicVolume) : globalMusicVolume;
-                } catch(e) {}
-            });
-        }
-
-        function updatePersistentMusicDeck(title, genre) {
-            const deck = document.getElementById("srbk-persistent-music-deck");
-            const titleEl = document.getElementById("srbk-deck-title-text");
-            const playBtn = document.getElementById("srbk-deck-play-btn");
-            const hudMasterLabel = document.getElementById("hud-audio-master-label");
-            const hudPills = document.querySelectorAll(".hud-genre-pill");
-
-            if (deck) {
-                deck.classList.remove("hidden");
-                if (titleEl) titleEl.textContent = (title || genre || "CYBER STREAM").toUpperCase();
-                if (playBtn) playBtn.textContent = "⏸ PAUSE";
-            }
-
-            if (hudMasterLabel) {
-                hudMasterLabel.textContent = `🎵 ${((genre || title || "MUSIC").toUpperCase())}`;
-            }
-
-            hudPills.forEach(p => {
-                p.classList.toggle("active", p.id === `pill-${genre}`);
-            });
-        }
-
-        function stopGlobalMusicPlayback() {
-            if (activeSynthAudio) {
-                activeSynthAudio.stop();
-                activeSynthAudio = null;
-            }
-            document.querySelectorAll("audio").forEach(a => { try { a.pause(); } catch(e){} });
-            document.querySelectorAll(".srbk-synth-btn").forEach(b => b.classList.remove("active"));
-            document.querySelectorAll(".hud-genre-pill").forEach(p => p.classList.remove("active"));
-            const titleEl = document.getElementById("srbk-deck-title-text");
-            const playBtn = document.getElementById("srbk-deck-play-btn");
-            const hudMasterLabel = document.getElementById("hud-audio-master-label");
-            if (titleEl) titleEl.textContent = "STANDBY · READY";
-            if (playBtn) playBtn.textContent = "▶ PLAY";
-            if (hudMasterLabel) hudMasterLabel.textContent = "🎵 MUSIC DECK";
-            showToast("BACKGROUND AUDIO STOPPED");
-        }
-
-        function closePersistentMusicDeck() {
-            stopGlobalMusicPlayback();
-            const deck = document.getElementById("srbk-persistent-music-deck");
-            if (deck) deck.classList.add("hidden");
-        }
-
-        function setGlobalMusicVolume(val) {
-            globalMusicVolume = parseFloat(val) || 0.7;
-            setAudioDucking(isAudioDucked);
-        }
-
-        function toggleGlobalMusicPlayback() {
-            const btn = document.getElementById("srbk-deck-play-btn");
-            if (activeSynthAudio) {
-                stopGlobalMusicPlayback();
-                if (btn) btn.textContent = "▶ PLAY";
-            } else {
-                playProceduralCyberMusic("lofi");
-                if (btn) btn.textContent = "⏸ PAUSE";
-            }
-        }
-
-        function playProceduralCyberMusic(genre = "synthwave", btn = null) {
-            if (activeSynthAudio) {
-                activeSynthAudio.stop();
-                activeSynthAudio = null;
-                document.querySelectorAll(".srbk-synth-btn").forEach(b => b.classList.remove("active"));
-                showToast("CYBER SYNTH: STOPPED");
-                if (btn && btn.dataset.currentGenre === genre) return;
-            }
-
-            try {
-                const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                if (!AudioCtx) return;
-                const ctx = new AudioCtx();
-
-                const masterGain = ctx.createGain();
-                masterGain.gain.setValueAtTime(0.18, ctx.currentTime);
-                masterGain.connect(ctx.destination);
-
-                const filter = ctx.createBiquadFilter();
-                filter.type = "lowpass";
-                filter.frequency.setValueAtTime(genre === "synthwave" ? 1200 : genre === "ambient" ? 450 : 800, ctx.currentTime);
-                filter.connect(masterGain);
-
-                // Mood chord frequencies (Hz)
-                const chords = {
-                    synthwave: [220, 277.18, 329.63, 440], // A Major / Cyber
-                    lofi: [174.61, 220, 261.63, 329.63], // Fmaj7 / Warm
-                    ambient: [110, 164.81, 220, 293.66], // A minor 11 / Deep space
-                    classical: [261.63, 329.63, 392.00, 523.25] // C Major
-                };
-                const freqs = chords[genre] || chords.synthwave;
-                const oscs = [];
-
-                freqs.forEach((f, idx) => {
-                    const osc = ctx.createOscillator();
-                    osc.type = genre === "synthwave" ? (idx % 2 === 0 ? "sawtooth" : "triangle") : "sine";
-                    osc.frequency.setValueAtTime(f, ctx.currentTime);
-
-                    // Gentle slow detune LFO for lush analog warmth
-                    const lfo = ctx.createOscillator();
-                    lfo.frequency.setValueAtTime(0.2 + idx * 0.1, ctx.currentTime);
-                    const lfoGain = ctx.createGain();
-                    lfoGain.gain.setValueAtTime(3.5, ctx.currentTime);
-                    lfo.connect(lfoGain);
-                    lfoGain.connect(osc.detune);
-                    lfo.start();
-
-                    const oscGain = ctx.createGain();
-                    oscGain.gain.setValueAtTime(0.25 / freqs.length, ctx.currentTime);
-                    osc.connect(oscGain);
-                    oscGain.connect(filter);
-                    osc.start();
-                    oscs.push(osc, lfo);
-                });
-
-                activeSynthAudio = {
-                    ctx: ctx,
-                    masterGain: masterGain,
-                    genre: genre,
-                    stop: () => {
-                        try {
-                            masterGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
-                            setTimeout(() => {
-                                oscs.forEach(o => { try { o.stop(); } catch(e){} });
-                                ctx.close();
-                            }, 700);
-                        } catch(e) {}
-                    }
-                };
-                updatePersistentMusicDeck(`${genre.toUpperCase()} CYBER SYNTH`, genre);
-
-                if (btn) {
-                    btn.classList.add("active");
-                    btn.dataset.currentGenre = genre;
-                }
-                showToast(`PLAYING: ${genre.toUpperCase()} CYBER SYNTH`);
-            } catch (err) {
-                console.warn("Synth engine error:", err);
-            }
-        }
-        window.playProceduralCyberMusic = playProceduralCyberMusic;
-
         function renderMusicCard(title, urlOrBody) {
-            const raw = String(urlOrBody || "");
-            const cleanUrl = (raw.match(/https?:\/\/[^\s\)\"]+/) || [""])[0];
-            const cardTitle = (title || "").trim() || "CYBERNETIC AUDIO & MUSIC STREAM";
-            let ytEmbed = "";
+            const media = resolvePlayableMedia(urlOrBody, title || "MUSIC & AUDIO STREAM");
+            const mediaTarget = media.ytId || media.raw || media.embedUrl;
 
-            if (cleanUrl) {
-                const ytId = extractYouTubeId(cleanUrl);
-                if (ytId) {
-                    ytEmbed = `<div class="srbk-video-player-wrap" style="aspect-ratio:16/9; margin-top:8px;"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0" class="srbk-video-iframe" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
-                } else {
-                    ytEmbed = `<div style="padding:10px 14px;"><audio controls src="${escapeHtml(cleanUrl)}" autoplay class="srbk-audio-player"></audio></div>`;
-                }
-            }
+            const headerActions = `
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <button type="button" class="srbk-video-pop-btn" onclick="popOutFloatingVideo('${escapeHtml(mediaTarget)}', '${escapeHtml(media.displayTitle)}')">⧉ POP OUT</button>
+                    <button type="button" class="srbk-video-pop-btn" onclick="openDetachedPipWindowFromUrl('${escapeHtml(mediaTarget)}')">↗ WINDOW</button>
+                    <a href="${escapeHtml(media.directWatchUrl)}" target="_blank" rel="noopener" class="srbk-video-link">YOUTUBE ↗</a>
+                </div>
+            `;
+
+            const playerHtml = `<div class="srbk-video-player-wrap" style="aspect-ratio:16/9; margin-top:8px;"><iframe src="${media.embedUrl}" class="srbk-video-iframe" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
+
+            const footerHtml = `
+                <div class="srbk-video-foot">
+                    <button type="button" class="srbk-big-pop-btn" onclick="popOutFloatingVideo('${escapeHtml(mediaTarget)}', '${escapeHtml(media.displayTitle)}')">
+                        <span>⧉</span> <span>POP OUT STREAM (FLOAT IN CORNER WHILE CHATTING)</span>
+                    </button>
+                </div>
+            `;
 
             return `<div class="srbk-music-card">
                 <div class="srbk-music-head">
-                    <span class="srbk-music-badge">🎵 ${escapeHtml(cardTitle)}</span>
-                    <span style="font-family:var(--font-mono); font-size:9px; color:#f472b6;">ONLINE STREAM</span>
+                    <span class="srbk-music-badge">🎵 ${escapeHtml(media.displayTitle)}</span>
+                    ${headerActions}
                 </div>
-                ${ytEmbed}
-                <div class="srbk-synth-ctrls">
-                    <span style="font-family:var(--font-mono); font-size:9.5px; color:#94a3b8; width:100%; margin-bottom:4px;">PROSTHETIC SYNTH GENERATOR:</span>
-                    <button class="srbk-synth-btn" type="button" onclick="playProceduralCyberMusic('lofi', this)"><span>☕</span> <span>Lo-Fi Chill</span></button>
-                    <button class="srbk-synth-btn" type="button" onclick="playProceduralCyberMusic('synthwave', this)"><span>⚡</span> <span>Synthwave</span></button>
-                    <button class="srbk-synth-btn" type="button" onclick="playProceduralCyberMusic('ambient', this)"><span>🌌</span> <span>Deep Ambient</span></button>
-                    <button class="srbk-synth-btn" type="button" onclick="playProceduralCyberMusic('classical', this)"><span>🎻</span> <span>Classical</span></button>
-                </div>
+                ${playerHtml}
+                ${footerHtml}
             </div>`;
         }
 
@@ -4336,33 +4209,22 @@
             }
             s = cleanedParas.join("\n\n").trim();
 
-            // 2. Music intent
-            const musicIntents = ["play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio"];
-            const isMusic = musicIntents.some(mi => pLow.includes(mi)) || (pLow.includes("play") && ["lofi", "lo-fi", "music", "synthwave", "ambient", "jazz", "classical", "relaxing", "song", "soundtrack"].some(g => pLow.includes(g)));
-            if (isMusic && !s.includes(":::music")) {
-                let streamUrl = "https://www.youtube.com/watch?v=jfKfPfyJRdk";
-                let title = "Lofi Hip Hop Radio · Beats to Relax/Study to";
-                if (pLow.includes("synthwave") || pLow.includes("cyber")) {
-                    streamUrl = "https://www.youtube.com/watch?v=4xDzrJKXOOY";
-                    title = "Synthwave / Cyberpunk Radio 24/7";
-                } else if (pLow.includes("classical") || pLow.includes("mozart") || pLow.includes("beethoven")) {
-                    streamUrl = "https://www.youtube.com/watch?v=M576WGiDBdQ";
-                    title = "Classical Study & Deep Focus Stream";
-                } else if (pLow.includes("ambient") || pLow.includes("drone") || pLow.includes("space")) {
-                    streamUrl = "https://www.youtube.com/watch?v=b4N3g-94xVU";
-                    title = "Deep Space Ambient Atmosphere";
-                } else if (pLow.includes("jazz")) {
-                    streamUrl = "https://www.youtube.com/watch?v=Dx5qFachd3A";
-                    title = "Relaxing Coffee Shop Jazz Radio";
-                }
-                s = `:::music ${title}\n${streamUrl}\n:::\n\n${s}`.trim();
-            }
+            // Extract specific query or topic from user prompt
+            let cleanTopic = prompt.replace(/(?:can you\s+)?(?:please\s+)?(?:play|show|open|stream|watch|listen to)\s+(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:video\s+about\s+|on\s+youtube\s+|youtube\s+)?/gi, "").replace(/["']/g, "").trim();
+            if (!cleanTopic || cleanTopic.length < 2) cleanTopic = "lofi study music";
 
-            // 3. YouTube intent
-            const ytIntents = ["open youtube", "open yt", "play youtube", "search youtube", "watch youtube", "youtube.com", "show video", "watch video", "play video"];
-            const isYt = ytIntents.some(yi => pLow.includes(yi)) || (pLow.includes("youtube") && ["open", "launch", "watch", "play", "show", "search"].some(w => pLow.includes(w)));
-            if (isYt && !s.includes(":::video") && !s.includes(":::music")) {
-                s = `:::video YouTube Sovereign Video Portal\nhttps://www.youtube.com/watch?v=jfKfPfyJRdk\n:::\n\n[Open YouTube in New Tab](https://www.youtube.com)\n\n${s}`.trim();
+            // 2. Music & Video intent
+            const musicIntents = ["play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio", "play "];
+            const isMusic = musicIntents.some(mi => pLow.startsWith(mi) || pLow.includes(mi));
+            const ytIntents = ["open youtube", "open yt", "play youtube", "search youtube", "watch youtube", "youtube.com", "show video", "watch video", "play video", "video of", "video about"];
+            const isVideo = ytIntents.some(yi => pLow.includes(yi)) || (pLow.includes("video") && ["open", "launch", "watch", "play", "show", "search"].some(w => pLow.includes(w)));
+
+            if (isVideo && !s.includes(":::video") && !s.includes(":::music")) {
+                const vidTitle = `${cleanTopic.toUpperCase()} · VIDEO STREAM`;
+                s = `:::video ${vidTitle}\n${cleanTopic}\n:::\n\n${s}`.trim();
+            } else if (isMusic && !s.includes(":::music") && !s.includes(":::video")) {
+                const musicTitle = `${cleanTopic.toUpperCase()} · AUDIO STREAM`;
+                s = `:::music ${musicTitle}\n${cleanTopic}\n:::\n\n${s}`.trim();
             }
 
             // 4. Multi-Task intent

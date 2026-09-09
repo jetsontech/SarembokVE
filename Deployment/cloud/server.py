@@ -1400,35 +1400,23 @@ def sarembok_process_dialogue(
 
         rep = "\n\n".join(cleaned_paras).strip()
 
-        # 2. Check for Music & Audio playback intent
-        music_intents = ("play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio")
-        if any(mi in p_low for mi in music_intents) or ("play" in p_low and any(g in p_low for g in ("lofi", "lo-fi", "music", "synthwave", "ambient", "jazz", "classical", "relaxing", "song", "soundtrack"))):
-            if ":::music" not in rep:
-                if "synthwave" in p_low or "cyber" in p_low:
-                    stream_url = "https://www.youtube.com/watch?v=4xDzrJKXOOY"
-                    title = "Synthwave / Cyberpunk Radio 24/7"
-                elif "classical" in p_low or "mozart" in p_low or "beethoven" in p_low:
-                    stream_url = "https://www.youtube.com/watch?v=M576WGiDBdQ"
-                    title = "Classical Study & Deep Focus Stream"
-                elif "ambient" in p_low or "drone" in p_low or "space" in p_low:
-                    stream_url = "https://www.youtube.com/watch?v=b4N3g-94xVU"
-                    title = "Deep Space Ambient Atmosphere"
-                elif "jazz" in p_low:
-                    stream_url = "https://www.youtube.com/watch?v=Dx5qFachd3A"
-                    title = "Relaxing Coffee Shop Jazz Radio"
-                else:
-                    stream_url = "https://www.youtube.com/watch?v=jfKfPfyJRdk"
-                    title = "Lofi Hip Hop Radio · Beats to Relax/Study to"
+        # Extract topic for dynamic video search embedding
+        topic = re.sub(r"(?i)^(?:can you\s+)?(?:please\s+)?(?:play|show|open|stream|watch|listen to)\s+(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:video\s+about\s+|on\s+youtube\s+|youtube\s+)?", "", prompt).strip()
+        topic = topic.replace('"', '').replace("'", "").strip() or "lofi study music"
 
-                music_widget = f":::music {title}\n{stream_url}\n:::"
-                rep = f"{music_widget}\n\n{rep}".strip()
-
-        # 3. Check for YouTube / Video Intent
-        youtube_intents = ("open youtube", "open yt", "play youtube", "search youtube", "watch youtube", "youtube.com", "show video", "watch video", "play video")
-        if any(yi in p_low for yi in youtube_intents) or ("youtube" in p_low and any(w in p_low for w in ("open", "launch", "watch", "play", "show", "search"))):
+        # 2. Check for YouTube / Video Intent
+        youtube_intents = ("open youtube", "open yt", "play youtube", "search youtube", "watch youtube", "youtube.com", "show video", "watch video", "play video", "video of", "video about")
+        if any(yi in p_low for yi in youtube_intents) or ("video" in p_low and any(w in p_low for w in ("open", "launch", "watch", "play", "show", "search"))):
             if ":::video" not in rep and ":::music" not in rep:
-                video_widget = ":::video YouTube Sovereign Video Portal\nhttps://www.youtube.com/watch?v=jfKfPfyJRdk\n:::\n\n[Open YouTube in New Tab](https://www.youtube.com)"
+                video_widget = f":::video {topic.upper()} · VIDEO STREAM\n{topic}\n:::"
                 rep = f"{video_widget}\n\n{rep}".strip()
+
+        # 3. Check for Music & Audio playback intent
+        music_intents = ("play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio", "play ")
+        if any(mi in p_low for mi in music_intents) or ("play" in p_low and any(g in p_low for g in ("lofi", "lo-fi", "music", "synthwave", "ambient", "jazz", "classical", "relaxing", "song", "soundtrack"))):
+            if ":::music" not in rep and ":::video" not in rep:
+                music_widget = f":::music {topic.upper()} · AUDIO STREAM\n{topic}\n:::"
+                rep = f"{music_widget}\n\n{rep}".strip()
 
         # 4. Check for Simultaneous Multi-Tasking intent
         task_intents = ("while searching", "simultaneously", "at the same time", "in parallel", "also calculate", "and also", "while calculating", "and search", "multi task", "multitask")
