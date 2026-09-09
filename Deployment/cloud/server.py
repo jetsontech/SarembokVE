@@ -1473,15 +1473,15 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
         # Replace all hallucinated youtube links with the verified real URL
         rep = re.sub(r'https?://(?:www\.)?(?:youtube\.com/watch\?[^\s\)\"]+|youtu\.be/[\w-]+)', real_url, rep)
         
-        # Replace or insert interactive video / music widget
-        if ":::video" in rep:
-            rep = re.sub(r':::video[^\n]*\n[\s\S]*?:::', f":::video {topic.upper()} · VIDEO STREAM\n{real_url}\n:::", rep)
-        elif ":::music" in rep:
-            rep = re.sub(r':::music[^\n]*\n[\s\S]*?:::', f":::music {topic.upper()} · AUDIO STREAM\n{real_url}\n:::", rep)
-        elif is_video:
-            rep = f":::video {topic.upper()} · VIDEO STREAM\n{real_url}\n:::\n\n{rep}".strip()
-        elif is_music:
+        # Strip any existing or partial :::video or :::music blocks first
+        rep = re.sub(r':::(?:video|music|youtube)[^\n]*\n[\s\S]*?:::\n?', '', rep).strip()
+        rep = re.sub(r':::(?:video|music|youtube)[^\n]*', '', rep).strip()
+        
+        # Prepend clean verified widget
+        if is_music:
             rep = f":::music {topic.upper()} · AUDIO STREAM\n{real_url}\n:::\n\n{rep}".strip()
+        else:
+            rep = f":::video {topic.upper()} · VIDEO STREAM\n{real_url}\n:::\n\n{rep}".strip()
 
     # Check for Simultaneous Multi-Tasking intent
     task_intents = ("while searching", "simultaneously", "at the same time", "in parallel", "also calculate", "and also", "while calculating", "and search", "multi task", "multitask")
