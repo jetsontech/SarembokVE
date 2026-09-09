@@ -2674,7 +2674,10 @@
                             <div style="font-family:var(--font-sans); font-size:11px; color:var(--text-secondary);">Click below to grant microphone access in your browser and speak hands-free.</div>
                         </div>
                     </div>
-                    <button class="browser-action-btn" style="border-color:var(--cyan); color:var(--cyan); background:rgba(0,240,255,0.18); white-space:nowrap; padding:8px 16px; font-weight:700;" onclick="enableLiveAudioNow()">START LIVE VOICE</button>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button class="browser-action-btn" style="border-color:var(--text-secondary); color:var(--text-secondary); padding:8px 12px; font-size:11px;" onclick="testVoiceGreeting()">TEST AUDIO</button>
+                        <button class="browser-action-btn" style="border-color:var(--cyan); color:var(--cyan); background:rgba(0,240,255,0.18); white-space:nowrap; padding:8px 16px; font-weight:700;" onclick="enableLiveAudioNow()">START LIVE VOICE</button>
+                    </div>
                 </div>
 
                 <div class="dialogue-history" id="dialogue-history">
@@ -3626,12 +3629,10 @@
 
             const pool = femaleCandidates.length > 0 ? femaleCandidates : voices;
 
-            // 2. High priority local offline system female voices for Ada
-            // NOTE: Local voices (Microsoft Hazel, Susan, Zira, Jenny, Aria) speak immediately with zero latency
-            // and never freeze or hang like Google cloud-streamed voices.
+            // 2. High priority natural female voices for Ada (Samantha on Apple/iOS, Jenny/Aria/Zira on Windows)
             const priorityNames = [
-                "hazel", "susan", "zira", "jenny", "aria", "samantha", "victoria", "ava", "karen",
-                "natural", "neural"
+                "samantha", "victoria", "ava", "jenny", "aria", "zira", "karen",
+                "google uk english female", "google us english", "hazel", "susan", "natural", "neural"
             ];
 
             for (const p of priorityNames) {
@@ -3715,14 +3716,11 @@
             const utterance = new SpeechSynthesisUtterance(clean);
             utterance.volume = 1.0;
             utterance.rate = 1.0;
+            utterance.pitch = 1.0; // Natural warm human pitch
 
-            // Strictly assign local female voice (Hazel / Susan / Zira)
             const preferred = getAdaFemaleVoice();
             if (preferred) {
                 utterance.voice = preferred;
-                utterance.pitch = 1.08;
-            } else {
-                utterance.pitch = 1.25;
             }
 
             setAvatarSignal("SPEAKING");
@@ -3837,6 +3835,10 @@
         }
 
         function testVoiceGreeting() {
+            interruptSpeech();
+            voiceEnabled = true;
+            window.voiceEnabled = true;
+            showToast("TESTING AUDIO: Playing Ada voice response...");
             speakText("Greetings. I am Ada, the embodied digital intelligence of Sarembok VE. Multi-agent neural pipelines, real-time research, and memory reconciliation are operational.");
         }
 
@@ -5329,13 +5331,11 @@
             const utterance = new SpeechSynthesisUtterance(clean);
             utterance.volume = 1.0;
             utterance.rate = 1.0;
+            utterance.pitch = 1.0; // Natural warm human pitch
 
             const preferred = getAdaFemaleVoice();
             if (preferred) {
                 utterance.voice = preferred;
-                utterance.pitch = 1.08;
-            } else {
-                utterance.pitch = 1.25;
             }
 
             utterance.onboundary = () => {
