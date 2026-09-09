@@ -2581,11 +2581,12 @@
                         <div class="live-conv-orb" id="live-conv-orb"></div>
                         <div class="live-conv-info">
                             <div class="live-conv-state" id="live-conv-state">STANDBY</div>
-                            <div class="live-conv-hint" id="live-conv-hint">Speak naturally · Auto silence detection · Hands-free conversational loop · Interrupt anytime</div>
+                            <div class="live-conv-hint" id="live-conv-hint">Say "Hey Sarembok" or "Sarembok" to activate · Echo-canceling wake word engine</div>
                         </div>
                     </div>
                     <div class="live-conv-actions">
-                        <button class="browser-action-btn" style="padding:4px 10px; font-size:10px; border-color:var(--amber); color:var(--amber);" onclick="interruptSpeech()">BARGE-IN / STOP</button>
+                        <button class="browser-action-btn" id="wake-word-toggle-btn" style="padding:4px 10px; font-size:10px; border-color:var(--cyan); color:var(--cyan);" onclick="toggleWakeWordRequirement()" title="Toggle Wake Word requirement (Hey Sarembok)">WAKE WORD: ON</button>
+                        <button class="browser-action-btn" style="padding:4px 10px; font-size:10px; border-color:var(--amber); color:var(--amber);" onclick="interruptSpeech()">STOP / BARGE-IN</button>
                         <button class="browser-action-btn" style="padding:4px 10px; font-size:10px;" onclick="toggleLiveConversation()">EXIT LIVE</button>
                     </div>
                 </div>
@@ -4570,17 +4571,8 @@
                             if (pt) {
                                 ctx.beginPath();
                                 ctx.arc(pt[0], pt[1], 2.5, 0, Math.PI * 2);
-                                ctx.fill();
-                            }
-                        });
-                    }
-                    ctx.restore();
-                });
-            }
-        }
-
-        /* ============================================================
-           LIVE INTERACTIVE CONVERSATION ENGINE (HANDS-FREE & CALM)
+                                ctx.fill();        /* ============================================================
+           LIVE INTERACTIVE CONVERSATION ENGINE (WAKE WORD & ECHO CANCELLATION)
            ============================================================ */
         let liveConversationActive = false;
         let liveRecContinuous = null;
@@ -4588,6 +4580,33 @@
         let liveTranscriptBuffer = "";
         let isSpeakingTurn = false;
         let isWaitingForAIResponse = false;
+        let wakeWordRequired = true;
+        let wakeWordAwake = false;
+        let wakeWordAwakeTimer = null;
+        let lastSpeechEndTime = 0;
+        let liveSpeechQueue = [];
+        let isProcessingSpeechQueue = false;
+
+        // Matches: "hey sarembok", "hi sarembok", "ok sarembok", "sarembok", "sarambok", "sarem bock", "sarah mbok", etc.
+        const WAKE_WORD_PATTERN = /\b(?:hey|hi|ok|okay)?\s*(?:sarembok|sarambok|sarem\s*bock?|sarah\s*mbok|saren\s*bock?|sarem\s*box|saremboc)\b/i;
+
+        function toggleWakeWordRequirement() {
+            wakeWordRequired = !wakeWordRequired;
+            const btn = document.getElementById("wake-word-toggle-btn");
+            if (btn) {
+                btn.textContent = wakeWordRequired ? "WAKE WORD: ON" : "WAKE WORD: OFF";
+                btn.style.color = wakeWordRequired ? "var(--cyan)" : "var(--text-muted)";
+                btn.style.borderColor = wakeWordRequired ? "var(--cyan)" : "rgba(255,255,255,0.15)";
+            }
+            if (wakeWordRequired) {
+                wakeWordAwake = false;
+                setLiveConvUI("LISTENING (WAKE WORD)", 'Say "Hey Sarembok" or "Sarembok"...');
+                showToast("WAKE WORD ACTIVE: Say 'Hey Sarembok' or 'Sarembok'");
+            } else {
+                setLiveConvUI("LISTENING (CONTINUOUS)", "Continuous hands-free loop active");
+                showToast("CONTINUOUS MODE: No wake word required");
+            }
+        }
 
         function toggleLiveConversation() {
             liveConversationActive = !liveConversationActive;
@@ -4599,7 +4618,7 @@
                 if (btn) btn.classList.add("active");
                 if (btnText) btnText.textContent = "LIVE CONVERSATION: ACTIVE";
                 if (hud) hud.classList.add("active");
-                voiceEnabled = true; // Ensure voice is on for live conversation
+                voiceEnabled = true;
                 startLiveConversationLoop();
             } else {
                 if (btn) btn.classList.remove("active");
@@ -4642,7 +4661,11 @@
                 liveRecContinuous.interimResults = true;
                 liveRecContinuous.lang = "en-US";
 
-                setLiveConvUI("LISTENING (HANDS-FREE)", "Speak naturally · Auto silence detection · Interrupt anytime");
+                wakeWordAwake = false;
+                setLiveConvUI(
+                    wakeWordRequired ? "LISTENING (WAKE WORD)" : "LISTENING (HANDS-FREE)",
+                    wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok" to activate' : "Speak naturally · Echo-cancellation active"
+                );
                 setAvatarSignal("LISTENING");
 
                 liveRecContinuous.onstart = () => {
@@ -4650,14 +4673,6 @@
                 };
 
                 liveRecContinuous.onresult = event => {
-                    // Barge-In Interruption: If user starts speaking while AI is talking, cancel immediately!
-                    if (window.speechSynthesis && window.speechSynthesis.speaking) {
-                        console.log("User barge-in detected! Stopping assistant speech immediately.");
-                        window.speechSynthesis.cancel();
-                        isSpeakingTurn = false;
-                        setAvatarSignal("LISTENING");
-                    }
-
                     let interim = "";
                     let finalChunk = "";
                     for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -4670,19 +4685,82 @@
                     }
 
                     const currentHeard = (finalChunk || interim).trim();
-                    if (currentHeard) {
-                        liveTranscriptBuffer = (liveTranscriptBuffer + " " + finalChunk).trim() || currentHeard;
-                        setLiveConvUI("HEARING YOU...", `"${currentHeard}"`);
+                    if (!currentHeard) return;
+
+                    // 1. ACOUSTIC ECHO SUPPRESSION: If assistant is speaking, NEVER let assistant's own voice cut itself off!
+                    if (isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking)) {
+                        // Only allow barge-in if the user explicitly says wake word or stop command
+                        const isBargeIn = WAKE_WORD_PATTERN.test(currentHeard) || /\b(?:stop|halt|cancel|quiet|shh)\b/i.test(currentHeard);
+                        if (isBargeIn) {
+                            console.log("Explicit user interruption via wake word / stop:", currentHeard);
+                            interruptSpeech();
+                        } else {
+                            // Suppress assistant's own voice reverberating into the microphone!
+                            return;
+                        }
+                    }
+
+                    // 2. REVERB COOLDOWN: Discard audio within 650ms after speech ends
+                    if (Date.now() - lastSpeechEndTime < 650) {
+                        return;
+                    }
+
+                    // 3. WAKE WORD ENGINE
+                    if (wakeWordRequired) {
+                        if (!wakeWordAwake) {
+                            if (WAKE_WORD_PATTERN.test(currentHeard)) {
+                                wakeWordAwake = true;
+                                clearTimeout(wakeWordAwakeTimer);
+                                wakeWordAwakeTimer = setTimeout(() => {
+                                    wakeWordAwake = false;
+                                    if (liveConversationActive && !isSpeakingTurn && !isWaitingForAIResponse) {
+                                        setLiveConvUI("LISTENING (WAKE WORD)", 'Say "Hey Sarembok" or "Sarembok"...');
+                                    }
+                                }, 8500);
+
+                                const afterWake = currentHeard.replace(WAKE_WORD_PATTERN, "").replace(/^[,.:;!?-]+\s*/, "").trim();
+                                if (afterWake.length > 0) {
+                                    setLiveConvUI("HEARD: " + afterWake.toUpperCase(), "Processing directive...");
+                                    setAvatarSignal("ATTENTION");
+                                    clearTimeout(liveSilenceTimer);
+                                    liveSilenceTimer = setTimeout(() => {
+                                        if (!isWaitingForAIResponse && !isSpeakingTurn) {
+                                            executeLiveConversationTurn(afterWake);
+                                            wakeWordAwake = false;
+                                            liveTranscriptBuffer = "";
+                                        }
+                                    }, 1000);
+                                } else {
+                                    setLiveConvUI("WAKE WORD DETECTED", 'Say your directive...');
+                                    setAvatarSignal("ATTENTION");
+                                    enqueueLiveSpeech("Yes? I'm listening.");
+                                }
+                            } else {
+                                setLiveConvUI("LISTENING (WAKE WORD)", 'Say "Hey Sarembok" or "Sarembok" to activate');
+                            }
+                            return;
+                        } else {
+                            clearTimeout(wakeWordAwakeTimer);
+                            wakeWordAwakeTimer = setTimeout(() => { wakeWordAwake = false; }, 8500);
+                        }
+                    }
+
+                    // 4. ACCUMULATE DIRECTIVE & SILENCE DISPATCH
+                    liveTranscriptBuffer = (liveTranscriptBuffer + " " + finalChunk).trim() || currentHeard;
+                    const cleanDirective = liveTranscriptBuffer.replace(WAKE_WORD_PATTERN, "").replace(/^[,.:;!?-]+\s*/, "").trim();
+
+                    if (cleanDirective) {
+                        setLiveConvUI("HEARING DIRECTIVE...", `"${cleanDirective}"`);
                         setAvatarSignal("LISTENING");
 
-                        // Reset silence detection timer (1.2 seconds of silence = user finished speaking)
                         clearTimeout(liveSilenceTimer);
                         liveSilenceTimer = setTimeout(() => {
-                            if (liveTranscriptBuffer && !isWaitingForAIResponse && !isSpeakingTurn) {
-                                executeLiveConversationTurn(liveTranscriptBuffer);
+                            if (cleanDirective && !isWaitingForAIResponse && !isSpeakingTurn) {
+                                executeLiveConversationTurn(cleanDirective);
+                                wakeWordAwake = false;
                                 liveTranscriptBuffer = "";
                             }
-                        }, 1200);
+                        }, 1150);
                     }
                 };
 
@@ -4693,7 +4771,6 @@
                 };
 
                 liveRecContinuous.onend = () => {
-                    // Automatically restart continuous recognition if live mode remains active
                     if (liveConversationActive) {
                         setTimeout(() => {
                             try {
@@ -4714,6 +4791,10 @@
 
         function stopLiveConversationLoop() {
             clearTimeout(liveSilenceTimer);
+            clearTimeout(wakeWordAwakeTimer);
+            wakeWordAwake = false;
+            liveSpeechQueue = [];
+            isProcessingSpeechQueue = false;
             if (liveRecContinuous) {
                 try { liveRecContinuous.stop(); } catch(e) {}
                 liveRecContinuous = null;
@@ -4727,12 +4808,39 @@
         }
 
         function interruptSpeech() {
+            liveSpeechQueue = [];
+            isProcessingSpeechQueue = false;
             if (window.speechSynthesis) {
                 window.speechSynthesis.cancel();
             }
             isSpeakingTurn = false;
+            lastSpeechEndTime = Date.now();
+            wakeWordAwake = true;
             setLiveConvUI("INTERRUPTED · LISTENING", "Listening for your next directive...");
             setAvatarSignal("LISTENING");
+        }
+
+        function enqueueLiveSpeech(text) {
+            if (!text || !text.trim()) return;
+            liveSpeechQueue.push(text.trim());
+            processLiveSpeechQueue();
+        }
+
+        function processLiveSpeechQueue() {
+            if (isProcessingSpeechQueue || liveSpeechQueue.length === 0) return;
+            if (!liveConversationActive && !voiceEnabled) {
+                liveSpeechQueue = [];
+                isProcessingSpeechQueue = false;
+                return;
+            }
+            const nextText = liveSpeechQueue.shift();
+            isProcessingSpeechQueue = true;
+            speakCalmConversational(nextText, () => {
+                isProcessingSpeechQueue = false;
+                if (liveSpeechQueue.length > 0) {
+                    setTimeout(processLiveSpeechQueue, 120);
+                }
+            });
         }
 
         async function executeLiveConversationTurn(userSpeech) {
@@ -4771,15 +4879,15 @@
                         content.innerHTML = md(streamedResponse);
                         scrollDialogue();
 
-                        // Stream speech sentence by sentence for zero perceived latency
-                        if (liveConversationActive && !isSpeakingTurn) {
+                        // Stream sentence by sentence into the speech queue to eliminate perceived latency
+                        if (liveConversationActive) {
                             const match = sentenceBuffer.match(/([.!?])\s+/);
                             if (match) {
                                 const splitIdx = match.index + 1;
                                 const readySentence = sentenceBuffer.slice(0, splitIdx).trim();
                                 sentenceBuffer = sentenceBuffer.slice(splitIdx);
                                 if (readySentence) {
-                                    speakCalmConversational(readySentence);
+                                    enqueueLiveSpeech(readySentence);
                                 }
                             }
                         }
@@ -4790,11 +4898,10 @@
                 content.innerHTML = md(finalText);
                 scrollDialogue();
 
-                // If any remaining sentence hasn't been spoken yet
-                if (sentenceBuffer.trim() && liveConversationActive && !isSpeakingTurn) {
-                    speakCalmConversational(sentenceBuffer.trim());
-                } else if (!isSpeakingTurn && liveConversationActive) {
-                    speakCalmConversational(finalText);
+                if (sentenceBuffer.trim() && liveConversationActive) {
+                    enqueueLiveSpeech(sentenceBuffer.trim());
+                } else if (liveConversationActive && liveSpeechQueue.length === 0 && !isSpeakingTurn) {
+                    enqueueLiveSpeech(finalText);
                 }
 
             } catch (err) {
@@ -4806,10 +4913,12 @@
             }
         }
 
-        function speakCalmConversational(text) {
-            if (!text || !window.speechSynthesis) return;
+        function speakCalmConversational(text, onCompleteCallback) {
+            if (!text || !window.speechSynthesis) {
+                if (onCompleteCallback) onCompleteCallback();
+                return;
+            }
 
-            // Strip raw markdown, symbols, asterisks, URLs, and code blocks for warm human cadence
             const clean = text
                 .replace(/```[\s\S]*?```/g, "Code block omitted.")
                 .replace(/`([^`]+)`/g, "$1")
@@ -4817,14 +4926,16 @@
                 .replace(/https?:\/\/\S+/g, "link")
                 .trim();
 
-            if (!clean) return;
+            if (!clean) {
+                if (onCompleteCallback) onCompleteCallback();
+                return;
+            }
 
             isSpeakingTurn = true;
             setLiveConvUI("SPEAKING (CALM & CONVERSATIONAL)", clean);
             setAvatarSignal("SPEAKING");
 
             const utterance = new SpeechSynthesisUtterance(clean);
-            // Calm, conversational parameters (never loud or jarring)
             utterance.volume = 0.76;
             utterance.rate = 1.0;
 
@@ -4840,28 +4951,29 @@
                 triggerSpeechViseme();
             };
 
-            utterance.onend = () => {
+            const finishSpeaking = () => {
                 isSpeakingTurn = false;
+                lastSpeechEndTime = Date.now();
                 morphTargets.jawOpen = 0;
                 updateMorphMeters();
 
-                if (liveConversationActive) {
-                    setLiveConvUI("LISTENING (HANDS-FREE)", "Speak naturally · Auto silence detection · Interrupt anytime");
+                if (liveConversationActive && liveSpeechQueue.length === 0) {
+                    setLiveConvUI(
+                        wakeWordRequired ? "LISTENING (WAKE WORD)" : "LISTENING (HANDS-FREE)",
+                        wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok"...' : "Speak naturally · Auto silence detection"
+                    );
                     setAvatarSignal("LISTENING");
-                } else {
+                } else if (!liveConversationActive) {
                     setAvatarSignal("IDLE");
+                }
+
+                if (typeof onCompleteCallback === "function") {
+                    onCompleteCallback();
                 }
             };
 
-            utterance.onerror = () => {
-                isSpeakingTurn = false;
-                if (liveConversationActive) {
-                    setLiveConvUI("LISTENING (HANDS-FREE)", "Ready for next message...");
-                    setAvatarSignal("LISTENING");
-                } else {
-                    setAvatarSignal("IDLE");
-                }
-            };
+            utterance.onend = finishSpeaking;
+            utterance.onerror = finishSpeaking;
 
             window.speechSynthesis.speak(utterance);
         }
