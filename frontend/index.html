@@ -1036,6 +1036,172 @@
             border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
 
+        /* Video Streams & YouTube Player Cards */
+        .srbk-video-card {
+            margin: 16px 0;
+            border: 1px solid rgba(0, 240, 255, 0.35);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000000;
+            box-shadow: 0 10px 36px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(0, 240, 255, 0.25);
+        }
+        .srbk-video-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: linear-gradient(90deg, rgba(8, 16, 36, 0.95), rgba(4, 9, 22, 0.95));
+            border-bottom: 1px solid rgba(0, 240, 255, 0.18);
+        }
+        .srbk-video-badge {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            color: var(--cyan);
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .srbk-video-link {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--cyan);
+            text-decoration: none;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: rgba(0, 240, 255, 0.1);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            transition: all 0.2s;
+        }
+        .srbk-video-link:hover {
+            background: rgba(0, 240, 255, 0.25);
+            box-shadow: 0 0 10px var(--cyan);
+        }
+        .srbk-video-player-wrap {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #020612;
+        }
+        .srbk-video-iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .srbk-video-player {
+            width: 100%;
+            display: block;
+            background: #020612;
+            max-height: 480px;
+        }
+
+        /* Audio Player Cards */
+        .srbk-audio-card {
+            margin: 14px 0;
+            padding: 14px 16px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(8, 16, 36, 0.95) 0%, rgba(3, 8, 20, 0.98) 100%);
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+        }
+        .srbk-audio-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .srbk-audio-badge {
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            color: var(--amber);
+            text-transform: uppercase;
+        }
+        .srbk-audio-title {
+            font-family: var(--font-display);
+            font-size: 11.5px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+        .srbk-audio-player {
+            width: 100%;
+            height: 38px;
+            border-radius: 8px;
+            outline: none;
+        }
+
+        /* Research Document & PDF Preview Cards */
+        .srbk-doc-card {
+            margin: 16px 0;
+            border-radius: 12px;
+            border: 1px solid rgba(129, 140, 248, 0.35);
+            background: linear-gradient(135deg, rgba(10, 15, 34, 0.92) 0%, rgba(5, 8, 22, 0.96) 100%);
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        }
+        .srbk-doc-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: rgba(129, 140, 248, 0.1);
+            border-bottom: 1px solid rgba(129, 140, 248, 0.18);
+        }
+        .srbk-doc-badge {
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            color: var(--indigo);
+            text-transform: uppercase;
+        }
+        .srbk-doc-title {
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.04em;
+        }
+        .srbk-doc-body {
+            padding: 14px 16px;
+            font-size: 13px;
+            line-height: 1.65;
+            color: #e2e8f0;
+        }
+        .srbk-doc-actions {
+            padding: 10px 16px;
+            background: rgba(0, 0, 0, 0.4);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            gap: 10px;
+        }
+        .srbk-doc-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: 6px;
+            background: rgba(0, 240, 255, 0.12);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            color: var(--cyan);
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .srbk-doc-btn:hover {
+            background: rgba(0, 240, 255, 0.25);
+            box-shadow: 0 0 12px var(--cyan);
+        }
+
         /* Dialogue Input Bar */
         .dialogue-input-bar {
             padding: 14px 20px;
@@ -3372,6 +3538,38 @@
             return s;
         }
 
+        function extractYouTubeId(url) {
+            if (!url) return null;
+            const match = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+            return match ? match[1] : null;
+        }
+
+        function renderVideoCard(title, urlOrBody) {
+            const raw = String(urlOrBody || "");
+            const cleanUrl = (raw.match(/https?:\/\/[^\s\)\"]+/) || [raw.trim()])[0];
+            const ytId = extractYouTubeId(cleanUrl);
+            const cardTitle = (title || "").trim() || (ytId ? "YOUTUBE VIDEO STREAM" : "VIDEO PLAYBACK");
+            if (ytId) {
+                return `<div class="srbk-video-card"><div class="srbk-video-head"><span class="srbk-video-badge">🎬 ${escapeHtml(cardTitle)}</span><a href="${escapeHtml(cleanUrl)}" target="_blank" rel="noopener" class="srbk-video-link">OPEN ↗</a></div><div class="srbk-video-player-wrap"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}?rel=0" class="srbk-video-iframe" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div></div>`;
+            }
+            return `<div class="srbk-video-card"><div class="srbk-video-head"><span class="srbk-video-badge">🎬 ${escapeHtml(cardTitle)}</span><a href="${escapeHtml(cleanUrl)}" target="_blank" rel="noopener" class="srbk-video-link">OPEN ↗</a></div><video controls src="${escapeHtml(cleanUrl)}" class="srbk-video-player"></video></div>`;
+        }
+
+        function renderAudioCard(title, urlOrBody) {
+            const raw = String(urlOrBody || "");
+            const cleanUrl = (raw.match(/https?:\/\/[^\s\)\"]+/) || [raw.trim()])[0];
+            const cardTitle = (title || "").trim() || "AUDIO STREAM";
+            return `<div class="srbk-audio-card"><div class="srbk-audio-head"><span class="srbk-audio-badge">🔊 AUDIO</span><span class="srbk-audio-title">${escapeHtml(cardTitle)}</span></div><audio controls src="${escapeHtml(cleanUrl)}" class="srbk-audio-player"></audio></div>`;
+        }
+
+        function renderDocCard(title, body) {
+            const cardTitle = (title || "").trim() || "RESEARCH DOCUMENT";
+            const raw = String(body || "");
+            const urlMatch = raw.match(/https?:\/\/[^\s\)\"]+/);
+            const actionBtn = urlMatch ? `<div class="srbk-doc-actions"><a href="${escapeHtml(urlMatch[0])}" target="_blank" rel="noopener" class="srbk-doc-btn"><span>📄</span> <span>VIEW FULL DOCUMENT / PDF ↗</span></a></div>` : "";
+            return `<div class="srbk-doc-card"><div class="srbk-doc-head"><span class="srbk-doc-badge">📄 RESEARCH DOCUMENT</span><span class="srbk-doc-title">${escapeHtml(cardTitle)}</span></div><div class="srbk-doc-body">${md(raw)}</div>${actionBtn}</div>`;
+        }
+
         /* Full Markdown & Interactive Cyber Content Parser */
         function md(text) {
             if (!text) return "";
@@ -3382,19 +3580,39 @@
                 return `<div class="srbk-code-block"><div class="srbk-code-head"><span>${lang || "CODE"}</span><button class="srbk-copy-btn" type="button" onclick="copyCode(this)">COPY</button></div><pre><code>${escapeHtml(code.trim())}</code></pre></div>`;
             });
 
-            // 2. Interactive Flashcards & Cyber Cards (:::card ... :::)
+            // 2. Videos & YouTube Embeds (:::video ... ::: or :::youtube ... :::)
+            s = s.replace(/:::(?:video|youtube)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
+                return renderVideoCard(title, body);
+            });
+
+            // 3. Audio & Podcasts (:::audio ... :::)
+            s = s.replace(/:::audio(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
+                return renderAudioCard(title, body);
+            });
+
+            // 4. Research Documents, Specs & PDFs (:::doc ... ::: or :::pdf ... :::)
+            s = s.replace(/:::(?:doc|pdf|paper)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
+                return renderDocCard(title, body);
+            });
+
+            // 5. Interactive Flashcards & Cyber Cards (:::card ... :::)
             s = s.replace(/:::card(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 const cardTitle = (title || "").trim() || "STUDY FLASHCARD";
                 return `<div class="srbk-flashcard"><div class="srbk-card-head"><span class="srbk-card-badge"><span class="boot-badge-dot"></span> 🎴 FLASHCARD</span><span class="srbk-card-title">${escapeHtml(cardTitle)}</span></div><div class="srbk-card-body">${md(body)}</div></div>`;
             });
 
-            // 3. Click-to-Reveal Solutions & Explanations (:::reveal ... :::)
+            // 6. Click-to-Reveal Solutions & Explanations (:::reveal ... :::)
             s = s.replace(/:::reveal(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, label, body) => {
                 const btnLabel = (label || "").trim() || "Reveal Answer & Step-by-Step Solution";
                 return `<details class="srbk-card-reveal"><summary class="srbk-card-reveal-btn"><span>💡</span> <span>${escapeHtml(btnLabel)}</span> <span style="font-size:9px; opacity:0.7;">▼</span></summary><div class="srbk-card-answer">${md(body)}</div></details>`;
             });
 
-            // 4. Markdown Tables
+            // 7. Standalone YouTube links on their own line
+            s = s.replace(/(?:^|\n)(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?[^\s]+|youtu\.be\/[\w-]+))\b/gi, (match, url) => {
+                return "\n" + renderVideoCard("", url);
+            });
+
+            // 8. Markdown Tables
             s = s.replace(/(?:^|\n)(\|.+?\|\n\|[-:\s|]+\|\n(?:\|.+?\|\n?)+)/g, match => {
                 const lines = match.trim().split("\n");
                 if (lines.length < 3) return match;
@@ -3412,7 +3630,7 @@
                 return html;
             });
 
-            // 5. Math equations: Block ($$, \[...\]) and Inline ($, \(...\))
+            // 9. Math equations: Block ($$, \[...\]) and Inline ($, \(...\))
             s = s.replace(/\\\[([\s\S]*?)\\\]/g, (_, eq) => {
                 return `<div class="srbk-math-block"><div class="srbk-math-badge">EQUATION</div><div class="srbk-math-inner">${formatMath(eq)}</div></div>`;
             });
@@ -3426,43 +3644,43 @@
                 return `<span class="srbk-math">${formatMath(eq)}</span>`;
             });
 
-            // 6. Inline code
+            // 10. Inline code
             s = s.replace(/`([^`]+)`/g, (_, c) => `<code>${escapeHtml(c)}</code>`);
 
-            // 7. Images
+            // 11. Images
             s = s.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s\)]+)\)/g, (_, alt, url) => {
                 return `<div class="srbk-img-wrap"><img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" class="srbk-img"><div class="srbk-img-caption">${escapeHtml(alt || "IMAGE CAPTURE")}</div></div>`;
             });
 
-            // 8. Links
+            // 12. Links
             s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, (_, text, url) => {
                 return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="color:var(--cyan); text-decoration:underline;">${escapeHtml(text)}</a>`;
             });
 
-            // 9. Callout blockquotes (> [!NOTE], > [!TIP], > [!WARNING], > [!CARD])
+            // 13. Callout blockquotes (> [!NOTE], > [!TIP], > [!WARNING], > [!CARD])
             s = s.replace(/^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|MATH|CARD)\]\s*(.*$)/gim, (_, type, rest) => {
                 const cls = type.toLowerCase();
                 return `<div class="srbk-callout ${cls}"><div class="srbk-callout-title">${type}</div><div class="srbk-callout-body">${rest}</div></div>`;
             });
 
-            // 10. Bold & Italic
+            // 14. Bold & Italic
             s = s.replace(/\*\*([^\*]+)\*\*/g, "<strong>$1</strong>");
             s = s.replace(/\*([^\*]+)\*/g, "<em>$1</em>");
 
-            // 11. Headings
+            // 15. Headings
             s = s.replace(/^### (.*$)/gim, "<h4 style='color:var(--cyan); margin:12px 0 6px;'>$1</h4>");
             s = s.replace(/^## (.*$)/gim, "<h3 style='color:#fff; margin:14px 0 8px;'>$1</h3>");
             s = s.replace(/^# (.*$)/gim, "<h2 style='color:#fff; margin:16px 0 10px;'>$1</h2>");
 
-            // 12. Lists
+            // 16. Lists
             s = s.replace(/^[\*\-]\s+(.*$)/gim, "<li style='margin-left:18px;'>$1</li>");
             s = s.replace(/^\d+\.\s+(.*$)/gim, "<li style='margin-left:18px; list-style-type:decimal;'>$1</li>");
 
-            // 13. Line breaks into paragraphs
+            // 17. Line breaks into paragraphs
             const paragraphs = s.split(/\n\n+/).map(p => {
                 p = p.trim();
                 if (!p) return "";
-                if (p.startsWith("<div") || p.startsWith("<h") || p.startsWith("<table") || p.startsWith("<details") || p.startsWith("<li")) return p;
+                if (p.startsWith("<div") || p.startsWith("<h") || p.startsWith("<table") || p.startsWith("<details") || p.startsWith("<li") || p.startsWith("<audio") || p.startsWith("<iframe") || p.startsWith("<video")) return p;
                 return `<p>${p.replace(/\n/g, "<br>")}</p>`;
             }).filter(Boolean);
 
@@ -4148,17 +4366,20 @@
 
             window.speechSynthesis.cancel();
 
-            // Strip code blocks, card tags, math delimiters, and markdown punctuation for speech
+            // Strip code blocks, media/card tags, math delimiters, and links for speech
             const clean = text
-                .replace(/:::card[^\n]*\n?/gi, "")
+                .replace(/:::(?:card|video|youtube|audio|doc|pdf|paper)[^\n]*\n?/gi, "")
                 .replace(/:::reveal[^\n]*\n?/gi, " Solution: ")
                 .replace(/:::/g, "")
                 .replace(/```[\s\S]*?```/g, "Code block omitted.")
+                .replace(/\\\[([\s\S]*?)\\\]/g, " $1 ")
+                .replace(/\\\(([\s\S]*?)\\\)/g, " $1 ")
                 .replace(/\$\$([\s\S]*?)\$\$/g, " $1 ")
                 .replace(/\$([^\$]+)\$/g, " $1 ")
+                .replace(/https?:\/\/\S+/g, "")
                 .replace(/`([^`]+)`/g, "$1")
                 .replace(/[*#_~|]/g, "")
-                .replace(/https?:\/\/\S+/g, "link")
+                .replace(/\s+/g, " ")
                 .trim();
 
             if (!clean) return;
@@ -5737,15 +5958,18 @@
             }
 
             const clean = text
-                .replace(/:::card[^\n]*\n?/gi, "")
+                .replace(/:::(?:card|video|youtube|audio|doc|pdf|paper)[^\n]*\n?/gi, "")
                 .replace(/:::reveal[^\n]*\n?/gi, " Solution: ")
                 .replace(/:::/g, "")
                 .replace(/```[\s\S]*?```/g, "Code block omitted.")
+                .replace(/\\\[([\s\S]*?)\\\]/g, " $1 ")
+                .replace(/\\\(([\s\S]*?)\\\)/g, " $1 ")
                 .replace(/\$\$([\s\S]*?)\$\$/g, " $1 ")
                 .replace(/\$([^\$]+)\$/g, " $1 ")
+                .replace(/https?:\/\/\S+/g, "")
                 .replace(/`([^`]+)`/g, "$1")
                 .replace(/[*#_~|]/g, "")
-                .replace(/https?:\/\/\S+/g, "link")
+                .replace(/\s+/g, " ")
                 .trim();
 
             if (!clean) {

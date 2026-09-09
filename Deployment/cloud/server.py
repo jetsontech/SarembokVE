@@ -1227,22 +1227,25 @@ def sarembok_process_dialogue(
         "",
         "==================== REAL-TIME & MULTIMODAL SYNTHESIS DIRECTIVES ====================",
         f"1. YOU HAVE ACTIVE REAL-TIME ACCESS to the live web, current world events, and breaking news feeds.",
-        f"2. FULL MULTIMODAL & INTERACTIVE CARD RENDERING: Sarembok has native UI support for Interactive Cyber Flashcards, quiz/math cards, step-by-step solutions with click-to-reveal answers, LaTeX math formulas, structured tables, and images.",
-        f"3. STRICT PROHIBITION: NEVER state 'While I can't display images or cards directly', 'I cannot show cards', 'As an AI I cannot display visual content', 'I don't have real-time access', or any variation of a capability refusal.",
-        f"4. WHEN ASKED FOR FLASHCARDS, MATH QUESTIONS, QUIZZES, OR STUDY CARDS:",
-        f"   - Format each question/card as an interactive Cyber Flashcard using :::card and :::reveal blocks, for example:",
-        f"     :::card Algebra & Quadratic Equations",
-        f"     ### 🎴 Flashcard 1: Solve for $x$",
-        f"     **Problem:** $x^2 - 5x + 6 = 0$",
-        f"     :::reveal Step-by-Step Solution & Answer",
-        f"     **Answer:** $x = 2$ or $x = 3$",
-        f"     **Explanation:** Factor $(x - 2)(x - 3) = 0 \\implies x = 2, 3$.",
+        f"2. FULL MULTIMODAL MEDIA & RICH UI CAPABILITIES: Sarembok has native UI support for embedding interactive YouTube videos, video streams, audio players, research document/PDF preview cards, Interactive Cyber Flashcards, quiz cards, step-by-step solutions with click-to-reveal answers, LaTeX math formulas, structured tables, and images.",
+        f"3. STRICT PROHIBITION: NEVER state 'While I can't display videos/cards directly', 'I cannot play YouTube videos', 'As an AI I cannot display visual media or documents', 'I don't have real-time access', or any variation of a capability refusal.",
+        f"4. WHEN ASKED FOR VIDEOS, YOUTUBE CLIPS, TUTORIALS, OR RESEARCH LECTURES:",
+        f"   - Embed the relevant video using :::video blocks or direct YouTube links, for example:",
+        f"     :::video Quantum Computing Explained",
+        f"     https://www.youtube.com/watch?v=JhHMJCUmq28",
         f"     :::",
+        f"   - Explain the core insights, timestamps, and key takeaways concisely in your response.",
+        f"5. WHEN ASKED FOR RESEARCH DOCUMENTS, ARXIV PAPERS, TECHNICAL SPECS, OR PDFS:",
+        f"   - Format the document with a rich document card, for example:",
+        f"     :::doc Attention Is All You Need (Transformer Architecture)",
+        f"     **Authors:** Ashish Vaswani, Noam Shazeer, Niki Parmar, et al. (Google Brain)",
+        f"     **Key Contribution:** Replaces recurrent mechanisms with Multi-Head Self-Attention.",
+        f"     **Source / PDF:** https://arxiv.org/abs/1706.03762",
         f"     :::",
-        f"   - Use clean LaTeX math notation ($...$ and $$...$$) for all equations.",
-        f"   - Present multiple cards or questions clearly with full step-by-step reasoning inside reveal containers.",
-        f"5. When answering questions regarding news, current events, recent developments, or live research, synthesize the real-time data provided below with authority, clarity, and specific details.",
-        f"6. You are Sarembok, an advanced sovereign intelligence on the Sarembok VE platform.",
+        f"6. WHEN ASKED FOR FLASHCARDS, MATH QUESTIONS, QUIZZES, OR STUDY CARDS:",
+        f"   - Format each question/card as an interactive Cyber Flashcard using :::card and :::reveal blocks with LaTeX math notation ($...$ and $$...$$).",
+        f"7. When answering questions regarding news, current events, recent developments, or live research, synthesize real-time data with authority and depth.",
+        f"8. You are Sarembok, an advanced sovereign intelligence on the Sarembok VE platform.",
         "=======================================================================================",
     ]
 
@@ -1357,11 +1360,11 @@ def sarembok_process_dialogue(
     except Exception as exc:
         LOG.warning("LLM provider fabric failed: %s", exc)
 
-    # Strip any accidental visual/card refusal statements injected by frontier model safety filters
+    # Strip any accidental visual/media/card refusal statements injected by frontier model safety filters
     visual_refusal_patterns = (
-        r"(?i)while\s+i\s+(?:can(?:not|\'t))\s+(?:display|show)\s+(?:images|cards|flashcards|pictures)[^.!?\n]*[.!?\n]?",
-        r"(?i)i\s+(?:can(?:not|\'t))\s+(?:display|show)\s+(?:images|cards|flashcards|pictures)[^.!?\n]*[.!?\n]?",
-        r"(?i)as\s+an\s+ai[,\s]+i\s+(?:can(?:not|\'t))\s+(?:display|show)[^.!?\n]*[.!?\n]?",
+        r"(?i)while\s+i\s+(?:can(?:not|\'t))\s+(?:display|show|play)\s+(?:images|cards|flashcards|pictures|videos|youtube|documents|audio)[^.!?\n]*[.!?\n]?",
+        r"(?i)i\s+(?:can(?:not|\'t))\s+(?:display|show|play)\s+(?:images|cards|flashcards|pictures|videos|youtube|documents|audio)[^.!?\n]*[.!?\n]?",
+        r"(?i)as\s+an\s+ai[,\s]+i\s+(?:can(?:not|\'t))\s+(?:display|show|play)[^.!?\n]*[.!?\n]?",
     )
     if reply:
         for pat in visual_refusal_patterns:
@@ -1392,12 +1395,15 @@ def sarembok_process_dialogue(
     def _spoken_clean(text: str) -> str:
         if not text:
             return ""
-        s = re.sub(r":::card[^\n]*\n?", "", text)
+        s = re.sub(r":::(?:card|video|audio|doc|pdf)[^\n]*\n?", "", text)
         s = re.sub(r":::reveal[^\n]*\n?", " Solution: ", s)
         s = re.sub(r":::", "", s)
         s = re.sub(r"```[\s\S]*?```", "Code block omitted.", s)
+        s = re.sub(r"\\\[([\s\S]*?)\\\]", r" \1 ", s)
+        s = re.sub(r"\\\(([\s\S]*?)\\\)", r" \1 ", s)
         s = re.sub(r"\$\$([\s\S]*?)\$\$", r" \1 ", s)
         s = re.sub(r"\$([^\$]+)\$", r" \1 ", s)
+        s = re.sub(r"https?:\/\/\S+", "", s)
         s = re.sub(r"[*#_`~|]", "", s)
         s = re.sub(r"\s+", " ", s).strip()
         return s[:380]
