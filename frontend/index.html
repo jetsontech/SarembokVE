@@ -2132,7 +2132,7 @@
     <div class="hud-bracket bottom-right"></div>
 
     <!-- ==================== BOOT SCREEN ==================== -->
-    <div id="view-boot">
+    <div id="view-boot" onclick="this.classList.add('hidden')" style="cursor:pointer;" title="Click anywhere to enter">
         <div class="boot-badge">
             <div class="boot-badge-dot"></div>
             VIRTUAL EVOLUTION
@@ -4017,17 +4017,37 @@
             } catch (_) {}
         }
 
-        window.onload = async () => {
-            await initSession();
-            connect();
+        let hasAppStarted = false;
+        async function startApp() {
+            if (hasAppStarted) return;
+            hasAppStarted = true;
+            try {
+                await initSession();
+            } catch (_) {}
+            try {
+                connect();
+            } catch (_) {}
             setTimeout(initMetaHumanHologram, 400);
 
-            // Auto transition from boot screen after 2.4s
+            // Auto transition from boot screen
             setTimeout(() => {
                 const boot = document.getElementById("view-boot");
                 if (boot) boot.classList.add("hidden");
-            }, 2400);
-        };
+            }, 1200);
+        }
+
+        if (document.readyState === "complete" || document.readyState === "interactive") {
+            startApp();
+        } else {
+            window.addEventListener("DOMContentLoaded", startApp);
+            window.addEventListener("load", startApp);
+        }
+
+        // Guaranteed safety timeout: dismiss boot screen after 2.2s unconditionally
+        setTimeout(() => {
+            const boot = document.getElementById("view-boot");
+            if (boot) boot.classList.add("hidden");
+        }, 2200);
 
         /* ============================================================
            ENHANCEMENT SUITE JAVASCRIPT HANDLERS
@@ -4571,7 +4591,16 @@
                             if (pt) {
                                 ctx.beginPath();
                                 ctx.arc(pt[0], pt[1], 2.5, 0, Math.PI * 2);
-                                ctx.fill();        /* ============================================================
+                                ctx.fill();
+                            }
+                        });
+                    }
+                    ctx.restore();
+                });
+            }
+        }
+
+        /* ============================================================
            LIVE INTERACTIVE CONVERSATION ENGINE (WAKE WORD & ECHO CANCELLATION)
            ============================================================ */
         let liveConversationActive = false;
