@@ -628,10 +628,25 @@
         .cycle-val { color: var(--cyan); font-weight: 700; letter-spacing: 0.1em; }
 
         /* ==================== 2. DIALOGUE VIEW ==================== */
+        #view-dialogue {
+            height: calc(100vh - 80px);
+            max-height: calc(100vh - 80px);
+            padding: 8px 24px 12px;
+            overflow: hidden;
+            display: none;
+            box-sizing: border-box;
+        }
+        #view-dialogue.active {
+            display: flex;
+            flex-direction: column;
+        }
+
         .dialogue-wrap {
             display: flex;
             flex-direction: column;
             flex: 1;
+            height: 100%;
+            max-height: 100%;
             max-width: 1000px;
             margin: 0 auto;
             width: 100%;
@@ -640,10 +655,12 @@
             border-radius: 16px;
             overflow: hidden;
             backdrop-filter: blur(16px);
+            box-sizing: border-box;
         }
 
         .dialogue-head {
-            padding: 14px 20px;
+            flex-shrink: 0;
+            padding: 10px 18px;
             background: rgba(2, 6, 14, 0.6);
             border-bottom: 1px solid rgba(255, 255, 255, 0.06);
             display: flex;
@@ -652,7 +669,7 @@
         }
         .dialogue-title {
             font-family: var(--font-display);
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 700;
             letter-spacing: 0.15em;
             color: #ffffff;
@@ -661,13 +678,12 @@
 
         .dialogue-history {
             flex: 1;
-            padding: 20px;
+            min-height: 0;
+            padding: 14px 18px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 16px;
-            min-height: 480px;
-            max-height: 65vh;
+            gap: 14px;
             user-select: text;
         }
         .dialogue-history::-webkit-scrollbar { width: 6px; }
@@ -1516,11 +1532,14 @@
             color: var(--amber);
         }
         .dialogue-input-bar {
-            padding: 14px 20px;
-            background: rgba(2, 6, 14, 0.7);
-            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            flex-shrink: 0;
+            padding: 10px 16px;
+            background: rgba(2, 6, 14, 0.88);
+            border-top: 1px solid rgba(0, 240, 255, 0.16);
             display: flex;
             gap: 12px;
+            position: relative;
+            z-index: 10;
         }
         .dialogue-input {
             flex: 1;
@@ -3375,17 +3394,18 @@
                 </div>
 
                 <!-- PROMINENT 2-WAY AUDIO ENGAGEMENT BANNER -->
-                <div id="live-audio-notice" style="background:linear-gradient(90deg, rgba(245,158,11,0.12), rgba(0,240,255,0.12)); border:1px solid rgba(0,240,255,0.4); border-radius:10px; padding:12px 18px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:16px;">
-                    <div style="display:flex; align-items:center; gap:12px;">
-                        <div style="width:34px; height:34px; border-radius:50%; background:rgba(0,240,255,0.15); border:1px solid var(--cyan); display:flex; align-items:center; justify-content:center; font-size:16px; color:var(--cyan);">🎙️</div>
+                <div id="live-audio-notice" style="flex-shrink:0; background:linear-gradient(90deg, rgba(245,158,11,0.12), rgba(0,240,255,0.12)); border:1px solid rgba(0,240,255,0.4); border-radius:10px; padding:8px 14px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div style="width:28px; height:28px; border-radius:50%; background:rgba(0,240,255,0.15); border:1px solid var(--cyan); display:flex; align-items:center; justify-content:center; font-size:14px; color:var(--cyan);">🎙️</div>
                         <div>
-                            <div style="font-family:var(--font-display); font-size:13px; font-weight:700; color:var(--cyan); letter-spacing:0.04em;">ACTIVATE 2-WAY LIVE VOICE &amp; "HEY SAREMBOK"</div>
-                            <div style="font-family:var(--font-sans); font-size:11px; color:var(--text-secondary);">Click below to grant microphone access in your browser and speak hands-free.</div>
+                            <div style="font-family:var(--font-display); font-size:12px; font-weight:700; color:var(--cyan); letter-spacing:0.04em;">ACTIVATE 2-WAY LIVE VOICE &amp; "HEY SAREMBOK"</div>
+                            <div style="font-family:var(--font-sans); font-size:10px; color:var(--text-secondary);">Speak hands-free with duplex live voice.</div>
                         </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <button class="browser-action-btn" style="border-color:var(--text-secondary); color:var(--text-secondary); padding:8px 12px; font-size:11px;" onclick="testVoiceGreeting()">TEST AUDIO</button>
-                        <button class="browser-action-btn" style="border-color:var(--cyan); color:var(--cyan); background:rgba(0,240,255,0.18); white-space:nowrap; padding:8px 16px; font-weight:700;" onclick="enableLiveAudioNow()">START LIVE VOICE</button>
+                        <button class="browser-action-btn" style="border-color:var(--text-secondary); color:var(--text-secondary); padding:5px 10px; font-size:10px;" onclick="testVoiceGreeting()">TEST</button>
+                        <button class="browser-action-btn" style="border-color:var(--cyan); color:var(--cyan); background:rgba(0,240,255,0.18); white-space:nowrap; padding:5px 12px; font-size:11px; font-weight:700;" onclick="enableLiveAudioNow()">START VOICE</button>
+                        <button type="button" onclick="document.getElementById('live-audio-notice').style.display='none'" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; padding:2px 6px;" title="Dismiss banner">✕</button>
                     </div>
                 </div>
 
@@ -4881,7 +4901,12 @@
 
         function scrollDialogue() {
             const history = document.getElementById("dialogue-history");
-            if (history) history.scrollTop = history.scrollHeight;
+            if (history) {
+                history.scrollTop = history.scrollHeight;
+                requestAnimationFrame(() => {
+                    history.scrollTop = history.scrollHeight;
+                });
+            }
         }
 
         /* ============================================================
