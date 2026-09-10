@@ -3,871 +3,392 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Antigravity Gemini Workspace</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>Antigravity Gemini OS // Cockpit Workspace</title>
     <style>
         :root {
-            --bg-base: #06090e;
-            --bg-surface: #0b1019;
-            --bg-card: rgba(14, 21, 33, 0.85);
-            --bg-input: #111827;
-            --border-subtle: #1e293b;
-            --border-glow: #334155;
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
+            --bg-base: #05070a;
+            --bg-panel: #0b0f17;
+            --bg-input: #121824;
+            --border-neon: #1e293b;
+            --glow-cyan: #00f0ff;
+            --glow-green: #39ff14;
+            --glow-red: #ff3131;
+            --text-neon: #00f0ff;
+            --text-main: #e2e8f0;
             --text-muted: #64748b;
-            --accent-cyan: #00f0ff;
-            --accent-blue: #3b82f6;
-            --accent-green: #10b981;
-            --accent-amber: #f59e0b;
-            --accent-red: #ef4444;
-            --font-display: 'Chakra Petch', sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
-            --font-sans: 'Plus Jakarta Sans', sans-serif;
+            --font-mono: 'SFMono-Regular', Consolas, 'Fira Code', monospace;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
 
         body {
             background-color: var(--bg-base);
-            color: var(--text-primary);
-            font-family: var(--font-sans);
-            margin: 0;
-            padding: 0;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-            -webkit-font-smoothing: antialiased;
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0; padding: 0; height: 100vh; display: flex; overflow: hidden;
+            -webkit-user-select: text;
+            user-select: text;
         }
 
-        /* Subtle scanline texture */
-        body::before {
-            content: "";
-            position: fixed;
-            inset: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%);
-            background-size: 100% 3px;
-            pointer-events: none;
-            z-index: 9999;
-        }
-
-        /* ==================== LAYER 1: CONSUMER CANVAS ==================== */
-        .workspace-core {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
+        /* --- LEFT COLUMN: CLEAN CONSUMER CORE --- */
+        .consumer-workspace {
+            flex-grow: 1; display: flex; flex-direction: column; height: 100%;
+            background: linear-gradient(135deg, #090e1a 0%, var(--bg-base) 100%);
             position: relative;
-            background: radial-gradient(circle at 15% 15%, #0e172a 0%, var(--bg-base) 65%);
-            min-width: 0;
         }
 
-        /* Consumer Nav Header */
-        header.consumer-nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 28px;
-            border-bottom: 1px solid var(--border-subtle);
-            background: rgba(11, 16, 25, 0.75);
-            backdrop-filter: blur(16px);
-            z-index: 20;
+        header.cockpit-nav {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 32px; border-bottom: 1px solid var(--border-neon);
+            background: rgba(11, 15, 23, 0.8);
+            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(20px);
+            z-index: 10;
         }
 
-        .brand {
-            font-family: var(--font-display);
-            font-size: 16px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: var(--text-primary);
+        .brand-logo {
+            font-family: var(--font-mono); font-size: 14px; letter-spacing: 1px;
+            color: var(--text-neon); text-transform: uppercase; display: flex; align-items: center; gap: 12px;
+        }
+        .pulse-orb { width: 10px; height: 10px; border-radius: 50%; background: var(--glow-cyan); box-shadow: 0 0 12px var(--glow-cyan); }
+        .pulse-orb.RUNNING { background: var(--glow-cyan); box-shadow: 0 0 14px var(--glow-cyan); animation: pulseCore 1.5s infinite alternate; }
+        .pulse-orb.AWAITING_WORKLOAD { background: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
+        .pulse-orb.FROZEN, .pulse-orb.HALTED { background: var(--glow-red); box-shadow: 0 0 14px var(--glow-red); animation: structuralFlash 0.8s infinite alternate; }
+
+        @keyframes pulseCore {
+            from { transform: scale(0.9); opacity: 0.7; }
+            to { transform: scale(1.15); opacity: 1; }
         }
 
-        .pulse-core {
-            width: 9px;
-            height: 9px;
-            border-radius: 50%;
-            background: var(--accent-green);
-            box-shadow: 0 0 12px var(--accent-green);
-            animation: corePulse 2s infinite ease-in-out;
+        /* ADVANCED MODE CYBER SWITCH */
+        .toggle-container {
+            display: flex; align-items: center; gap: 12px; font-size: 11px;
+            font-family: var(--font-mono); text-transform: uppercase; color: var(--text-muted);
+            -webkit-user-select: none; user-select: none;
         }
-        @keyframes corePulse {
-            0%, 100% { transform: scale(0.95); opacity: 0.8; }
-            50% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 16px var(--accent-green); }
-        }
-
-        .nav-right-controls {
-            display: flex;
-            align-items: center;
-            gap: 18px;
-        }
-
-        .kernel-mode-pill {
-            font-family: var(--font-mono);
-            font-size: 11px;
-            color: var(--text-secondary);
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--border-subtle);
-            padding: 4px 10px;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .kernel-mode-pill .dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--accent-cyan);
-            box-shadow: 0 0 6px var(--accent-cyan);
-        }
-
-        /* Advanced Mode Toggle */
-        .toggle-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-family: var(--font-mono);
-            font-size: 11px;
-            color: var(--text-secondary);
-            user-select: none;
-        }
-
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 44px;
-            height: 22px;
-        }
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 34px;
-            transition: .25s ease;
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #1e293b; border: 1px solid var(--border-neon); border-radius: 4px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: var(--text-muted); border-radius: 2px; }
+        input:checked + .slider { border-color: var(--text-neon); background-color: rgba(0, 240, 255, 0.05); }
+        input:checked + .slider:before { transform: translateX(26px); background-color: var(--text-neon); box-shadow: 0 0 10px var(--glow-cyan); }
+
+        /* STREAMING INTERFACE AREA */
+        .main-stream-area { flex-grow: 1; padding: 48px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; max-width: 900px; margin: 0 auto; width: 100%; }
+        
+        .chat-bubble { font-size: 15px; line-height: 1.6; color: #cbd5e1; animation: slideUp 0.4s ease-out; }
+        .chat-bubble.user {
+            align-self: flex-end; background: rgba(0, 240, 255, 0.08); border: 1px solid rgba(0, 240, 255, 0.3);
+            border-radius: 8px 8px 2px 8px; padding: 14px 20px; color: #f1f5f9; max-width: 80%;
         }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 14px;
-            width: 14px;
-            left: 3px;
-            bottom: 3px;
-            background-color: var(--text-secondary);
-            border-radius: 50%;
-            transition: .25s ease;
+        .chat-bubble.assistant {
+            align-self: flex-start; background: #0b0f17; border: 1px solid var(--border-neon);
+            border-radius: 8px 8px 8px 2px; padding: 18px 24px; color: #e2e8f0; max-width: 90%;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
         }
-        input:checked + .slider {
-            background-color: rgba(0, 240, 255, 0.15);
-            border-color: var(--accent-cyan);
-        }
-        input:checked + .slider:before {
-            transform: translateX(22px);
-            background-color: var(--accent-cyan);
-            box-shadow: 0 0 8px var(--accent-cyan);
+        .chat-bubble.system {
+            font-family: var(--font-mono); font-size: 12px; padding: 16px; border-radius: 4px;
+            background: rgba(30, 41, 59, 0.3); border-left: 3px solid var(--text-neon); color: var(--text-muted);
         }
 
-        /* Chat Stream Pane */
-        .chat-stream-pane {
-            flex-grow: 1;
-            padding: 32px 24px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            max-width: 820px;
-            margin: 0 auto;
-            width: 100%;
-            box-sizing: border-box;
-            scroll-behavior: smooth;
-        }
+        /* HARD-CAP INTERCEPT INPUT BAR */
+        .input-anchor-zone { padding: 24px 48px 36px; max-width: 900px; margin: 0 auto; width: 100%; }
+        .cyber-input-wrapper { background: var(--bg-input); border: 1px solid var(--border-neon); border-radius: 6px; padding: 12px 16px; display: flex; gap: 16px; align-items: center; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        .cyber-input-wrapper:focus-within { border-color: var(--text-neon); box-shadow: 0 0 16px rgba(0, 240, 255, 0.25); }
+        .cyber-input-wrapper input { background: transparent; border: none; color: var(--text-main); flex-grow: 1; font-size: 14px; outline: none; font-family: var(--font-mono); }
+        .cyber-input-wrapper button { background: rgba(0, 240, 255, 0.1); border: 1px solid var(--text-neon); color: var(--text-neon); padding: 10px 22px; font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .cyber-input-wrapper button:hover { background: var(--text-neon); color: #000; box-shadow: 0 0 15px var(--glow-cyan); }
 
-        .message-bubble {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .message-bubble.user {
-            align-self: flex-end;
-            max-width: 75%;
-        }
-        .message-bubble.user .body {
-            background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
-            color: #ffffff;
-            padding: 12px 18px;
-            border-radius: 14px 14px 2px 14px;
-            font-size: 14px;
-            line-height: 1.5;
-            box-shadow: 0 4px 16px rgba(30, 58, 138, 0.3);
-        }
-
-        .message-bubble.assistant {
-            align-self: flex-start;
-            max-width: 85%;
-        }
-        .message-bubble.assistant .body {
-            background: rgba(15, 23, 42, 0.85);
-            border: 1px solid var(--border-subtle);
-            color: #e2e8f0;
-            padding: 16px 20px;
-            border-radius: 14px 14px 14px 2px;
-            font-size: 14.5px;
-            line-height: 1.6;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-        }
-
-        /* Abstracted Progress Status Bubble */
-        .message-bubble.system-status {
-            font-family: var(--font-mono);
-            font-size: 12px;
-            color: var(--text-secondary);
-            padding: 12px 16px;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px dashed var(--border-glow);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            transition: all 0.3s ease;
-        }
-
-        /* Quick Suggestions Chips */
-        .quick-chips-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            max-width: 820px;
-            margin: 0 auto 12px;
-            width: 100%;
-            padding: 0 24px;
-        }
-
-        .chip-btn {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border-subtle);
-            color: var(--text-secondary);
-            font-family: var(--font-mono);
-            font-size: 11px;
-            padding: 6px 12px;
-            border-radius: 20px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .chip-btn:hover {
-            background: rgba(0, 240, 255, 0.08);
-            border-color: var(--accent-cyan);
-            color: var(--accent-cyan);
-        }
-
-        /* Input Bar Container */
-        .input-bar-container {
-            padding: 0 24px 28px;
-            max-width: 820px;
-            margin: 0 auto;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .input-box-wrapper {
-            background: var(--bg-input);
-            border: 1px solid var(--border-glow);
-            border-radius: 12px;
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }
-        .input-box-wrapper:focus-within {
-            border-color: var(--accent-cyan);
-            box-shadow: 0 0 16px rgba(0, 240, 255, 0.25);
-        }
-
-        .input-box-wrapper input {
-            background: transparent;
-            border: none;
-            color: var(--text-primary);
-            flex-grow: 1;
-            font-family: var(--font-sans);
-            font-size: 14.5px;
-            outline: none;
-        }
-        .input-box-wrapper input::placeholder {
-            color: var(--text-muted);
-        }
-
-        .send-btn {
-            background: rgba(0, 240, 255, 0.12);
-            border: 1px solid var(--accent-cyan);
-            color: var(--accent-cyan);
-            border-radius: 8px;
-            width: 34px;
-            height: 34px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .send-btn:hover {
-            background: rgba(0, 240, 255, 0.25);
-            box-shadow: 0 0 12px rgba(0, 240, 255, 0.5);
-            transform: translateY(-1px);
-        }
-
-        /* ==================== LAYER 2: FRONTIER TELEMETRY COCKPIT ==================== */
-        .telemetry-cockpit-sidebar {
-            width: 0px;
-            border-left: 0px solid var(--border-subtle);
-            background: var(--bg-surface);
-            display: flex;
-            flex-direction: column;
-            height: 100%;
+        /* --- RIGHT COLUMN: FRONTIER TELEMETRY HUD --- */
+        .telemetry-hud-sidebar {
+            width: 0px; background: var(--bg-panel); border-left: 0px solid var(--border-neon);
+            display: flex; flex-direction: column; height: 100%; overflow: hidden;
             transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-left 0.15s ease;
-            overflow: hidden;
-            box-sizing: border-box;
-            z-index: 30;
         }
-        .telemetry-cockpit-sidebar.expanded {
-            width: 480px;
-            border-left: 1px solid var(--border-subtle);
-        }
+        .telemetry-hud-sidebar.expanded { width: 520px; border-left: 1px solid var(--border-neon); }
 
-        .sidebar-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border-subtle);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(6, 11, 24, 0.95);
-        }
+        .hud-header { padding: 20px 24px; border-bottom: 1px solid var(--border-neon); display: flex; justify-content: space-between; align-items: center; background: #070a10; }
+        .hud-header h2 { margin: 0; font-family: var(--font-mono); font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-neon); }
 
-        .sidebar-header h3 {
-            margin: 0;
-            font-family: var(--font-display);
-            font-size: 13px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--accent-cyan);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        .hud-metric-card { padding: 18px 20px; margin: 18px 24px 12px; background: #06090f; border: 1px solid #1e293b; border-radius: 4px; }
+        .hud-bar-container { background: #161f30; border-radius: 2px; height: 5px; width: 100%; overflow: hidden; margin-top: 10px; }
+        .hud-bar-fill { background: var(--text-neon); height: 100%; width: 0%; box-shadow: 0 0 8px var(--glow-cyan); transition: width 0.35s ease; }
 
-        .sidebar-status-tag {
-            font-family: var(--font-mono);
-            font-size: 10.5px;
-            padding: 3px 8px;
-            border-radius: 4px;
-            background: rgba(0, 240, 255, 0.1);
-            color: var(--accent-cyan);
-            border: 1px solid rgba(0, 240, 255, 0.25);
-        }
+        /* AGENT GRAPH MATRIX CONFIGURATION */
+        .agent-matrix-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 0 24px; margin-bottom: 12px; }
+        .matrix-tile { background: #06090f; border: 1px solid #1e293b; border-radius: 4px; padding: 14px 8px; text-align: center; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; }
+        .matrix-tile.BUSY { border-color: var(--text-neon); color: var(--text-neon); box-shadow: inset 0 0 8px rgba(0,240,255,0.15); animation: tilePulse 1s infinite alternate; }
+        .matrix-tile.FROZEN { border-color: var(--glow-red); color: var(--glow-red); background: rgba(255,49,49,0.05); animation: structuralFlash 0.8s infinite alternate; }
 
-        /* Telemetry Card Containers */
-        .metrics-card {
-            padding: 14px 18px;
-            margin: 16px 16px 10px;
-            background: rgba(6, 11, 24, 0.85);
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .metrics-card-head {
-            display: flex;
-            justify-content: space-between;
-            font-family: var(--font-mono);
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-
-        .bar-bg {
-            background: rgba(255, 255, 255, 0.06);
-            border-radius: 4px;
-            height: 7px;
-            width: 100%;
-            overflow: hidden;
-        }
-
-        .bar-fill {
-            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-amber));
-            height: 100%;
-            width: 0%;
-            transition: width 0.35s ease;
-        }
-
-        /* Agent Node Matrix */
-        .agent-node-matrix {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            padding: 0 16px;
-            margin-bottom: 12px;
-        }
-
-        .node-tile {
-            background: rgba(6, 11, 24, 0.85);
-            border: 1px solid var(--border-subtle);
-            padding: 10px 8px;
-            border-radius: 6px;
-            text-align: center;
-            font-family: var(--font-mono);
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            transition: all 0.25s ease;
-        }
-        .node-tile.BUSY {
-            border-color: var(--accent-cyan) !important;
-            color: var(--accent-cyan) !important;
-            box-shadow: 0 0 14px rgba(0, 240, 255, 0.4);
-            animation: tilePulse 1s infinite alternate;
-        }
         @keyframes tilePulse {
             from { transform: scale(1); }
             to { transform: scale(1.02); }
         }
 
-        .node-tile.FROZEN {
-            border-color: var(--accent-red) !important;
-            color: #fca5a5 !important;
-            box-shadow: 0 0 16px rgba(239, 68, 68, 0.6);
-            animation: heartbeat 0.8s infinite alternate;
-        }
-        @keyframes heartbeat {
-            from { opacity: 1; }
-            to { opacity: 0.5; }
-        }
+        /* INTERACTABLE CONSOLE ACTIONS */
+        .hud-actions-strip { display: flex; gap: 12px; padding: 0 24px; margin-bottom: 16px; }
+        .action-btn { flex-grow: 1; padding: 10px; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; background: #121824; border: 1px solid #334155; color: var(--text-main); border-radius: 4px; cursor: pointer; }
+        .action-btn:hover { border-color: var(--text-neon); color: var(--text-neon); background: rgba(0,240,255,0.04); }
+        .action-btn.btn-danger:hover { border-color: var(--glow-red); color: var(--glow-red); }
 
-        /* Sidebar Action Triggers */
-        .sidebar-actions-row {
-            display: flex;
-            gap: 8px;
-            padding: 0 16px;
-            margin-bottom: 14px;
-        }
+        /* IMMUTABLE APPEND-ONLY TRANSACTIONS LOG VIEW */
+        .wal-terminal-box { flex-grow: 1; background: #05070a; margin: 0 24px 24px; border: 1px solid #1e293b; border-radius: 4px; padding: 16px; font-family: var(--font-mono); font-size: 11px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .wal-block-row { border-bottom: 1px solid #111827; padding-bottom: 10px; }
+        .wal-block-row.voided { text-decoration: line-through; color: #475569; opacity: 0.4; }
+        .crypto-badge { font-size: 9px; padding: 2px 6px; background: rgba(0,240,255,0.05); border: 1px solid rgba(0,240,255,0.2); color: var(--text-neon); border-radius: 2px; display: inline-block; margin-top: 6px; margin-right: 6px; }
+        .crypto-badge.audited { background: rgba(57,255,20,0.05); border-color: rgba(57,255,20,0.3); color: var(--glow-green); }
 
-        .sidebar-btn {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--border-subtle);
-            color: var(--text-secondary);
-            font-family: var(--font-mono);
-            font-size: 10.5px;
-            padding: 6px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .sidebar-btn:hover {
-            background: rgba(255, 255, 255, 0.08);
-            color: var(--text-primary);
-        }
-        .sidebar-btn.btn-warning:hover {
-            background: rgba(239, 68, 68, 0.15);
-            border-color: var(--accent-red);
-            color: #fca5a5;
-        }
-
-        /* WAL Terminal Feed */
-        .wal-terminal-feed {
-            flex-grow: 1;
-            background: rgba(4, 7, 15, 0.95);
-            margin: 0 16px 16px;
-            border: 1px solid var(--border-subtle);
-            border-radius: 6px;
-            padding: 12px;
-            font-family: var(--font-mono);
-            font-size: 11px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.8);
-        }
-
-        .wal-row {
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            padding-bottom: 6px;
-            line-height: 1.5;
-            word-break: break-all;
-        }
-
-        .wal-row.invalidated {
-            text-decoration: line-through;
-            color: var(--text-muted);
-            opacity: 0.55;
-            background: rgba(239, 68, 68, 0.06);
-            padding: 4px 6px;
-            border-radius: 4px;
-        }
-
-        .audit-hash-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid var(--accent-green);
-            color: #a7f3d0;
-            padding: 1px 6px;
-            border-radius: 3px;
-            font-size: 9.5px;
-            font-weight: 700;
-        }
-
-        .audit-hash-badge.rejected {
-            background: rgba(239, 68, 68, 0.15);
-            border-color: var(--accent-red);
-            color: #fca5a5;
-        }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes structuralFlash { from { border-color: var(--glow-red); box-shadow: 0 0 12px rgba(255,49,49,0.4); } to { border-color: #334155; box-shadow: none; } }
     </style>
 </head>
 <body>
 
-    <!-- ==================== LAYER 1: CONSUMER CANVAS ==================== -->
-    <div class="workspace-core">
-        <header class="consumer-nav">
-            <div class="brand">
-                <div class="pulse-core"></div>
-                <span>Antigravity Gemini Fabric</span>
+    <!-- LEFT: CONSUMER UX FRAMEWORK -->
+    <div class="consumer-workspace">
+        <header class="cockpit-nav">
+            <div class="brand-logo">
+                <div id="globalPulseIndicator" class="pulse-orb"></div>
+                <span>Antigravity Gemini OS v3.8</span>
             </div>
-
-            <div class="nav-right-controls">
-                <div class="kernel-mode-pill">
-                    <span class="dot"></span>
-                    <span id="consumer-status-text">SOVEREIGN PROTOCOL ACTIVE</span>
-                </div>
-
-                <!-- Nested Advanced Mode Toggle Switch -->
-                <div class="toggle-wrapper">
-                    <span>Advanced Telemetry</span>
-                    <label class="switch">
-                        <input type="checkbox" id="telemetryToggle" onchange="toggleCockpitView(this)">
-                        <span class="slider"></span>
-                    </label>
-                </div>
+            <div class="toggle-container">
+                <span>Advanced Hud Matrix</span>
+                <label class="switch" title="Toggle Advanced Telemetry HUD">
+                    <input type="checkbox" id="advancedToggle" aria-label="Toggle Advanced Hud Matrix" onchange="alterDisplayMode(this)">
+                    <span class="slider"></span>
+                </label>
             </div>
         </header>
 
-        <!-- Chat Stream Pane -->
-        <div class="chat-stream-pane" id="userChatView">
-            <div class="message-bubble assistant">
-                <div class="body">
-                    System initialization stable. Antigravity multi-agent fabric is online and operating under Sovereign Protocol Directive-01. Input a directive below to orchestrate workloads across the edge kernel.
-                </div>
+        <div class="main-stream-area" id="chatRenderViewport">
+            <div class="chat-bubble user-facing-text">
+                System online and isolated under local file configurations. Ready to process discrete task payloads directly at the browser execution line.
             </div>
         </div>
 
-        <!-- Quick Directive Chips -->
-        <div class="quick-chips-row">
-            <button class="chip-btn" onclick="sendQuickChip('Synthesize edge telemetry and perform neural baseline check')">⚡ Synthesize Edge Telemetry</button>
-            <button class="chip-btn" onclick="sendQuickChip('Reconcile memory shard and verify HMAC audit trail')">🛡️ Verify Audit Trail</button>
-            <button class="chip-btn" onclick="triggerLoopSimulation()">⚠️ Test Loop Interception</button>
-            <button class="chip-btn" onclick="reconstituteMemory()">🔄 Reconstitute State</button>
-        </div>
-
-        <!-- Input Bar -->
-        <div class="input-bar-container">
-            <div class="input-box-wrapper">
-                <input type="text" id="chatInput" placeholder="Send an instruction to the fabric kernel..." onkeydown="if(event.key==='Enter') submitUserInstruction()">
-                <button class="send-btn" onclick="submitUserInstruction()" title="Dispatch Instruction">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                    </svg>
-                </button>
+        <div class="input-anchor-zone">
+            <div class="cyber-input-wrapper">
+                <input type="text" id="taskInputField" placeholder="Inject strategic multi-agent deployment task strings..." onkeydown="if(event.key==='Enter') dispatchCustomTask()">
+                <button onclick="dispatchCustomTask()">Execute</button>
             </div>
         </div>
     </div>
 
-    <!-- ==================== LAYER 2: FRONTIER TELEMETRY COCKPIT SIDEBAR ==================== -->
-    <div class="telemetry-cockpit-sidebar" id="advancedSidebar">
-        <div class="sidebar-header">
-            <h3>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2.5">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-                </svg>
-                Engine Substrate Telemetry
-            </h3>
-            <span class="sidebar-status-tag" id="statusString">STANDBY</span>
+    <!-- RIGHT: AWARD WINNING FRONTIER TERMINAL DIAGNOSTIC HUD -->
+    <div class="telemetry-hud-sidebar" id="sidebarContainer">
+        <div class="hud-header">
+            <h2>System Substrate Log Telemetry</h2>
+            <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-neon)" id="engineStateHeader">STANDBY</div>
         </div>
 
-        <!-- Token Depletion Pool -->
-        <div class="metrics-card">
-            <div class="metrics-card-head">
-                <span>Token Pool Depletion</span>
-                <span id="tokenGaugeString" style="color:var(--accent-amber);">0 / 100,000</span>
+        <div class="hud-metric-card">
+            <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11px; color:var(--text-muted);">
+                <span>TRANSACTION TOKEN POOL DEPLETION</span>
+                <span id="numericTokenString" style="color:var(--text-neon);">0 / 0</span>
             </div>
-            <div class="bar-bg">
-                <div class="bar-fill" id="tokenGaugeFill"></div>
+            <div class="hud-bar-container">
+                <div class="hud-bar-fill" id="metricFillTracker"></div>
             </div>
         </div>
 
-        <!-- Shannon Entropy Gauge -->
-        <div class="metrics-card" style="margin-top:0;">
-            <div class="metrics-card-head">
-                <span>Shannon Loop Entropy</span>
-                <span id="entropyGaugeString" style="color:var(--accent-green);">0.14 [STABLE &lt; 0.88]</span>
-            </div>
+        <!-- AGENT GRAPH MATRIX CONFIGURATION -->
+        <div class="agent-matrix-grid">
+            <div class="matrix-tile" id="tile-STRATEGIST">Strat: IDLE</div>
+            <div class="matrix-tile" id="tile-WORKER">Work: IDLE</div>
+            <div class="matrix-tile" id="tile-AUDITOR">Audit: SAFE</div>
         </div>
 
-        <!-- Composable Agent Node Matrix -->
-        <div class="agent-node-matrix">
-            <div id="tile-STRATEGIST" class="node-tile">STRAT: IDLE</div>
-            <div id="tile-WORKER" class="node-tile">WORK: IDLE</div>
-            <div id="tile-AUDITOR" class="node-tile">AUDIT: IDLE</div>
+        <!-- INTERACTABLE CONSOLE ACTIONS -->
+        <div class="hud-actions-strip">
+            <button class="action-btn btn-danger" onclick="triggerManualRollback()">Force Rollback</button>
+            <button class="action-btn" onclick="clearLocalLogs()">Clear Storage</button>
         </div>
 
-        <!-- Sidebar Direct Actions -->
-        <div class="sidebar-actions-row">
-            <button class="sidebar-btn btn-warning" onclick="triggerLoopSimulation()">⚠️ SIMULATE LOOP</button>
-            <button class="sidebar-btn" onclick="resetRuntimeSession()">🧹 RESET WAL</button>
-        </div>
-
-        <!-- Continuous SQLite-WAL Transaction Log Feed -->
-        <div class="wal-terminal-feed" id="walTerminalLog">
-            <div style="color:var(--text-muted);">Listening for active transaction commitments...</div>
+        <!-- IMMUTABLE APPEND-ONLY TRANSACTIONS LOG VIEW -->
+        <div class="wal-terminal-box" id="walAppendStreamBox">
+            <div style="color:var(--text-muted); font-size:11px;">Awaiting runtime event thread stream commits...</div>
         </div>
     </div>
 
     <script>
-        let lastLoggedCount = 0;
+        // --- Web Audio Synthetic Terminal Sound Effects Wrapper ---
+        const TerminalAudio = {
+            ctx: null,
+            init() {
+                if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            },
+            beep(freq, duration, type = 'sine', volume = 0.03) {
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    if (this.ctx.state === 'suspended') this.ctx.resume();
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch (e) {}
+            },
+            click() { this.beep(1200, 0.03, 'triangle', 0.02); },
+            execute() { this.beep(880, 0.05, 'sine', 0.04); setTimeout(() => this.beep(1760, 0.08, 'sine', 0.03), 40); },
+            rollback() { this.beep(330, 0.08, 'sawtooth', 0.04); setTimeout(() => this.beep(220, 0.12, 'sawtooth', 0.04), 70); },
+            purge() { this.beep(550, 0.05, 'square', 0.02); setTimeout(() => this.beep(275, 0.1, 'square', 0.03), 50); }
+        };
 
-        function toggleCockpitView(checkbox) {
-            const sidebar = document.getElementById('advancedSidebar');
-            if (checkbox.checked) {
-                sidebar.classList.add('expanded');
+        function alterDisplayMode(box) {
+            TerminalAudio.click();
+            const bar = document.getElementById('sidebarContainer');
+            if (box.checked) {
+                bar.classList.add('expanded');
             } else {
-                sidebar.classList.remove('expanded');
+                bar.classList.remove('expanded');
             }
         }
 
-        async function processPipelineTelemetry() {
+        async function dispatchCustomTask() {
+            const input = document.getElementById('taskInputField');
+            const task = input.value.trim();
+            if (!task) return;
+
+            TerminalAudio.execute();
+
+            // Render user bubble immediately
+            const chatBox = document.getElementById('chatRenderViewport');
+            const userMsg = document.createElement('div');
+            userMsg.className = 'chat-bubble user';
+            userMsg.textContent = task;
+            chatBox.appendChild(userMsg);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            input.value = '';
+
+            try {
+                // Push action directly to backend via HTTP wrapper endpoints
+                await fetch('/api/execute-task', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task })
+                });
+                // Immediate update
+                updateTelemetryGrid();
+            } catch (err) {
+                console.error("Task dispatch exception:", err);
+            }
+        }
+
+        async function triggerManualRollback() {
+            TerminalAudio.rollback();
+            await fetch('/api/force-rollback', { method: 'POST' });
+            updateTelemetryGrid();
+        }
+
+        async function clearLocalLogs() {
+            TerminalAudio.purge();
+            await fetch('/api/clear-storage', { method: 'POST' });
+            const chatBox = document.getElementById('chatRenderViewport');
+            chatBox.innerHTML = `
+                <div class="chat-bubble user-facing-text">
+                    Storage purged. System online and isolated under local file configurations. Ready to process discrete task payloads.
+                </div>
+            `;
+            updateTelemetryGrid();
+        }
+
+        async function updateTelemetryGrid() {
             try {
                 const res = await fetch('/api/telemetry');
                 if (!res.ok) return;
                 const data = await res.json();
 
-                // 1. Process Global Parameters & Token Gauge
+                // 1. Process Master Status Configurations
                 if (data.session) {
-                    const statusEl = document.getElementById('statusString');
-                    const tokenStringEl = document.getElementById('tokenGaugeString');
-                    const tokenFillEl = document.getElementById('tokenGaugeFill');
-                    const consumerStatusEl = document.getElementById('consumer-status-text');
-
-                    if (statusEl) statusEl.innerText = data.session.global_status;
-                    if (consumerStatusEl) consumerStatusEl.innerText = `${data.session.global_status} · SOVEREIGN PROTOCOL`;
-
-                    const burned = data.session.token_burned || 0;
-                    const hardCap = data.session.hard_cap || 100000;
-                    const pct = Math.min(100, (burned / hardCap) * 100);
-
-                    if (tokenStringEl) tokenStringEl.innerText = `${burned.toLocaleString()} / ${hardCap.toLocaleString()} (${pct.toFixed(1)}%)`;
-                    if (tokenFillEl) tokenFillEl.style.width = `${pct}%`;
+                    const status = data.session.global_status || 'STANDBY';
+                    document.getElementById('engineStateHeader').innerText = status;
+                    document.getElementById('globalPulseIndicator').className = `pulse-orb ${status}`;
+                    document.getElementById('numericTokenString').innerText = `${data.session.token_burned || 0} / ${data.session.hard_cap || 10000}`;
+                    const pct = ((data.session.token_burned || 0) / (data.session.hard_cap || 10000)) * 100;
+                    document.getElementById('metricFillTracker').style.width = `${Math.min(pct, 100)}%`;
                 }
 
-                // 2. Process Engine Core State & Node Tiles
-                if (Array.isArray(data.agents)) {
+                // 2. Refresh Node Blocks
+                if (data.agents && Array.isArray(data.agents)) {
                     data.agents.forEach(agent => {
-                        const tile = document.getElementById(`tile-${agent.role || agent.agent_id}`);
-                        if (tile) {
-                            tile.className = `node-tile ${agent.status}`;
-                            tile.innerText = `${(agent.role || agent.agent_id).substring(0,5)}: ${agent.status}`;
+                        const block = document.getElementById(`tile-${agent.role}`);
+                        if (block) {
+                            block.className = `matrix-tile ${agent.status}`;
+                            block.innerText = `${agent.role.substring(0,5)}: ${agent.status}`;
                         }
                     });
                 }
 
-                // 3. Populate Advanced WAL Engine Log
-                const walLog = document.getElementById('walTerminalLog');
-                const rawLogs = data.transactions || data.logs || [];
-                
-                if (walLog && Array.isArray(rawLogs)) {
-                    if (rawLogs.length !== lastLoggedCount) {
-                        walLog.innerHTML = '';
-                        rawLogs.forEach(log => {
-                            const row = document.createElement('div');
-                            const isInvalidated = (log.committed === 0);
-                            row.className = `wal-row ${isInvalidated ? 'invalidated' : ''}`;
+                // 3. Render High Frequency SQLite WAL Block Rows
+                if (data.logs && Array.isArray(data.logs)) {
+                    const walBox = document.getElementById('walAppendStreamBox');
+                    const chatBox = document.getElementById('chatRenderViewport');
+                    walBox.innerHTML = '';
 
-                            const payloadObj = typeof log.payload === 'object' ? log.payload : (JSON.parse(log.payload || '{}'));
-                            const hashBadge = isInvalidated ?
-                                `<span class="audit-hash-badge rejected">REJECTED_LOOP</span>` :
-                                `<span class="audit-hash-badge">✓ ${log.validationHash || log.validation_hash || '0xVERIFIED'}</span>`;
+                    data.logs.forEach(log => {
+                        const blockRow = document.createElement('div');
+                        blockRow.className = `wal-block-row ${log.committed === 0 ? 'voided' : ''}`;
+                        
+                        let payloadText = log.payload;
+                        try {
+                            const parsed = typeof log.payload === 'string' ? JSON.parse(log.payload) : log.payload;
+                            payloadText = parsed.text || JSON.stringify(parsed);
+                        } catch (e) {
+                            payloadText = log.payload;
+                        }
 
-                            row.innerHTML = `
-                                <div>
-                                    <span style="color:var(--accent-cyan); font-weight:700;">[TX_${log.taskId || log.task_id}]</span>
-                                    <span>${log.senderAgentId || log.sender_agent_id} &rarr; ${log.recipientAgentId || log.recipient_agent_id || 'FABRIC'}</span>
-                                    ${hashBadge}
-                                </div>
-                                <div style="color:var(--text-muted); font-size:10px;">
-                                    tokens: +${log.tokensConsumed || log.tokens_consumed || 0} | entropy: ${(log.entropyScore || log.entropy_score || 0.12).toFixed(2)}
-                                </div>
-                                <div style="color:var(--text-secondary); font-size:10px; margin-top:2px;">
-                                    payload: ${payloadObj.directive || payloadObj.action || JSON.stringify(payloadObj).substring(0, 50)}
-                                </div>
-                            `;
-                            walLog.appendChild(row);
-                        });
-                        lastLoggedCount = rawLogs.length;
-                        walLog.scrollTop = walLog.scrollHeight;
-                    }
+                        blockRow.innerHTML = `
+                            <div style="color:var(--text-neon); font-size:10px; margin-bottom:2px;">[BLOCK_TX_${log.task_id}]</div>
+                            <div>Sender: ${log.sender_agent_id} ➔ ${log.recipient_agent_id || 'SYSTEM'}</div>
+                            <div style="color:var(--text-muted); margin-top:2px;">Payload: ${payloadText}</div>
+                            <span class="crypto-badge audited">HASH: ${log.validation_hash ? log.validation_hash.substring(0,10) : 'NULL'}</span>
+                            <span class="crypto-badge">ENTROPY: ${Number(log.entropy_score || 0).toFixed(4)}</span>
+                        `;
+                        walBox.appendChild(blockRow);
+                    });
 
-                    // Update Entropy Gauge with latest transaction
-                    if (rawLogs.length > 0) {
-                        const latest = rawLogs[rawLogs.length - 1];
-                        const entropyVal = Number(latest.entropyScore || latest.entropy_score || 0.14);
-                        const entropyEl = document.getElementById('entropyGaugeString');
-                        if (entropyEl) {
-                            if (entropyVal >= 0.88) {
-                                entropyEl.style.color = 'var(--accent-red)';
-                                entropyEl.innerText = `${entropyVal.toFixed(2)} [CRITICAL LOOP >= 0.88]`;
+                    // 4. Handle Abstracted Consumer Overlay States
+                    if (data.agents && Array.isArray(data.agents)) {
+                        const active = data.agents.find(a => a.status === 'BUSY');
+                        const looped = data.agents.find(a => a.status === 'FROZEN');
+                        let indicator = document.getElementById('abstractStatusRow');
+
+                        if (!indicator && (active || looped)) {
+                            indicator = document.createElement('div');
+                            indicator.id = 'abstractStatusRow';
+                            indicator.className = 'chat-bubble system';
+                            chatBox.appendChild(indicator);
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                        }
+
+                        if (indicator) {
+                            if (looped) {
+                                indicator.innerHTML = `&gt;&gt; WARNING: Recursive conversational entropy detected. Engaging automated rollback vector...`;
+                                document.getElementById('globalPulseIndicator').className = 'pulse-orb FROZEN';
+                            } else if (active) {
+                                indicator.innerHTML = `&gt;&gt; Fabric compute node pipeline operational: ${active.role} processing optimization scripts...`;
                             } else {
-                                entropyEl.style.color = 'var(--accent-green)';
-                                entropyEl.innerText = `${entropyVal.toFixed(2)} [STABLE < 0.88]`;
+                                indicator.remove();
                             }
                         }
                     }
                 }
-
-                // 4. Update Consumer Abstracted Status
-                const chatView = document.getElementById('userChatView');
-                if (chatView && Array.isArray(data.agents)) {
-                    const activeTask = data.agents.find(a => a.status === 'BUSY');
-                    const frozenTask = data.agents.find(a => a.status === 'FROZEN');
-                    let dynamicIndicator = document.getElementById('systemPromptBubble');
-
-                    if (!dynamicIndicator && (activeTask || frozenTask)) {
-                        dynamicIndicator = document.createElement('div');
-                        dynamicIndicator.id = 'systemPromptBubble';
-                        dynamicIndicator.className = 'message-bubble system-status';
-                        chatView.appendChild(dynamicIndicator);
-                        chatView.scrollTop = chatView.scrollHeight;
-                    }
-
-                    if (dynamicIndicator) {
-                        if (frozenTask) {
-                            dynamicIndicator.innerHTML = `⚠️ <span>Loop encountered. Mitigating semantic recurrence and resetting execution state vectors...</span>`;
-                            dynamicIndicator.style.borderColor = 'var(--accent-red)';
-                            dynamicIndicator.style.color = '#fca5a5';
-                        } else if (activeTask) {
-                            dynamicIndicator.innerHTML = `⚙️ <span>Fabric active: ${activeTask.role || activeTask.agent_id} processing instruction subtasks...</span>`;
-                            dynamicIndicator.style.borderColor = 'var(--accent-cyan)';
-                            dynamicIndicator.style.color = 'var(--accent-cyan)';
-                        } else {
-                            dynamicIndicator.remove();
-                        }
-                    }
-                }
-            } catch (err) {
-                console.log('Telemetry connection idling...');
+            } catch (connectionErr) {
+                // Ground loop fail-safes idle gracefully
             }
         }
 
-        /* User Message Dispatch */
-        async function submitUserInstruction() {
-            const input = document.getElementById('chatInput');
-            const message = input ? input.value.trim() : '';
-            if (!message) return;
-
-            input.value = '';
-            appendChatMessage('user', message);
-
-            try {
-                const res = await fetch('/api/step', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ directive: message })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    appendChatMessage('assistant', `Step executed and committed to SQLite-WAL (Task ID: ${data.stepId}). Validation signature verified.`);
-                } else if (data.error) {
-                    appendChatMessage('assistant', `Execution notice: ${data.error}`);
-                }
-            } catch (e) {
-                appendChatMessage('assistant', `Execution error: ${e.message}`);
-            }
-        }
-
-        function sendQuickChip(text) {
-            const input = document.getElementById('chatInput');
-            if (input) {
-                input.value = text;
-                submitUserInstruction();
-            }
-        }
-
-        function appendChatMessage(role, text) {
-            const chatView = document.getElementById('userChatView');
-            if (!chatView) return;
-
-            const bubble = document.createElement('div');
-            bubble.className = `message-bubble ${role}`;
-            bubble.innerHTML = `<div class="body">${text}</div>`;
-            chatView.appendChild(bubble);
-            chatView.scrollTop = chatView.scrollHeight;
-        }
-
-        async function triggerLoopSimulation() {
-            appendChatMessage('user', '⚠️ Simulate Semantic Loop Interception');
-            try {
-                const res = await fetch('/api/simulate-loop', { method: 'POST' });
-                const data = await res.json();
-                if (data.success) {
-                    appendChatMessage('assistant', `Semantic loop intercepted by Auditor (Entropy: ${data.entropy} >= 0.88). Transaction soft-rolled back in WAL log.`);
-                }
-            } catch (e) {
-                appendChatMessage('assistant', 'Error simulating loop: ' + e.message);
-            }
-        }
-
-        async function reconstituteMemory() {
-            appendChatMessage('user', '🔄 Request State Reconstitution from SQLite-WAL');
-            try {
-                const res = await fetch('/api/telemetry');
-                const data = await res.json();
-                const count = (data.reconstitutedState || []).length;
-                appendChatMessage('assistant', `Memory reconstituted: ${count} active micro-step state vectors verified in SQLite-WAL log with PRAGMA foreign_keys = ON.`);
-            } catch (e) {
-                appendChatMessage('assistant', 'Error reconstituting: ' + e.message);
-            }
-        }
-
-        async function resetRuntimeSession() {
-            try {
-                await fetch('/api/reset', { method: 'POST' });
-                lastLoggedCount = 0;
-                appendChatMessage('assistant', 'Session envelope and memory state machine reset to clean slate.');
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        // Initialize 500ms Long Poll
-        processPipelineTelemetry();
-        setInterval(processPipelineTelemetry, 500);
+        setInterval(updateTelemetryGrid, 500);
+        updateTelemetryGrid();
     </script>
 </body>
 </html>
