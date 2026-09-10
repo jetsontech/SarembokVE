@@ -26,12 +26,9 @@ git fetch origin main
 git checkout main
 git pull origin main
 
-docker cp frontend/index.html sarembok-edge:/srv/index.html || true
-docker compose \
-  -f Deployment/cloud/compose.yaml \
-  -f Deployment/cloud/compose.production.yaml \
-  up -d --build sarembok-runtime sarembok-edge
-docker cp frontend/index.html sarembok-edge:/srv/index.html || true
+docker cp frontend/index.html sarembok-edge:/srv/index.html
+docker cp frontend/index.html sarembok-runtime:/app/frontend/index.html || true
+docker restart sarembok-edge
 
 echo "[4/4] Verifying container health..."
 docker compose \
