@@ -53,16 +53,16 @@ class ProviderResult:
 
 class ProviderRouter:
     def __init__(self) -> None:
-        self.provider_timeout = max(3, int(os.getenv('SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS', '8')))
-        self.total_timeout = max(5, int(os.getenv('SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS', '15')))
-        self.gemini_api = os.getenv('SAREMBOK_GEMINI_API', 'interactions').strip().lower()
+        self.provider_timeout = max(3, int(os.getenv('SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS', '25')))
+        self.total_timeout = max(5, int(os.getenv('SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS', '35')))
+        self.gemini_api = os.getenv('SAREMBOK_GEMINI_API', 'generatecontent').strip().lower()
         self.gemini_thinking = os.getenv('SAREMBOK_GEMINI_THINKING_LEVEL', 'low').strip().lower()
         if self.gemini_thinking not in {'low', 'medium', 'high'}:
             self.gemini_thinking = 'low'
         self.openrouter_reasoning = os.getenv('SAREMBOK_OPENROUTER_REASONING_EFFORT', 'low').strip().lower()
         if self.openrouter_reasoning not in {'minimal', 'low', 'medium', 'high', 'xhigh'}:
             self.openrouter_reasoning = 'low'
-        self.max_output_tokens = max(64, int(os.getenv('SAREMBOK_LLM_MAX_OUTPUT_TOKENS', '8192')))
+        self.max_output_tokens = max(64, int(os.getenv('SAREMBOK_LLM_MAX_OUTPUT_TOKENS', '750')))
         self._history: deque[dict[str, Any]] = deque(maxlen=200)
 
     @staticmethod
@@ -162,7 +162,7 @@ class ProviderRouter:
             result['Groq'] = ProviderSpec('Groq', os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile'), 'openai', 'https://api.groq.com/openai/v1/chat/completions', groq)
         gemini = os.getenv('GEMINI_API_KEY', '').strip()
         if gemini:
-            result['Gemini'] = ProviderSpec('Gemini', os.getenv('GEMINI_MODEL', 'gemini-3.8-flash'), 'gemini', 'https://generativelanguage.googleapis.com/v1beta/interactions', gemini)
+            result['Gemini'] = ProviderSpec('Gemini', os.getenv('GEMINI_MODEL', 'gemini-3.6-flash'), 'gemini', 'https://generativelanguage.googleapis.com/v1beta/interactions', gemini)
         custom = os.getenv('LLM_ENDPOINT_URL', '').strip()
         if custom:
             result['Custom'] = ProviderSpec('Custom', os.getenv('LLM_MODEL', 'llama-3.1-8b'), 'openai', custom, os.getenv('LLM_API_KEY', 'dummy'))
@@ -231,11 +231,25 @@ class ProviderRouter:
             headers.update({'HTTP-Referer': 'https://sarembok.com', 'X-Title': 'Sarembok VE'})
         return headers
 
-    def _openai_payload(self, spec: ProviderSpec, messages: list[dict[str, str]], streaming: bool = False) -> dict[str, Any]:
+    def _openai_payload(self, spec: ProviderSpec, messages: list[dict[str, str]], streaming: bool = False, system_prompt: str = '', prompt: str = '') -> dict[str, Any]:
+        normalized_messages: list[dict[str, str]] = []
+        if messages:
+            normalized_messages = list(messages)
+            if system_prompt and (not normalized_messages or normalized_messages[0].get('role') != 'system'):
+                normalized_messages.insert(0, {'role': 'system', 'content': system_prompt})
+        else:
+            if system_prompt:
+                normalized_messages.append({'role': 'system', 'content': system_prompt})
+            if prompt:
+                normalized_messages.append({'role': 'user', 'content': prompt})
+            elif not normalized_messages:
+                normalized_messages.append({'role': 'user', 'content': 'Hello'})
+
+        max_tok = min(self.max_output_tokens, 700) if spec.name.startswith('OpenRouter') else self.max_output_tokens
         data: dict[str, Any] = {
             'model': spec.model,
-            'messages': messages,
-            'max_tokens': self.max_output_tokens,
+            'messages': normalized_messages,
+            'max_tokens': max_tok,
             'temperature': 0.7,
         }
         if streaming:
@@ -280,7 +294,7 @@ class ProviderRouter:
                 api_name = 'interactions'
         else:
             url = spec.endpoint
-            data = self._openai_payload(spec, messages)
+            data = self._openai_payload(spec, messages, system_prompt=system_prompt, prompt=prompt)
             headers = self._openai_headers(spec)
             api_name = 'chat.completions'
         req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers)
@@ -303,26 +317,40 @@ class ProviderRouter:
                 self._handle_http_error(spec, exc, attempts, deadline)
 
     def _request_stream(self, spec: ProviderSpec, system_prompt: str, prompt: str, messages: list[dict[str, str]], deadline: float, on_delta: Callable[[str], None]) -> tuple[str, dict[str, Any], str, float]:
-        if spec.kind == 'gemini' and self.gemini_api == 'interactions':
-            data = {
-                'model': spec.model,
-                'system_instruction': system_prompt,
-                'input': prompt,
-                'store': False,
-                'stream': True,
-                'generation_config': {
-                    'thinking_level': self.gemini_thinking,
-                    'max_output_tokens': self.max_output_tokens,
-                },
-            }
-            headers = {'Content-Type': 'application/json', 'Accept': 'text/event-stream', 'x-goog-api-key': spec.key}
+        if spec.kind == 'gemini':
+            if self.gemini_api == 'generatecontent':
+                url = f'https://generativelanguage.googleapis.com/v1beta/models/{spec.model}:streamGenerateContent?alt=sse'
+                data = {
+                    'system_instruction': {'parts': [{'text': system_prompt}]},
+                    'contents': [{'role': 'user', 'parts': [{'text': prompt}]}],
+                    'generationConfig': {'maxOutputTokens': self.max_output_tokens},
+                }
+                headers = {'Content-Type': 'application/json', 'Accept': 'text/event-stream', 'x-goog-api-key': spec.key}
+                api_name = 'generateContent.stream'
+            else:
+                url = spec.endpoint
+                data = {
+                    'model': spec.model,
+                    'system_instruction': system_prompt,
+                    'input': prompt,
+                    'store': False,
+                    'stream': True,
+                    'generation_config': {
+                        'thinking_level': self.gemini_thinking,
+                        'max_output_tokens': self.max_output_tokens,
+                    },
+                }
+                headers = {'Content-Type': 'application/json', 'Accept': 'text/event-stream', 'x-goog-api-key': spec.key}
+                api_name = 'interactions'
         elif spec.kind == 'openai':
-            data = self._openai_payload(spec, messages, streaming=True)
+            url = spec.endpoint
+            data = self._openai_payload(spec, messages, streaming=True, system_prompt=system_prompt, prompt=prompt)
             headers = self._openai_headers(spec, streaming=True)
+            api_name = 'chat.completions.stream'
         else:
             raise RuntimeError('streaming is unsupported for this provider')
 
-        req = urllib.request.Request(spec.endpoint, data=json.dumps(data).encode('utf-8'), headers=headers)
+        req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers)
         attempts = 0
         while True:
             attempts += 1
@@ -343,7 +371,21 @@ class ProviderRouter:
                         if not isinstance(event, dict):
                             continue
                         if spec.kind == 'gemini':
-                            if event_name == 'step.delta' or event.get('event_type') == 'step.delta':
+                            if self.gemini_api == 'generatecontent':
+                                cand_list = event.get('candidates') or []
+                                if cand_list:
+                                    cand = cand_list[0] or {}
+                                    parts = cand.get('content', {}).get('parts', []) or []
+                                    for p in parts:
+                                        if isinstance(p, dict) and p.get('text'):
+                                            chunk = str(p['text'])
+                                            if ttft_ms is None:
+                                                ttft_ms = round((time.monotonic() - started) * 1000, 1)
+                                            text_parts.append(chunk)
+                                            on_delta(chunk)
+                                if event.get('usageMetadata'):
+                                    usage = event.get('usageMetadata') or usage
+                            elif event_name == 'step.delta' or event.get('event_type') == 'step.delta':
                                 delta = event.get('delta') or {}
                                 if delta.get('type') == 'text' and delta.get('text'):
                                     chunk = str(delta['text'])
@@ -376,7 +418,7 @@ class ProviderRouter:
                 usage = dict(usage)
                 if finish_reason:
                     usage['_finish_reason'] = finish_reason
-                return ''.join(text_parts).strip(), usage, 'interactions' if spec.kind == 'gemini' else 'chat.completions.stream', ttft_ms or round((time.monotonic() - started) * 1000, 1)
+                return ''.join(text_parts).strip(), usage, api_name, ttft_ms or round((time.monotonic() - started) * 1000, 1)
             except urllib.error.HTTPError as exc:
                 self._handle_http_error(spec, exc, attempts, deadline)
 
@@ -393,7 +435,7 @@ class ProviderRouter:
                 continue
             started = time.monotonic()
             try:
-                if (spec.kind == 'gemini' and self.gemini_api == 'interactions') or spec.kind == 'openai':
+                if spec.kind == 'gemini' or spec.kind == 'openai':
                     text, usage, api_name, ttft_ms = self._request_stream(spec, system_prompt, prompt, messages, deadline, on_delta)
                 else:
                     text, usage, api_name = self._request(spec, system_prompt, prompt, messages, deadline)
