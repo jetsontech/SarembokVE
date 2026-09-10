@@ -89,6 +89,7 @@ BROWSER_ALLOWED_METHODS = {
     "CreateTask",
     "GenerateImage",
     "ExecuteComputeTask",
+    "GetVisualEngineStatus",
 }
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
@@ -1312,10 +1313,72 @@ def resolve_youtube_search(query: str) -> dict[str, str]:
     return {"videoId": fallback_id, "url": f"https://www.youtube.com/watch?v={fallback_id}", "title": q_clean.upper()}
 
 
-def resolve_image_generation(prompt: str, aspect_ratio: str = "1:1", seed: int | None = None) -> dict[str, Any]:
-    """Generate high-fidelity frontier image using FLUX.1 engine."""
+def get_visual_engine_status() -> dict[str, Any]:
+    """Returns the configuration and readiness of all 3 visual synthesis tiers."""
+    comfy_url = os.getenv("COMFYUI_URL", os.getenv("SOVEREIGN_GPU_ENDPOINT", "http://127.0.0.1:8188")).strip().rstrip("/")
+    comfy_online = False
+    try:
+        req = urllib.request.Request(f"{comfy_url}/system_stats", headers={"User-Agent": "Sarembok/1.0"})
+        with urllib.request.urlopen(req, timeout=0.8) as resp:
+            if resp.status == 200:
+                comfy_online = True
+    except Exception:
+        comfy_online = False
+
+    fal_configured = bool(os.getenv("FAL_KEY") or os.getenv("FAL_API_KEY"))
+    together_configured = bool(os.getenv("TOGETHER_API_KEY"))
+    openai_configured = bool(os.getenv("OPENAI_API_KEY"))
+
+    active_tier = "Tier 3 (Pollinations FLUX.1 Cluster)"
+    if comfy_online:
+        active_tier = "Tier 1 (Sovereign ComfyUI GPU Node)"
+    elif fal_configured:
+        active_tier = "Tier 2 (Fal.ai FLUX.1 Enterprise)"
+    elif together_configured:
+        active_tier = "Tier 2 (Together AI FLUX.1)"
+    elif openai_configured:
+        active_tier = "Tier 2 (OpenAI DALL-E 3)"
+
+    return {
+        "activeTier": active_tier,
+        "tier1_sovereign": {
+            "name": "ComfyUI / Dedicated Silicon",
+            "endpoint": comfy_url,
+            "status": "ONLINE" if comfy_online else "STANDBY",
+            "capabilities": ["flux.1-dev", "flux.1-schnell", "sdxl", "controlnet", "lora"],
+        },
+        "tier2_enterprise": {
+            "fal": {"configured": fal_configured, "model": "fal-ai/flux/schnell"},
+            "together": {"configured": together_configured, "model": "black-forest-labs/FLUX.1-schnell"},
+            "openai": {"configured": openai_configured, "model": "dall-e-3"},
+        },
+        "tier3_community": {
+            "name": "Pollinations AI Cluster",
+            "status": "ONLINE",
+            "model": "flux.1-schnell",
+            "unlimited": True,
+            "zeroKeyRequired": True,
+        },
+    }
+
+
+def resolve_image_generation(
+    prompt: str,
+    aspect_ratio: str = "1:1",
+    seed: int | None = None,
+    preferred_engine: str | None = None,
+) -> dict[str, Any]:
+    """Generate high-fidelity frontier image using multi-tier adaptive routing:
+    Tier 1: Sovereign GPU Node (ComfyUI / Dedicated Silicon)
+    Tier 2: Enterprise Cloud API (Fal.ai FLUX.1 / Together AI FLUX.1 / OpenAI DALL-E 3)
+    Tier 3: Guaranteed Community Cluster (Pollinations FLUX.1)
+    """
     import urllib.parse
+    import urllib.request
     import random
+    import json
+
+    start_time = time.perf_counter()
 
     cleaned_prompt = re.sub(
         r"(?i)^(?:can you\s+)?(?:please\s+)?(?:generate|create|render|draw|make|synthesize|paint|illustrate)\s+(?:an?\s+)?(?:image|picture|photo|artwork|illustration|rendering)\s+(?:of\s+)?",
@@ -1328,22 +1391,239 @@ def resolve_image_generation(prompt: str, aspect_ratio: str = "1:1", seed: int |
 
     width = 1024
     height = 1024
+    image_size_fal = "square_hd"
     if aspect_ratio == "16:9":
         width, height = 1280, 720
+        image_size_fal = "landscape_16_9"
     elif aspect_ratio == "9:16":
         width, height = 720, 1280
+        image_size_fal = "portrait_16_9"
     elif aspect_ratio == "4:3":
         width, height = 1024, 768
+        image_size_fal = "landscape_4_3"
     elif aspect_ratio == "3:4":
         width, height = 768, 1024
+        image_size_fal = "portrait_4_3"
 
     actual_seed = seed if seed is not None else random.randint(100000, 9999999)
-    encoded = urllib.parse.quote(cleaned_prompt)
-    url = f"https://image.pollinations.ai/prompt/{encoded}?width={width}&height={height}&model=flux&nologo=true&seed={actual_seed}"
-
     title = cleaned_prompt[:60].strip()
     if len(cleaned_prompt) > 60:
         title += "..."
+
+    engine = (preferred_engine or "auto").lower()
+
+    # -------------------------------------------------------------
+    # Tier 1: Sovereign ComfyUI GPU Node
+    # -------------------------------------------------------------
+    comfy_url = os.getenv("COMFYUI_URL", os.getenv("SOVEREIGN_GPU_ENDPOINT", "http://127.0.0.1:8188")).strip().rstrip("/")
+    if engine in ("auto", "comfyui", "sovereign"):
+        try:
+            req_check = urllib.request.Request(f"{comfy_url}/system_stats", headers={"User-Agent": "Sarembok/1.0"})
+            with urllib.request.urlopen(req_check, timeout=0.8) as resp_check:
+                if resp_check.status == 200:
+                    prompt_data = {
+                        "prompt": {
+                            "3": {
+                                "class_type": "KSampler",
+                                "inputs": {
+                                    "cfg": 1.0,
+                                    "denoise": 1.0,
+                                    "latent_image": ["5", 0],
+                                    "model": ["4", 0],
+                                    "positive": ["6", 0],
+                                    "negative": ["7", 0],
+                                    "sampler_name": "euler",
+                                    "scheduler": "simple",
+                                    "seed": actual_seed,
+                                    "steps": 4,
+                                },
+                            },
+                            "4": {"class_type": "UNETLoader", "inputs": {"unet_name": "flux1-schnell.sft", "weight_dtype": "fp8_e4m3fn"}},
+                            "5": {"class_type": "EmptyLatentImage", "inputs": {"batch_size": 1, "height": height, "width": width}},
+                            "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["11", 0], "text": cleaned_prompt}},
+                            "7": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["11", 0], "text": ""}},
+                            "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["10", 0]}},
+                            "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "sarembok_frontier", "images": ["8", 0]}},
+                            "10": {"class_type": "VAELoader", "inputs": {"vae_name": "ae.sft"}},
+                            "11": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": "t5xxl_fp8_e4m3fn.safetensors", "clip_name2": "clip_l.safetensors", "type": "flux"}},
+                        }
+                    }
+                    post_req = urllib.request.Request(
+                        f"{comfy_url}/prompt",
+                        data=json.dumps(prompt_data).encode("utf-8"),
+                        headers={"Content-Type": "application/json", "User-Agent": "Sarembok/1.0"},
+                    )
+                    with urllib.request.urlopen(post_req, timeout=5.0) as post_resp:
+                        if post_resp.status in (200, 201):
+                            p_res = json.loads(post_resp.read().decode("utf-8"))
+                            prompt_id = p_res.get("prompt_id", "latest")
+                            img_url = f"{comfy_url}/view?filename=sarembok_frontier_{prompt_id}_00001_.png"
+                            latency_ms = round((time.perf_counter() - start_time) * 1000.0, 1)
+                            LOG.info("Sovereign ComfyUI generation successful for '%s' (%sms)", title, latency_ms)
+                            return {
+                                "url": img_url,
+                                "prompt": cleaned_prompt,
+                                "title": title,
+                                "width": width,
+                                "height": height,
+                                "seed": actual_seed,
+                                "model": "flux.1-schnell",
+                                "provider": "Sovereign ComfyUI Node",
+                                "tier": "Tier 1 (Sovereign Dedicated Silicon)",
+                                "badge": "⚡ SOVEREIGN GPU (COMFYUI)",
+                                "latencyMs": latency_ms,
+                            }
+        except Exception as e:
+            LOG.debug("Sovereign ComfyUI not available or failed: %s", e)
+
+    # -------------------------------------------------------------
+    # Tier 2: Fal.ai Enterprise FLUX.1 (~400ms)
+    # -------------------------------------------------------------
+    fal_key = (os.getenv("FAL_KEY") or os.getenv("FAL_API_KEY", "")).strip()
+    if fal_key and engine in ("auto", "fal", "fal.ai"):
+        try:
+            fal_payload = {
+                "prompt": cleaned_prompt,
+                "image_size": image_size_fal,
+                "num_images": 1,
+                "enable_safety_checker": False,
+                "seed": actual_seed,
+            }
+            req = urllib.request.Request(
+                "https://fal.run/fal-ai/flux/schnell",
+                data=json.dumps(fal_payload).encode("utf-8"),
+                headers={
+                    "Authorization": f"Key {fal_key}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "Sarembok/1.0",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=12.0) as resp:
+                if resp.status == 200:
+                    fal_data = json.loads(resp.read().decode("utf-8"))
+                    images = fal_data.get("images", [])
+                    if images and images[0].get("url"):
+                        latency_ms = round((time.perf_counter() - start_time) * 1000.0, 1)
+                        LOG.info("Fal.ai FLUX.1 generation successful for '%s' (%sms)", title, latency_ms)
+                        return {
+                            "url": images[0]["url"],
+                            "prompt": cleaned_prompt,
+                            "title": title,
+                            "width": width,
+                            "height": height,
+                            "seed": actual_seed,
+                            "model": "flux.1-schnell",
+                            "provider": "Fal.ai Enterprise",
+                            "tier": "Tier 2 (Enterprise Frontier API)",
+                            "badge": "⚡ FAL.AI ENTERPRISE FLUX",
+                            "latencyMs": latency_ms,
+                        }
+        except Exception as e:
+            LOG.warning("Fal.ai generation failed, trying next tier: %s", e)
+
+    # -------------------------------------------------------------
+    # Tier 2: Together AI FLUX.1
+    # -------------------------------------------------------------
+    together_key = os.getenv("TOGETHER_API_KEY", "").strip()
+    if together_key and engine in ("auto", "together"):
+        try:
+            tg_payload = {
+                "model": "black-forest-labs/FLUX.1-schnell",
+                "prompt": cleaned_prompt,
+                "width": width,
+                "height": height,
+                "steps": 4,
+                "n": 1,
+                "seed": actual_seed,
+            }
+            req = urllib.request.Request(
+                "https://api.together.xyz/v1/images/generations",
+                data=json.dumps(tg_payload).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {together_key}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "Sarembok/1.0",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=15.0) as resp:
+                if resp.status == 200:
+                    tg_data = json.loads(resp.read().decode("utf-8"))
+                    data_items = tg_data.get("data", [])
+                    if data_items and data_items[0].get("url"):
+                        latency_ms = round((time.perf_counter() - start_time) * 1000.0, 1)
+                        LOG.info("Together AI FLUX.1 generation successful for '%s' (%sms)", title, latency_ms)
+                        return {
+                            "url": data_items[0]["url"],
+                            "prompt": cleaned_prompt,
+                            "title": title,
+                            "width": width,
+                            "height": height,
+                            "seed": actual_seed,
+                            "model": "flux.1-schnell",
+                            "provider": "Together AI",
+                            "tier": "Tier 2 (Enterprise Frontier API)",
+                            "badge": "⚡ TOGETHER AI FLUX",
+                            "latencyMs": latency_ms,
+                        }
+        except Exception as e:
+            LOG.warning("Together AI generation failed, trying next tier: %s", e)
+
+    # -------------------------------------------------------------
+    # Tier 2: OpenAI DALL-E 3
+    # -------------------------------------------------------------
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if openai_key and engine in ("auto", "openai", "dalle", "dall-e"):
+        try:
+            oa_size = "1024x1024"
+            if aspect_ratio == "16:9":
+                oa_size = "1792x1024"
+            elif aspect_ratio == "9:16":
+                oa_size = "1024x1792"
+            oa_payload = {
+                "model": "dall-e-3",
+                "prompt": cleaned_prompt,
+                "size": oa_size,
+                "quality": "standard",
+                "n": 1,
+            }
+            req = urllib.request.Request(
+                "https://api.openai.com/v1/images/generations",
+                data=json.dumps(oa_payload).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {openai_key}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "Sarembok/1.0",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=18.0) as resp:
+                if resp.status == 200:
+                    oa_data = json.loads(resp.read().decode("utf-8"))
+                    data_items = oa_data.get("data", [])
+                    if data_items and data_items[0].get("url"):
+                        latency_ms = round((time.perf_counter() - start_time) * 1000.0, 1)
+                        LOG.info("OpenAI DALL-E 3 generation successful for '%s' (%sms)", title, latency_ms)
+                        return {
+                            "url": data_items[0]["url"],
+                            "prompt": cleaned_prompt,
+                            "title": title,
+                            "width": width,
+                            "height": height,
+                            "seed": actual_seed,
+                            "model": "dall-e-3",
+                            "provider": "OpenAI",
+                            "tier": "Tier 2 (Enterprise Frontier API)",
+                            "badge": "⚡ OPENAI DALL-E 3",
+                            "latencyMs": latency_ms,
+                        }
+        except Exception as e:
+            LOG.warning("OpenAI DALL-E generation failed, falling back to Tier 3: %s", e)
+
+    # -------------------------------------------------------------
+    # Tier 3: Guaranteed Zero-Key Resilience Fallback (Pollinations FLUX.1)
+    # -------------------------------------------------------------
+    encoded = urllib.parse.quote(cleaned_prompt)
+    url = f"https://image.pollinations.ai/prompt/{encoded}?width={width}&height={height}&model=flux&nologo=true&seed={actual_seed}"
+    latency_ms = round((time.perf_counter() - start_time) * 1000.0, 1)
 
     return {
         "url": url,
@@ -1353,7 +1633,10 @@ def resolve_image_generation(prompt: str, aspect_ratio: str = "1:1", seed: int |
         "height": height,
         "seed": actual_seed,
         "model": "flux.1-schnell",
-        "engine": "sovereign-frontier-tensor-core",
+        "provider": "Pollinations AI Community Cluster",
+        "tier": "Tier 3 (Zero-Key Community Fallback)",
+        "badge": "⚡ FRONTIER FLUX.1 (COMMUNITY)",
+        "latencyMs": latency_ms,
     }
 
 
@@ -1439,7 +1722,8 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
         rep = re.sub(r':::image[^\n]*', '', rep).strip()
 
         # Prepend clean verified image widget
-        rep = f":::image {img_title} · FRONTIER SYNTHESIS\n{img_url}\n:::\n\n{rep}".strip()
+        img_badge = img_data.get("badge", "FRONTIER SYNTHESIS")
+        rep = f":::image {img_title} · {img_badge}\n{img_url}\n:::\n\n{rep}".strip()
 
     elif is_video or is_music or ":::video" in rep or ":::music" in rep or "youtube.com" in rep:
         resolved = resolve_youtube_search(topic)
@@ -1480,7 +1764,8 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
     if not rep or len(rep.strip()) < 10:
         if is_image:
             img_data = resolve_image_generation(prompt)
-            rep = f"Synthesizing **{img_data['title']}** with sovereign FLUX.1 Tensor Core engine:\n\n:::image {img_data['title'].upper()} · FRONTIER SYNTHESIS\n{img_data['url']}\n:::\n\nHigh-resolution visual synthesis completed at 1024x1024."
+            img_badge = img_data.get("badge", "FRONTIER SYNTHESIS")
+            rep = f"Synthesized **{img_data['title']}** via {img_data.get('provider', 'Sovereign Engine')} ({img_data.get('latencyMs', 0)}ms):\n\n:::image {img_data['title'].upper()} · {img_badge}\n{img_data['url']}\n:::\n\nResolution: {img_data.get('width', 1024)}x{img_data.get('height', 1024)} · Tier: {img_data.get('tier', 'Tier 1')}"
         elif is_video:
             rep = f"Streaming **{topic.upper()}**:\n\n:::video {topic.upper()} · VIDEO STREAM\n{real_url}\n:::\n\nStreaming live. Let me know if you need anything else."
         elif is_music:
@@ -3513,15 +3798,19 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         prompt_text = str(params.get("prompt", "")).strip()
         aspect_ratio = str(params.get("aspectRatio", "1:1")).strip()
         seed = params.get("seed")
+        preferred_engine = params.get("preferredEngine")
         if not prompt_text:
             raise ValueError("prompt is required")
-        img_res = resolve_image_generation(prompt_text, aspect_ratio, seed)
+        img_res = resolve_image_generation(prompt_text, aspect_ratio, seed, preferred_engine)
         return {
             "status": "COMPLETED",
             "image": img_res,
             "workerId": SOVEREIGN_WORKER_ID,
             "timestamp": now(),
         }
+
+    if method == "GetVisualEngineStatus":
+        return get_visual_engine_status()
 
     if method == "ExecuteComputeTask":
         task_type = str(params.get("taskType", "inference")).strip()

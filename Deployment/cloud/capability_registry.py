@@ -40,6 +40,7 @@ RPC_CAPABILITIES = {
     'CloseDigitalHumanSession': ('avatar', 'Close an active digital human session.'),
     'GenerateImage': ('frontier-vision', 'Synthesize photorealistic 1024x1024 imagery via FLUX.1 Tensor Core acceleration.'),
     'ExecuteComputeTask': ('compute', 'Execute heavy GPU parallel compute or custom model inference on sovereign nodes.'),
+    'GetVisualEngineStatus': ('frontier-vision', 'Read the health and configuration of all 3 visual synthesis tiers.'),
 }
 
 class CapabilityRegistry:
