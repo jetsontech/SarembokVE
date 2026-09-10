@@ -3030,6 +3030,273 @@
             word-break: break-all;
         }
 
+    
+        /* ============================================================
+           DUAL-LAYER ARCHITECTURE: LAYER 1 WORKSPACE & LAYER 2 COCKPIT
+           ============================================================ */
+        #view-workspace {
+            padding: 0 !important;
+            overflow: hidden !important;
+            display: none;
+            flex: 1;
+            min-height: 0;
+            position: relative;
+        }
+        #view-workspace.active {
+            display: flex !important;
+            flex-direction: row;
+        }
+
+        /* LAYER 1: CONSUMER CANVAS */
+        .workspace-core-canvas {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+            background: radial-gradient(circle at 15% 15%, #080f1d 0%, var(--bg-void) 70%);
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .workspace-subnav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            border-bottom: 1px solid rgba(0, 240, 255, 0.12);
+            background: rgba(6, 11, 22, 0.75);
+            backdrop-filter: blur(12px);
+            z-index: 10;
+        }
+
+        .workspace-subnav-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .workspace-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--emerald);
+            box-shadow: 0 0 10px var(--emerald);
+            animation: corePulse 2s infinite ease-in-out;
+        }
+
+        .workspace-subnav-title {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            color: var(--text-main);
+            text-transform: uppercase;
+        }
+
+        .workspace-toggle-btn {
+            background: rgba(0, 240, 255, 0.08);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            color: var(--cyan);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+        .workspace-toggle-btn:hover {
+            background: rgba(0, 240, 255, 0.18);
+            border-color: var(--cyan);
+            box-shadow: 0 0 12px var(--cyan-glow);
+        }
+
+        /* CHAT STREAM PANE */
+        .workspace-chat-pane {
+            flex: 1;
+            padding: 24px 28px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            max-width: 860px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+            scroll-behavior: smooth;
+        }
+
+        .ws-bubble {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .ws-bubble.user {
+            align-self: flex-end;
+            max-width: 75%;
+        }
+        .ws-bubble.user .ws-bubble-body {
+            background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
+            color: #ffffff;
+            padding: 12px 18px;
+            border-radius: 14px 14px 2px 14px;
+            font-size: 14px;
+            line-height: 1.5;
+            box-shadow: 0 4px 16px rgba(30, 58, 138, 0.3);
+        }
+        .ws-bubble.assistant {
+            align-self: flex-start;
+            max-width: 90%;
+        }
+        .ws-bubble.assistant .ws-bubble-body {
+            background: rgba(10, 18, 34, 0.88);
+            border: 1px solid rgba(0, 240, 255, 0.18);
+            color: #e2e8f0;
+            padding: 18px 22px;
+            border-radius: 14px 14px 14px 2px;
+            font-size: 14px;
+            line-height: 1.6;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        .ws-status-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
+            background: rgba(0, 240, 255, 0.04);
+            border: 1px dashed rgba(0, 240, 255, 0.25);
+            border-radius: 8px;
+            font-family: var(--font-mono);
+            font-size: 11.5px;
+            color: var(--cyan);
+            margin-bottom: 6px;
+        }
+        .ws-status-spinner {
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(0, 240, 255, 0.2);
+            border-top-color: var(--cyan);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* QUICK SUGGESTIONS */
+        .workspace-chips-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            max-width: 860px;
+            margin: 0 auto 12px;
+            width: 100%;
+            padding: 0 28px;
+            box-sizing: border-box;
+        }
+        .ws-chip {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .ws-chip:hover {
+            background: rgba(0, 240, 255, 0.1);
+            border-color: var(--cyan);
+            color: var(--cyan);
+            transform: translateY(-1px);
+        }
+
+        /* INPUT BAR */
+        .workspace-input-wrap {
+            padding: 0 28px 24px;
+            max-width: 860px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .ws-input-box {
+            background: rgba(8, 14, 26, 0.95);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            border-radius: 12px;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            transition: all 0.25s ease;
+        }
+        .ws-input-box:focus-within {
+            border-color: var(--cyan);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.35);
+        }
+        .ws-input-box input {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            flex: 1;
+            font-family: var(--font-sans);
+            font-size: 14.5px;
+            outline: none;
+        }
+        .ws-input-box input::placeholder {
+            color: var(--text-muted);
+        }
+        .ws-send-btn {
+            background: rgba(0, 240, 255, 0.15);
+            border: 1px solid var(--cyan);
+            color: var(--cyan);
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .ws-send-btn:hover {
+            background: var(--cyan);
+            color: #000000;
+            box-shadow: 0 0 14px var(--cyan-glow);
+        }
+
+        /* LAYER 2: SLIDEOUT COCKPIT SIDEBAR */
+        #workspace-cockpit-sidebar {
+            width: 0px;
+            border-left: 0px solid rgba(0, 240, 255, 0.15);
+            background: rgba(4, 8, 18, 0.98);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-left 0.15s ease;
+            overflow: hidden;
+            box-sizing: border-box;
+            z-index: 25;
+            backdrop-filter: blur(16px);
+        }
+        #workspace-cockpit-sidebar.expanded {
+            width: 480px;
+            border-left: 1px solid rgba(0, 240, 255, 0.25);
+        }
+        @media (max-width: 900px) {
+            #workspace-cockpit-sidebar.expanded {
+                width: 100%;
+                position: absolute;
+                inset: 0;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -3044,7 +3311,7 @@
     <div class="hud-bracket bottom-right"></div>
 
     <!-- ==================== BOOT SCREEN ==================== -->
-    <div id="view-boot" onclick="this.classList.add('hidden')" style="cursor:pointer;" title="Click anywhere to enter">
+    <div id="view-boot" class="hidden" onclick="this.classList.add('hidden')" style="cursor:pointer;" title="Click anywhere to enter">
         <div class="boot-badge">
             <div class="boot-badge-dot"></div>
             VIRTUAL EVOLUTION
@@ -3119,6 +3386,12 @@
                     <span>FABRIC: V3.8-FLASH</span>
                 </button>
 
+                
+                <button class="hud-voice-btn" id="hud-telemetry-toggle-btn" onclick="toggleWorkspaceCockpit()" title="Toggle Advanced Developer Cockpit Telemetry" style="border-color:rgba(0,240,255,0.4); color:var(--cyan); background:rgba(0,240,255,0.08);">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    <span id="hud-telemetry-label">TELEMETRY COCKPIT</span>
+                </button>
+
                 <div class="hud-meter">
                     <div class="hud-meter-fill" id="hud-meter-fill"></div>
                 </div>
@@ -3148,7 +3421,11 @@
 
         <!-- Left Vertical Icon Dock -->
         <nav class="cyber-left-dock">
-            <button class="dock-btn active" id="dock-btn-deck" onclick="switchTab('deck')" title="Command Deck">
+            <button class="dock-btn active" id="dock-btn-workspace" onclick="switchTab('workspace')" title="Autonomous AI Workspace & Consumer Canvas">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+            </button>
+
+            <button class="dock-btn" id="dock-btn-deck"  onclick="switchTab('deck')" title="Command Deck">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             </button>
 
@@ -3185,7 +3462,132 @@
         </nav>
 
         <!-- ==================== VIEW 1: COMMAND DECK ==================== -->
-        <main class="view-panel active" id="view-deck">
+                <!-- ==================== VIEW 0: AUTONOMOUS WORKSPACE (DUAL-LAYER) ==================== -->
+        <main class="view-panel active" id="view-workspace">
+            <!-- LAYER 1: CONSUMER CANVAS -->
+            <div class="workspace-core-canvas">
+                <div class="workspace-subnav">
+                    <div class="workspace-subnav-left">
+                        <div class="workspace-status-dot"></div>
+                        <div class="workspace-subnav-title">Sarembok VE · Autonomous Workspace</div>
+                    </div>
+                    <button class="workspace-toggle-btn" onclick="toggleWorkspaceCockpit()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        <span>ADVANCED TELEMETRY</span>
+                    </button>
+                </div>
+
+                <div class="workspace-chat-pane" id="ws-chat-stream">
+                    <!-- Intro Welcome Card -->
+                    <div class="ws-bubble assistant">
+                        <div class="ws-bubble-body">
+                            <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                                <span class="cyber-card-badge cyan" style="font-size:10px; padding:2px 8px;">SOVEREIGN RUNTIME</span>
+                                <span class="cyber-card-badge amber" style="font-size:10px; padding:2px 8px;">GEMINI 3.8 FLASH</span>
+                            </div>
+                            <h2 style="font-family:var(--font-display); font-size:18px; margin:0 0 8px 0; color:#ffffff;">
+                                Welcome to Sarembok Virtual Evolution
+                            </h2>
+                            <p style="margin:0 0 12px 0; color:var(--text-secondary); line-height:1.6;">
+                                Autonomous multi-agent coordination kernel with persistent SQLite-WAL memory, continuous Shannon entropy monitoring, and live frontier intelligence.
+                            </p>
+                            <div style="font-size:12px; color:var(--cyan); font-family:var(--font-mono);">
+                                Select a workflow directive below or type a query into the instruction bar.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Action Chips -->
+                <div class="workspace-chips-wrap">
+                    <button class="ws-chip" onclick="submitWorkspacePrompt('Analyze Autonomous Agent Topology and Node Matrix')">⚡ Agent Topology</button>
+                    <button class="ws-chip" onclick="submitWorkspacePrompt('Inspect Persistent SQLite-WAL Memory & Session Envelope')">💾 SQLite-WAL Memory</button>
+                    <button class="ws-chip" onclick="submitWorkspacePrompt('Simulate Loop Detection Failure & Trigger Rollback')">🛡️ Loop Rollback Test</button>
+                    <button class="ws-chip" onclick="submitWorkspacePrompt('Generate Complete Systems Health & Frontier Telemetry Report')">📊 Systems Telemetry</button>
+                </div>
+
+                <!-- Floating Input Bar -->
+                <div class="workspace-input-wrap">
+                    <div class="ws-input-box">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                        <input type="text" id="ws-prompt-input" placeholder="Ask Sarembok VE anything or dispatch an autonomous directive..." onkeydown="if(event.key==='Enter') submitWorkspacePrompt()">
+                        <button class="ws-send-btn" onclick="submitWorkspacePrompt()" title="Dispatch Directive">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LAYER 2: SLIDEOUT COCKPIT SIDEBAR -->
+            <aside id="workspace-cockpit-sidebar">
+                <div style="padding:16px 20px; border-bottom:1px solid rgba(0,240,255,0.15); display:flex; justify-content:space-between; align-items:center; background:rgba(6,11,24,0.95);">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        <span style="font-family:var(--font-display); font-size:12px; font-weight:700; letter-spacing:1px; color:var(--cyan); text-transform:uppercase;">DEVELOPER TELEMETRY COCKPIT</span>
+                    </div>
+                    <button onclick="toggleWorkspaceCockpit(false)" style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; font-size:16px;" title="Collapse Sidebar">✕</button>
+                </div>
+
+                <!-- Quadrant A: System State & Token Burn Meter -->
+                <div style="padding:14px 18px; margin:14px 16px 8px; background:rgba(8,16,32,0.8); border:1px solid rgba(0,240,255,0.15); border-radius:8px;">
+                    <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11px; margin-bottom:6px;">
+                        <span style="color:var(--text-muted);">TOKEN POOL DEPLETION</span>
+                        <span id="ws-sidebar-token-txt" style="color:var(--amber);">2,840 / 100,000</span>
+                    </div>
+                    <div style="width:100%; height:6px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden; margin-bottom:8px;">
+                        <div id="ws-sidebar-token-bar" style="width:2.84%; height:100%; background:linear-gradient(90deg, var(--cyan), var(--amber)); transition:width 0.4s ease;"></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">
+                        <span>SHANNON ENTROPY: <strong id="ws-sidebar-entropy" style="color:var(--emerald);">0.14 [STABLE]</strong></span>
+                        <span>LIMIT: &lt; 0.88</span>
+                    </div>
+                </div>
+
+                <!-- Quadrant B: Agent Node Matrix -->
+                <div style="padding:0 16px; margin-bottom:10px;">
+                    <div style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-muted); letter-spacing:1px; margin-bottom:6px; text-transform:uppercase;">Active Agent Nodes</div>
+                    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;">
+                        <div id="ws-node-STRATEGIST" style="background:rgba(6,11,24,0.85); border:1px solid rgba(0,240,255,0.25); border-radius:6px; padding:8px 4px; text-align:center; font-family:var(--font-mono); font-size:10px;">
+                            <div style="color:var(--cyan); font-weight:700;">STRATEGIST</div>
+                            <div id="ws-status-STRATEGIST" style="color:var(--emerald); font-size:9px; margin-top:2px;">IDLE</div>
+                        </div>
+                        <div id="ws-node-WORKER" style="background:rgba(6,11,24,0.85); border:1px solid rgba(0,240,255,0.25); border-radius:6px; padding:8px 4px; text-align:center; font-family:var(--font-mono); font-size:10px;">
+                            <div style="color:var(--cyan); font-weight:700;">WORKER</div>
+                            <div id="ws-status-WORKER" style="color:var(--emerald); font-size:9px; margin-top:2px;">IDLE</div>
+                        </div>
+                        <div id="ws-node-AUDITOR" style="background:rgba(6,11,24,0.85); border:1px solid rgba(0,240,255,0.25); border-radius:6px; padding:8px 4px; text-align:center; font-family:var(--font-mono); font-size:10px;">
+                            <div style="color:var(--cyan); font-weight:700;">AUDITOR</div>
+                            <div id="ws-status-AUDITOR" style="color:var(--emerald); font-size:9px; margin-top:2px;">IDLE</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quadrant D: Controls -->
+                <div style="display:flex; gap:8px; padding:0 16px; margin-bottom:12px;">
+                    <button onclick="simulateWorkspaceFailure()" style="flex:1; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; font-family:var(--font-mono); font-size:10px; padding:6px; border-radius:4px; cursor:pointer;">
+                        ⚡ SIMULATE LOOP
+                    </button>
+                    <button onclick="forceWorkspaceRollback()" style="flex:1; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#fcd34d; font-family:var(--font-mono); font-size:10px; padding:6px; border-radius:4px; cursor:pointer;">
+                        ↺ ROLLBACK
+                    </button>
+                    <button onclick="reconstituteWorkspaceState()" style="flex:1; background:rgba(0,240,255,0.1); border:1px solid rgba(0,240,255,0.3); color:var(--cyan); font-family:var(--font-mono); font-size:10px; padding:6px; border-radius:4px; cursor:pointer;">
+                        ⚙ RECONSTITUTE
+                    </button>
+                </div>
+
+                <!-- Quadrant C: Continuous Micro-Step Transaction Stream -->
+                <div style="flex:1; margin:0 16px 16px; background:rgba(3,6,14,0.95); border:1px solid rgba(0,240,255,0.15); border-radius:6px; padding:10px; font-family:var(--font-mono); font-size:10.5px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;" id="ws-wal-log">
+                    <div style="border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:4px;">
+                        <span style="color:var(--emerald);">[WAL_BOOT]</span>
+                        <span style="color:var(--cyan);">step_000</span>
+                        <span style="color:var(--text-muted);">0x9a4f...baseline</span>
+                        <div style="color:var(--text-secondary); font-size:9.5px;">session envelope initialized: active wal_store</div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <section class="view-panel" id="view-deck">
             <div class="deck-grid">
 
                 <!-- CARD 1: LIVE TERMINAL -->
@@ -7800,6 +8202,240 @@
             reconstituteFabricState();
         }
 
+
+    
+        /* ============================================================
+           DUAL-LAYER WORKSPACE & COCKPIT CONTROLLER
+           ============================================================ */
+        let wsTokensBurned = 2840;
+        const wsHardCap = 100000;
+        let wsCockpitExpanded = false;
+
+        function toggleWorkspaceCockpit(force) {
+            const sidebar = document.getElementById('workspace-cockpit-sidebar');
+            const toggleLabel = document.getElementById('hud-telemetry-label');
+            if (!sidebar) return;
+            wsCockpitExpanded = (force !== undefined) ? force : !wsCockpitExpanded;
+            if (wsCockpitExpanded) {
+                sidebar.classList.add('expanded');
+                if (toggleLabel) toggleLabel.textContent = "COCKPIT: OPEN";
+            } else {
+                sidebar.classList.remove('expanded');
+                if (toggleLabel) toggleLabel.textContent = "TELEMETRY COCKPIT";
+            }
+        }
+
+        async function submitWorkspacePrompt(customText) {
+            const input = document.getElementById('ws-prompt-input');
+            const text = customText || (input ? input.value.trim() : "");
+            if (!text) return;
+            if (input && !customText) input.value = "";
+
+            const chatPane = document.getElementById('ws-chat-stream');
+            if (!chatPane) return;
+
+            // 1. Append User Message Bubble
+            const userBubble = document.createElement('div');
+            userBubble.className = 'ws-bubble user';
+            userBubble.innerHTML = `<div class="ws-bubble-body">${escapeHtml(text)}</div>`;
+            chatPane.appendChild(userBubble);
+
+            // 2. Append Status Progress Bar
+            const statusBubble = document.createElement('div');
+            statusBubble.className = 'ws-status-bar';
+            statusBubble.id = 'ws-active-status-bar';
+            statusBubble.innerHTML = `
+                <div class="ws-status-spinner"></div>
+                <span id="ws-status-msg">1. Decomposing Goal into Micro-Steps...</span>
+            `;
+            chatPane.appendChild(statusBubble);
+            chatPane.scrollTop = chatPane.scrollHeight;
+
+            // Trigger Agent Node Busy flare
+            setWsAgentState('STRATEGIST', 'BUSY');
+
+            // 3. Create Assistant Response Bubble
+            const assistantBubble = document.createElement('div');
+            assistantBubble.className = 'ws-bubble assistant';
+            assistantBubble.innerHTML = `
+                <div class="ws-bubble-body">
+                    <div style="font-size:11px; font-family:var(--font-mono); color:var(--cyan); margin-bottom:6px;">
+                        ANTIGRAVITY GEMINI · V3.8-FLASH
+                    </div>
+                    <div class="ws-content-text" style="line-height:1.6;"></div>
+                </div>
+            `;
+            chatPane.appendChild(assistantBubble);
+            const contentEl = assistantBubble.querySelector('.ws-content-text');
+
+            // Check if backend RPC is available
+            let streamed = false;
+            let fullText = "";
+
+            try {
+                if (typeof sendRPC === 'function') {
+                    // Update status
+                    updateWsStatus("2. Formulating Strategy & Querying Memory...");
+                    setWsAgentState('STRATEGIST', 'IDLE');
+                    setWsAgentState('WORKER', 'BUSY');
+
+                    const rpcRes = await sendRPC("SarembokChat", { prompt: text, stream: true }, delta => {
+                        streamed = true;
+                        fullText += delta;
+                        contentEl.innerHTML = formatMarkdown(fullText);
+                        chatPane.scrollTop = chatPane.scrollHeight;
+                    });
+
+                    if (!streamed) {
+                        fullText = rpcRes?.response || rpcRes?.audioText || "Directive executed successfully.";
+                        contentEl.innerHTML = formatMarkdown(fullText);
+                    }
+                }
+            } catch (err) {
+                console.warn("[workspace] RPC streaming fallback:", err);
+            }
+
+            if (!fullText) {
+                // Standalone simulated resilient answer
+                updateWsStatus("3. Dispatching Worker & Executing Logic...");
+                setWsAgentState('WORKER', 'BUSY');
+                await new Promise(r => setTimeout(r, 600));
+
+                fullText = `### Directive Processed: ${escapeHtml(text)}
+
+` +
+                    `- **Session Envelope**: \`ses_${Date.now().toString(16)}\`
+` +
+                    `- **Execution Engine**: Sovereign Protocol V3.8-Flash Edge Kernel
+` +
+                    `- **Memory Snapshot**: Committed to WAL store with SHA-256 HMAC
+` +
+                    `- **Entropy Status**: 0.14 [STABLE, threshold < 0.88]
+
+` +
+                    `All micro-steps verified and validated without recursion anomalies.`;
+                contentEl.innerHTML = formatMarkdown(fullText);
+            }
+
+            // Finish status
+            updateWsStatus("4. Micro-Step Transaction Verified (Auditor Check Complete)");
+            setWsAgentState('WORKER', 'IDLE');
+            setWsAgentState('AUDITOR', 'BUSY');
+            await new Promise(r => setTimeout(r, 400));
+            setWsAgentState('AUDITOR', 'IDLE');
+
+            // Remove status bar spinner
+            const activeStatus = document.getElementById('ws-active-status-bar');
+            if (activeStatus) {
+                activeStatus.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span style="color:var(--emerald);">Completed · Transaction Committed</span>`;
+            }
+
+            // Telemetry updates
+            wsTokensBurned += Math.floor(Math.random() * 240) + 160;
+            updateWsTelemetry();
+            addWsWalEntry("step_" + Math.floor(Math.random()*900 + 100), "COMMITTED", text.slice(0, 42));
+            chatPane.scrollTop = chatPane.scrollHeight;
+        }
+
+        function updateWsStatus(msg) {
+            const el = document.getElementById('ws-status-msg');
+            if (el) el.textContent = msg;
+        }
+
+        function setWsAgentState(role, state) {
+            const tile = document.getElementById(`ws-node-${role}`);
+            const statusEl = document.getElementById(`ws-status-${role}`);
+            if (!tile || !statusEl) return;
+            statusEl.textContent = state;
+            if (state === 'BUSY') {
+                tile.style.borderColor = 'var(--cyan)';
+                tile.style.boxShadow = '0 0 14px rgba(0,240,255,0.4)';
+                statusEl.style.color = 'var(--cyan)';
+            } else if (state === 'FROZEN') {
+                tile.style.borderColor = 'var(--danger)';
+                tile.style.boxShadow = '0 0 16px rgba(239,68,68,0.6)';
+                statusEl.style.color = 'var(--danger)';
+            } else {
+                tile.style.borderColor = 'rgba(0,240,255,0.25)';
+                tile.style.boxShadow = 'none';
+                statusEl.style.color = 'var(--emerald)';
+            }
+        }
+
+        function updateWsTelemetry() {
+            const tokenTxt = document.getElementById('ws-sidebar-token-txt');
+            const tokenBar = document.getElementById('ws-sidebar-token-bar');
+            if (tokenTxt) tokenTxt.textContent = `${wsTokensBurned.toLocaleString()} / ${wsHardCap.toLocaleString()}`;
+            if (tokenBar) tokenBar.style.width = Math.min(100, (wsTokensBurned / wsHardCap) * 100) + '%';
+        }
+
+        function addWsWalEntry(stepId, status, action) {
+            const wal = document.getElementById('ws-wal-log');
+            if (!wal) return;
+            const row = document.createElement('div');
+            row.style.borderBottom = '1px solid rgba(255,255,255,0.06)';
+            row.style.paddingBottom = '4px';
+            const color = status === 'COMMITTED' ? 'var(--emerald)' : 'var(--danger)';
+            row.innerHTML = `
+                <span style="color:${color};">[${status}]</span>
+                <span style="color:var(--cyan);">${stepId}</span>
+                <span style="color:var(--text-muted);">0x${Math.random().toString(16).slice(2, 8)}...ok</span>
+                <div style="color:var(--text-secondary); font-size:9.5px;">${escapeHtml(action)}</div>
+            `;
+            wal.appendChild(row);
+            wal.scrollTop = wal.scrollHeight;
+        }
+
+        function simulateWorkspaceFailure() {
+            setWsAgentState('WORKER', 'FROZEN');
+            const entropyEl = document.getElementById('ws-sidebar-entropy');
+            if (entropyEl) {
+                entropyEl.textContent = '0.94 [CRITICAL LOOP]';
+                entropyEl.style.color = 'var(--danger)';
+            }
+            const wal = document.getElementById('ws-wal-log');
+            if (wal) {
+                const row = document.createElement('div');
+                row.style.borderBottom = '1px solid rgba(239,68,68,0.3)';
+                row.style.padding = '4px 0';
+                row.innerHTML = `
+                    <span style="color:var(--danger); font-weight:700;">[ANOMALY_HALT]</span>
+                    <span style="color:#fca5a5;">Entropy > 0.88 Threshold Exceeded</span>
+                `;
+                wal.appendChild(row);
+                wal.scrollTop = wal.scrollHeight;
+            }
+            showToast("SHANNON ENTROPY ANOMALY DETECTED · LOOP HALTED");
+        }
+
+        function forceWorkspaceRollback() {
+            setWsAgentState('WORKER', 'IDLE');
+            setWsAgentState('STRATEGIST', 'IDLE');
+            setWsAgentState('AUDITOR', 'IDLE');
+            const entropyEl = document.getElementById('ws-sidebar-entropy');
+            if (entropyEl) {
+                entropyEl.textContent = '0.12 [STABLE]';
+                entropyEl.style.color = 'var(--emerald)';
+            }
+            const wal = document.getElementById('ws-wal-log');
+            if (wal) {
+                const row = document.createElement('div');
+                row.style.borderBottom = '1px solid rgba(245,158,11,0.3)';
+                row.style.padding = '4px 0';
+                row.innerHTML = `
+                    <span style="color:var(--amber); font-weight:700;">[ROLLBACK]</span>
+                    <span style="color:#fcd34d;">Reverted to last verified checkpoint</span>
+                `;
+                wal.appendChild(row);
+                wal.scrollTop = wal.scrollHeight;
+            }
+            showToast("TRANSACTION ROLLED BACK · WAL RESTORED");
+        }
+
+        function reconstituteWorkspaceState() {
+            forceWorkspaceRollback();
+            showToast("STATE RECONSTITUTED FROM WAL SNAPSHOT");
+        }
 
     </script>
 

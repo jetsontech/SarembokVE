@@ -44,6 +44,7 @@ services:
     volumes:
       - sarembok-caddy-data:/data
       - sarembok-caddy-config:/config
+      - ../../frontend:/srv:ro
     security_opt:
       - no-new-privileges:true
     cap_drop:
