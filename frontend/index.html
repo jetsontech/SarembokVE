@@ -11,6 +11,24 @@
     <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
+        /* Universal Dark Cyber Element Resets */
+        button {
+            background: transparent;
+            border: none;
+            color: inherit;
+            font-family: inherit;
+            cursor: pointer;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        input, select, textarea {
+            background: transparent;
+            color: inherit;
+            font-family: inherit;
+            outline: none;
+        }
+
         /* ============================================================
            SAREMBOK VE — CYBERNETIC COMMAND DECK DESIGN SYSTEM
            ============================================================ */
@@ -1788,7 +1806,9 @@
             .header-hud-group {
                 gap: 14px;
             }
-                @media (max-width: 768px) {
+        }
+
+        @media (max-width: 768px) {
             /* 1. Base App layout & Bottom Dock navigation */
             #app {
                 padding-left: 0;
@@ -3297,6 +3317,59 @@
             }
         }
 
+    
+        /* ENHANCED DARK CYBER SURFACES (NO WHITE BLEED) */
+        .workspace-toggle-btn {
+            background: rgba(0, 240, 255, 0.08) !important;
+            border: 1px solid rgba(0, 240, 255, 0.35) !important;
+            color: var(--cyan) !important;
+            border-radius: 6px !important;
+            padding: 6px 14px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+        }
+        .workspace-toggle-btn:hover {
+            background: rgba(0, 240, 255, 0.2) !important;
+            border-color: var(--cyan) !important;
+            box-shadow: 0 0 14px var(--cyan-glow) !important;
+        }
+        .ws-chip {
+            background: rgba(0, 240, 255, 0.06) !important;
+            border: 1px solid rgba(0, 240, 255, 0.25) !important;
+            color: #cbd5e1 !important;
+            border-radius: 20px !important;
+            padding: 6px 14px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+        }
+        .ws-chip:hover {
+            background: rgba(0, 240, 255, 0.18) !important;
+            border-color: var(--cyan) !important;
+            color: var(--cyan) !important;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.3) !important;
+        }
+        .hud-voice-btn {
+            background: rgba(0, 240, 255, 0.08) !important;
+            border: 1px solid rgba(0, 240, 255, 0.3) !important;
+            border-radius: 6px !important;
+            color: var(--cyan) !important;
+        }
+        .hud-voice-btn:hover {
+            background: rgba(0, 240, 255, 0.18) !important;
+            border-color: var(--cyan) !important;
+        }
+        .ws-input-box {
+            background: rgba(6, 11, 24, 0.96) !important;
+            border: 1px solid rgba(0, 240, 255, 0.3) !important;
+        }
+        .ws-input-box input {
+            background: transparent !important;
+            border: none !important;
+            color: #ffffff !important;
+            outline: none !important;
+        }
+
     </style>
 </head>
 <body>
@@ -4304,7 +4377,7 @@
                     <div style="background:rgba(0,0,0,0.45); border:1px solid rgba(16,185,129,0.25); border-radius:8px; padding:10px 16px; min-width:160px;" id="fabric-entropy-card">
                         <div style="display:flex; justify-content:space-between; font-size:9px; font-family:var(--font-mono); color:var(--text-muted); letter-spacing:1px; margin-bottom:2px;">
                             <span>SHANNON ENTROPY</span>
-                            <span style="font-size:9px; color:var(--text-muted);">THRESHOLD &lt; 0.88</span>
+                            <span style="font-size:9px; color:var(--text-muted); margin-left:12px;">THRESHOLD &lt; 0.88</span>
                         </div>
                         <div style="font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--emerald);" id="fabric-entropy-val">
                             0.14 [STABLE]
