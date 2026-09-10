@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ANTIGRAVITY GEMINI FABRIC // COCKPIT ENGINE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-void: #030712;
+            --bg-surface: #0a0f1d;
+            --bg-card: rgba(13, 22, 38, 0.75);
+            --border-glass: rgba(0, 240, 255, 0.15);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --cyan: #00f0ff;
+            --cyan-glow: 0 0 16px rgba(0, 240, 255, 0.45);
+            --blue-busy: #2563eb;
+            --blue-busy-glow: 0 0 20px rgba(37, 99, 235, 0.65);
+            --red-frozen: #ef4444;
+            --red-frozen-glow: 0 0 24px rgba(239, 68, 68, 0.8);
+            --amber: #f59e0b;
+            --emerald: #10b981;
+            --emerald-glow: 0 0 12px rgba(16, 185, 129, 0.45);
+            --text-main: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --font-display: 'Chakra Petch', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-sans: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg-void);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Scanline Overlay */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* ==================== QUADRANT A: HEADER ==================== */
+        .cockpit-header {
+            background: linear-gradient(180deg, rgba(10, 16, 32, 0.95), rgba(5, 8, 18, 0.95));
+            border-bottom: 1px solid var(--border-glass);
+            padding: 16px 28px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .header-logo {
+            width: 36px;
+            height: 36px;
+            background: rgba(0, 240, 255, 0.08);
+            border: 1px solid var(--cyan);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--cyan-glow);
+        }
+
+        .header-titles h1 {
+            font-family: var(--font-display);
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-titles .subhead {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+        }
+
+        .telemetry-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 20px;
+        }
+
+        /* Pulse Indicator */
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .pulse-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        /* Pulse Animations */
+        .pulse-green {
+            background: var(--emerald);
+            box-shadow: 0 0 12px var(--emerald);
+            animation: pulseGreen 1.2s infinite;
+        }
+        @keyframes pulseGreen {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1.15); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        .pulse-yellow {
+            background: var(--amber);
+            box-shadow: 0 0 12px var(--amber);
+            animation: pulseYellow 1.6s infinite;
+        }
+        @keyframes pulseYellow {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+            70% { transform: scale(1.15); box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+
+        .pulse-red {
+            background: var(--red-frozen);
+            box-shadow: 0 0 16px var(--red-frozen);
+        }
+
+        /* Token Burn Meter */
+        .burn-meter-box {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 260px;
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 8px 16px;
+        }
+
+        .burn-meter-head {
+            display: flex;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .burn-meter-track {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .burn-meter-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--cyan), var(--amber));
+            border-radius: 4px;
+            transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease;
+        }
+
+        /* ==================== MAIN COCKPIT GRID ==================== */
+        .cockpit-grid {
+            display: grid;
+            grid-template-columns: 1.4fr 1fr;
+            gap: 20px;
+            padding: 24px 28px;
+            flex: 1;
+        }
+        @media (max-width: 1080px) {
+            .cockpit-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Glass Panel Base */
+        .glass-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 14px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(12px);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding-bottom: 12px;
+        }
+
+        .panel-title {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--cyan);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-badge {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: rgba(0, 240, 255, 0.1);
+            color: var(--cyan);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+        }
+
+        /* ==================== QUADRANT B: AGENT GRAPH CANVAS ==================== */
+        .agent-node-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 768px) {
+            .agent-node-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .agent-card {
+            background: rgba(6, 11, 24, 0.85);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: all 0.25s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* State Flares */
+        .agent-card.state-busy {
+            border-color: var(--cyan) !important;
+            box-shadow: var(--cyan-glow), inset 0 0 12px rgba(0, 240, 255, 0.15) !important;
+            animation: pulseBusy 1s infinite alternate;
+        }
+        @keyframes pulseBusy {
+            from { border-color: #00f0ff; box-shadow: 0 0 10px rgba(0, 240, 255, 0.4); }
+            to { border-color: #2563eb; box-shadow: 0 0 24px rgba(37, 99, 235, 0.8); }
+        }
+
+        .agent-card.state-frozen {
+            border-color: var(--red-frozen) !important;
+            box-shadow: var(--red-frozen-glow), inset 0 0 16px rgba(239, 68, 68, 0.25) !important;
+            animation: flashFrozen 0.6s infinite alternate;
+        }
+        @keyframes flashFrozen {
+            0% { background: rgba(30, 10, 14, 0.9); border-color: #ef4444; }
+            100% { background: rgba(50, 12, 18, 0.95); border-color: #ff2222; }
+        }
+
+        .agent-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .agent-name {
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: 0.5px;
+        }
+
+        .agent-badge {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+        }
+        .badge-idle { background: rgba(255, 255, 255, 0.08); color: var(--text-secondary); }
+        .badge-busy { background: rgba(0, 240, 255, 0.2); color: var(--cyan); border: 1px solid var(--cyan); }
+        .badge-frozen { background: rgba(239, 68, 68, 0.25); color: #fca5a5; border: 1px solid var(--red-frozen); }
+
+        .agent-role-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .agent-meta-row {
+            display: flex;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--text-secondary);
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            padding-top: 6px;
+        }
+
+        /* Mission Control Deck */
+        .controls-deck {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .controls-input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .controls-input {
+            flex: 1;
+            background: rgba(4, 8, 18, 0.85);
+            border: 1px solid var(--border-glass);
+            border-radius: 6px;
+            padding: 10px 14px;
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+        .controls-input:focus {
+            border-color: var(--cyan);
+            box-shadow: var(--cyan-glow);
+        }
+
+        .cockpit-btn {
+            background: rgba(0, 240, 255, 0.12);
+            border: 1px solid var(--cyan);
+            color: var(--cyan);
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .cockpit-btn:hover {
+            background: rgba(0, 240, 255, 0.25);
+            box-shadow: var(--cyan-glow);
+            transform: translateY(-1px);
+        }
+        .cockpit-btn.btn-warning {
+            background: rgba(239, 68, 68, 0.12);
+            border-color: var(--red-frozen);
+            color: #fca5a5;
+        }
+        .cockpit-btn.btn-warning:hover {
+            background: rgba(239, 68, 68, 0.25);
+            box-shadow: var(--red-frozen-glow);
+        }
+        .cockpit-btn.btn-subtle {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--border-subtle);
+            color: var(--text-secondary);
+        }
+        .cockpit-btn.btn-subtle:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+        }
+
+        .controls-btn-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        /* Reconstituted State Machine Tree */
+        .reconstituted-box {
+            background: rgba(2, 4, 8, 0.85);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--cyan);
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.5;
+        }
+
+        /* ==================== QUADRANT C: THE LEDGER ==================== */
+        .terminal-container {
+            background: rgba(2, 4, 8, 0.95);
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 520px;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+
+        .terminal-topbar {
+            background: rgba(6, 11, 24, 0.9);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .terminal-feed {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            scroll-behavior: smooth;
+        }
+
+        /* Terminal Entry Card */
+        .terminal-row {
+            background: rgba(8, 14, 28, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-left: 3px solid var(--cyan);
+            border-radius: 6px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }
+        .terminal-row:hover {
+            background: rgba(12, 20, 38, 0.85);
+            border-color: rgba(0, 240, 255, 0.3);
+        }
+
+        /* Rolled-Back Loop Intercept Style */
+        .terminal-row.row-rollback {
+            border-left-color: var(--red-frozen);
+            opacity: 0.55;
+            background: rgba(20, 6, 8, 0.45);
+        }
+        .terminal-row.row-rollback .row-task-id,
+        .terminal-row.row-rollback .row-payload {
+            text-decoration: line-through;
+            color: #94a3b8;
+        }
+
+        .row-meta-line {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+        }
+
+        .row-task-id {
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .row-agent-route {
+            color: var(--amber);
+        }
+
+        /* Auditor Green Validation Block Badge */
+        .audit-badge {
+            background: rgba(16, 185, 129, 0.18);
+            border: 1px solid var(--emerald);
+            color: #a7f3d0;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            box-shadow: var(--emerald-glow);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .audit-badge.badge-rejected {
+            background: rgba(239, 68, 68, 0.18);
+            border-color: var(--red-frozen);
+            color: #fca5a5;
+            box-shadow: none;
+        }
+
+        .row-payload {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 4px;
+            padding: 6px 8px;
+            word-break: break-all;
+            line-height: 1.4;
+        }
+
+        .row-footer {
+            display: flex;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            color: var(--text-muted);
+        }
+
+        /* Toast Popup */
+        .cockpit-toast {
+            position: fixed;
+            bottom: 24px;
+            right: 28px;
+            background: rgba(6, 11, 24, 0.95);
+            border: 1px solid var(--cyan);
+            box-shadow: var(--cyan-glow);
+            border-radius: 8px;
+            padding: 10px 18px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--cyan);
+            display: none;
+            z-index: 1000;
+            animation: slideUp 0.25s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(12px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ==================== QUADRANT A: HEADER ==================== -->
+    <header class="cockpit-header">
+        <div class="header-brand">
+            <div class="header-logo">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                </svg>
+            </div>
+            <div class="header-titles">
+                <h1>ANTIGRAVITY GEMINI FABRIC // COCKPIT</h1>
+                <div class="subhead">V3.8-FLASH-MEDIUM · SOVEREIGN PROTOCOL [DIRECTIVE-01]</div>
+            </div>
+        </div>
+
+        <div class="telemetry-controls">
+            <!-- Visual Pulse Indicator -->
+            <div class="status-pill" id="status-pill-box">
+                <div class="pulse-dot pulse-yellow" id="global-pulse-dot"></div>
+                <span id="global-status-text">AWAITING_WORKLOAD</span>
+            </div>
+
+            <!-- Token Burn Meter -->
+            <div class="burn-meter-box">
+                <div class="burn-meter-head">
+                    <span>TOKEN HARD-CAP</span>
+                    <span id="burn-meter-numbers">0 / 100,000</span>
+                </div>
+                <div class="burn-meter-track">
+                    <div class="burn-meter-fill" id="burn-meter-fill"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ==================== COCKPIT 2-QUADRANT GRID ==================== -->
+    <main class="cockpit-grid">
+        
+        <!-- ==================== QUADRANT B: AGENT GRAPH CANVAS (60%) ==================== -->
+        <section class="glass-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"/><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"/><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"/><line x1="4.93" y1="19.07" x2="9.17" y2="14.83"/>
+                    </svg>
+                    QUADRANT B: AGENT GRAPH CANVAS
+                </div>
+                <span class="panel-badge">FLYWHEEL COMPOSITION</span>
+            </div>
+
+            <!-- 3 Dynamic Node Cards -->
+            <div class="agent-node-grid">
+                <!-- STRATEGIST -->
+                <div class="agent-card" id="card-agent-strategist">
+                    <div class="agent-head">
+                        <span class="agent-name">STRATEGIST</span>
+                        <span class="agent-badge badge-idle" id="badge-strategist">IDLE</span>
+                    </div>
+                    <div class="agent-role-desc">
+                        Decomposes workload payloads into isolated steps; queries WAL state baseline.
+                    </div>
+                    <div class="agent-meta-row">
+                        <span>TASK: <strong id="task-strategist">--</strong></span>
+                        <span id="hb-strategist">SYNC</span>
+                    </div>
+                </div>
+
+                <!-- WORKER -->
+                <div class="agent-card" id="card-agent-worker">
+                    <div class="agent-head">
+                        <span class="agent-name">WORKER</span>
+                        <span class="agent-badge badge-idle" id="badge-worker">IDLE</span>
+                    </div>
+                    <div class="agent-role-desc">
+                        Async micro-step execution engine with 5,000ms strict timeout watchdog.
+                    </div>
+                    <div class="agent-meta-row">
+                        <span>TASK: <strong id="task-worker">--</strong></span>
+                        <span id="hb-worker">SYNC</span>
+                    </div>
+                </div>
+
+                <!-- AUDITOR -->
+                <div class="agent-card" id="card-agent-auditor">
+                    <div class="agent-head">
+                        <span class="agent-name">AUDITOR</span>
+                        <span class="agent-badge badge-idle" id="badge-auditor">IDLE</span>
+                    </div>
+                    <div class="agent-role-desc">
+                        Evaluates Shannon loop entropy (<0.88) and generates verified HMAC signatures.
+                    </div>
+                    <div class="agent-meta-row">
+                        <span>TASK: <strong id="task-auditor">--</strong></span>
+                        <span id="hb-auditor">SYNC</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mission Control Console -->
+            <div class="controls-deck">
+                <div class="controls-input-row">
+                    <input type="text" class="controls-input" id="input-directive" placeholder="Enter workload directive (e.g. Ingest edge telemetry & reconcile)..." onkeydown="if(event.key==='Enter') executeStepAction()">
+                    <button class="cockpit-btn" onclick="executeStepAction()">⚡ DISPATCH STEP</button>
+                </div>
+                <div class="controls-btn-row">
+                    <button class="cockpit-btn btn-warning" onclick="triggerSimulateLoopAction()">⚠️ SIMULATE RECURSIVE LOOP (&ge;0.88)</button>
+                    <button class="cockpit-btn btn-subtle" onclick="reconstituteAction()">🔄 RECONSTITUTE STATE</button>
+                    <button class="cockpit-btn btn-subtle" onclick="resetSessionAction()">🧹 RESET RUNTIME</button>
+                </div>
+            </div>
+
+            <!-- Reconstituted State Inspector -->
+            <div style="margin-top:auto;">
+                <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); margin-bottom:6px; display:flex; justify-content:space-between;">
+                    <span>RECONSTITUTED ACTIVE MEMORY VIEW (committed = 1)</span>
+                    <span id="reconstitute-count-tag">0 STEPS ACTIVE</span>
+                </div>
+                <pre class="reconstituted-box" id="reconstituted-view">// Waiting for telemetry polling...</pre>
+            </div>
+        </section>
+
+        <!-- ==================== QUADRANT C: THE LEDGER & LOOP TELEMETRY (40%) ==================== -->
+        <section class="glass-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                    </svg>
+                    QUADRANT C: THE LEDGER &amp; LOOP TELEMETRY
+                </div>
+                <span class="panel-badge" id="tx-total-badge">0 ROWS</span>
+            </div>
+
+            <div class="terminal-container">
+                <div class="terminal-topbar">
+                    <span>TRANSACTION_LOG // SQLITE-WAL STREAM</span>
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                        <input type="checkbox" id="chk-autoscroll" checked style="accent-color:var(--cyan);">
+                        <span>AUTO-SCROLL</span>
+                    </label>
+                </div>
+
+                <div class="terminal-feed" id="terminal-ledger-feed">
+                    <!-- Dynamic Transaction Entries -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Toast Notification -->
+    <div class="cockpit-toast" id="cockpit-toast">NOTIFICATION</div>
+
+    <script>
+        let lastTransactionCount = 0;
+        let isAutoScrollEnabled = true;
+
+        const chkAutoScroll = document.getElementById("chk-autoscroll");
+        if (chkAutoScroll) {
+            chkAutoScroll.addEventListener("change", (e) => {
+                isAutoScrollEnabled = e.target.checked;
+            });
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById("cockpit-toast");
+            if (!toast) return;
+            toast.textContent = message;
+            toast.style.display = "block";
+            setTimeout(() => { toast.style.display = "none"; }, 2500);
+        }
+
+        /* ==================== TELEMETRY POLLING (EVERY 500MS) ==================== */
+        async function fetchTelemetry() {
+            try {
+                const res = await fetch("/api/telemetry");
+                if (!res.ok) return;
+                const data = await res.json();
+                renderTelemetry(data);
+            } catch (err) {
+                console.warn("[COCKPIT] Telemetry poll failed:", err.message);
+            }
+        }
+
+        function renderTelemetry(data) {
+            const { session, agents, transactions, reconstitutedState } = data;
+
+            // 1. QUADRANT A: HEADER
+            if (session) {
+                const statusDot = document.getElementById("global-pulse-dot");
+                const statusText = document.getElementById("global-status-text");
+
+                if (statusDot && statusText) {
+                    statusText.textContent = session.global_status;
+                    statusDot.className = "pulse-dot";
+
+                    if (session.global_status === "RUNNING") {
+                        statusDot.classList.add("pulse-green");
+                    } else if (session.global_status === "HALTED") {
+                        statusDot.classList.add("pulse-red");
+                    } else {
+                        statusDot.classList.add("pulse-yellow");
+                    }
+                }
+
+                const burnNumbers = document.getElementById("burn-meter-numbers");
+                const burnFill = document.getElementById("burn-meter-fill");
+                if (burnNumbers && burnFill) {
+                    const burned = session.token_burned || 0;
+                    const cap = session.hard_cap || 100000;
+                    const pct = Math.min(100, (burned / cap) * 100);
+
+                    burnNumbers.textContent = `${burned.toLocaleString()} / ${cap.toLocaleString()} (${pct.toFixed(1)}%)`;
+                    burnFill.style.width = `${pct}%`;
+
+                    if (burned >= cap) {
+                        burnFill.style.background = "var(--red-frozen)";
+                    } else {
+                        burnFill.style.background = "linear-gradient(90deg, var(--cyan), var(--amber))";
+                    }
+                }
+            }
+
+            // 2. QUADRANT B: AGENT NODES
+            if (Array.isArray(agents)) {
+                agents.forEach(agent => {
+                    const id = agent.agent_id.toLowerCase();
+                    const card = document.getElementById(`card-agent-${id}`);
+                    const badge = document.getElementById(`badge-${id}`);
+                    const taskEl = document.getElementById(`task-${id}`);
+                    const hbEl = document.getElementById(`hb-${id}`);
+
+                    if (badge) {
+                        badge.textContent = agent.status;
+                        badge.className = "agent-badge " + (
+                            agent.status === "BUSY" ? "badge-busy" :
+                            agent.status === "FROZEN" ? "badge-frozen" : "badge-idle"
+                        );
+                    }
+
+                    if (card) {
+                        card.className = "agent-card";
+                        if (agent.status === "BUSY") {
+                            card.classList.add("state-busy");
+                        } else if (agent.status === "FROZEN") {
+                            card.classList.add("state-frozen");
+                        }
+                    }
+
+                    if (taskEl) taskEl.textContent = agent.current_task_id || "--";
+                    if (hbEl && agent.last_heartbeat) {
+                        hbEl.textContent = agent.last_heartbeat.split(" ")[1] || "ONLINE";
+                    }
+                });
+            }
+
+            // Reconstituted State View
+            const reconView = document.getElementById("reconstituted-view");
+            const reconTag = document.getElementById("reconstitute-count-tag");
+            if (reconView && reconstitutedState) {
+                reconView.textContent = JSON.stringify(reconstitutedState, null, 2);
+                if (reconTag) {
+                    reconTag.textContent = `${Array.isArray(reconstitutedState) ? reconstitutedState.length : 0} COMMITTED ACTIVE`;
+                }
+            }
+
+            // 3. QUADRANT C: THE LEDGER
+            const feed = document.getElementById("terminal-ledger-feed");
+            const totalBadge = document.getElementById("tx-total-badge");
+
+            if (feed && Array.isArray(transactions)) {
+                if (totalBadge) totalBadge.textContent = `${transactions.length} ROWS`;
+
+                // Only full rebuild if row count changed
+                if (transactions.length !== lastTransactionCount) {
+                    feed.innerHTML = "";
+                    transactions.forEach(tx => {
+                        const isRollback = (tx.committed === 0);
+                        const row = document.createElement("div");
+                        row.className = "terminal-row" + (isRollback ? " row-rollback" : "");
+
+                        const validationBadge = isRollback ? 
+                            `<span class="audit-badge badge-rejected">REJECTED [LOOP &ge; 0.88]</span>` :
+                            `<span class="audit-badge">✓ ${tx.validationHash || '0xVERIFIED'}</span>`;
+
+                        row.innerHTML = `
+                            <div class="row-meta-line">
+                                <span class="row-task-id">${tx.taskId}</span>
+                                <span class="row-agent-route">${tx.senderAgentId} &rarr; ${tx.recipientAgentId || 'FABRIC'}</span>
+                                ${validationBadge}
+                            </div>
+                            <div class="row-payload">${typeof tx.payload === 'object' ? JSON.stringify(tx.payload) : tx.payload}</div>
+                            <div class="row-footer">
+                                <span>TOKENS: +${tx.tokensConsumed || 0} · ENTROPY: ${(tx.entropyScore || 0).toFixed(2)}</span>
+                                <span>${tx.createdAt || ''}</span>
+                            </div>
+                        `;
+                        feed.appendChild(row);
+                    });
+
+                    lastTransactionCount = transactions.length;
+
+                    if (isAutoScrollEnabled) {
+                        feed.scrollTop = feed.scrollHeight;
+                    }
+                }
+            }
+        }
+
+        /* ==================== INTERACTIVE USER ACTIONS ==================== */
+        async function executeStepAction() {
+            const inp = document.getElementById("input-directive");
+            const directive = inp ? inp.value.trim() : "";
+            showToast("DISPATCHING STEP...");
+
+            try {
+                const res = await fetch("/api/step", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ directive: directive || "Edge telemetry micro-step reconciliation" })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`STEP COMMITTED: ${data.stepId}`);
+                    if (inp) inp.value = "";
+                } else if (data.error) {
+                    showToast(`ERROR: ${data.error}`);
+                }
+            } catch (e) {
+                showToast("DISPATCH ERROR: " + e.message);
+            }
+        }
+
+        async function triggerSimulateLoopAction() {
+            showToast("SIMULATING RECURSIVE LOOP (ENTROPY >= 0.88)...");
+            try {
+                const res = await fetch("/api/simulate-loop", { method: "POST" });
+                const data = await res.json();
+                if (data.success) {
+                    showToast("LOOP INTERCEPTED · AGENT FROZEN · SOFT ROLLBACK");
+                }
+            } catch (e) {
+                showToast("SIMULATION ERROR: " + e.message);
+            }
+        }
+
+        async function reconstituteAction() {
+            showToast("RECONSTITUTING STATE FROM WAL...");
+            await fetchTelemetry();
+        }
+
+        async function resetSessionAction() {
+            showToast("RESETTING RUNTIME TO CLEAN STATE...");
+            try {
+                const res = await fetch("/api/reset", { method: "POST" });
+                const data = await res.json();
+                if (data.success) {
+                    showToast("SESSION RESET COMPLETE");
+                    lastTransactionCount = 0;
+                    await fetchTelemetry();
+                }
+            } catch (e) {
+                showToast("RESET ERROR: " + e.message);
+            }
+        }
+
+        // Initialize 500ms Long-Poll
+        fetchTelemetry();
+        setInterval(fetchTelemetry, 500);
+    </script>
+</body>
+</html>

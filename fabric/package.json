@@ -1,0 +1,10 @@
+{
+  "name": "antigravity-gemini-fabric",
+  "version": "3.8.0",
+  "description": "Antigravity Gemini zero-dependency ultra-lightweight multi-agent edge fabric",
+  "main": "wal_store.js",
+  "scripts": {
+    "test": "node test/test_memory_wal.js && node test/test_loop_mitigation.js && node test/test_flywheel_safety.js && node test/test_e2e_engine.js && node test/verify_kernel.js",
+    "test:verify": "node test/verify_kernel.js"
+  }
+}

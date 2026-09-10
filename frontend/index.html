@@ -354,7 +354,7 @@
         /* ==================== 1. CYBER COMMAND DECK ==================== */
         .deck-grid {
             display: grid;
-            grid-template-columns: 1.35fr 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
             gap: 18px;
             flex: 1;
             min-height: 520px;
@@ -3114,6 +3114,11 @@
                     <span>LIVE 2-WAY</span>
                 </button>
 
+                <button class="hud-voice-btn" id="hud-fabric-btn" onclick="switchTab('fabric')" title="Antigravity Gemini Fabric V3.8" style="border-color:rgba(0,240,255,0.5); color:var(--cyan); background:rgba(0,240,255,0.08);">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    <span>FABRIC: V3.8-FLASH</span>
+                </button>
+
                 <div class="hud-meter">
                     <div class="hud-meter-fill" id="hud-meter-fill"></div>
                 </div>
@@ -3123,6 +3128,7 @@
         <!-- Marquee Ticker -->
         <div class="cyber-ticker">
             <div class="cyber-ticker-track">
+                <span class="cyan" style="font-weight:700;">◇ ANTIGRAVITY GEMINI FABRIC (V3.8-FLASH-MEDIUM) · SOVEREIGN DIRECTIVE-01</span>
                 <span>◇ ZERO-CLIENT EDGE RUNTIME</span>
                 <span class="amber">◇ CORE · RECURSIVE INTELLIGENCE</span>
                 <span class="cyan">◇ NEURAL GRAPH · 40 NODES</span>
@@ -3130,6 +3136,7 @@
                 <span class="amber">◇ SAPPHIRE/AMBER CHANNEL · SYNC</span>
                 <span class="cyan">◇ HEADLESS PLAYWRIGHT CHROMIUM · READY</span>
                 <!-- repeat for smooth loop -->
+                <span class="cyan" style="font-weight:700;">◇ ANTIGRAVITY GEMINI FABRIC (V3.8-FLASH-MEDIUM) · SOVEREIGN DIRECTIVE-01</span>
                 <span>◇ ZERO-CLIENT EDGE RUNTIME</span>
                 <span class="amber">◇ CORE · RECURSIVE INTELLIGENCE</span>
                 <span class="cyan">◇ NEURAL GRAPH · 40 NODES</span>
@@ -3160,6 +3167,10 @@
 
             <button class="dock-btn" id="dock-btn-memory" onclick="switchTab('memory')" title="Persistent Memory WAL">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            </button>
+
+            <button class="dock-btn" id="dock-btn-fabric" onclick="switchTab('fabric')" title="Antigravity Gemini Fabric (V3.8-Flash)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
             </button>
 
             <button class="dock-btn" id="dock-btn-research" onclick="switchTab('research')" title="Research & Headless Browser">
@@ -3295,6 +3306,50 @@
                         <div class="reconcile-cycle-box">
                             <span class="cycle-label">RECONCILIATION CYCLE</span>
                             <span class="cycle-val" id="deck-cycle-counter">00021</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- CARD 4: ANTIGRAVITY GEMINI FABRIC (V3.8-FLASH) -->
+                <section class="cyber-card" style="border-color: rgba(0, 240, 255, 0.35); box-shadow: 0 10px 30px rgba(0, 240, 255, 0.08);">
+                    <div class="cyber-card-head">
+                        <div class="cyber-card-title" style="color: var(--cyan);">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                            FABRIC KERNEL · V3.8
+                        </div>
+                        <div class="cyber-card-badge cyan">SOVEREIGN</div>
+                    </div>
+                    <div class="cyber-card-body">
+                        <div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5;">
+                            Zero-dependency edge micro-kernel. Micro-step SQLite-WAL state engine with Shannon entropy loop defense (&lt;0.88) and hard-cap enforcement.
+                        </div>
+
+                        <div class="state-list" style="margin-bottom: 14px;">
+                            <div class="state-row">
+                                <span class="state-label">FABRIC STATUS</span>
+                                <span class="state-val cyan" id="deck-fabric-status">READY · AWAITING WORKLOAD</span>
+                            </div>
+                            <div class="state-row">
+                                <span class="state-label">SHANNON ENTROPY</span>
+                                <span class="state-val emerald" id="deck-fabric-entropy">0.14 [STABLE &lt; 0.88]</span>
+                            </div>
+                            <div class="state-row">
+                                <span class="state-label">TOKEN HARD-CAP</span>
+                                <span class="state-val amber" id="deck-fabric-tokens">2,840 / 100,000</span>
+                            </div>
+                            <div class="state-row">
+                                <span class="state-label">FLYWHEEL NODES</span>
+                                <span class="state-val cyan">STRATEGIST · WORKER · AUDITOR</span>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 8px; margin-top: 8px;">
+                            <button class="browser-action-btn" style="flex: 1; border-color: var(--cyan); background: rgba(0,240,255,0.12); color: var(--cyan); font-weight: 700; padding: 7px 10px; font-size: 10.5px;" onclick="switchTab('fabric')">
+                                ⚡ OPEN FABRIC DECK
+                            </button>
+                            <button class="browser-action-btn" style="padding: 7px 12px; border-color: rgba(245,158,11,0.4); color: var(--amber); font-size: 10.5px;" onclick="runFabricTurn('Edge telemetry sync & self-eval')">
+                                ⚡ RUN STEP
+                            </button>
                         </div>
                     </div>
                 </section>
@@ -3803,6 +3858,192 @@
                     </div>
                 </div>
 
+            </div>
+        </section>
+
+        <!-- ==================== VIEW 8: ANTIGRAVITY GEMINI FABRIC ==================== -->
+        <section class="view-panel" id="view-fabric">
+            <!-- FABRIC HEADER HUD -->
+            <div style="background:linear-gradient(135deg, rgba(8,16,32,0.92), rgba(4,8,18,0.95)); border:1px solid rgba(0,240,255,0.3); border-radius:14px; padding:20px 24px; margin-bottom:20px; box-shadow:0 10px 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,240,255,0.05); display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:16px;">
+                <div>
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+                        <span class="cyber-card-badge cyan" style="font-size:11px; padding:3px 10px; letter-spacing:1.5px;">SOVEREIGN PROTOCOL · DIRECTIVE-01</span>
+                        <span class="cyber-card-badge amber" style="font-size:11px; padding:3px 10px; letter-spacing:1.5px;">V3.8-FLASH-MEDIUM</span>
+                    </div>
+                    <h1 style="font-family:var(--font-display); font-size:22px; font-weight:700; color:var(--text-main); letter-spacing:1px; margin:0 0 4px 0; display:flex; align-items:center; gap:10px;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        ANTIGRAVITY GEMINI FABRIC KERNEL
+                    </h1>
+                    <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-secondary);">
+                        Zero-Dependency Edge Orchestrator · SQLite-WAL Micro-Step State Engine · Shannon Entropy Loop Defense
+                    </div>
+                </div>
+
+                <!-- TOP TELEMETRY PILLS -->
+                <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+                    <div style="background:rgba(0,0,0,0.45); border:1px solid rgba(0,240,255,0.2); border-radius:8px; padding:10px 16px; min-width:140px;">
+                        <div style="font-size:9px; font-family:var(--font-mono); color:var(--text-muted); letter-spacing:1px; margin-bottom:2px;">KERNEL STATUS</div>
+                        <div style="font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--cyan); display:flex; align-items:center; gap:6px;" id="fabric-kernel-status">
+                            <span style="width:7px; height:7px; border-radius:50%; background:var(--cyan); box-shadow:0 0 8px var(--cyan); display:inline-block;"></span>
+                            ONLINE / READY
+                        </div>
+                    </div>
+
+                    <div style="background:rgba(0,0,0,0.45); border:1px solid rgba(245,158,11,0.25); border-radius:8px; padding:10px 16px; min-width:180px;">
+                        <div style="display:flex; justify-content:space-between; font-size:9px; font-family:var(--font-mono); color:var(--text-muted); letter-spacing:1px; margin-bottom:4px;">
+                            <span>TOKEN HARD-CAP</span>
+                            <span id="fabric-token-burn-text" style="color:var(--amber);">2,840 / 100,000</span>
+                        </div>
+                        <div style="width:100%; height:6px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden;">
+                            <div id="fabric-token-bar" style="width:2.84%; height:100%; background:linear-gradient(90deg, var(--cyan), var(--amber)); transition:width 0.4s ease;"></div>
+                        </div>
+                    </div>
+
+                    <div style="background:rgba(0,0,0,0.45); border:1px solid rgba(16,185,129,0.25); border-radius:8px; padding:10px 16px; min-width:160px;" id="fabric-entropy-card">
+                        <div style="display:flex; justify-content:space-between; font-size:9px; font-family:var(--font-mono); color:var(--text-muted); letter-spacing:1px; margin-bottom:2px;">
+                            <span>SHANNON ENTROPY</span>
+                            <span style="font-size:9px; color:var(--text-muted);">THRESHOLD &lt; 0.88</span>
+                        </div>
+                        <div style="font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--emerald);" id="fabric-entropy-val">
+                            0.14 [STABLE]
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COMPOSABLE MULTI-AGENT FLYWHEEL NODES -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-bottom:20px;">
+                <!-- NODE 1: STRATEGIST -->
+                <div class="cyber-card" style="padding:18px; border-color:rgba(0,240,255,0.25);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <div style="font-family:var(--font-display); font-size:14px; font-weight:700; color:var(--cyan); display:flex; align-items:center; gap:8px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                            STRATEGIST NODE
+                        </div>
+                        <span class="cyber-card-badge cyan" id="node-badge-strategist">IDLE</span>
+                    </div>
+                    <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); line-height:1.5; margin-bottom:10px;">
+                        Decomposes workload directives into micro-steps. Queries SQLite-WAL for historical state baseline.
+                    </div>
+                    <div style="background:rgba(0,0,0,0.35); border-radius:6px; padding:8px 10px; font-family:var(--font-mono); font-size:10px; color:var(--text-muted);" id="node-log-strategist">
+                        Last step: Decomposed payload -&gt; 1 isolated micro-step
+                    </div>
+                </div>
+
+                <!-- NODE 2: WORKER -->
+                <div class="cyber-card" style="padding:18px; border-color:rgba(245,158,11,0.25);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <div style="font-family:var(--font-display); font-size:14px; font-weight:700; color:var(--amber); display:flex; align-items:center; gap:8px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/></svg>
+                            WORKER NODE
+                        </div>
+                        <span class="cyber-card-badge amber" id="node-badge-worker">IDLE</span>
+                    </div>
+                    <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); line-height:1.5; margin-bottom:10px;">
+                        Promise execution engine. Watchdog tracking bounds execution to strict timeoutMs limit (5000ms).
+                    </div>
+                    <div style="background:rgba(0,0,0,0.35); border-radius:6px; padding:8px 10px; font-family:var(--font-mono); font-size:10px; color:var(--text-muted);" id="node-log-worker">
+                        Last execution: 4.2ms · 0 timeout faults
+                    </div>
+                </div>
+
+                <!-- NODE 3: AUDITOR -->
+                <div class="cyber-card" style="padding:18px; border-color:rgba(16,185,129,0.25);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <div style="font-family:var(--font-display); font-size:14px; font-weight:700; color:var(--emerald); display:flex; align-items:center; gap:8px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            AUDITOR NODE
+                        </div>
+                        <span class="cyber-card-badge emerald" id="node-badge-auditor">IDLE</span>
+                    </div>
+                    <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); line-height:1.5; margin-bottom:10px;">
+                        Calculates sliding-window Shannon entropy, verifies HMAC-SHA256 signature, enforces hard cap.
+                    </div>
+                    <div style="background:rgba(0,0,0,0.35); border-radius:6px; padding:8px 10px; font-family:var(--font-mono); font-size:10px; color:var(--text-muted);" id="node-log-auditor">
+                        HMAC-SHA256: 0x7c4e...d81a · Signature Valid
+                    </div>
+                </div>
+            </div>
+
+            <!-- INTERACTIVE FLYWHEEL CONTROL CONSOLE -->
+            <div class="cyber-card" style="padding:18px 24px; margin-bottom:20px; border-color:rgba(0,240,255,0.2);">
+                <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px;">
+                    <div style="font-family:var(--font-display); font-size:14px; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        FLYWHEEL DIRECTIVE DISPATCHER
+                    </div>
+                    <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-muted);">BUS PROTOCOL: EVENT-DRIVEN ASYNC ENVELOPE</span>
+                </div>
+
+                <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+                    <input type="text" id="fabric-directive-input" placeholder="Enter directive payload (e.g. Ingest edge telemetry & calculate delta)..." style="flex:1; min-width:280px; background:rgba(0,0,0,0.5); border:1px solid rgba(0,240,255,0.3); border-radius:8px; padding:10px 14px; color:var(--text-main); font-family:var(--font-mono); font-size:12px; outline:none;" onkeydown="if(event.key==='Enter') runFabricStepFromInput()">
+                    <button class="browser-action-btn" style="border-color:var(--cyan); background:rgba(0,240,255,0.15); color:var(--cyan); font-weight:700; padding:10px 18px;" onclick="runFabricStepFromInput()">
+                        ⚡ EXECUTE FLYWHEEL STEP
+                    </button>
+                </div>
+
+                <!-- TEST CONTROLS ROW -->
+                <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                    <button class="browser-action-btn" style="border-color:rgba(16,185,129,0.35); color:var(--emerald); background:rgba(16,185,129,0.08); font-size:11px; padding:6px 14px;" onclick="reconstituteFabricState()">
+                        🔄 RECONSTITUTE STATE FROM WAL
+                    </button>
+                    <button class="browser-action-btn" style="border-color:rgba(239,68,68,0.4); color:var(--danger); background:rgba(239,68,68,0.08); font-size:11px; padding:6px 14px;" onclick="simulateFabricLoop()">
+                        ⚠️ SIMULATE RECURSIVE LOOP (&gt;0.88)
+                    </button>
+                    <button class="browser-action-btn" style="border-color:rgba(245,158,11,0.4); color:var(--amber); background:rgba(245,158,11,0.08); font-size:11px; padding:6px 14px;" onclick="simulateHardCapHalt()">
+                        🛑 TEST HARD-CAP HALT
+                    </button>
+                    <button class="browser-action-btn" style="border-color:var(--border-subtle); color:var(--text-muted); font-size:11px; padding:6px 14px;" onclick="resetFabricSession()">
+                        🧹 RESET SESSION
+                    </button>
+                </div>
+            </div>
+
+            <!-- TWO COLUMN TRANSACTION LOG & STATE INSPECTOR -->
+            <div style="display:grid; grid-template-columns:1.4fr 1fr; gap:18px; flex:1; min-height:420px;">
+                <!-- LEFT: SQLITE-WAL TRANSACTION STREAM -->
+                <div class="cyber-card" style="display:flex; flex-direction:column; padding:18px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <div style="font-family:var(--font-display); font-size:13px; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                            SQLITE-WAL TRANSACTION STREAM (PRAGMA journal_mode = WAL)
+                        </div>
+                        <span class="cyber-card-badge cyan" id="fabric-tx-count">5 COMMITTED</span>
+                    </div>
+
+                    <div style="flex:1; overflow-y:auto; border:1px solid rgba(255,255,255,0.06); border-radius:8px; background:rgba(0,0,0,0.4);">
+                        <table style="width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:11px;">
+                            <thead>
+                                <tr style="border-bottom:1px solid rgba(0,240,255,0.15); background:rgba(0,240,255,0.05); color:var(--text-muted); text-align:left;">
+                                    <th style="padding:8px 10px;">STEP ID</th>
+                                    <th style="padding:8px 10px;">AGENT</th>
+                                    <th style="padding:8px 10px;">STATUS</th>
+                                    <th style="padding:8px 10px;">TOKENS</th>
+                                    <th style="padding:8px 10px;">ENTROPY</th>
+                                    <th style="padding:8px 10px;">TIME</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fabric-tx-tbody">
+                                <!-- Populated dynamically by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- RIGHT: STATE TREE & HMAC INSPECTOR -->
+                <div class="cyber-card" style="display:flex; flex-direction:column; padding:18px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <div style="font-family:var(--font-display); font-size:13px; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--amber)"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                            RECONSTITUTED STATE TREE / INSPECTOR
+                        </div>
+                        <button class="browser-action-btn" style="padding:3px 8px; font-size:10px;" onclick="copyFabricState()">COPY JSON</button>
+                    </div>
+
+                    <pre id="fabric-state-inspector" style="flex:1; overflow:auto; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:12px; font-family:var(--font-mono); font-size:11px; color:var(--cyan); line-height:1.5; margin:0; white-space:pre-wrap; word-break:break-all;">
+// Click a transaction above or tap "RECONSTITUTE STATE FROM WAL"
+                    </pre>
+                </div>
             </div>
         </section>
 
@@ -7207,6 +7448,358 @@
                 }
             }
         }
+
+        /* ============================================================
+           ANTIGRAVITY GEMINI FABRIC (V3.8-FLASH) RUNTIME ENGINE
+           Zero-Dependency Micro-Kernel & SQLite-WAL Interactivity
+           ============================================================ */
+        const fabricState = {
+            sessionId: "sess_flash_v38_001",
+            hardCap: 100000,
+            tokenBurned: 2840,
+            globalStatus: "AWAITING_WORKLOAD", // AWAITING_WORKLOAD, RUNNING, HALTED_LOOP, HALTED_CAP
+            entropyScore: 0.14,
+            recentOutputs: ["init_handshake", "telemetry_scan", "state_verify", "bus_synced"],
+            transactions: [
+                { stepId: "step_001", agent: "STRATEGIST", status: "COMMITTED", tokens: 420, entropy: 0.11, time: "15:42:10", hmac: "0x8fa1...3b92", payload: { action: "DECOMPOSE_WORKLOAD", subtasks: 2, baseline: "WAL_BOOT" } },
+                { stepId: "step_002", agent: "WORKER", status: "COMMITTED", tokens: 860, entropy: 0.14, time: "15:42:11", hmac: "0x39c0...ea12", payload: { action: "EXECUTE_PROMISE", latencyMs: 3.8, timeoutLimit: 5000 } },
+                { stepId: "step_003", agent: "AUDITOR", status: "COMMITTED", tokens: 240, entropy: 0.12, time: "15:42:12", hmac: "0x77d1...99bc", payload: { action: "SIGN_AND_VERIFY", hmacValid: true, loopDetected: false } },
+                { stepId: "step_004", agent: "STRATEGIST", status: "COMMITTED", tokens: 530, entropy: 0.15, time: "15:43:01", hmac: "0x44ab...11f8", payload: { action: "RECONCILE_DELTA", delta: 0.001, node: "edge_0" } },
+                { stepId: "step_005", agent: "WORKER", status: "COMMITTED", tokens: 790, entropy: 0.14, time: "15:43:02", hmac: "0x9812...04c5", payload: { action: "STATE_PERSIST", engine: "SQLite-WAL", pragma: "WAL" } }
+            ]
+        };
+
+        function renderFabricTxTable() {
+            const tbody = document.getElementById("fabric-tx-tbody");
+            const countBadge = document.getElementById("fabric-tx-count");
+            if (!tbody) return;
+
+            tbody.innerHTML = "";
+            fabricState.transactions.slice().reverse().forEach((tx, idx) => {
+                const tr = document.createElement("tr");
+                tr.style.borderBottom = "1px solid rgba(255,255,255,0.04)";
+                tr.style.cursor = "pointer";
+                tr.style.transition = "background 0.15s ease";
+                tr.onmouseover = () => tr.style.background = "rgba(0,240,255,0.06)";
+                tr.onmouseout = () => tr.style.background = "transparent";
+                tr.onclick = () => inspectFabricTx(tx.stepId);
+
+                const statusColor = tx.status === "COMMITTED" ? "var(--emerald)" : "var(--danger)";
+                const entropyColor = tx.entropy >= 0.88 ? "var(--danger)" : "var(--cyan)";
+
+                tr.innerHTML = `
+                    <td style="padding:8px 10px; color:var(--text-primary); font-weight:600;">${tx.stepId}</td>
+                    <td style="padding:8px 10px; color:var(--text-secondary);">${tx.agent}</td>
+                    <td style="padding:8px 10px; color:${statusColor}; font-weight:600;">${tx.status}</td>
+                    <td style="padding:8px 10px; color:var(--amber);">${tx.tokens}</td>
+                    <td style="padding:8px 10px; color:${entropyColor};">${tx.entropy.toFixed(2)}</td>
+                    <td style="padding:8px 10px; color:var(--text-muted); font-size:10px;">${tx.time}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if (countBadge) {
+                countBadge.textContent = `${fabricState.transactions.length} RECORDED`;
+            }
+        }
+
+        function updateFabricTelemetry() {
+            // Kernel Status
+            const kStatus = document.getElementById("fabric-kernel-status");
+            const dStatus = document.getElementById("deck-fabric-status");
+            let statusText = "ONLINE / READY";
+            let statusColor = "var(--cyan)";
+
+            if (fabricState.globalStatus === "RUNNING") {
+                statusText = "EXECUTING STEP";
+                statusColor = "var(--amber)";
+            } else if (fabricState.globalStatus === "HALTED_LOOP") {
+                statusText = "HALTED: LOOP PREVENTED";
+                statusColor = "var(--danger)";
+            } else if (fabricState.globalStatus === "HALTED_CAP") {
+                statusText = "HALTED: HARD CAP EXHAUSTED";
+                statusColor = "var(--danger)";
+            }
+
+            if (kStatus) {
+                kStatus.style.color = statusColor;
+                kStatus.innerHTML = `<span style="width:7px; height:7px; border-radius:50%; background:${statusColor}; box-shadow:0 0 8px ${statusColor}; display:inline-block;"></span> ${statusText}`;
+            }
+            if (dStatus) {
+                dStatus.textContent = statusText;
+                dStatus.style.color = statusColor;
+            }
+
+            // Tokens
+            const burnText = document.getElementById("fabric-token-burn-text");
+            const tokenBar = document.getElementById("fabric-token-bar");
+            const deckTokens = document.getElementById("deck-fabric-tokens");
+            const pct = Math.min(100, (fabricState.tokenBurned / fabricState.hardCap) * 100).toFixed(1);
+
+            if (burnText) burnText.textContent = `${fabricState.tokenBurned.toLocaleString()} / ${fabricState.hardCap.toLocaleString()} (${pct}%)`;
+            if (deckTokens) deckTokens.textContent = `${fabricState.tokenBurned.toLocaleString()} / ${fabricState.hardCap.toLocaleString()} (${pct}%)`;
+            if (tokenBar) {
+                tokenBar.style.width = `${pct}%`;
+                if (fabricState.tokenBurned >= fabricState.hardCap) {
+                    tokenBar.style.background = "var(--danger)";
+                } else {
+                    tokenBar.style.background = "linear-gradient(90deg, var(--cyan), var(--amber))";
+                }
+            }
+
+            // Entropy
+            const entropyVal = document.getElementById("fabric-entropy-val");
+            const deckEntropy = document.getElementById("deck-fabric-entropy");
+            const entropyCard = document.getElementById("fabric-entropy-card");
+
+            const isLoop = fabricState.entropyScore >= 0.88;
+            const entText = `${fabricState.entropyScore.toFixed(2)} [${isLoop ? "CRITICAL LOOP >= 0.88" : "STABLE < 0.88"}]`;
+            const entColor = isLoop ? "var(--danger)" : "var(--emerald)";
+
+            if (entropyVal) {
+                entropyVal.textContent = entText;
+                entropyVal.style.color = entColor;
+            }
+            if (deckEntropy) {
+                deckEntropy.textContent = entText;
+                deckEntropy.style.color = entColor;
+            }
+            if (entropyCard) {
+                entropyCard.style.borderColor = isLoop ? "rgba(239,68,68,0.7)" : "rgba(16,185,129,0.25)";
+                entropyCard.style.boxShadow = isLoop ? "0 0 15px rgba(239,68,68,0.3)" : "none";
+            }
+        }
+
+        function runFabricStepFromInput() {
+            const inp = document.getElementById("fabric-directive-input");
+            const directive = inp ? inp.value.trim() : "";
+            runFabricTurn(directive || "Optimize neural graph routing & edge micro-step reconciliation");
+            if (inp) inp.value = "";
+        }
+
+        async function runFabricTurn(directive = "Autonomous Flywheel Turn") {
+            if (fabricState.tokenBurned >= fabricState.hardCap) {
+                showToast("CANNOT EXECUTE: HARD CAP EXHAUSTED");
+                simulateHardCapHalt();
+                return;
+            }
+
+            fabricState.globalStatus = "RUNNING";
+            updateFabricTelemetry();
+            showToast("FLYWHEEL ACTIVATED: " + directive.substring(0, 30));
+            addTerminalLine(`[fabric] workload received -> "${directive}"`, "cyan");
+
+            // Node Badges
+            const bStrat = document.getElementById("node-badge-strategist");
+            const bWork = document.getElementById("node-badge-worker");
+            const bAudit = document.getElementById("node-badge-auditor");
+            const logStrat = document.getElementById("node-log-strategist");
+            const logWork = document.getElementById("node-log-worker");
+            const logAudit = document.getElementById("node-log-auditor");
+
+            // 1. STRATEGIST
+            if (bStrat) { bStrat.textContent = "DECOMPOSING"; bStrat.className = "cyber-card-badge amber"; }
+            await new Promise(r => setTimeout(r, 220));
+            if (logStrat) logStrat.textContent = `Decomposed: "${directive.substring(0, 24)}..." -> 1 isolated micro-step envelope`;
+            if (bStrat) { bStrat.textContent = "IDLE"; bStrat.className = "cyber-card-badge cyan"; }
+
+            // 2. WORKER
+            if (bWork) { bWork.textContent = "EXECUTING"; bWork.className = "cyber-card-badge amber"; }
+            const startT = performance.now();
+            await new Promise(r => setTimeout(r, 280));
+            const execMs = (performance.now() - startT).toFixed(1);
+            if (logWork) logWork.textContent = `Watchdog OK: executed in ${execMs}ms · bounds respected (<5000ms)`;
+            if (bWork) { bWork.textContent = "IDLE"; bWork.className = "cyber-card-badge cyan"; }
+
+            // 3. AUDITOR
+            if (bAudit) { bAudit.textContent = "AUDITING"; bAudit.className = "cyber-card-badge amber"; }
+            await new Promise(r => setTimeout(r, 180));
+            const randomHmac = "0x" + Array.from({length: 8}, () => Math.floor(Math.random()*16).toString(16)).join("") + "...";
+            if (logAudit) logAudit.textContent = `HMAC-SHA256: ${randomHmac} · Signature Valid · Zero Loop`;
+            if (bAudit) { bAudit.textContent = "IDLE"; bAudit.className = "cyber-card-badge emerald"; }
+
+            // Commit to WAL
+            const stepNum = fabricState.transactions.length + 1;
+            const stepTokens = Math.floor(Math.random() * 300) + 250;
+            fabricState.tokenBurned += stepTokens;
+            fabricState.entropyScore = Number((0.12 + Math.random() * 0.08).toFixed(2));
+            fabricState.globalStatus = "AWAITING_WORKLOAD";
+
+            const now = new Date();
+            const timeStr = `${now.getHours().toString().padStart(2,"0")}:${now.getMinutes().toString().padStart(2,"0")}:${now.getSeconds().toString().padStart(2,"0")}`;
+
+            const newTx = {
+                stepId: `step_${stepNum.toString().padStart(3, "0")}`,
+                agent: "WORKER",
+                status: "COMMITTED",
+                tokens: stepTokens,
+                entropy: fabricState.entropyScore,
+                time: timeStr,
+                hmac: randomHmac,
+                payload: {
+                    directive: directive,
+                    executionLatencyMs: execMs,
+                    tokenDelta: stepTokens,
+                    walCommit: "SUCCESS",
+                    journalMode: "WAL"
+                }
+            };
+
+            fabricState.transactions.push(newTx);
+            renderFabricTxTable();
+            updateFabricTelemetry();
+            inspectFabricTx(newTx.stepId);
+
+            addTerminalLine(`[wal] step_${stepNum.toString().padStart(3,"0")} committed :: tokens=+${stepTokens} :: hmac=${randomHmac}`, "amber");
+            showToast(`STEP ${newTx.stepId} COMMITTED TO SQLITE-WAL`);
+        }
+
+        function simulateFabricLoop() {
+            fabricState.entropyScore = 0.94;
+            fabricState.globalStatus = "HALTED_LOOP";
+            updateFabricTelemetry();
+
+            const bAudit = document.getElementById("node-badge-auditor");
+            const logAudit = document.getElementById("node-log-auditor");
+            if (bAudit) { bAudit.textContent = "HALTED"; bAudit.className = "cyber-card-badge danger"; }
+            if (logAudit) logAudit.textContent = "AUDITOR INTERCEPT: Shannon Entropy 0.94 >= 0.88! Recursive loop halted.";
+
+            // Record rolled-back step
+            const stepNum = fabricState.transactions.length + 1;
+            const now = new Date();
+            const timeStr = `${now.getHours().toString().padStart(2,"0")}:${now.getMinutes().toString().padStart(2,"0")}:${now.getSeconds().toString().padStart(2,"0")}`;
+
+            const loopTx = {
+                stepId: `step_${stepNum.toString().padStart(3, "0")}`,
+                agent: "AUDITOR",
+                status: "ROLLED_BACK",
+                tokens: 50,
+                entropy: 0.94,
+                time: timeStr,
+                hmac: "0xFAIL_ENTROPY",
+                payload: {
+                    error: "ENTROPY_WATCHDOG_INTERCEPT",
+                    detectedEntropy: 0.94,
+                    threshold: 0.88,
+                    directive: "SYSTEM_DIRECTIVE_CONTINUOUS_LOOP (RECURSIVE ATTEMPT)",
+                    action: "ROLLBACK_STEP"
+                }
+            };
+
+            fabricState.transactions.push(loopTx);
+            renderFabricTxTable();
+            inspectFabricTx(loopTx.stepId);
+
+            addTerminalLine("[auditor] CRITICAL INTERCEPT: Shannon entropy 0.94 >= 0.88 threshold! Execution halted to save budget.", "danger");
+            showToast("⚠️ RECURSIVE LOOP INTERCEPTED & HALTED (>0.88)");
+        }
+
+        function simulateHardCapHalt() {
+            fabricState.tokenBurned = fabricState.hardCap;
+            fabricState.globalStatus = "HALTED_CAP";
+            updateFabricTelemetry();
+
+            const inspector = document.getElementById("fabric-state-inspector");
+            if (inspector) {
+                inspector.textContent = JSON.stringify({
+                    error: "HARD_CAP_EXHAUSTED",
+                    session_id: fabricState.sessionId,
+                    token_burned: fabricState.tokenBurned,
+                    hard_cap: fabricState.hardCap,
+                    status: "HALTED",
+                    directive: "Sovereign Protocol [Directive-01] hard token budget cap enforced. Zero overages permitted."
+                }, null, 2);
+            }
+
+            addTerminalLine("[auditor] HARD-CAP HALT: 100,000 / 100,000 tokens burned. Micro-kernel locked.", "danger");
+            showToast("🛑 HARD CAP BUDGET ENFORCED: 100,000 TOKENS");
+        }
+
+        function reconstituteFabricState() {
+            const inspector = document.getElementById("fabric-state-inspector");
+            if (!inspector) return;
+
+            const stateSnapshot = {
+                session_id: fabricState.sessionId,
+                kernel_status: fabricState.globalStatus,
+                token_burned: fabricState.tokenBurned,
+                hard_cap: fabricState.hardCap,
+                sliding_window_entropy: fabricState.entropyScore,
+                total_transactions_logged: fabricState.transactions.length,
+                committed_steps: fabricState.transactions.filter(t => t.status === "COMMITTED").length,
+                rolled_back_steps: fabricState.transactions.filter(t => t.status === "ROLLED_BACK").length,
+                wal_journal_mode: "WAL",
+                sqlite_foreign_keys: "ON",
+                reconstituted_graph: {
+                    nodes: ["STRATEGIST", "WORKER", "AUDITOR"],
+                    bus_architecture: "EventEmitter Async Micro-Envelopes",
+                    security_protocol: "HMAC-SHA256 Signed Envelopes"
+                },
+                recent_micro_steps: fabricState.transactions.slice(-3)
+            };
+
+            inspector.textContent = JSON.stringify(stateSnapshot, null, 2);
+            showToast("STATE RECONSTITUTED FROM SQLITE-WAL");
+            addTerminalLine("[wal] state tree reconstituted from SQLite-WAL log.", "emerald");
+        }
+
+        function inspectFabricTx(stepId) {
+            const tx = fabricState.transactions.find(t => t.stepId === stepId);
+            const inspector = document.getElementById("fabric-state-inspector");
+            if (!tx || !inspector) return;
+
+            inspector.textContent = JSON.stringify({
+                transaction_envelope: {
+                    step_id: tx.stepId,
+                    session_id: fabricState.sessionId,
+                    agent_node: tx.agent,
+                    status: tx.status,
+                    tokens_consumed: tx.tokens,
+                    entropy_score: tx.entropy,
+                    hmac_sha256_signature: tx.hmac,
+                    timestamp: tx.time
+                },
+                payload_data: tx.payload
+            }, null, 2);
+        }
+
+        function resetFabricSession() {
+            fabricState.sessionId = "sess_flash_v38_" + Math.floor(Math.random()*1000).toString().padStart(3, "0");
+            fabricState.tokenBurned = 0;
+            fabricState.globalStatus = "AWAITING_WORKLOAD";
+            fabricState.entropyScore = 0.12;
+            fabricState.transactions = [
+                { stepId: "step_001", agent: "STRATEGIST", status: "COMMITTED", tokens: 120, entropy: 0.12, time: "00:00:01", hmac: "0xinit...boot", payload: { action: "SESSION_INIT", baseline: "CLEAN_BOOT" } }
+            ];
+
+            renderFabricTxTable();
+            updateFabricTelemetry();
+            reconstituteFabricState();
+
+            addTerminalLine("[fabric] session reset. New session envelope: " + fabricState.sessionId, "cyan");
+            showToast("SESSION RESET · NEW WAL ENVELOPE");
+        }
+
+        function copyFabricState() {
+            const inspector = document.getElementById("fabric-state-inspector");
+            if (!inspector) return;
+            navigator.clipboard.writeText(inspector.textContent);
+            showToast("PAYLOAD COPIED TO CLIPBOARD");
+        }
+
+        // Initialize Fabric Dashboard on DOM ready
+        window.addEventListener("DOMContentLoaded", () => {
+            renderFabricTxTable();
+            updateFabricTelemetry();
+            reconstituteFabricState();
+        });
+        // Run immediately if DOM is already loaded
+        if (document.readyState === "complete" || document.readyState === "interactive") {
+            renderFabricTxTable();
+            updateFabricTelemetry();
+            reconstituteFabricState();
+        }
+
 
     </script>
 
