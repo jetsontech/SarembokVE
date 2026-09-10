@@ -1168,10 +1168,10 @@ def resolve_youtube_search(query: str) -> dict[str, str]:
     q_clean = (query or "").strip()
     q_low = q_clean.lower()
     
-    # Check cache/presets first
-    for k, v in _YT_CACHE.items():
-        if k == q_low or k in q_low:
-            return {"videoId": v, "url": f"https://www.youtube.com/watch?v={v}", "title": q_clean.upper()}
+    # Check cache for exact match only (no loose substring hijacking)
+    if q_low in _YT_CACHE:
+        v = _YT_CACHE[q_low]
+        return {"videoId": v, "url": f"https://www.youtube.com/watch?v={v}", "title": q_clean.upper()}
 
     # Live scrape top real video ID from YouTube search
     try:
@@ -1181,13 +1181,47 @@ def resolve_youtube_search(query: str) -> dict[str, str]:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept-Language": "en-US,en;q=0.9"
         })
-        with urllib.request.urlopen(req, timeout=4) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:
             html = resp.read().decode("utf-8", errors="ignore")
-            vids = re.findall(r'"videoId":"([a-zA-Z0-9_-]{11})"', html)
-            if vids:
-                real_id = vids[0]
+
+            # 1. Parse ytInitialData JSON to extract verified videoRenderer (skips Shorts shelves & ads)
+            match = re.search(r'var ytInitialData\s*=\s*({.*?});</script>', html) or re.search(r'ytInitialData\s*=\s*({.*?});', html)
+            if match:
+                try:
+                    data = json.loads(match.group(1))
+                    contents = data.get("contents", {}).get("twoColumnSearchResultsRenderer", {}).get("primaryContents", {}).get("sectionListRenderer", {}).get("contents", [])
+                    for section in contents:
+                        items = section.get("itemSectionRenderer", {}).get("contents", [])
+                        for item in items:
+                            vr = item.get("videoRenderer")
+                            if vr and "videoId" in vr:
+                                vid = vr["videoId"]
+                                title = ""
+                                title_runs = vr.get("title", {}).get("runs", [])
+                                if title_runs:
+                                    title = "".join(r.get("text", "") for r in title_runs)
+                                elif "simpleText" in vr.get("title", {}):
+                                    title = vr.get("title", {}).get("simpleText")
+                                display_title = (title or q_clean).upper()
+                                _YT_CACHE[q_low] = vid
+                                return {"videoId": vid, "url": f"https://www.youtube.com/watch?v={vid}", "title": display_title}
+                except Exception:
+                    pass
+
+            # 2. Strict regex explicitly targeting videoRenderer (skips reelItemRenderer & shortsLockup)
+            vr_ids = re.findall(r'"videoRenderer":\{"videoId":"([a-zA-Z0-9_-]{11})"', html)
+            if vr_ids:
+                real_id = vr_ids[0]
                 _YT_CACHE[q_low] = real_id
                 return {"videoId": real_id, "url": f"https://www.youtube.com/watch?v={real_id}", "title": q_clean.upper()}
+
+            # 3. Fallback to generic video ID
+            generic_ids = re.findall(r'"videoId":"([a-zA-Z0-9_-]{11})"', html)
+            if generic_ids:
+                real_id = generic_ids[0]
+                _YT_CACHE[q_low] = real_id
+                return {"videoId": real_id, "url": f"https://www.youtube.com/watch?v={real_id}", "title": q_clean.upper()}
+
     except Exception as exc:
         LOG.warning("YouTube live search lookup error for '%s': %s", q_clean, exc)
 
@@ -1239,11 +1273,16 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
     is_video = any(yi in p_low for yi in youtube_intents) or ("video" in p_low and any(w in p_low for w in ("open", "launch", "watch", "play", "show", "search")))
 
     # Check for Music & Audio playback intent
-    music_intents = ("play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio", "play ")
-    is_music = any(mi in p_low for mi in music_intents) or ("play" in p_low and any(g in p_low for g in ("lofi", "lo-fi", "music", "synthwave", "ambient", "jazz", "classical", "relaxing", "song", "soundtrack")))
+    music_intents = ("play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio")
+    is_music = any(mi in p_low for mi in music_intents) or any(g in p_low for g in ("lofi", "lo-fi", "synthwave", "ambient", "soundtrack"))
 
-    # News, clips, movies, lectures or explicit video requests should prioritize video stream
-    news_or_video_markers = ("news", "video", "clip", "movie", "trailer", "lecture", "interview", "documentary", "stream live", "live stream", "broadcast", "on youtube")
+    # News, clips, sports, games, highlights, movies, lectures must prioritize video stream
+    news_or_video_markers = (
+        "news", "video", "clip", "movie", "trailer", "lecture", "interview", "documentary",
+        "stream live", "live stream", "broadcast", "on youtube", "game", "football",
+        "highlights", "match", "soccer", "nfl", "nba", "mlb", "nhl", "premier league",
+        "sport", "sports", "fight", "boxing", "ufc", "racing", "f1", "play game"
+    )
     if any(m in p_low for m in news_or_video_markers):
         is_video = True
         is_music = False
@@ -1251,6 +1290,7 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
     if is_video or is_music or ":::video" in rep or ":::music" in rep or "youtube.com" in rep:
         resolved = resolve_youtube_search(topic)
         real_url = resolved["url"]
+        display_title = resolved.get("title") or topic.upper()
         
         # Replace all hallucinated youtube links with the verified real URL
         rep = re.sub(r'https?://(?:www\.)?(?:youtube\.com/watch\?[^\s\)\"]+|youtu\.be/[\w-]+)', real_url, rep)
@@ -1261,9 +1301,9 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
         
         # Prepend clean verified widget
         if is_music:
-            rep = f":::music {topic.upper()} · AUDIO STREAM\n{real_url}\n:::\n\n{rep}".strip()
+            rep = f":::music {display_title} · AUDIO STREAM\n{real_url}\n:::\n\n{rep}".strip()
         else:
-            rep = f":::video {topic.upper()} · VIDEO STREAM\n{real_url}\n:::\n\n{rep}".strip()
+            rep = f":::video {display_title} · VIDEO STREAM\n{real_url}\n:::\n\n{rep}".strip()
 
     # Check for Simultaneous Multi-Tasking intent
     task_intents = ("while searching", "simultaneously", "at the same time", "in parallel", "also calculate", "and also", "while calculating", "and search", "multi task", "multitask")

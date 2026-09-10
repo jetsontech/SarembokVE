@@ -4788,9 +4788,9 @@
                 };
             }
 
-            // 2. Check TOPIC_PRESETS with whole-word or exact match
+            // 2. Check TOPIC_PRESETS with exact match only
             for (const [key, preset] of Object.entries(TOPIC_PRESETS)) {
-                if (rawLower === key || (key.length >= 4 && rawLower.includes(key))) {
+                if (rawLower === key) {
                     return {
                         ytId: preset.id,
                         embedUrl: `https://www.youtube.com/embed/${preset.id}?rel=0&enablejsapi=1`,
@@ -5252,7 +5252,7 @@
             const topicKey = cleanTopic.toLowerCase();
             let matchedPreset = null;
             for (const [k, p] of Object.entries(TOPIC_PRESETS)) {
-                if (topicKey === k || topicKey.includes(k)) {
+                if (topicKey === k) {
                     matchedPreset = p;
                     break;
                 }
@@ -5262,11 +5262,18 @@
                 s = s.replace(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?[^\s\)\"]+|youtu\.be\/[\w-]+)/gi, realYtUrl);
             }
 
-            // 2. Music & Video intent
-            const musicIntents = ["play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio", "play "];
-            const isMusic = musicIntents.some(mi => pLow.startsWith(mi) || pLow.includes(mi));
+            // 2. Video vs. Music intent
+            const videoMarkers = [
+                "video", "clip", "movie", "trailer", "lecture", "interview", "documentary",
+                "stream live", "live stream", "broadcast", "on youtube", "game", "football",
+                "highlights", "match", "soccer", "nfl", "nba", "mlb", "nhl", "premier league",
+                "sport", "sports", "fight", "boxing", "ufc", "racing", "f1", "play game"
+            ];
             const ytIntents = ["open youtube", "open yt", "play youtube", "search youtube", "watch youtube", "youtube.com", "show video", "watch video", "play video", "video of", "video about"];
-            const isVideo = ytIntents.some(yi => pLow.includes(yi)) || (pLow.includes("video") && ["open", "launch", "watch", "play", "show", "search"].some(w => pLow.includes(w)));
+            const isVideo = ytIntents.some(yi => pLow.includes(yi)) || (pLow.includes("video") && ["open", "launch", "watch", "play", "show", "search"].some(w => pLow.includes(w))) || videoMarkers.some(vm => pLow.includes(vm));
+
+            const musicIntents = ["play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio"];
+            const isMusic = !isVideo && (musicIntents.some(mi => pLow.startsWith(mi) || pLow.includes(mi)) || ["lofi", "lo-fi", "synthwave", "ambient", "soundtrack"].some(g => pLow.includes(g)));
 
             const mediaBody = matchedPreset ? `https://www.youtube.com/watch?v=${matchedPreset.id}` : cleanTopic;
 
