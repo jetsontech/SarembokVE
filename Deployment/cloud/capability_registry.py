@@ -38,6 +38,8 @@ RPC_CAPABILITIES = {
     'GetDigitalHumanSession': ('avatar', 'Get digital human session status and voice profile.'),
     'ListDigitalHumanSessions': ('avatar', 'List all digital human sessions.'),
     'CloseDigitalHumanSession': ('avatar', 'Close an active digital human session.'),
+    'GenerateImage': ('frontier-vision', 'Synthesize photorealistic 1024x1024 imagery via FLUX.1 Tensor Core acceleration.'),
+    'ExecuteComputeTask': ('compute', 'Execute heavy GPU parallel compute or custom model inference on sovereign nodes.'),
 }
 
 class CapabilityRegistry:

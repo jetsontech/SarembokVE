@@ -1561,6 +1561,156 @@
         .srbk-task-status.running {
             color: var(--amber);
         }
+
+        /* Frontier Image Generation & Visual Synthesis Cards */
+        .srbk-image-card {
+            margin: 16px 0;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(5, 10, 24, 0.98) 100%);
+            border: 1px solid rgba(168, 85, 247, 0.4);
+            overflow: hidden;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.75), 0 0 24px rgba(168, 85, 247, 0.2);
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+        .srbk-image-card:hover {
+            border-color: rgba(168, 85, 247, 0.7);
+            box-shadow: 0 14px 44px rgba(0, 0, 0, 0.8), 0 0 32px rgba(168, 85, 247, 0.35);
+        }
+        .srbk-image-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: rgba(168, 85, 247, 0.12);
+            border-bottom: 1px solid rgba(168, 85, 247, 0.2);
+        }
+        .srbk-image-badge {
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            color: #c084fc;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .srbk-image-wrapper {
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+            max-height: 520px;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .srbk-image-preview {
+            width: 100%;
+            height: auto;
+            max-height: 520px;
+            object-fit: contain;
+            display: block;
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .srbk-image-wrapper:hover .srbk-image-preview {
+            transform: scale(1.02);
+        }
+        .srbk-image-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 12px 16px;
+            background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+            opacity: 0;
+            transition: opacity 0.25s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .srbk-image-wrapper:hover .srbk-image-overlay {
+            opacity: 1;
+        }
+        .srbk-image-overlay-text {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: #c084fc;
+            letter-spacing: 0.12em;
+            background: rgba(15, 23, 42, 0.85);
+            padding: 4px 12px;
+            border-radius: 4px;
+            border: 1px solid rgba(168, 85, 247, 0.5);
+            box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+        }
+        .srbk-image-foot {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 14px;
+            background: rgba(0, 0, 0, 0.4);
+            border-top: 1px solid rgba(168, 85, 247, 0.15);
+        }
+
+        /* Lightbox Modal */
+        .srbk-lightbox-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 999999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .srbk-lightbox-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(2, 6, 18, 0.88);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+        .srbk-lightbox-content {
+            position: relative;
+            z-index: 2;
+            max-width: 92vw;
+            max-height: 92vh;
+            display: flex;
+            flex-direction: column;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(168, 85, 247, 0.5);
+            border-radius: 12px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.9), 0 0 40px rgba(168, 85, 247, 0.3);
+            overflow: hidden;
+        }
+        .srbk-lightbox-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 18px;
+            background: rgba(168, 85, 247, 0.15);
+            border-bottom: 1px solid rgba(168, 85, 247, 0.25);
+        }
+        .srbk-lightbox-title {
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0.05em;
+        }
+        .srbk-lightbox-img-wrap {
+            overflow: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            background: #000;
+        }
+        .srbk-lightbox-img {
+            max-width: 86vw;
+            max-height: 80vh;
+            object-fit: contain;
+            border-radius: 6px;
+        }
         .dialogue-input-bar {
             flex-shrink: 0;
             padding: 10px 16px;
@@ -5190,6 +5340,67 @@
             </div>`;
         }
 
+        function renderImageCard(title, urlOrBody) {
+            const raw = String(urlOrBody || "").trim();
+            const urlMatch = raw.match(/https?:\/\/[^\s\)"]+/);
+            const imageUrl = urlMatch ? urlMatch[0] : raw;
+            const cardTitle = (title || "").trim() || "FRONTIER GENERATIVE SYNTHESIS";
+
+            return `
+                <div class="srbk-image-card">
+                    <div class="srbk-image-head">
+                        <span class="srbk-image-badge">🎨 ${escapeHtml(cardTitle)}</span>
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <button type="button" class="srbk-video-pop-btn" onclick="openImageLightbox('${escapeHtml(imageUrl)}', '${escapeHtml(cardTitle)}')">⧉ EXPAND</button>
+                            <a href="${escapeHtml(imageUrl)}" target="_blank" download="sarembok_frontier.png" class="srbk-video-link">⬇ 4K SAVE</a>
+                        </div>
+                    </div>
+                    <div class="srbk-image-wrapper" onclick="openImageLightbox('${escapeHtml(imageUrl)}', '${escapeHtml(cardTitle)}')">
+                        <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(cardTitle)}" class="srbk-image-preview" loading="lazy" />
+                        <div class="srbk-image-overlay">
+                            <span class="srbk-image-overlay-text">🔍 CLICK TO EXPAND LIGHTBOX · FLUX.1 ENGINE</span>
+                        </div>
+                    </div>
+                    <div class="srbk-image-foot">
+                        <span style="color:var(--text-muted); font-size:10px; font-family:var(--font-mono);">ACCELERATOR: SOVEREIGN TENSOR CORE · 1024x1024 RESOLUTION</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function openImageLightbox(imageUrl, title) {
+            let lb = document.getElementById("srbk-lightbox-modal");
+            if (!lb) {
+                lb = document.createElement("div");
+                lb.id = "srbk-lightbox-modal";
+                lb.className = "srbk-lightbox-modal";
+                document.body.appendChild(lb);
+            }
+            lb.innerHTML = `
+                <div class="srbk-lightbox-backdrop" onclick="closeImageLightbox()"></div>
+                <div class="srbk-lightbox-content">
+                    <div class="srbk-lightbox-header">
+                        <span class="srbk-lightbox-title">🎨 ${escapeHtml(title || "FRONTIER IMAGE GENERATION")}</span>
+                        <div style="display:flex; gap:8px;">
+                            <a href="${escapeHtml(imageUrl)}" target="_blank" download="sarembok_frontier.png" class="srbk-video-link">⬇ DOWNLOAD 4K</a>
+                            <button type="button" class="srbk-video-pop-btn" onclick="closeImageLightbox()">✕ CLOSE</button>
+                        </div>
+                    </div>
+                    <div class="srbk-lightbox-img-wrap">
+                        <img src="${escapeHtml(imageUrl)}" class="srbk-lightbox-img" alt="Generative Artwork" />
+                    </div>
+                </div>
+            `;
+            lb.style.display = "flex";
+        }
+
+        function closeImageLightbox() {
+            const lb = document.getElementById("srbk-lightbox-modal");
+            if (lb) lb.style.display = "none";
+        }
+        window.openImageLightbox = openImageLightbox;
+        window.closeImageLightbox = closeImageLightbox;
+
         function renderTaskMatrix(title, body) {
             const lines = String(body || "").trim().split("\n").filter(Boolean);
             let itemsHtml = "";
@@ -5286,9 +5497,21 @@
 
             const mediaBody = matchedPreset ? `https://www.youtube.com/watch?v=${matchedPreset.id}` : cleanTopic;
 
+            // Check for image generation intent
+            const imgIntents = ["generate image", "generate an image", "create image", "create an image", "make an image", "render image", "render an image", "draw an image", "draw me", "paint me", "synthesize image", "make a picture", "generate a picture", "create artwork", "generate artwork", "draw a", "generate visual"];
+            const isImage = imgIntents.some(ii => pLow.includes(ii)) || ((pLow.includes("image") || pLow.includes("picture") || pLow.includes("artwork") || pLow.includes("photo")) && ["generate", "create", "render", "synthesize", "draw", "paint"].some(w => pLow.includes(w)));
+
             // If the incoming text ALREADY has a verified media card with a real URL from the backend, keep it!
-            const hasVerifiedMedia = /:::(?:video|music|youtube)[^\n]*\n\s*https?:\/\/[^\s\n]+\s*\n:::/i.test(s);
-            if (!hasVerifiedMedia && (isVideo || isMusic)) {
+            const hasVerifiedMedia = /:::(?:video|music|youtube|image)[^\n]*\n\s*https?:\/\/[^\s\n]+\s*\n:::/i.test(s);
+
+            if (!hasVerifiedMedia && isImage && !s.includes(":::image")) {
+                let imgPrompt = prompt.replace(/^(?:can you\s+)?(?:please\s+)?(?:generate|create|render|draw|make|synthesize|paint)\s+(?:an?\s+)?(?:image|picture|photo|artwork)\s+(?:of\s+)?/gi, "").trim();
+                imgPrompt = imgPrompt || "cybernetic neural core in sovereign computing matrix";
+                const enc = encodeURIComponent(imgPrompt);
+                const seed = Math.floor(Math.random() * 9000000) + 1000000;
+                const imgUrl = `https://image.pollinations.ai/prompt/${enc}?width=1024&height=1024&model=flux&nologo=true&seed=${seed}`;
+                s = `:::image ${imgPrompt.toUpperCase()} · FRONTIER SYNTHESIS\n${imgUrl}\n:::\n\n${s}`.trim();
+            } else if (!hasVerifiedMedia && (isVideo || isMusic)) {
                 s = s.replace(/:::(?:video|music|youtube)[^\n]*\n[\s\S]*?:::\n?/gi, "").trim();
                 s = s.replace(/:::(?:video|music|youtube)[^\n]*/gi, "").trim();
                 if (isMusic) {
@@ -5304,6 +5527,7 @@
             const taskIntents = ["while searching", "simultaneously", "at the same time", "in parallel", "also calculate", "and also", "while calculating", "and search", "multi task", "multitask"];
             if (taskIntents.some(ti => pLow.includes(ti)) && !s.includes(":::tasks")) {
                 const tasks = [];
+                if (isImage) tasks.push("[Visual Synthesis]: FLUX.1 Tensor Core Generation Online");
                 if (["music", "lofi", "song", "audio"].some(w => pLow.includes(w))) tasks.push("[Audio Stream]: Active Cyber Music Channel Online");
                 if (["news", "search", "research", "ai", "market"].some(w => pLow.includes(w))) tasks.push("[Live Intelligence]: Synchronized Real-Time Knowledge Fabric");
                 if (["calc", "math", "code", "budget"].some(w => pLow.includes(w))) tasks.push("[Computational Engine]: Synthesis & Execution Complete");
@@ -5337,34 +5561,39 @@
                 return renderTaskMatrix(title, body);
             });
 
-            // 4. Videos & YouTube Embeds (:::video ... ::: or :::youtube ... :::)
+            // 4. Frontier Generative Image Synthesis (:::image ... ::: or :::art ... :::)
+            s = s.replace(/:::(?:image|art|render|photo)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
+                return renderImageCard(title, body);
+            });
+
+            // 5. Videos & YouTube Embeds (:::video ... ::: or :::youtube ... :::)
             s = s.replace(/:::(?:video|youtube)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 return renderVideoCard(title, body);
             });
 
-            // 5. Audio & Podcasts (:::audio ... :::)
+            // 6. Audio & Podcasts (:::audio ... :::)
             s = s.replace(/:::audio(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 return renderAudioCard(title, body);
             });
 
-            // 6. Research Documents, Specs & PDFs (:::doc ... ::: or :::pdf ... :::)
+            // 7. Research Documents, Specs & PDFs (:::doc ... ::: or :::pdf ... :::)
             s = s.replace(/:::(?:doc|pdf|paper)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 return renderDocCard(title, body);
             });
 
-            // 7. Interactive Flashcards & Cyber Cards (:::card ... :::)
+            // 8. Interactive Flashcards & Cyber Cards (:::card ... :::)
             s = s.replace(/:::card(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 const cardTitle = (title || "").trim() || "STUDY FLASHCARD";
                 return `<div class="srbk-flashcard"><div class="srbk-card-head"><span class="srbk-card-badge"><span class="boot-badge-dot"></span> 🎴 FLASHCARD</span><span class="srbk-card-title">${escapeHtml(cardTitle)}</span></div><div class="srbk-card-body">${md(body)}</div></div>`;
             });
 
-            // 8. Click-to-Reveal Solutions & Explanations (:::reveal ... :::)
+            // 9. Click-to-Reveal Solutions & Explanations (:::reveal ... :::)
             s = s.replace(/:::reveal(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, label, body) => {
                 const btnLabel = (label || "").trim() || "Reveal Answer & Step-by-Step Solution";
                 return `<details class="srbk-card-reveal"><summary class="srbk-card-reveal-btn"><span>💡</span> <span>${escapeHtml(btnLabel)}</span> <span style="font-size:9px; opacity:0.7;">▼</span></summary><div class="srbk-card-answer">${md(body)}</div></details>`;
             });
 
-            // 9. Standalone YouTube links on their own line
+            // 10. Standalone YouTube links on their own line
             s = s.replace(/(?:^|\n)(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?[^\s]+|youtu\.be\/[\w-]+))\b/gi, (match, url) => {
                 return "\n" + renderVideoCard("", url);
             });

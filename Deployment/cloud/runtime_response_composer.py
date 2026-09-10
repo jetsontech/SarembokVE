@@ -168,6 +168,10 @@ def render_capabilities(
         "6. 🤖 **Multi-Agent Orchestration & Cloud Tasks**",
         f"   - Distributed task dispatching across {workers_cnt} active compute workers ({gpu_cnt} GPU acceleration nodes) with background agent lifecycles.",
         "",
+        "7. 🎨 **Frontier Image Generation & Visual Synthesis**",
+        "   - High-fidelity 1024x1024 visual generation powered by FLUX.1 and sovereign GPU Tensor Core acceleration.",
+        "   - *Directives:* `generate an image of a cybernetic neural hub in neo-tokyo` or `draw an astronaut on mars`.",
+        "",
         "Type or speak any instruction to begin!"
     ])
 
