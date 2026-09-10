@@ -79,6 +79,14 @@ BROWSER_ALLOWED_METHODS = {
     "VerifyAdminPasscode",
     "SearchYouTube",
     "ResolveMediaStream",
+    "RegisterWorker",
+    "Heartbeat",
+    "ListTasks",
+    "ClaimTask",
+    "CompleteTask",
+    "FailTask",
+    "ScheduleCompute",
+    "CreateTask",
 }
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
@@ -2068,7 +2076,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "lastHeartbeat": stamp,
         }
 
-    if method == "ScheduleCompute":
+    if method in ("ScheduleCompute", "CreateTask"):
         task = params.get("task", {})
 
         if not isinstance(task, dict):
@@ -2355,6 +2363,34 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "status": new_status,
             "error": error_msg,
         }
+
+    if method == "ListTasks":
+        ensure_scheduler_schema()
+        status_filter = str(params.get("status", "")).strip().upper()
+        worker_filter = str(params.get("workerId", "")).strip()
+        query = "SELECT task_id, task_type, required_capability, payload, assigned_worker_id, status, created_at, updated_at FROM tasks WHERE 1=1"
+        q_params: list[Any] = []
+        if status_filter:
+            query += " AND status=?"
+            q_params.append(status_filter)
+        if worker_filter:
+            query += " AND (assigned_worker_id=? OR assigned_worker_id IS NULL OR assigned_worker_id='')"
+            q_params.append(worker_filter)
+        query += " ORDER BY created_at ASC LIMIT 100"
+        rows = store.db.execute(query, q_params).fetchall()
+        tasks_list = []
+        for r in rows:
+            tasks_list.append({
+                "taskId": r[0],
+                "taskType": r[1],
+                "requiredCapability": r[2],
+                "payload": r[3],
+                "assignedWorkerId": r[4],
+                "status": r[5],
+                "createdAt": r[6],
+                "updatedAt": r[7],
+            })
+        return {"tasks": tasks_list, "count": len(tasks_list)}
 
     if method == "RuntimeInfo":
         worker_stats = get_worker_status_counts()
