@@ -1096,6 +1096,8 @@
             border-bottom: 1px solid rgba(0, 240, 255, 0.2);
             cursor: move;
             user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
         }
         .srbk-pip-title {
             font-family: var(--font-mono);
@@ -2131,6 +2133,16 @@
 
             .srbk-response-grid {
                 grid-template-columns: 1fr;
+            }
+
+            /* Floating Picture-in-Picture Player Mobile */
+            #srbk-floating-pip-player {
+                width: 320px;
+                max-width: calc(100vw - 20px);
+                right: 10px;
+                bottom: 64px;
+                border-radius: 10px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9), 0 0 16px rgba(0, 240, 255, 0.3);
             }
 
             /* 7. Research & Headless Browser Mobile */
@@ -4221,46 +4233,145 @@
         function setAudioDucking() {} /* no-op, music deck removed */
         window.setAudioDucking = setAudioDucking;
 
-        // Draggable floating PiP Player
+        // Draggable floating PiP Player (Unified Pointer, Touch, and Mouse dragging for Mobile & Desktop)
         (function initPipDrag() {
             let isDragging = false;
-            let startX, startY, initialLeft, initialTop;
+            let startX = 0, startY = 0, initialLeft = 0, initialTop = 0;
 
-            document.addEventListener("DOMContentLoaded", () => {
+            function onDragStart(clientX, clientY, target) {
+                if (target && target.closest("button, a")) return false;
+                const pip = document.getElementById("srbk-floating-pip-player");
+                if (!pip) return false;
+
+                isDragging = true;
+                startX = clientX;
+                startY = clientY;
+
+                const rect = pip.getBoundingClientRect();
+                initialLeft = rect.left;
+                initialTop = rect.top;
+
+                pip.style.right = "auto";
+                pip.style.bottom = "auto";
+                pip.style.left = `${initialLeft}px`;
+                pip.style.top = `${initialTop}px`;
+                pip.style.transition = "none";
+                return true;
+            }
+
+            function onDragMove(clientX, clientY) {
+                if (!isDragging) return;
+                const pip = document.getElementById("srbk-floating-pip-player");
+                if (!pip) return;
+
+                const dx = clientX - startX;
+                const dy = clientY - startY;
+
+                const maxX = Math.max(0, window.innerWidth - pip.offsetWidth);
+                const maxY = Math.max(0, window.innerHeight - pip.offsetHeight);
+
+                const newX = Math.max(4, Math.min(maxX - 4, initialLeft + dx));
+                const newY = Math.max(4, Math.min(maxY - 4, initialTop + dy));
+
+                pip.style.left = `${newX}px`;
+                pip.style.top = `${newY}px`;
+            }
+
+            function onDragEnd() {
+                if (!isDragging) return;
+                isDragging = false;
+                const pip = document.getElementById("srbk-floating-pip-player");
+                if (pip) {
+                    pip.style.transition = "";
+                }
+            }
+
+            function attach() {
                 const handle = document.getElementById("srbk-pip-drag-handle");
                 const pip = document.getElementById("srbk-floating-pip-player");
                 if (!handle || !pip) return;
 
-                handle.addEventListener("mousedown", (e) => {
-                    if (e.target.tagName === "BUTTON") return;
-                    isDragging = true;
-                    startX = e.clientX;
-                    startY = e.clientY;
-                    const rect = pip.getBoundingClientRect();
-                    initialLeft = rect.left;
-                    initialTop = rect.top;
-                    pip.style.right = "auto";
-                    pip.style.bottom = "auto";
-                    pip.style.left = `${initialLeft}px`;
-                    pip.style.top = `${initialTop}px`;
-                    pip.style.transition = "none";
-                });
+                handle.style.touchAction = "none";
 
-                document.addEventListener("mousemove", (e) => {
-                    if (!isDragging) return;
-                    const dx = e.clientX - startX;
-                    const dy = e.clientY - startY;
-                    pip.style.left = `${Math.max(10, Math.min(window.innerWidth - pip.offsetWidth - 10, initialLeft + dx))}px`;
-                    pip.style.top = `${Math.max(10, Math.min(window.innerHeight - pip.offsetHeight - 10, initialTop + dy))}px`;
-                });
-
-                document.addEventListener("mouseup", () => {
-                    if (isDragging) {
-                        isDragging = false;
-                        pip.style.transition = "";
+                // Pointer Events (Modern unified touch + mouse standard)
+                handle.addEventListener("pointerdown", (e) => {
+                    if (e.button && e.button !== 0) return;
+                    if (onDragStart(e.clientX, e.clientY, e.target)) {
+                        try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+                        e.preventDefault();
                     }
                 });
-            });
+
+                handle.addEventListener("pointermove", (e) => {
+                    if (isDragging) {
+                        onDragMove(e.clientX, e.clientY);
+                        e.preventDefault();
+                    }
+                });
+
+                handle.addEventListener("pointerup", (e) => {
+                    if (isDragging) {
+                        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+                        onDragEnd();
+                        e.preventDefault();
+                    }
+                });
+
+                handle.addEventListener("pointercancel", (e) => {
+                    if (isDragging) {
+                        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+                        onDragEnd();
+                    }
+                });
+
+                // Direct Touch Events fallback for iOS Safari
+                handle.addEventListener("touchstart", (e) => {
+                    if (e.touches && e.touches.length > 0) {
+                        const t = e.touches[0];
+                        if (onDragStart(t.clientX, t.clientY, e.target)) {
+                            e.preventDefault();
+                        }
+                    }
+                }, { passive: false });
+
+                window.addEventListener("touchmove", (e) => {
+                    if (isDragging && e.touches && e.touches.length > 0) {
+                        const t = e.touches[0];
+                        onDragMove(t.clientX, t.clientY);
+                        e.preventDefault();
+                    }
+                }, { passive: false });
+
+                window.addEventListener("touchend", () => {
+                    onDragEnd();
+                });
+
+                window.addEventListener("touchcancel", () => {
+                    onDragEnd();
+                });
+
+                // Mouse fallback
+                handle.addEventListener("mousedown", (e) => {
+                    if (e.button !== 0) return;
+                    onDragStart(e.clientX, e.clientY, e.target);
+                });
+
+                window.addEventListener("mousemove", (e) => {
+                    if (isDragging) {
+                        onDragMove(e.clientX, e.clientY);
+                    }
+                });
+
+                window.addEventListener("mouseup", () => {
+                    onDragEnd();
+                });
+            }
+
+            if (document.readyState === "loading") {
+                document.addEventListener("DOMContentLoaded", attach);
+            } else {
+                attach();
+            }
         })();
 
         window.popOutFloatingVideo = popOutFloatingVideo;
