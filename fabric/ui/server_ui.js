@@ -43,6 +43,25 @@ const server = http.createServer((req, res) => {
                 res.end(content);
             }
         });
+    } else if (req.url === '/session') {
+        const https = require('https');
+        const options = {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) SarembokLocal/1.0' }
+        };
+        https.get('https://sarembok.com/session', options, (remoteRes) => {
+            let data = '';
+            remoteRes.on('data', chunk => data += chunk);
+            remoteRes.on('end', () => {
+                res.writeHead(remoteRes.statusCode || 200, {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                });
+                res.end(data);
+            });
+        }).on('error', (err) => {
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify({ sessionToken: 'local_dev_token', expiresIn: 3600 }));
+        });
     } else if (req.url === '/api/telemetry') {
         try {
             const db = new Database(DB_PATH);

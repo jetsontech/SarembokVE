@@ -5776,12 +5776,24 @@
            WEBSOCKET RPC & STREAMING CONNECTION
            ============================================================ */
         function connect() {
-            const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-            const host = window.location.host || "127.0.0.1:9000";
+            let proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+            let host = window.location.host || "127.0.0.1:9000";
+            
+            // If running on local test UI server (e.g. port 3000), route WebSocket to sarembok.com runtime
+            // unless port 9000 is explicitly specified for local container development:
+            if ((window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && window.location.port !== "9000") {
+                proto = "wss:";
+                host = "sarembok.com";
+            }
             const wsUrl = `${proto}//${host}/ws`;
 
             console.log("Connecting to Sarembok runtime:", wsUrl);
-            ws = new WebSocket(wsUrl);
+            try {
+                ws = new WebSocket(wsUrl);
+            } catch (wsErr) {
+                console.warn("WebSocket init error:", wsErr);
+                return;
+            }
 
             ws.onopen = () => {
                 console.log("Sarembok runtime connected.");
@@ -5825,8 +5837,22 @@
             };
         }
 
+        async function ensureConnected(timeoutMs = 6000) {
+            if (ws && ws.readyState === WebSocket.OPEN) return true;
+            if (!ws || ws.readyState === WebSocket.CLOSED) {
+                connect();
+            }
+            const start = Date.now();
+            while (Date.now() - start < timeoutMs) {
+                if (ws && ws.readyState === WebSocket.OPEN) return true;
+                await new Promise(r => setTimeout(r, 100));
+            }
+            return ws && ws.readyState === WebSocket.OPEN;
+        }
+
         async function sendRPC(method, params = {}, onDelta = null) {
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
+            const isReady = await ensureConnected(6000);
+            if (!isReady) {
                 throw new Error("Runtime WebSocket not open");
             }
             if (!window.browserSessionToken) {
@@ -6983,6 +7009,10 @@
             const tierFilter = document.getElementById("mem-tier-filter")?.value || "";
             const query = queryTerm !== undefined ? queryTerm : (document.getElementById("mem-search-query")?.value || "");
 
+            if (container && (!container.children || container.children.length === 0)) {
+                container.innerHTML = `<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-muted); padding:24px; text-align:center; grid-column:1/-1;">⚡ Syncing memories with runtime substrate...</div>`;
+            }
+
             try {
                 const res = await sendRPC("SearchMemories", {
                     query: query,
@@ -7013,7 +7043,14 @@
                 `).join("");
 
             } catch (err) {
-                container.innerHTML = `<div style="color:var(--danger); font-family:var(--font-mono); font-size:11px; padding:16px;">Failed to load memories: ${escapeHtml(err.message)}</div>`;
+                if (container) {
+                    container.innerHTML = `
+                        <div style="color:var(--danger); font-family:var(--font-mono); font-size:11px; padding:20px; text-align:center; grid-column:1/-1;">
+                            <div>Failed to load memories: ${escapeHtml(err.message)}</div>
+                            <button onclick="loadMemoriesList()" class="srbk-video-pop-btn" style="margin-top:10px; display:inline-block; font-size:10px; cursor:pointer;">↺ RETRY CONNECTION</button>
+                        </div>
+                    `;
+                }
             }
         }
 
