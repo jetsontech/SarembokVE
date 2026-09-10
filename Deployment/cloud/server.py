@@ -53,6 +53,7 @@ BROWSER_SESSION_TTL_SECONDS = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_T
 BROWSER_ALLOWED_METHODS = {
     "SarembokChat",
     "GetRuntimeInfo",
+    "GetProviderMetrics",
     "BrowserNavigate",
     "BrowserScreenshot",
     "BrowserRender",

@@ -41,6 +41,6 @@ RPC_CAPABILITIES = {
 class CapabilityRegistry:
     def snapshot(self, runtime_state: dict[str, Any] | None = None) -> dict[str, Any]:
         providers = []
-        for name, key, model in [('OpenAI','OPENAI_API_KEY',os.getenv('LLM_MODEL','gpt-5-mini')),('OpenRouter','OPENROUTER_API_KEY',os.getenv('OPENROUTER_MODEL','openai/gpt-oss-120b')),('Groq','GROQ_API_KEY',os.getenv('GROQ_MODEL','openai/gpt-oss-120b')),('Gemini','GEMINI_API_KEY',os.getenv('GEMINI_MODEL','gemini-3.8-flash')),('Custom','LLM_ENDPOINT_URL',os.getenv('LLM_MODEL','custom'))]:
+        for name, key, model in [('OpenAI','OPENAI_API_KEY',os.getenv('LLM_MODEL','gpt-5-mini')),('OpenRouter','OPENROUTER_API_KEY',os.getenv('OPENROUTER_MODEL','openai/gpt-4o-mini')),('Groq','GROQ_API_KEY',os.getenv('GROQ_MODEL','llama-3.3-70b-versatile')),('Gemini','GEMINI_API_KEY',os.getenv('GEMINI_MODEL','gemini-3.6-flash')),('Custom','LLM_ENDPOINT_URL',os.getenv('LLM_MODEL','custom'))]:
             if os.getenv(key): providers.append({'name': name, 'model': model, 'configured': True})
         return {'registryVersion':'1.0', 'capabilities':[{'method':m,'domain':d,'description':desc,'enabled':True} for m,(d,desc) in RPC_CAPABILITIES.items()], 'providers':providers, 'runtime':runtime_state or {}}
