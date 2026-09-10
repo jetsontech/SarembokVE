@@ -62,7 +62,7 @@ class ProviderRouter:
         self.openrouter_reasoning = os.getenv('SAREMBOK_OPENROUTER_REASONING_EFFORT', 'low').strip().lower()
         if self.openrouter_reasoning not in {'minimal', 'low', 'medium', 'high', 'xhigh'}:
             self.openrouter_reasoning = 'low'
-        self.max_output_tokens = max(64, int(os.getenv('SAREMBOK_LLM_MAX_OUTPUT_TOKENS', '750')))
+        self.max_output_tokens = max(64, int(os.getenv('SAREMBOK_LLM_MAX_OUTPUT_TOKENS', '350')))
         self._history: deque[dict[str, Any]] = deque(maxlen=200)
 
     @staticmethod
@@ -159,14 +159,14 @@ class ProviderRouter:
             result['OpenRouter'] = ProviderSpec('OpenRouter', primary_model, 'openai', 'https://openrouter.ai/api/v1/chat/completions', router)
         groq = os.getenv('GROQ_API_KEY', '').strip()
         if groq:
-            result['Groq'] = ProviderSpec('Groq', os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile'), 'openai', 'https://api.groq.com/openai/v1/chat/completions', groq)
+            result['Groq'] = ProviderSpec('Groq', os.getenv('GROQ_MODEL', 'openai/gpt-oss-120b'), 'openai', 'https://api.groq.com/openai/v1/chat/completions', groq)
         gemini = os.getenv('GEMINI_API_KEY', '').strip()
         if gemini:
             result['Gemini'] = ProviderSpec('Gemini', os.getenv('GEMINI_MODEL', 'gemini-3.6-flash'), 'gemini', 'https://generativelanguage.googleapis.com/v1beta/interactions', gemini)
         custom = os.getenv('LLM_ENDPOINT_URL', '').strip()
         if custom:
             result['Custom'] = ProviderSpec('Custom', os.getenv('LLM_MODEL', 'llama-3.1-8b'), 'openai', custom, os.getenv('LLM_API_KEY', 'dummy'))
-        order = [x.strip() for x in os.getenv('SAREMBOK_PROVIDER_ORDER', 'OpenRouter,Gemini,Groq,OpenAI,Custom').split(',') if x.strip()]
+        order = [x.strip() for x in os.getenv('SAREMBOK_PROVIDER_ORDER', 'OpenRouter,Groq,Gemini,OpenAI,Custom').split(',') if x.strip()]
         specs = [result[x] for x in order if x in result] + [v for k, v in result.items() if k not in order]
         
         # If a specific model was requested and OpenRouter is available, also add the baseline fallback spec
@@ -224,7 +224,7 @@ class ProviderRouter:
                     pass
 
     def _openai_headers(self, spec: ProviderSpec, streaming: bool = False) -> dict[str, str]:
-        headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {spec.key}'}
+        headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {spec.key}', 'User-Agent': 'SarembokVE/1.0'}
         if streaming:
             headers['Accept'] = 'text/event-stream'
         if spec.name == 'OpenRouter':
@@ -245,7 +245,7 @@ class ProviderRouter:
             elif not normalized_messages:
                 normalized_messages.append({'role': 'user', 'content': 'Hello'})
 
-        max_tok = min(self.max_output_tokens, 700) if spec.name.startswith('OpenRouter') else self.max_output_tokens
+        max_tok = min(self.max_output_tokens, 200) if spec.name.startswith('OpenRouter') else self.max_output_tokens
         data: dict[str, Any] = {
             'model': spec.model,
             'messages': normalized_messages,
