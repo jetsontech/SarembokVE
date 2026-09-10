@@ -27,7 +27,9 @@ const server = http.createServer((req, res) => {
     }
 
     if (req.url === '/' || req.url === '/index.html') {
-        fs.readFile(path.join(__dirname, 'index.html'), (err, content) => {
+        const prodHtmlPath = path.resolve(__dirname, '..', '..', 'frontend', 'index.html');
+        const targetHtml = fs.existsSync(prodHtmlPath) ? prodHtmlPath : path.join(__dirname, 'index.html');
+        fs.readFile(targetHtml, (err, content) => {
             if (err) {
                 res.writeHead(500, { 'Content-Type': 'text/plain' });
                 res.end('Substrate mounting exception.');
