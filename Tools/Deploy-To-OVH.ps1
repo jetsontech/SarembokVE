@@ -15,20 +15,23 @@ Write-Host ""
 $remoteCmd = @'
 set -e
 echo "[1/4] Pulling latest commits from origin main..."
-cd ~/Sarembok_VE
+echo "[3/4] Updating production edge and runtime containers..."
+# Determine repository directory (SarembokVE or Sarembok_VE)
+if [ -d "$HOME/SarembokVE" ]; then
+  cd "$HOME/SarembokVE"
+elif [ -d "$HOME/Sarembok_VE" ]; then
+  cd "$HOME/Sarembok_VE"
+fi
 git fetch origin main
 git checkout main
 git pull origin main
 
-echo "[2/4] Verifying auth token..."
-export SAREMBOK_AUTH_TOKEN="$(sudo cat /etc/sarembok/auth_token)"
-test -n "$SAREMBOK_AUTH_TOKEN" && echo "Auth token loaded successfully."
-
-echo "[3/4] Rebuilding and recreating production runtime container..."
+docker cp frontend/index.html sarembok-edge:/srv/index.html || true
 docker compose \
   -f Deployment/cloud/compose.yaml \
   -f Deployment/cloud/compose.production.yaml \
-  up -d --build --force-recreate sarembok-runtime
+  up -d --build sarembok-runtime sarembok-edge
+docker cp frontend/index.html sarembok-edge:/srv/index.html || true
 
 echo "[4/4] Verifying container health..."
 docker compose \
