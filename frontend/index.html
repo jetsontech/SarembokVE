@@ -4841,19 +4841,28 @@
                     }
                 });
 
+                // Update card badge title if video title is available
+                if (result?.title) {
+                    const badge = containerEl.querySelector('.srbk-video-badge, .srbk-music-badge');
+                    if (badge) {
+                        const icon = badge.textContent.includes('🎵') ? '🎵' : '🎬';
+                        badge.textContent = `${icon} ${result.title.toUpperCase()}`;
+                    }
+                }
+
                 // Update POP OUT and WINDOW buttons' onclick handlers
                 const popBtns = containerEl.querySelectorAll('.srbk-video-pop-btn, .srbk-big-pop-btn');
                 popBtns.forEach(btn => {
                     const onclick = btn.getAttribute('onclick') || '';
                     if (onclick.includes('popOutFloatingVideo')) {
-                        btn.setAttribute('onclick', `popOutFloatingVideo('${videoId}', '${escapeHtml(displayTitle || query.toUpperCase())}')`);
+                        btn.setAttribute('onclick', `popOutFloatingVideo('${videoId}', '${escapeHtml(result.title || displayTitle || query.toUpperCase())}')`);
                     } else if (onclick.includes('openDetachedPipWindowFromUrl')) {
                         btn.setAttribute('onclick', `openDetachedPipWindowFromUrl('${videoId}')`);
                     }
                 });
 
-                // Also cache this for future use in TOPIC_PRESETS
-                TOPIC_PRESETS[query.toLowerCase()] = { id: videoId, title: (displayTitle || query).toUpperCase() };
+                // Also cache this for future use in TOPIC_PRESETS with exact match
+                TOPIC_PRESETS[query.toLowerCase()] = { id: videoId, title: (result.title || displayTitle || query).toUpperCase() };
 
             } catch (err) {
                 console.warn('[Sarembok] SearchYouTube RPC failed, falling back to search embed:', err);
@@ -5110,7 +5119,7 @@
             `;
 
             let playerHtml = "";
-            if (media.embedUrl.includes("youtube") || media.embedUrl.includes("embed")) {
+            if (media.embedUrl.includes("youtube") || media.embedUrl.includes("embed") || media.embedUrl === "about:blank" || media.needsResolve) {
                 playerHtml = `<div class="srbk-video-player-wrap"><iframe src="${media.embedUrl}" class="srbk-video-iframe" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
             } else {
                 playerHtml = `<video controls src="${escapeHtml(media.embedUrl)}" class="srbk-video-player"></video>`;
@@ -5277,7 +5286,9 @@
 
             const mediaBody = matchedPreset ? `https://www.youtube.com/watch?v=${matchedPreset.id}` : cleanTopic;
 
-            if (isVideo || isMusic) {
+            // If the incoming text ALREADY has a verified media card with a real URL from the backend, keep it!
+            const hasVerifiedMedia = /:::(?:video|music|youtube)[^\n]*\n\s*https?:\/\/[^\s\n]+\s*\n:::/i.test(s);
+            if (!hasVerifiedMedia && (isVideo || isMusic)) {
                 s = s.replace(/:::(?:video|music|youtube)[^\n]*\n[\s\S]*?:::\n?/gi, "").trim();
                 s = s.replace(/:::(?:video|music|youtube)[^\n]*/gi, "").trim();
                 if (isMusic) {
@@ -5754,17 +5765,11 @@
                 content.innerHTML = md(finalText);
 
                 // Async-resolve any unresolved media cards via backend SearchYouTube RPC
-                const pLow = text.toLowerCase();
-                const isPlayIntent = pLow.startsWith("play ") || pLow.includes("play music") || pLow.includes("listen to") || pLow.includes("watch ") || pLow.includes("stream ");
-                if (isPlayIntent) {
-                    // Extract topic from prompt
+                const hasUnresolvedCards = content.querySelectorAll('iframe[src="about:blank"], a[href*="results?search_query"]').length > 0;
+                if (hasUnresolvedCards) {
                     let resolveTopic = text.replace(/(?:can you\s+)?(?:please\s+)?(?:play|show|open|stream|watch|listen to)\s+(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:video\s+about\s+|on\s+youtube\s+|youtube\s+)?/gi, "").replace(/["']/g, "").trim();
                     if (!resolveTopic || resolveTopic.length < 2) resolveTopic = "lofi study music";
-                    // Check if the rendered content has unresolved iframes (about:blank)
-                    const unresolvedIframes = content.querySelectorAll('iframe[src="about:blank"]');
-                    if (unresolvedIframes.length > 0) {
-                        resolveAndUpdateMediaCards(content, resolveTopic, resolveTopic.toUpperCase());
-                    }
+                    resolveAndUpdateMediaCards(content, resolveTopic, resolveTopic.toUpperCase());
                 }
 
                 // If Admin Tool Traces are present, render interactive cyber deck cards
