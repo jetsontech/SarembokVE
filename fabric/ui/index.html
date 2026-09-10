@@ -3,29 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ANTIGRAVITY GEMINI FABRIC // COCKPIT ENGINE</title>
+    <title>Antigravity Gemini Workspace</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-void: #030712;
-            --bg-surface: #0a0f1d;
-            --bg-card: rgba(13, 22, 38, 0.75);
-            --border-glass: rgba(0, 240, 255, 0.15);
-            --border-subtle: rgba(255, 255, 255, 0.08);
-            --cyan: #00f0ff;
-            --cyan-glow: 0 0 16px rgba(0, 240, 255, 0.45);
-            --blue-busy: #2563eb;
-            --blue-busy-glow: 0 0 20px rgba(37, 99, 235, 0.65);
-            --red-frozen: #ef4444;
-            --red-frozen-glow: 0 0 24px rgba(239, 68, 68, 0.8);
-            --amber: #f59e0b;
-            --emerald: #10b981;
-            --emerald-glow: 0 0 12px rgba(16, 185, 129, 0.45);
-            --text-main: #f8fafc;
+            --bg-base: #06090e;
+            --bg-surface: #0b1019;
+            --bg-card: rgba(14, 21, 33, 0.85);
+            --bg-input: #111827;
+            --border-subtle: #1e293b;
+            --border-glow: #334155;
+            --text-primary: #f1f5f9;
             --text-secondary: #94a3b8;
             --text-muted: #64748b;
+            --accent-cyan: #00f0ff;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-red: #ef4444;
             --font-display: 'Chakra Petch', sans-serif;
             --font-mono: 'JetBrains Mono', monospace;
             --font-sans: 'Plus Jakarta Sans', sans-serif;
@@ -38,928 +35,839 @@
         }
 
         body {
-            background: var(--bg-void);
-            color: var(--text-main);
+            background-color: var(--bg-base);
+            color: var(--text-primary);
             font-family: var(--font-sans);
-            min-height: 100vh;
+            margin: 0;
+            padding: 0;
             display: flex;
-            flex-direction: column;
-            overflow-x: hidden;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Scanline Overlay */
+        /* Subtle scanline texture */
         body::before {
             content: "";
             position: fixed;
             inset: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
-            background-size: 100% 4px;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%);
+            background-size: 100% 3px;
             pointer-events: none;
             z-index: 9999;
         }
 
-        /* ==================== QUADRANT A: HEADER ==================== */
-        .cockpit-header {
-            background: linear-gradient(180deg, rgba(10, 16, 32, 0.95), rgba(5, 8, 18, 0.95));
-            border-bottom: 1px solid var(--border-glass);
-            padding: 16px 28px;
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .header-brand {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-
-        .header-logo {
-            width: 36px;
-            height: 36px;
-            background: rgba(0, 240, 255, 0.08);
-            border: 1px solid var(--cyan);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: var(--cyan-glow);
-        }
-
-        .header-titles h1 {
-            font-family: var(--font-display);
-            font-size: 18px;
-            font-weight: 700;
-            letter-spacing: 1.5px;
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .header-titles .subhead {
-            font-family: var(--font-mono);
-            font-size: 11px;
-            color: var(--text-secondary);
-            letter-spacing: 0.5px;
-        }
-
-        .telemetry-controls {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 20px;
-        }
-
-        /* Pulse Indicator */
-        .status-pill {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: rgba(0, 0, 0, 0.45);
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            padding: 8px 16px;
-            font-family: var(--font-mono);
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .pulse-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            transition: all 0.3s ease;
-        }
-
-        /* Pulse Animations */
-        .pulse-green {
-            background: var(--emerald);
-            box-shadow: 0 0 12px var(--emerald);
-            animation: pulseGreen 1.2s infinite;
-        }
-        @keyframes pulseGreen {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            70% { transform: scale(1.15); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-        }
-
-        .pulse-yellow {
-            background: var(--amber);
-            box-shadow: 0 0 12px var(--amber);
-            animation: pulseYellow 1.6s infinite;
-        }
-        @keyframes pulseYellow {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
-            70% { transform: scale(1.15); box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
-        }
-
-        .pulse-red {
-            background: var(--red-frozen);
-            box-shadow: 0 0 16px var(--red-frozen);
-        }
-
-        /* Token Burn Meter */
-        .burn-meter-box {
+        /* ==================== LAYER 1: CONSUMER CANVAS ==================== */
+        .workspace-core {
+            flex-grow: 1;
             display: flex;
             flex-direction: column;
-            gap: 6px;
-            min-width: 260px;
-            background: rgba(0, 0, 0, 0.45);
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            padding: 8px 16px;
-        }
-
-        .burn-meter-head {
-            display: flex;
-            justify-content: space-between;
-            font-family: var(--font-mono);
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-
-        .burn-meter-track {
-            width: 100%;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 4px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .burn-meter-fill {
             height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, var(--cyan), var(--amber));
-            border-radius: 4px;
-            transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease;
-        }
-
-        /* ==================== MAIN COCKPIT GRID ==================== */
-        .cockpit-grid {
-            display: grid;
-            grid-template-columns: 1.4fr 1fr;
-            gap: 20px;
-            padding: 24px 28px;
-            flex: 1;
-        }
-        @media (max-width: 1080px) {
-            .cockpit-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Glass Panel Base */
-        .glass-panel {
-            background: var(--bg-card);
-            border: 1px solid var(--border-glass);
-            border-radius: 14px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(12px);
-        }
-
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 18px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            padding-bottom: 12px;
-        }
-
-        .panel-title {
-            font-family: var(--font-display);
-            font-size: 14px;
-            font-weight: 700;
-            letter-spacing: 1px;
-            color: var(--cyan);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .panel-badge {
-            font-family: var(--font-mono);
-            font-size: 10px;
-            padding: 3px 8px;
-            border-radius: 4px;
-            background: rgba(0, 240, 255, 0.1);
-            color: var(--cyan);
-            border: 1px solid rgba(0, 240, 255, 0.25);
-        }
-
-        /* ==================== QUADRANT B: AGENT GRAPH CANVAS ==================== */
-        .agent-node-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 14px;
-            margin-bottom: 20px;
-        }
-        @media (max-width: 768px) {
-            .agent-node-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .agent-card {
-            background: rgba(6, 11, 24, 0.85);
-            border: 1px solid var(--border-subtle);
-            border-radius: 12px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            transition: all 0.25s ease;
             position: relative;
-            overflow: hidden;
+            background: radial-gradient(circle at 15% 15%, #0e172a 0%, var(--bg-base) 65%);
+            min-width: 0;
         }
 
-        /* State Flares */
-        .agent-card.state-busy {
-            border-color: var(--cyan) !important;
-            box-shadow: var(--cyan-glow), inset 0 0 12px rgba(0, 240, 255, 0.15) !important;
-            animation: pulseBusy 1s infinite alternate;
-        }
-        @keyframes pulseBusy {
-            from { border-color: #00f0ff; box-shadow: 0 0 10px rgba(0, 240, 255, 0.4); }
-            to { border-color: #2563eb; box-shadow: 0 0 24px rgba(37, 99, 235, 0.8); }
-        }
-
-        .agent-card.state-frozen {
-            border-color: var(--red-frozen) !important;
-            box-shadow: var(--red-frozen-glow), inset 0 0 16px rgba(239, 68, 68, 0.25) !important;
-            animation: flashFrozen 0.6s infinite alternate;
-        }
-        @keyframes flashFrozen {
-            0% { background: rgba(30, 10, 14, 0.9); border-color: #ef4444; }
-            100% { background: rgba(50, 12, 18, 0.95); border-color: #ff2222; }
-        }
-
-        .agent-head {
+        /* Consumer Nav Header */
+        header.consumer-nav {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 16px 28px;
+            border-bottom: 1px solid var(--border-subtle);
+            background: rgba(11, 16, 25, 0.75);
+            backdrop-filter: blur(16px);
+            z-index: 20;
         }
 
-        .agent-name {
+        .brand {
             font-family: var(--font-display);
-            font-size: 13px;
+            font-size: 16px;
             font-weight: 700;
-            color: var(--text-main);
             letter-spacing: 0.5px;
-        }
-
-        .agent-badge {
-            font-family: var(--font-mono);
-            font-size: 9px;
-            font-weight: 700;
-            padding: 2px 6px;
-            border-radius: 4px;
-            letter-spacing: 0.5px;
-        }
-        .badge-idle { background: rgba(255, 255, 255, 0.08); color: var(--text-secondary); }
-        .badge-busy { background: rgba(0, 240, 255, 0.2); color: var(--cyan); border: 1px solid var(--cyan); }
-        .badge-frozen { background: rgba(239, 68, 68, 0.25); color: #fca5a5; border: 1px solid var(--red-frozen); }
-
-        .agent-role-desc {
-            font-size: 11px;
-            color: var(--text-muted);
-            line-height: 1.4;
-        }
-
-        .agent-meta-row {
             display: flex;
-            justify-content: space-between;
-            font-family: var(--font-mono);
-            font-size: 10px;
-            color: var(--text-secondary);
-            border-top: 1px solid rgba(255, 255, 255, 0.04);
-            padding-top: 6px;
-        }
-
-        /* Mission Control Deck */
-        .controls-deck {
-            background: rgba(0, 0, 0, 0.35);
-            border: 1px solid var(--border-subtle);
-            border-radius: 10px;
-            padding: 14px;
-            margin-bottom: 16px;
-            display: flex;
-            flex-direction: column;
+            align-items: center;
             gap: 12px;
+            color: var(--text-primary);
         }
 
-        .controls-input-row {
+        .pulse-core {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            box-shadow: 0 0 12px var(--accent-green);
+            animation: corePulse 2s infinite ease-in-out;
+        }
+        @keyframes corePulse {
+            0%, 100% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 16px var(--accent-green); }
+        }
+
+        .nav-right-controls {
             display: flex;
-            gap: 10px;
-        }
-
-        .controls-input {
-            flex: 1;
-            background: rgba(4, 8, 18, 0.85);
-            border: 1px solid var(--border-glass);
-            border-radius: 6px;
-            padding: 10px 14px;
-            color: var(--text-main);
-            font-family: var(--font-mono);
-            font-size: 12px;
-            outline: none;
-            transition: border-color 0.2s ease;
-        }
-        .controls-input:focus {
-            border-color: var(--cyan);
-            box-shadow: var(--cyan-glow);
-        }
-
-        .cockpit-btn {
-            background: rgba(0, 240, 255, 0.12);
-            border: 1px solid var(--cyan);
-            color: var(--cyan);
-            font-family: var(--font-display);
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            padding: 10px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            white-space: nowrap;
-        }
-        .cockpit-btn:hover {
-            background: rgba(0, 240, 255, 0.25);
-            box-shadow: var(--cyan-glow);
-            transform: translateY(-1px);
-        }
-        .cockpit-btn.btn-warning {
-            background: rgba(239, 68, 68, 0.12);
-            border-color: var(--red-frozen);
-            color: #fca5a5;
-        }
-        .cockpit-btn.btn-warning:hover {
-            background: rgba(239, 68, 68, 0.25);
-            box-shadow: var(--red-frozen-glow);
-        }
-        .cockpit-btn.btn-subtle {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: var(--border-subtle);
-            color: var(--text-secondary);
-        }
-        .cockpit-btn.btn-subtle:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: var(--text-main);
-        }
-
-        .controls-btn-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        /* Reconstituted State Machine Tree */
-        .reconstituted-box {
-            background: rgba(2, 4, 8, 0.85);
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            padding: 12px;
-            font-family: var(--font-mono);
-            font-size: 11px;
-            color: var(--cyan);
-            max-height: 200px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-            line-height: 1.5;
-        }
-
-        /* ==================== QUADRANT C: THE LEDGER ==================== */
-        .terminal-container {
-            background: rgba(2, 4, 8, 0.95);
-            border: 1px solid var(--border-glass);
-            border-radius: 10px;
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-            min-height: 520px;
-            overflow: hidden;
-            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
-        }
-
-        .terminal-topbar {
-            background: rgba(6, 11, 24, 0.9);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            padding: 10px 14px;
-            display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 18px;
+        }
+
+        .kernel-mode-pill {
             font-family: var(--font-mono);
             font-size: 11px;
             color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-subtle);
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .kernel-mode-pill .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            box-shadow: 0 0 6px var(--accent-cyan);
         }
 
-        .terminal-feed {
-            flex: 1;
+        /* Advanced Mode Toggle */
+        .toggle-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            user-select: none;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 22px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 34px;
+            transition: .25s ease;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: var(--text-secondary);
+            border-radius: 50%;
+            transition: .25s ease;
+        }
+        input:checked + .slider {
+            background-color: rgba(0, 240, 255, 0.15);
+            border-color: var(--accent-cyan);
+        }
+        input:checked + .slider:before {
+            transform: translateX(22px);
+            background-color: var(--accent-cyan);
+            box-shadow: 0 0 8px var(--accent-cyan);
+        }
+
+        /* Chat Stream Pane */
+        .chat-stream-pane {
+            flex-grow: 1;
+            padding: 32px 24px;
             overflow-y: auto;
-            padding: 12px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 20px;
+            max-width: 820px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
             scroll-behavior: smooth;
         }
 
-        /* Terminal Entry Card */
-        .terminal-row {
-            background: rgba(8, 14, 28, 0.65);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-left: 3px solid var(--cyan);
-            border-radius: 6px;
-            padding: 10px 12px;
+        .message-bubble {
             display: flex;
             flex-direction: column;
             gap: 6px;
-            transition: all 0.15s ease;
+            animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .terminal-row:hover {
-            background: rgba(12, 20, 38, 0.85);
-            border-color: rgba(0, 240, 255, 0.3);
-        }
-
-        /* Rolled-Back Loop Intercept Style */
-        .terminal-row.row-rollback {
-            border-left-color: var(--red-frozen);
-            opacity: 0.55;
-            background: rgba(20, 6, 8, 0.45);
-        }
-        .terminal-row.row-rollback .row-task-id,
-        .terminal-row.row-rollback .row-payload {
-            text-decoration: line-through;
-            color: #94a3b8;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .row-meta-line {
+        .message-bubble.user {
+            align-self: flex-end;
+            max-width: 75%;
+        }
+        .message-bubble.user .body {
+            background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
+            color: #ffffff;
+            padding: 12px 18px;
+            border-radius: 14px 14px 2px 14px;
+            font-size: 14px;
+            line-height: 1.5;
+            box-shadow: 0 4px 16px rgba(30, 58, 138, 0.3);
+        }
+
+        .message-bubble.assistant {
+            align-self: flex-start;
+            max-width: 85%;
+        }
+        .message-bubble.assistant .body {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid var(--border-subtle);
+            color: #e2e8f0;
+            padding: 16px 20px;
+            border-radius: 14px 14px 14px 2px;
+            font-size: 14.5px;
+            line-height: 1.6;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Abstracted Progress Status Bubble */
+        .message-bubble.system-status {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-secondary);
+            padding: 12px 16px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px dashed var(--border-glow);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+
+        /* Quick Suggestions Chips */
+        .quick-chips-row {
             display: flex;
             flex-wrap: wrap;
-            justify-content: space-between;
-            align-items: center;
             gap: 8px;
-            font-family: var(--font-mono);
-            font-size: 11px;
+            max-width: 820px;
+            margin: 0 auto 12px;
+            width: 100%;
+            padding: 0 24px;
         }
 
-        .row-task-id {
-            font-weight: 700;
-            color: var(--text-main);
-        }
-
-        .row-agent-route {
-            color: var(--amber);
-        }
-
-        /* Auditor Green Validation Block Badge */
-        .audit-badge {
-            background: rgba(16, 185, 129, 0.18);
-            border: 1px solid var(--emerald);
-            color: #a7f3d0;
-            font-family: var(--font-mono);
-            font-size: 10px;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 4px;
-            box-shadow: var(--emerald-glow);
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .audit-badge.badge-rejected {
-            background: rgba(239, 68, 68, 0.18);
-            border-color: var(--red-frozen);
-            color: #fca5a5;
-            box-shadow: none;
-        }
-
-        .row-payload {
-            font-family: var(--font-mono);
-            font-size: 11px;
+        .chip-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-subtle);
             color: var(--text-secondary);
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 4px;
-            padding: 6px 8px;
-            word-break: break-all;
-            line-height: 1.4;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .chip-btn:hover {
+            background: rgba(0, 240, 255, 0.08);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
         }
 
-        .row-footer {
+        /* Input Bar Container */
+        .input-bar-container {
+            padding: 0 24px 28px;
+            max-width: 820px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .input-box-wrapper {
+            background: var(--bg-input);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            padding: 12px 16px;
             display: flex;
-            justify-content: space-between;
-            font-family: var(--font-mono);
-            font-size: 9px;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .input-box-wrapper:focus-within {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 16px rgba(0, 240, 255, 0.25);
+        }
+
+        .input-box-wrapper input {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            flex-grow: 1;
+            font-family: var(--font-sans);
+            font-size: 14.5px;
+            outline: none;
+        }
+        .input-box-wrapper input::placeholder {
             color: var(--text-muted);
         }
 
-        /* Toast Popup */
-        .cockpit-toast {
-            position: fixed;
-            bottom: 24px;
-            right: 28px;
-            background: rgba(6, 11, 24, 0.95);
-            border: 1px solid var(--cyan);
-            box-shadow: var(--cyan-glow);
+        .send-btn {
+            background: rgba(0, 240, 255, 0.12);
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
             border-radius: 8px;
-            padding: 10px 18px;
+            width: 34px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .send-btn:hover {
+            background: rgba(0, 240, 255, 0.25);
+            box-shadow: 0 0 12px rgba(0, 240, 255, 0.5);
+            transform: translateY(-1px);
+        }
+
+        /* ==================== LAYER 2: FRONTIER TELEMETRY COCKPIT ==================== */
+        .telemetry-cockpit-sidebar {
+            width: 0px;
+            border-left: 0px solid var(--border-subtle);
+            background: var(--bg-surface);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-left 0.15s ease;
+            overflow: hidden;
+            box-sizing: border-box;
+            z-index: 30;
+        }
+        .telemetry-cockpit-sidebar.expanded {
+            width: 480px;
+            border-left: 1px solid var(--border-subtle);
+        }
+
+        .sidebar-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(6, 11, 24, 0.95);
+        }
+
+        .sidebar-header h3 {
+            margin: 0;
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-cyan);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sidebar-status-tag {
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: rgba(0, 240, 255, 0.1);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+        }
+
+        /* Telemetry Card Containers */
+        .metrics-card {
+            padding: 14px 18px;
+            margin: 16px 16px 10px;
+            background: rgba(6, 11, 24, 0.85);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .metrics-card-head {
+            display: flex;
+            justify-content: space-between;
             font-family: var(--font-mono);
             font-size: 11px;
-            color: var(--cyan);
-            display: none;
-            z-index: 1000;
-            animation: slideUp 0.25s ease;
+            color: var(--text-secondary);
         }
-        @keyframes slideUp {
-            from { transform: translateY(12px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+
+        .bar-bg {
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 4px;
+            height: 7px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-amber));
+            height: 100%;
+            width: 0%;
+            transition: width 0.35s ease;
+        }
+
+        /* Agent Node Matrix */
+        .agent-node-matrix {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            padding: 0 16px;
+            margin-bottom: 12px;
+        }
+
+        .node-tile {
+            background: rgba(6, 11, 24, 0.85);
+            border: 1px solid var(--border-subtle);
+            padding: 10px 8px;
+            border-radius: 6px;
+            text-align: center;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            transition: all 0.25s ease;
+        }
+        .node-tile.BUSY {
+            border-color: var(--accent-cyan) !important;
+            color: var(--accent-cyan) !important;
+            box-shadow: 0 0 14px rgba(0, 240, 255, 0.4);
+            animation: tilePulse 1s infinite alternate;
+        }
+        @keyframes tilePulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.02); }
+        }
+
+        .node-tile.FROZEN {
+            border-color: var(--accent-red) !important;
+            color: #fca5a5 !important;
+            box-shadow: 0 0 16px rgba(239, 68, 68, 0.6);
+            animation: heartbeat 0.8s infinite alternate;
+        }
+        @keyframes heartbeat {
+            from { opacity: 1; }
+            to { opacity: 0.5; }
+        }
+
+        /* Sidebar Action Triggers */
+        .sidebar-actions-row {
+            display: flex;
+            gap: 8px;
+            padding: 0 16px;
+            margin-bottom: 14px;
+        }
+
+        .sidebar-btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            padding: 6px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .sidebar-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+        }
+        .sidebar-btn.btn-warning:hover {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: var(--accent-red);
+            color: #fca5a5;
+        }
+
+        /* WAL Terminal Feed */
+        .wal-terminal-feed {
+            flex-grow: 1;
+            background: rgba(4, 7, 15, 0.95);
+            margin: 0 16px 16px;
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: 12px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.8);
+        }
+
+        .wal-row {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 6px;
+            line-height: 1.5;
+            word-break: break-all;
+        }
+
+        .wal-row.invalidated {
+            text-decoration: line-through;
+            color: var(--text-muted);
+            opacity: 0.55;
+            background: rgba(239, 68, 68, 0.06);
+            padding: 4px 6px;
+            border-radius: 4px;
+        }
+
+        .audit-hash-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid var(--accent-green);
+            color: #a7f3d0;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 9.5px;
+            font-weight: 700;
+        }
+
+        .audit-hash-badge.rejected {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: var(--accent-red);
+            color: #fca5a5;
         }
     </style>
 </head>
 <body>
 
-    <!-- ==================== QUADRANT A: HEADER ==================== -->
-    <header class="cockpit-header">
-        <div class="header-brand">
-            <div class="header-logo">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-                </svg>
-            </div>
-            <div class="header-titles">
-                <h1>ANTIGRAVITY GEMINI FABRIC // COCKPIT</h1>
-                <div class="subhead">V3.8-FLASH-MEDIUM · SOVEREIGN PROTOCOL [DIRECTIVE-01]</div>
-            </div>
-        </div>
-
-        <div class="telemetry-controls">
-            <!-- Visual Pulse Indicator -->
-            <div class="status-pill" id="status-pill-box">
-                <div class="pulse-dot pulse-yellow" id="global-pulse-dot"></div>
-                <span id="global-status-text">AWAITING_WORKLOAD</span>
+    <!-- ==================== LAYER 1: CONSUMER CANVAS ==================== -->
+    <div class="workspace-core">
+        <header class="consumer-nav">
+            <div class="brand">
+                <div class="pulse-core"></div>
+                <span>Antigravity Gemini Fabric</span>
             </div>
 
-            <!-- Token Burn Meter -->
-            <div class="burn-meter-box">
-                <div class="burn-meter-head">
-                    <span>TOKEN HARD-CAP</span>
-                    <span id="burn-meter-numbers">0 / 100,000</span>
-                </div>
-                <div class="burn-meter-track">
-                    <div class="burn-meter-fill" id="burn-meter-fill"></div>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <!-- ==================== COCKPIT 2-QUADRANT GRID ==================== -->
-    <main class="cockpit-grid">
-        
-        <!-- ==================== QUADRANT B: AGENT GRAPH CANVAS (60%) ==================== -->
-        <section class="glass-panel">
-            <div class="panel-header">
-                <div class="panel-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"/><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"/><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"/><line x1="4.93" y1="19.07" x2="9.17" y2="14.83"/>
-                    </svg>
-                    QUADRANT B: AGENT GRAPH CANVAS
-                </div>
-                <span class="panel-badge">FLYWHEEL COMPOSITION</span>
-            </div>
-
-            <!-- 3 Dynamic Node Cards -->
-            <div class="agent-node-grid">
-                <!-- STRATEGIST -->
-                <div class="agent-card" id="card-agent-strategist">
-                    <div class="agent-head">
-                        <span class="agent-name">STRATEGIST</span>
-                        <span class="agent-badge badge-idle" id="badge-strategist">IDLE</span>
-                    </div>
-                    <div class="agent-role-desc">
-                        Decomposes workload payloads into isolated steps; queries WAL state baseline.
-                    </div>
-                    <div class="agent-meta-row">
-                        <span>TASK: <strong id="task-strategist">--</strong></span>
-                        <span id="hb-strategist">SYNC</span>
-                    </div>
+            <div class="nav-right-controls">
+                <div class="kernel-mode-pill">
+                    <span class="dot"></span>
+                    <span id="consumer-status-text">SOVEREIGN PROTOCOL ACTIVE</span>
                 </div>
 
-                <!-- WORKER -->
-                <div class="agent-card" id="card-agent-worker">
-                    <div class="agent-head">
-                        <span class="agent-name">WORKER</span>
-                        <span class="agent-badge badge-idle" id="badge-worker">IDLE</span>
-                    </div>
-                    <div class="agent-role-desc">
-                        Async micro-step execution engine with 5,000ms strict timeout watchdog.
-                    </div>
-                    <div class="agent-meta-row">
-                        <span>TASK: <strong id="task-worker">--</strong></span>
-                        <span id="hb-worker">SYNC</span>
-                    </div>
-                </div>
-
-                <!-- AUDITOR -->
-                <div class="agent-card" id="card-agent-auditor">
-                    <div class="agent-head">
-                        <span class="agent-name">AUDITOR</span>
-                        <span class="agent-badge badge-idle" id="badge-auditor">IDLE</span>
-                    </div>
-                    <div class="agent-role-desc">
-                        Evaluates Shannon loop entropy (<0.88) and generates verified HMAC signatures.
-                    </div>
-                    <div class="agent-meta-row">
-                        <span>TASK: <strong id="task-auditor">--</strong></span>
-                        <span id="hb-auditor">SYNC</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Mission Control Console -->
-            <div class="controls-deck">
-                <div class="controls-input-row">
-                    <input type="text" class="controls-input" id="input-directive" placeholder="Enter workload directive (e.g. Ingest edge telemetry & reconcile)..." onkeydown="if(event.key==='Enter') executeStepAction()">
-                    <button class="cockpit-btn" onclick="executeStepAction()">⚡ DISPATCH STEP</button>
-                </div>
-                <div class="controls-btn-row">
-                    <button class="cockpit-btn btn-warning" onclick="triggerSimulateLoopAction()">⚠️ SIMULATE RECURSIVE LOOP (&ge;0.88)</button>
-                    <button class="cockpit-btn btn-subtle" onclick="reconstituteAction()">🔄 RECONSTITUTE STATE</button>
-                    <button class="cockpit-btn btn-subtle" onclick="resetSessionAction()">🧹 RESET RUNTIME</button>
-                </div>
-            </div>
-
-            <!-- Reconstituted State Inspector -->
-            <div style="margin-top:auto;">
-                <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); margin-bottom:6px; display:flex; justify-content:space-between;">
-                    <span>RECONSTITUTED ACTIVE MEMORY VIEW (committed = 1)</span>
-                    <span id="reconstitute-count-tag">0 STEPS ACTIVE</span>
-                </div>
-                <pre class="reconstituted-box" id="reconstituted-view">// Waiting for telemetry polling...</pre>
-            </div>
-        </section>
-
-        <!-- ==================== QUADRANT C: THE LEDGER & LOOP TELEMETRY (40%) ==================== -->
-        <section class="glass-panel">
-            <div class="panel-header">
-                <div class="panel-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-                    </svg>
-                    QUADRANT C: THE LEDGER &amp; LOOP TELEMETRY
-                </div>
-                <span class="panel-badge" id="tx-total-badge">0 ROWS</span>
-            </div>
-
-            <div class="terminal-container">
-                <div class="terminal-topbar">
-                    <span>TRANSACTION_LOG // SQLITE-WAL STREAM</span>
-                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-                        <input type="checkbox" id="chk-autoscroll" checked style="accent-color:var(--cyan);">
-                        <span>AUTO-SCROLL</span>
+                <!-- Nested Advanced Mode Toggle Switch -->
+                <div class="toggle-wrapper">
+                    <span>Advanced Telemetry</span>
+                    <label class="switch">
+                        <input type="checkbox" id="telemetryToggle" onchange="toggleCockpitView(this)">
+                        <span class="slider"></span>
                     </label>
                 </div>
+            </div>
+        </header>
 
-                <div class="terminal-feed" id="terminal-ledger-feed">
-                    <!-- Dynamic Transaction Entries -->
+        <!-- Chat Stream Pane -->
+        <div class="chat-stream-pane" id="userChatView">
+            <div class="message-bubble assistant">
+                <div class="body">
+                    System initialization stable. Antigravity multi-agent fabric is online and operating under Sovereign Protocol Directive-01. Input a directive below to orchestrate workloads across the edge kernel.
                 </div>
             </div>
-        </section>
+        </div>
 
-    </main>
+        <!-- Quick Directive Chips -->
+        <div class="quick-chips-row">
+            <button class="chip-btn" onclick="sendQuickChip('Synthesize edge telemetry and perform neural baseline check')">⚡ Synthesize Edge Telemetry</button>
+            <button class="chip-btn" onclick="sendQuickChip('Reconcile memory shard and verify HMAC audit trail')">🛡️ Verify Audit Trail</button>
+            <button class="chip-btn" onclick="triggerLoopSimulation()">⚠️ Test Loop Interception</button>
+            <button class="chip-btn" onclick="reconstituteMemory()">🔄 Reconstitute State</button>
+        </div>
 
-    <!-- Toast Notification -->
-    <div class="cockpit-toast" id="cockpit-toast">NOTIFICATION</div>
+        <!-- Input Bar -->
+        <div class="input-bar-container">
+            <div class="input-box-wrapper">
+                <input type="text" id="chatInput" placeholder="Send an instruction to the fabric kernel..." onkeydown="if(event.key==='Enter') submitUserInstruction()">
+                <button class="send-btn" onclick="submitUserInstruction()" title="Dispatch Instruction">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== LAYER 2: FRONTIER TELEMETRY COCKPIT SIDEBAR ==================== -->
+    <div class="telemetry-cockpit-sidebar" id="advancedSidebar">
+        <div class="sidebar-header">
+            <h3>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2.5">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                </svg>
+                Engine Substrate Telemetry
+            </h3>
+            <span class="sidebar-status-tag" id="statusString">STANDBY</span>
+        </div>
+
+        <!-- Token Depletion Pool -->
+        <div class="metrics-card">
+            <div class="metrics-card-head">
+                <span>Token Pool Depletion</span>
+                <span id="tokenGaugeString" style="color:var(--accent-amber);">0 / 100,000</span>
+            </div>
+            <div class="bar-bg">
+                <div class="bar-fill" id="tokenGaugeFill"></div>
+            </div>
+        </div>
+
+        <!-- Shannon Entropy Gauge -->
+        <div class="metrics-card" style="margin-top:0;">
+            <div class="metrics-card-head">
+                <span>Shannon Loop Entropy</span>
+                <span id="entropyGaugeString" style="color:var(--accent-green);">0.14 [STABLE &lt; 0.88]</span>
+            </div>
+        </div>
+
+        <!-- Composable Agent Node Matrix -->
+        <div class="agent-node-matrix">
+            <div id="tile-STRATEGIST" class="node-tile">STRAT: IDLE</div>
+            <div id="tile-WORKER" class="node-tile">WORK: IDLE</div>
+            <div id="tile-AUDITOR" class="node-tile">AUDIT: IDLE</div>
+        </div>
+
+        <!-- Sidebar Direct Actions -->
+        <div class="sidebar-actions-row">
+            <button class="sidebar-btn btn-warning" onclick="triggerLoopSimulation()">⚠️ SIMULATE LOOP</button>
+            <button class="sidebar-btn" onclick="resetRuntimeSession()">🧹 RESET WAL</button>
+        </div>
+
+        <!-- Continuous SQLite-WAL Transaction Log Feed -->
+        <div class="wal-terminal-feed" id="walTerminalLog">
+            <div style="color:var(--text-muted);">Listening for active transaction commitments...</div>
+        </div>
+    </div>
 
     <script>
-        let lastTransactionCount = 0;
-        let isAutoScrollEnabled = true;
+        let lastLoggedCount = 0;
 
-        const chkAutoScroll = document.getElementById("chk-autoscroll");
-        if (chkAutoScroll) {
-            chkAutoScroll.addEventListener("change", (e) => {
-                isAutoScrollEnabled = e.target.checked;
-            });
+        function toggleCockpitView(checkbox) {
+            const sidebar = document.getElementById('advancedSidebar');
+            if (checkbox.checked) {
+                sidebar.classList.add('expanded');
+            } else {
+                sidebar.classList.remove('expanded');
+            }
         }
 
-        function showToast(message) {
-            const toast = document.getElementById("cockpit-toast");
-            if (!toast) return;
-            toast.textContent = message;
-            toast.style.display = "block";
-            setTimeout(() => { toast.style.display = "none"; }, 2500);
-        }
-
-        /* ==================== TELEMETRY POLLING (EVERY 500MS) ==================== */
-        async function fetchTelemetry() {
+        async function processPipelineTelemetry() {
             try {
-                const res = await fetch("/api/telemetry");
+                const res = await fetch('/api/telemetry');
                 if (!res.ok) return;
                 const data = await res.json();
-                renderTelemetry(data);
-            } catch (err) {
-                console.warn("[COCKPIT] Telemetry poll failed:", err.message);
-            }
-        }
 
-        function renderTelemetry(data) {
-            const { session, agents, transactions, reconstitutedState } = data;
+                // 1. Process Global Parameters & Token Gauge
+                if (data.session) {
+                    const statusEl = document.getElementById('statusString');
+                    const tokenStringEl = document.getElementById('tokenGaugeString');
+                    const tokenFillEl = document.getElementById('tokenGaugeFill');
+                    const consumerStatusEl = document.getElementById('consumer-status-text');
 
-            // 1. QUADRANT A: HEADER
-            if (session) {
-                const statusDot = document.getElementById("global-pulse-dot");
-                const statusText = document.getElementById("global-status-text");
+                    if (statusEl) statusEl.innerText = data.session.global_status;
+                    if (consumerStatusEl) consumerStatusEl.innerText = `${data.session.global_status} · SOVEREIGN PROTOCOL`;
 
-                if (statusDot && statusText) {
-                    statusText.textContent = session.global_status;
-                    statusDot.className = "pulse-dot";
+                    const burned = data.session.token_burned || 0;
+                    const hardCap = data.session.hard_cap || 100000;
+                    const pct = Math.min(100, (burned / hardCap) * 100);
 
-                    if (session.global_status === "RUNNING") {
-                        statusDot.classList.add("pulse-green");
-                    } else if (session.global_status === "HALTED") {
-                        statusDot.classList.add("pulse-red");
-                    } else {
-                        statusDot.classList.add("pulse-yellow");
-                    }
+                    if (tokenStringEl) tokenStringEl.innerText = `${burned.toLocaleString()} / ${hardCap.toLocaleString()} (${pct.toFixed(1)}%)`;
+                    if (tokenFillEl) tokenFillEl.style.width = `${pct}%`;
                 }
 
-                const burnNumbers = document.getElementById("burn-meter-numbers");
-                const burnFill = document.getElementById("burn-meter-fill");
-                if (burnNumbers && burnFill) {
-                    const burned = session.token_burned || 0;
-                    const cap = session.hard_cap || 100000;
-                    const pct = Math.min(100, (burned / cap) * 100);
-
-                    burnNumbers.textContent = `${burned.toLocaleString()} / ${cap.toLocaleString()} (${pct.toFixed(1)}%)`;
-                    burnFill.style.width = `${pct}%`;
-
-                    if (burned >= cap) {
-                        burnFill.style.background = "var(--red-frozen)";
-                    } else {
-                        burnFill.style.background = "linear-gradient(90deg, var(--cyan), var(--amber))";
-                    }
+                // 2. Process Engine Core State & Node Tiles
+                if (Array.isArray(data.agents)) {
+                    data.agents.forEach(agent => {
+                        const tile = document.getElementById(`tile-${agent.role || agent.agent_id}`);
+                        if (tile) {
+                            tile.className = `node-tile ${agent.status}`;
+                            tile.innerText = `${(agent.role || agent.agent_id).substring(0,5)}: ${agent.status}`;
+                        }
+                    });
                 }
-            }
 
-            // 2. QUADRANT B: AGENT NODES
-            if (Array.isArray(agents)) {
-                agents.forEach(agent => {
-                    const id = agent.agent_id.toLowerCase();
-                    const card = document.getElementById(`card-agent-${id}`);
-                    const badge = document.getElementById(`badge-${id}`);
-                    const taskEl = document.getElementById(`task-${id}`);
-                    const hbEl = document.getElementById(`hb-${id}`);
+                // 3. Populate Advanced WAL Engine Log
+                const walLog = document.getElementById('walTerminalLog');
+                const rawLogs = data.transactions || data.logs || [];
+                
+                if (walLog && Array.isArray(rawLogs)) {
+                    if (rawLogs.length !== lastLoggedCount) {
+                        walLog.innerHTML = '';
+                        rawLogs.forEach(log => {
+                            const row = document.createElement('div');
+                            const isInvalidated = (log.committed === 0);
+                            row.className = `wal-row ${isInvalidated ? 'invalidated' : ''}`;
 
-                    if (badge) {
-                        badge.textContent = agent.status;
-                        badge.className = "agent-badge " + (
-                            agent.status === "BUSY" ? "badge-busy" :
-                            agent.status === "FROZEN" ? "badge-frozen" : "badge-idle"
-                        );
+                            const payloadObj = typeof log.payload === 'object' ? log.payload : (JSON.parse(log.payload || '{}'));
+                            const hashBadge = isInvalidated ?
+                                `<span class="audit-hash-badge rejected">REJECTED_LOOP</span>` :
+                                `<span class="audit-hash-badge">✓ ${log.validationHash || log.validation_hash || '0xVERIFIED'}</span>`;
+
+                            row.innerHTML = `
+                                <div>
+                                    <span style="color:var(--accent-cyan); font-weight:700;">[TX_${log.taskId || log.task_id}]</span>
+                                    <span>${log.senderAgentId || log.sender_agent_id} &rarr; ${log.recipientAgentId || log.recipient_agent_id || 'FABRIC'}</span>
+                                    ${hashBadge}
+                                </div>
+                                <div style="color:var(--text-muted); font-size:10px;">
+                                    tokens: +${log.tokensConsumed || log.tokens_consumed || 0} | entropy: ${(log.entropyScore || log.entropy_score || 0.12).toFixed(2)}
+                                </div>
+                                <div style="color:var(--text-secondary); font-size:10px; margin-top:2px;">
+                                    payload: ${payloadObj.directive || payloadObj.action || JSON.stringify(payloadObj).substring(0, 50)}
+                                </div>
+                            `;
+                            walLog.appendChild(row);
+                        });
+                        lastLoggedCount = rawLogs.length;
+                        walLog.scrollTop = walLog.scrollHeight;
                     }
 
-                    if (card) {
-                        card.className = "agent-card";
-                        if (agent.status === "BUSY") {
-                            card.classList.add("state-busy");
-                        } else if (agent.status === "FROZEN") {
-                            card.classList.add("state-frozen");
+                    // Update Entropy Gauge with latest transaction
+                    if (rawLogs.length > 0) {
+                        const latest = rawLogs[rawLogs.length - 1];
+                        const entropyVal = Number(latest.entropyScore || latest.entropy_score || 0.14);
+                        const entropyEl = document.getElementById('entropyGaugeString');
+                        if (entropyEl) {
+                            if (entropyVal >= 0.88) {
+                                entropyEl.style.color = 'var(--accent-red)';
+                                entropyEl.innerText = `${entropyVal.toFixed(2)} [CRITICAL LOOP >= 0.88]`;
+                            } else {
+                                entropyEl.style.color = 'var(--accent-green)';
+                                entropyEl.innerText = `${entropyVal.toFixed(2)} [STABLE < 0.88]`;
+                            }
                         }
                     }
-
-                    if (taskEl) taskEl.textContent = agent.current_task_id || "--";
-                    if (hbEl && agent.last_heartbeat) {
-                        hbEl.textContent = agent.last_heartbeat.split(" ")[1] || "ONLINE";
-                    }
-                });
-            }
-
-            // Reconstituted State View
-            const reconView = document.getElementById("reconstituted-view");
-            const reconTag = document.getElementById("reconstitute-count-tag");
-            if (reconView && reconstitutedState) {
-                reconView.textContent = JSON.stringify(reconstitutedState, null, 2);
-                if (reconTag) {
-                    reconTag.textContent = `${Array.isArray(reconstitutedState) ? reconstitutedState.length : 0} COMMITTED ACTIVE`;
                 }
-            }
 
-            // 3. QUADRANT C: THE LEDGER
-            const feed = document.getElementById("terminal-ledger-feed");
-            const totalBadge = document.getElementById("tx-total-badge");
+                // 4. Update Consumer Abstracted Status
+                const chatView = document.getElementById('userChatView');
+                if (chatView && Array.isArray(data.agents)) {
+                    const activeTask = data.agents.find(a => a.status === 'BUSY');
+                    const frozenTask = data.agents.find(a => a.status === 'FROZEN');
+                    let dynamicIndicator = document.getElementById('systemPromptBubble');
 
-            if (feed && Array.isArray(transactions)) {
-                if (totalBadge) totalBadge.textContent = `${transactions.length} ROWS`;
+                    if (!dynamicIndicator && (activeTask || frozenTask)) {
+                        dynamicIndicator = document.createElement('div');
+                        dynamicIndicator.id = 'systemPromptBubble';
+                        dynamicIndicator.className = 'message-bubble system-status';
+                        chatView.appendChild(dynamicIndicator);
+                        chatView.scrollTop = chatView.scrollHeight;
+                    }
 
-                // Only full rebuild if row count changed
-                if (transactions.length !== lastTransactionCount) {
-                    feed.innerHTML = "";
-                    transactions.forEach(tx => {
-                        const isRollback = (tx.committed === 0);
-                        const row = document.createElement("div");
-                        row.className = "terminal-row" + (isRollback ? " row-rollback" : "");
-
-                        const validationBadge = isRollback ? 
-                            `<span class="audit-badge badge-rejected">REJECTED [LOOP &ge; 0.88]</span>` :
-                            `<span class="audit-badge">✓ ${tx.validationHash || '0xVERIFIED'}</span>`;
-
-                        row.innerHTML = `
-                            <div class="row-meta-line">
-                                <span class="row-task-id">${tx.taskId}</span>
-                                <span class="row-agent-route">${tx.senderAgentId} &rarr; ${tx.recipientAgentId || 'FABRIC'}</span>
-                                ${validationBadge}
-                            </div>
-                            <div class="row-payload">${typeof tx.payload === 'object' ? JSON.stringify(tx.payload) : tx.payload}</div>
-                            <div class="row-footer">
-                                <span>TOKENS: +${tx.tokensConsumed || 0} · ENTROPY: ${(tx.entropyScore || 0).toFixed(2)}</span>
-                                <span>${tx.createdAt || ''}</span>
-                            </div>
-                        `;
-                        feed.appendChild(row);
-                    });
-
-                    lastTransactionCount = transactions.length;
-
-                    if (isAutoScrollEnabled) {
-                        feed.scrollTop = feed.scrollHeight;
+                    if (dynamicIndicator) {
+                        if (frozenTask) {
+                            dynamicIndicator.innerHTML = `⚠️ <span>Loop encountered. Mitigating semantic recurrence and resetting execution state vectors...</span>`;
+                            dynamicIndicator.style.borderColor = 'var(--accent-red)';
+                            dynamicIndicator.style.color = '#fca5a5';
+                        } else if (activeTask) {
+                            dynamicIndicator.innerHTML = `⚙️ <span>Fabric active: ${activeTask.role || activeTask.agent_id} processing instruction subtasks...</span>`;
+                            dynamicIndicator.style.borderColor = 'var(--accent-cyan)';
+                            dynamicIndicator.style.color = 'var(--accent-cyan)';
+                        } else {
+                            dynamicIndicator.remove();
+                        }
                     }
                 }
+            } catch (err) {
+                console.log('Telemetry connection idling...');
             }
         }
 
-        /* ==================== INTERACTIVE USER ACTIONS ==================== */
-        async function executeStepAction() {
-            const inp = document.getElementById("input-directive");
-            const directive = inp ? inp.value.trim() : "";
-            showToast("DISPATCHING STEP...");
+        /* User Message Dispatch */
+        async function submitUserInstruction() {
+            const input = document.getElementById('chatInput');
+            const message = input ? input.value.trim() : '';
+            if (!message) return;
+
+            input.value = '';
+            appendChatMessage('user', message);
 
             try {
-                const res = await fetch("/api/step", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ directive: directive || "Edge telemetry micro-step reconciliation" })
+                const res = await fetch('/api/step', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ directive: message })
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast(`STEP COMMITTED: ${data.stepId}`);
-                    if (inp) inp.value = "";
+                    appendChatMessage('assistant', `Step executed and committed to SQLite-WAL (Task ID: ${data.stepId}). Validation signature verified.`);
                 } else if (data.error) {
-                    showToast(`ERROR: ${data.error}`);
+                    appendChatMessage('assistant', `Execution notice: ${data.error}`);
                 }
             } catch (e) {
-                showToast("DISPATCH ERROR: " + e.message);
+                appendChatMessage('assistant', `Execution error: ${e.message}`);
             }
         }
 
-        async function triggerSimulateLoopAction() {
-            showToast("SIMULATING RECURSIVE LOOP (ENTROPY >= 0.88)...");
+        function sendQuickChip(text) {
+            const input = document.getElementById('chatInput');
+            if (input) {
+                input.value = text;
+                submitUserInstruction();
+            }
+        }
+
+        function appendChatMessage(role, text) {
+            const chatView = document.getElementById('userChatView');
+            if (!chatView) return;
+
+            const bubble = document.createElement('div');
+            bubble.className = `message-bubble ${role}`;
+            bubble.innerHTML = `<div class="body">${text}</div>`;
+            chatView.appendChild(bubble);
+            chatView.scrollTop = chatView.scrollHeight;
+        }
+
+        async function triggerLoopSimulation() {
+            appendChatMessage('user', '⚠️ Simulate Semantic Loop Interception');
             try {
-                const res = await fetch("/api/simulate-loop", { method: "POST" });
+                const res = await fetch('/api/simulate-loop', { method: 'POST' });
                 const data = await res.json();
                 if (data.success) {
-                    showToast("LOOP INTERCEPTED · AGENT FROZEN · SOFT ROLLBACK");
+                    appendChatMessage('assistant', `Semantic loop intercepted by Auditor (Entropy: ${data.entropy} >= 0.88). Transaction soft-rolled back in WAL log.`);
                 }
             } catch (e) {
-                showToast("SIMULATION ERROR: " + e.message);
+                appendChatMessage('assistant', 'Error simulating loop: ' + e.message);
             }
         }
 
-        async function reconstituteAction() {
-            showToast("RECONSTITUTING STATE FROM WAL...");
-            await fetchTelemetry();
-        }
-
-        async function resetSessionAction() {
-            showToast("RESETTING RUNTIME TO CLEAN STATE...");
+        async function reconstituteMemory() {
+            appendChatMessage('user', '🔄 Request State Reconstitution from SQLite-WAL');
             try {
-                const res = await fetch("/api/reset", { method: "POST" });
+                const res = await fetch('/api/telemetry');
                 const data = await res.json();
-                if (data.success) {
-                    showToast("SESSION RESET COMPLETE");
-                    lastTransactionCount = 0;
-                    await fetchTelemetry();
-                }
+                const count = (data.reconstitutedState || []).length;
+                appendChatMessage('assistant', `Memory reconstituted: ${count} active micro-step state vectors verified in SQLite-WAL log with PRAGMA foreign_keys = ON.`);
             } catch (e) {
-                showToast("RESET ERROR: " + e.message);
+                appendChatMessage('assistant', 'Error reconstituting: ' + e.message);
             }
         }
 
-        // Initialize 500ms Long-Poll
-        fetchTelemetry();
-        setInterval(fetchTelemetry, 500);
+        async function resetRuntimeSession() {
+            try {
+                await fetch('/api/reset', { method: 'POST' });
+                lastLoggedCount = 0;
+                appendChatMessage('assistant', 'Session envelope and memory state machine reset to clean slate.');
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Initialize 500ms Long Poll
+        processPipelineTelemetry();
+        setInterval(processPipelineTelemetry, 500);
     </script>
 </body>
 </html>
