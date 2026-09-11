@@ -4529,9 +4529,12 @@
                         </div>
                     </div>
 
-                    <div style="padding:12px 16px; background:rgba(0,0,0,0.6); border-top:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center;">
+                    <div style="padding:12px 16px; background:rgba(0,0,0,0.6); border-top:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                         <span style="font-family:var(--font-mono); font-size:10px; color:var(--text-secondary);">Move cursor to guide gaze · Speak to observe real-time lip synchronization.</span>
-                        <button class="browser-action-btn" style="padding:6px 14px; font-size:10px;" onclick="testVoiceGreeting()">TEST VOICE &amp; VISEME</button>
+                        <div style="display:flex; gap:8px;">
+                            <button class="browser-action-btn" style="padding:6px 12px; font-size:10px; border-color:var(--glow-cyan); color:var(--glow-cyan);" onclick="playVegaReferenceAudio()" title="Listen to the original reference recording (OpenAI Shimmer)">PLAY REFERENCE (SHIMMER)</button>
+                            <button class="browser-action-btn" style="padding:6px 14px; font-size:10px;" onclick="testVoiceGreeting()">TEST VOICE &amp; VISEME</button>
+                        </div>
                     </div>
                 </div>
 
@@ -4557,7 +4560,7 @@
                     <div style="margin-bottom:18px;">
                         <label style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em;">Voice Synthesis Profile</label>
                         <select class="metahuman-select" id="mh-voice-select" onchange="changeVoiceProfile(this.value)">
-                            <option value="gemini-vega" selected>Gemini Vega — Google Neural Female (Gemini Live)</option>
+                            <option value="gemini-vega" selected>Gemini Vega — American Studio Narrator (Shimmer Calibrated)</option>
                             <option value="ada-sovereign">Ada v1 — Sovereign British Female (Ada Core)</option>
                             <option value="gemini-aoede">Gemini Aoede — Warm Studio Female</option>
                             <option value="gemini-kore">Gemini Kore — Soft Intimate Female</option>
@@ -7569,15 +7572,20 @@
             const topFemale = females[0] || candidatePool[0] || null;
             const topMale = males[0] || candidatePool[0] || null;
 
-            // 1. GEMINI VEGA (Google Gemini Live Neural Female)
-            // Vibrant, bright, cheerful, higher-pitch, articulate American neural cadence
+            // 1. GEMINI VEGA (Calibrated to OpenAI Shimmer / New Recording 61 benchmark)
+            // American studio narrator: natural warm pitch (~205 Hz, pitch: 1.00), measured cadence (~93 WPM, rate: 0.92)
             if (profile.includes("vega")) {
-                const usFemale = females.find(v => {
-                    const n = (v.name || "").toLowerCase();
-                    const lang = (v.lang || "").toLowerCase();
-                    return (lang.includes("us") || n.includes("us") || n.includes("jenny") || n.includes("aria") || n.includes("samantha")) && getVoiceFidelityScore(v) > 0;
-                });
-                return { voice: usFemale || topFemale, pitch: 1.08, rate: 1.04 };
+                const vegaPriority = ["jenny", "shimmer", "aria", "google us english", "natural", "neural", "samantha", "ava"];
+                let matchedVoice = null;
+                for (const vp of vegaPriority) {
+                    matchedVoice = females.find(v => {
+                        const n = (v.name || "").toLowerCase();
+                        const lang = (v.lang || "").toLowerCase();
+                        return n.includes(vp) && (lang.includes("us") || !lang.includes("gb")) && getVoiceFidelityScore(v) > 0;
+                    });
+                    if (matchedVoice) break;
+                }
+                return { voice: matchedVoice || topFemale, pitch: 1.00, rate: 0.92 };
             }
 
             // 2. ADA V1 (Sovereign British Synthesizer - Ada Lovelace Core)
@@ -7831,6 +7839,42 @@
             }
         }
 
+        let vegaRefAudio = null;
+        function playVegaReferenceAudio() {
+            interruptSpeech();
+            if (vegaRefAudio) {
+                vegaRefAudio.pause();
+                vegaRefAudio.currentTime = 0;
+            }
+            showToast("PLAYING REFERENCE RECORDING: New Recording 61 (OpenAI Shimmer)...");
+            vegaRefAudio = new Audio("/vega_reference.mp3");
+            setAvatarSignal("SPEAKING");
+            setAudioDucking(true);
+            showInterruptPill();
+
+            const visemeInterval = setInterval(() => {
+                triggerSpeechViseme();
+            }, 180);
+
+            vegaRefAudio.onended = () => {
+                clearInterval(visemeInterval);
+                setAvatarSignal("IDLE");
+                setAudioDucking(false);
+                hideInterruptPill();
+            };
+
+            vegaRefAudio.onerror = () => {
+                clearInterval(visemeInterval);
+                setAvatarSignal("IDLE");
+                setAudioDucking(false);
+                speakText("Sarembok is an independent AI engine and runtime system designed as an Unreal Engine project architecture.");
+            };
+
+            vegaRefAudio.play().catch(() => {
+                speakText("Sarembok is an independent AI engine and runtime system designed as an Unreal Engine project architecture.");
+            });
+        }
+
         function testVoiceGreeting() {
             interruptSpeech();
             voiceEnabled = true;
@@ -7838,8 +7882,8 @@
             const profile = (selectedVoiceLang || "gemini-vega").toLowerCase();
             let greeting = "Greetings. I am Ada, the embodied digital intelligence of Sarembok VE. Sovereign neural architecture online.";
             if (profile.includes("vega")) {
-                greeting = "Hello, I am Vega, powered by Google Gemini. Multimodal real-time synthesis and neural pipelines are operational.";
-                showToast("TESTING AUDIO: Playing Gemini Vega voice...");
+                greeting = "Sarembok is an independent AI engine and runtime system designed as an Unreal Engine project architecture. It is connected directly to a Git repository for development control.";
+                showToast("TESTING AUDIO: Playing Vega (Calibrated to Shimmer)...");
             } else if (profile.includes("ada")) {
                 greeting = "Greetings. I am Ada, the embodied digital intelligence of Sarembok VE. Sovereign British neural matrix online.";
                 showToast("TESTING AUDIO: Playing Ada v1 voice...");
