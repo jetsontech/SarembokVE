@@ -4557,10 +4557,10 @@
                     <div style="margin-bottom:18px;">
                         <label style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em;">Voice Synthesis Profile</label>
                         <select class="metahuman-select" id="mh-voice-select" onchange="changeVoiceProfile(this.value)">
-                            <option value="gemini-vega" selected>Gemini Vega — Neural Female (Default)</option>
+                            <option value="gemini-vega" selected>Gemini Vega — Google Neural Female (Gemini Live)</option>
+                            <option value="ada-sovereign">Ada v1 — Sovereign British Female (Ada Core)</option>
                             <option value="gemini-aoede">Gemini Aoede — Warm Studio Female</option>
                             <option value="gemini-kore">Gemini Kore — Soft Intimate Female</option>
-                            <option value="en-GB">Neural British Female (Echo / Samantha)</option>
                             <option value="en-US">Neural American Male (Onyx)</option>
                             <option value="synth">Cybernetic Synthesizer (Sovereign)</option>
                         </select>
@@ -7569,56 +7569,56 @@
             const topFemale = females[0] || candidatePool[0] || null;
             const topMale = males[0] || candidatePool[0] || null;
 
-            // 1. GEMINI VEGA (Default High-Clarity Neural Female)
-            // Vibrant, bright, articulate, clear neural cadence (US Neural Female)
+            // 1. GEMINI VEGA (Google Gemini Live Neural Female)
+            // Vibrant, bright, cheerful, higher-pitch, articulate American neural cadence
             if (profile.includes("vega")) {
                 const usFemale = females.find(v => {
                     const n = (v.name || "").toLowerCase();
                     const lang = (v.lang || "").toLowerCase();
                     return (lang.includes("us") || n.includes("us") || n.includes("jenny") || n.includes("aria") || n.includes("samantha")) && getVoiceFidelityScore(v) > 0;
                 });
-                return { voice: usFemale || topFemale, pitch: 1.0, rate: 1.0 };
+                return { voice: usFemale || topFemale, pitch: 1.08, rate: 1.04 };
             }
 
-            // 2. GEMINI AOEDE (Warm Studio Female)
-            // Warm, deeper resonance, calm, sophisticated (UK/Alt Neural Female)
+            // 2. ADA V1 (Sovereign British Synthesizer - Ada Lovelace Core)
+            // Sophisticated, refined, articulate British female cadence
+            if (profile.includes("ada") || profile.includes("gb") || profile.includes("echo")) {
+                const gbFemale = females.find(v => {
+                    const n = (v.name || "").toLowerCase();
+                    const lang = (v.lang || "").toLowerCase();
+                    return (lang.includes("gb") || n.includes("uk") || n.includes("sonia")) && getVoiceFidelityScore(v) > 0;
+                });
+                return { voice: gbFemale || females.find(v => v !== topFemale) || topFemale, pitch: 1.00, rate: 0.98 };
+            }
+
+            // 3. GEMINI AOEDE (Warm Studio Female)
+            // Warm, deeper resonance, calm, reflective
             if (profile.includes("aoede")) {
                 const ukFemale = females.find(v => {
                     const n = (v.name || "").toLowerCase();
                     const lang = (v.lang || "").toLowerCase();
                     return (lang.includes("gb") || n.includes("uk") || n.includes("sonia") || n.includes("hazel online")) && getVoiceFidelityScore(v) > 0;
                 });
-                return { voice: ukFemale || females[1] || topFemale, pitch: 0.98, rate: 0.98 };
+                return { voice: ukFemale || females[1] || topFemale, pitch: 0.96, rate: 0.97 };
             }
 
-            // 3. GEMINI KORE (Soft Intimate Female)
+            // 4. GEMINI KORE (Soft Intimate Female)
             // Soft, gentle, intimate conversational cadence
             if (profile.includes("kore")) {
                 const softFemale = females.find(v => {
                     const n = (v.name || "").toLowerCase();
                     return (n.includes("aria") || n.includes("ava") || n.includes("victoria")) && getVoiceFidelityScore(v) > 0;
                 });
-                return { voice: softFemale || topFemale, pitch: 1.03, rate: 0.96 };
-            }
-
-            // 4. NEURAL BRITISH FEMALE (Echo)
-            // Distinct UK accent with articulate neural fidelity
-            if (profile.includes("gb") || profile.includes("echo")) {
-                const gbFemale = females.find(v => {
-                    const n = (v.name || "").toLowerCase();
-                    const lang = (v.lang || "").toLowerCase();
-                    return (lang.includes("gb") || n.includes("uk") || n.includes("sonia")) && getVoiceFidelityScore(v) > 0;
-                });
-                return { voice: gbFemale || topFemale, pitch: 1.0, rate: 1.0 };
+                return { voice: softFemale || topFemale, pitch: 1.04, rate: 0.95 };
             }
 
             // 5. NEURAL AMERICAN MALE (Onyx)
             // Deep, authoritative, warm masculine narrator
             if (profile.includes("us") || profile.includes("onyx") || profile.includes("male")) {
-                return { voice: topMale, pitch: 0.96, rate: 0.98 };
+                return { voice: topMale, pitch: 0.95, rate: 0.98 };
             }
 
-            // 6. CYBERNETIC SYNTHESIZER (Sovereign)
+            // 6. CYBERNETIC SYNTHESIZER (Sovereign Matrix)
             // Clean cybernetic AI presence without extreme pitch-shifting distortion
             if (profile.includes("synth")) {
                 return { voice: candidatePool[0] || null, pitch: 0.80, rate: 1.08 };
@@ -7835,8 +7835,30 @@
             interruptSpeech();
             voiceEnabled = true;
             window.voiceEnabled = true;
-            showToast("TESTING AUDIO: Playing Ada voice response...");
-            speakText("Greetings. I am Ada, the embodied digital intelligence of Sarembok VE. Multi-agent neural pipelines, real-time research, and memory reconciliation are operational.");
+            const profile = (selectedVoiceLang || "gemini-vega").toLowerCase();
+            let greeting = "Greetings. I am Ada, the embodied digital intelligence of Sarembok VE. Sovereign neural architecture online.";
+            if (profile.includes("vega")) {
+                greeting = "Hello, I am Vega, powered by Google Gemini. Multimodal real-time synthesis and neural pipelines are operational.";
+                showToast("TESTING AUDIO: Playing Gemini Vega voice...");
+            } else if (profile.includes("ada")) {
+                greeting = "Greetings. I am Ada, the embodied digital intelligence of Sarembok VE. Sovereign British neural matrix online.";
+                showToast("TESTING AUDIO: Playing Ada v1 voice...");
+            } else if (profile.includes("aoede")) {
+                greeting = "Greetings. This is Gemini Aoede, operating in warm studio resonance mode.";
+                showToast("TESTING AUDIO: Playing Gemini Aoede voice...");
+            } else if (profile.includes("kore")) {
+                greeting = "Hello there. This is Gemini Kore, running soft conversational audio.";
+                showToast("TESTING AUDIO: Playing Gemini Kore voice...");
+            } else if (profile.includes("onyx") || profile.includes("us")) {
+                greeting = "Sarembok VE operating system online. Onyx masculine neural voice profile engaged.";
+                showToast("TESTING AUDIO: Playing Onyx voice...");
+            } else if (profile.includes("synth")) {
+                greeting = "Sovereign cybernetic synthesizer core active. Direct neural link verified.";
+                showToast("TESTING AUDIO: Playing Synthesizer voice...");
+            } else {
+                showToast("TESTING AUDIO: Playing voice response...");
+            }
+            speakText(greeting);
         }
 
         function triggerVoicePulse() {
@@ -8155,8 +8177,12 @@
             let previewText = "Voice profile updated.";
             if (val === "gemini-vega" || val.includes("vega")) {
                 activeVoiceModel = "Vega";
-                previewText = "Gemini Vega online. Neural high-clarity female voice active.";
-                addTerminalLine("[voice] activated profile: Gemini Vega (Neural Female)", "cyan");
+                previewText = "Vega online. Google Gemini neural voice synthesis active.";
+                addTerminalLine("[voice] activated profile: Gemini Vega (Google Neural Female)", "cyan");
+            } else if (val === "ada-sovereign" || val.includes("ada")) {
+                activeVoiceModel = "Ada";
+                previewText = "Ada v1 online. Sovereign British neural matrix active.";
+                addTerminalLine("[voice] activated profile: Ada v1 (Sovereign British Female)", "cyan");
             } else if (val === "gemini-aoede" || val.includes("aoede")) {
                 activeVoiceModel = "Aoede";
                 previewText = "Gemini Aoede online. Warm studio profile active.";
