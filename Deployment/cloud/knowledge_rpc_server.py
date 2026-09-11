@@ -42,6 +42,8 @@ _original_process_http_request = cloud_server.process_http_request
 
 
 def _authoritative_snapshot() -> dict:
+    if hasattr(cloud_server, "ensure_sovereign_worker"):
+        cloud_server.ensure_sovereign_worker()
     cloud_server.evaluate_worker_liveness()
     return runtime_authority_snapshot(
         cloud_server.store,
