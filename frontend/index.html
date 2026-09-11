@@ -2047,12 +2047,9 @@
             .header-hud-group {
                 gap: 6px;
                 font-size: 10px;
-                overflow-x: auto;
+                overflow-x: visible;
                 flex-wrap: nowrap;
-                -webkit-overflow-scrolling: touch;
-                scrollbar-width: none;
-                max-width: calc(100vw - 100px);
-                padding-bottom: 2px;
+                align-items: center;
             }
             .header-hud-group::-webkit-scrollbar {
                 display: none;
@@ -2060,14 +2057,28 @@
             .hud-voice-btn {
                 flex-shrink: 0;
                 white-space: nowrap;
-                font-size: 9px;
-                padding: 5px 8px;
+                font-size: 10px;
+                padding: 6px 10px;
+                height: 32px;
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+            }
+
+            /* Hide secondary desktop buttons on mobile to keep header clean and non-scrolling */
+            #hud-features-btn,
+            #hud-export-btn,
+            #hud-live-2way-btn,
+            #hud-fabric-btn,
+            #hud-telemetry-toggle-btn,
+            .hud-mode-pill-wrap {
+                display: none !important;
             }
 
             .hud-badge-kicker,
             .hud-meter,
             .hud-badge.health {
-                display: none;
+                display: none !important;
             }
 
             /* 3. Ticker Marquee */
@@ -7695,6 +7706,39 @@
         let currentTurnId = 0;
         let recognitionPermissionDenied = false;
         let audioHardwareStream = null;
+        let audioContextUnlocked = false;
+        let globalAudioCtx = null;
+
+        function unlockAudioEngine() {
+            if (audioContextUnlocked) return;
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtx) {
+                    if (!globalAudioCtx) {
+                        globalAudioCtx = new AudioCtx();
+                    }
+                    if (globalAudioCtx.state === "suspended") {
+                        globalAudioCtx.resume();
+                    }
+                    const buffer = globalAudioCtx.createBuffer(1, 1, 22050);
+                    const src = globalAudioCtx.createBufferSource();
+                    src.buffer = buffer;
+                    src.connect(globalAudioCtx.destination);
+                    src.start(0);
+                }
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.resume();
+                }
+                audioContextUnlocked = true;
+                console.log("[audio] Hardware audio channel unlocked via user interaction.");
+            } catch (e) {
+                console.warn("[audio] Gesture unlock error:", e);
+            }
+        }
+        window.addEventListener("touchstart", unlockAudioEngine, { passive: true });
+        window.addEventListener("touchend", unlockAudioEngine, { passive: true });
+        window.addEventListener("pointerdown", unlockAudioEngine, { passive: true });
+        window.addEventListener("click", unlockAudioEngine, { passive: true });
 
         function showInterruptPill() {
             const pill = document.getElementById("srbk-interrupt-pill");
@@ -7988,69 +8032,51 @@
                 }
             };
 
-            const fallbackBrowserTTS = () => {
-                if (!window.speechSynthesis) { finishSpeaking(); return; }
-                const utterance = new SpeechSynthesisUtterance(clean);
-                const resolved = getResolvedVoiceProfile();
-                if (resolved && resolved.voice) {
-                    utterance.voice = resolved.voice;
-                }
-                utterance.volume = 1.0;
-                utterance.pitch = (resolved && resolved.pitch !== undefined) ? resolved.pitch : 1.0;
-                utterance.rate = (resolved && resolved.rate !== undefined) ? resolved.rate : 1.0;
+            unlockAudioEngine();
 
-                utterance.onboundary = () => {
-                    triggerSpeechViseme();
-                };
-                utterance.onend = finishSpeaking;
-                utterance.onerror = finishSpeaking;
-                window._activeSpeechUtterance = utterance;
+            if (!window.speechSynthesis) {
+                console.warn("[tts] window.speechSynthesis not supported on this platform.");
+                finishSpeaking();
+                return;
+            }
 
+            const utterance = new SpeechSynthesisUtterance(clean);
+            const resolved = getResolvedVoiceProfile();
+            if (resolved && resolved.voice) {
+                utterance.voice = resolved.voice;
+            }
+            utterance.volume = 1.0;
+            utterance.pitch = (resolved && resolved.pitch !== undefined) ? resolved.pitch : 1.0;
+            utterance.rate = (resolved && resolved.rate !== undefined) ? resolved.rate : 0.95;
+
+            utterance.onboundary = () => {
+                triggerSpeechViseme();
+            };
+            utterance.onend = finishSpeaking;
+            utterance.onerror = (e) => {
+                console.warn("[tts] Speech error:", e);
+                finishSpeaking();
+            };
+            window._activeSpeechUtterance = utterance;
+
+            if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+                window.speechSynthesis.cancel();
+            }
+
+            setTimeout(() => {
                 try {
-                    window.speechSynthesis.cancel();
                     window.speechSynthesis.resume();
                     window.speechSynthesis.speak(utterance);
                     setTimeout(() => {
                         if (window.speechSynthesis && window.speechSynthesis.paused) {
                             window.speechSynthesis.resume();
                         }
-                    }, 60);
+                    }, 80);
                 } catch (err) {
-                    console.warn("[tts] browser fallback error:", err);
+                    console.warn("[tts] Speech invocation failed:", err);
                     finishSpeaking();
                 }
-            };
-
-            // Stream authentic neural audio from backend /api/tts endpoint
-            const profile = (selectedVoiceLang || "gemini-vega");
-            const ttsEndpoint = `/api/tts?text=${encodeURIComponent(clean)}&voice=${encodeURIComponent(profile)}`;
-
-            const audio = new Audio(ttsEndpoint);
-            activeNeuralAudio = audio;
-
-            audio.onplay = () => {
-                visemeInterval = setInterval(() => {
-                    triggerSpeechViseme();
-                }, 160);
-            };
-
-            audio.onended = finishSpeaking;
-
-            let fallbackInvoked = false;
-            const triggerFallbackOnce = (source) => {
-                if (fallbackInvoked) return;
-                fallbackInvoked = true;
-                console.info(`[tts] Neural audio unavailable, falling back to browser synthesis (${source}).`);
-                activeNeuralAudio = null;
-                if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
-                fallbackBrowserTTS();
-            };
-
-            audio.onerror = () => triggerFallbackOnce("onerror");
-            audio.play().catch(err => {
-                console.warn("[tts] Neural audio play failed:", err);
-                triggerFallbackOnce("catch");
-            });
+            }, 30);
         }
 
         function toggleSpeechRecognition() {
@@ -9803,65 +9829,49 @@
                 }
             };
 
-            const fallbackBrowserTTS = () => {
-                if (!window.speechSynthesis) { finishSpeaking(); return; }
-                const utterance = new SpeechSynthesisUtterance(clean);
-                const resolved = getResolvedVoiceProfile();
-                if (resolved && resolved.voice) utterance.voice = resolved.voice;
-                utterance.volume = 1.0;
-                utterance.pitch = (resolved && resolved.pitch !== undefined) ? resolved.pitch : 1.0;
-                utterance.rate = (resolved && resolved.rate !== undefined) ? resolved.rate : 1.0;
+            unlockAudioEngine();
 
-                utterance.onboundary = () => { triggerSpeechViseme(); };
-                utterance.onend = finishSpeaking;
-                utterance.onerror = finishSpeaking;
-                window._activeSpeechUtterance = utterance;
+            if (!window.speechSynthesis) {
+                if (typeof onCompleteCallback === "function") onCompleteCallback();
+                finishSpeaking();
+                return;
+            }
 
+            const utterance = new SpeechSynthesisUtterance(clean);
+            const resolved = getResolvedVoiceProfile();
+            if (resolved && resolved.voice) {
+                utterance.voice = resolved.voice;
+            }
+            utterance.volume = 1.0;
+            utterance.pitch = (resolved && resolved.pitch !== undefined) ? resolved.pitch : 1.0;
+            utterance.rate = (resolved && resolved.rate !== undefined) ? resolved.rate : 0.95;
+
+            utterance.onboundary = () => { triggerSpeechViseme(); };
+            utterance.onend = finishSpeaking;
+            utterance.onerror = (e) => {
+                console.warn("[duplex] speech error:", e);
+                finishSpeaking();
+            };
+            window._activeSpeechUtterance = utterance;
+
+            if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+                window.speechSynthesis.cancel();
+            }
+
+            setTimeout(() => {
                 try {
-                    window.speechSynthesis.cancel();
                     window.speechSynthesis.resume();
                     window.speechSynthesis.speak(utterance);
                     setTimeout(() => {
                         if (window.speechSynthesis && window.speechSynthesis.paused) {
                             window.speechSynthesis.resume();
                         }
-                    }, 60);
+                    }, 80);
                 } catch (err) {
-                    console.warn("[duplex] browser speech error:", err);
+                    console.warn("[duplex] speech invocation failed:", err);
                     finishSpeaking();
                 }
-            };
-
-            // Stream authentic neural audio from backend /api/tts endpoint
-            const profile = (selectedVoiceLang || "gemini-vega");
-            const ttsEndpoint = `/api/tts?text=${encodeURIComponent(clean)}&voice=${encodeURIComponent(profile)}`;
-
-            const audio = new Audio(ttsEndpoint);
-            activeNeuralAudio = audio;
-
-            audio.onplay = () => {
-                visemeInterval = setInterval(() => {
-                    triggerSpeechViseme();
-                }, 160);
-            };
-
-            audio.onended = finishSpeaking;
-
-            let fallbackInvoked = false;
-            const triggerFallbackOnce = (source) => {
-                if (fallbackInvoked) return;
-                fallbackInvoked = true;
-                console.info(`[duplex] Neural audio unavailable, falling back to browser synthesis (${source}).`);
-                activeNeuralAudio = null;
-                if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
-                fallbackBrowserTTS();
-            };
-
-            audio.onerror = () => triggerFallbackOnce("onerror");
-            audio.play().catch(err => {
-                console.warn("[duplex] Audio playback blocked/failed, falling back:", err);
-                triggerFallbackOnce("catch");
-            });
+            }, 30);
         }
 
         // Global hotkey interruption listener (Escape or Spacebar outside input)
@@ -11260,15 +11270,19 @@
         <nav class="drawer-tabs-nav">
             <button class="drawer-tab-btn active" id="tab-btn-tasks" onclick="switchDrawerTab('tasks')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                <span>BACKGROUND TASKS (<span id="drawer-task-count">0</span>)</span>
+                <span>TASKS (<span id="drawer-task-count">0</span>)</span>
             </button>
             <button class="drawer-tab-btn" id="tab-btn-sessions" onclick="switchDrawerTab('sessions')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                <span>CHAT SESSIONS (<span id="drawer-session-count">0</span>)</span>
+                <span>CHATS (<span id="drawer-session-count">0</span>)</span>
             </button>
             <button class="drawer-tab-btn" id="tab-btn-export" onclick="switchDrawerTab('export')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                <span>EXPORT &amp; BACKUP</span>
+                <span>EXPORT</span>
+            </button>
+            <button class="drawer-tab-btn" id="tab-btn-tools" onclick="switchDrawerTab('tools')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                <span>TOOLS</span>
             </button>
         </nav>
 
@@ -11353,6 +11367,33 @@
                     <div style="font-size:10.5px; color:var(--text-secondary); line-height:1.4;">Upload an exported session JSON file to restore and resume conversation directly inside the viewer.</div>
                     <input type="file" id="chat-import-input" accept=".json" style="display:none;" onchange="handleImportSessionFile(event)">
                     <button class="browser-action-btn" onclick="document.getElementById('chat-import-input').click()" style="padding:8px 14px; font-size:10.5px; border-color:rgba(255,255,255,0.3); color:#fff; margin-top:4px;">SELECT JSON FILE TO IMPORT</button>
+                </div>
+            </div>
+
+            <!-- PANEL 4: SYSTEM TOOLS & PLAYBOOK -->
+            <div class="drawer-tab-panel" id="drawer-panel-tools">
+                <div class="drawer-card" style="border-color:rgba(0,240,255,0.3); background:rgba(0,240,255,0.03);">
+                    <div style="font-family:var(--font-display); font-size:11px; font-weight:700; color:var(--cyan); letter-spacing:0.08em; margin-bottom:4px;">SYSTEM PLAYBOOK &amp; CAPABILITIES</div>
+                    <div style="font-size:10.5px; color:var(--text-secondary); line-height:1.4; margin-bottom:8px;">View system documentation, MCP tool integrations, and operational playbooks.</div>
+                    <button class="browser-action-btn" onclick="toggleTaskHistoryDrawer(false); openFeaturesGuide();" style="width:100%; padding:9px 12px; font-size:11px; border-color:var(--cyan); color:var(--cyan); font-weight:700;">📖 OPEN PLAYBOOK &amp; FEATURES</button>
+                </div>
+
+                <div class="drawer-card" style="border-color:rgba(16,185,129,0.3); background:rgba(16,185,129,0.03);">
+                    <div style="font-family:var(--font-display); font-size:11px; font-weight:700; color:var(--emerald); letter-spacing:0.08em; margin-bottom:4px;">LIVE DUPLEX 2-WAY SPEECH</div>
+                    <div style="font-size:10.5px; color:var(--text-secondary); line-height:1.4; margin-bottom:8px;">Continuous hands-free spoken dialogue with Vega.</div>
+                    <button class="browser-action-btn" onclick="toggleTaskHistoryDrawer(false); switchTab('dialogue'); if(!liveConversationActive) toggleLiveConversation();" style="width:100%; padding:9px 12px; font-size:11px; border-color:var(--emerald); color:var(--emerald); font-weight:700;">🎙️ LAUNCH LIVE 2-WAY DUPLEX</button>
+                </div>
+
+                <div class="drawer-card" style="border-color:rgba(245,158,11,0.3); background:rgba(245,158,11,0.03);">
+                    <div style="font-family:var(--font-display); font-size:11px; font-weight:700; color:var(--amber); letter-spacing:0.08em; margin-bottom:4px;">ENGINEERING COCKPIT TELEMETRY</div>
+                    <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-secondary); line-height:1.4; margin-bottom:8px;">Full screen telemetry metrics, memory buffers, and multi-agent flywheels.</div>
+                    <button class="browser-action-btn" onclick="toggleTaskHistoryDrawer(false); toggleWorkspaceCockpit();" style="width:100%; padding:9px 12px; font-size:11px; border-color:var(--amber); color:var(--amber); font-weight:700;">⚡ TOGGLE TELEMETRY COCKPIT</button>
+                </div>
+
+                <div class="drawer-card" style="border-color:rgba(168,85,247,0.3); background:rgba(168,85,247,0.03);">
+                    <div style="font-family:var(--font-display); font-size:11px; font-weight:700; color:#c084fc; letter-spacing:0.08em; margin-bottom:4px;">AI MODEL &amp; API KEYS</div>
+                    <div style="font-size:10.5px; color:var(--text-secondary); line-height:1.4; margin-bottom:8px;">Configure custom provider keys (OpenRouter, Groq, Gemini) directly from browser.</div>
+                    <button class="browser-action-btn" onclick="toggleTaskHistoryDrawer(false); openAiKeyModal();" style="width:100%; padding:9px 12px; font-size:11px; border-color:#c084fc; color:#c084fc; font-weight:700;">🔑 CONFIGURE AI KEYS</button>
                 </div>
             </div>
         </div>

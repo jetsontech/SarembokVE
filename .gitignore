@@ -53,3 +53,6 @@ Content/
 # Local secrets
 Deployment/cloud/.env
 scratch/
+frontend/test_*.mp3
+frontend/vega_jenny_sample.mp3
+frontend/.audio_cache/
