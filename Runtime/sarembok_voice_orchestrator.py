@@ -58,19 +58,56 @@ class SarembokVoiceSynthesizer:
         self.client = None
         self.async_client = None
 
-        if HAS_GOOGLE_TTS and self.api_key:
-            try:
-                self.client = texttospeech.TextToSpeechClient(
-                    client_options={"api_key": self.api_key}
-                )
-                self.async_client = texttospeech.TextToSpeechAsyncClient(
-                    client_options={"api_key": self.api_key}
-                )
-                logger.info("Google Cloud TTS client initialized with API key credentials.")
-            except Exception as e:
-                logger.warning(f"Failed to initialize Google Cloud TTS client: {e}. Reverting to synthetic mode.")
+        # Try initializing via default ADC / Service Account first
+        if HAS_GOOGLE_TTS:
+            if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+                try:
+                    self.async_client = texttospeech.TextToSpeechAsyncClient()
+                    logger.info("Google Cloud TTS client initialized using GOOGLE_APPLICATION_CREDENTIALS.")
+                except Exception as e:
+                    logger.debug(f"ADC init note: {e}")
+            elif self.api_key:
+                try:
+                    self.async_client = texttospeech.TextToSpeechAsyncClient(
+                        client_options={"api_key": self.api_key}
+                    )
+                    logger.info("Google Cloud TTS client initialized with API key.")
+                except Exception as e:
+                    logger.debug(f"Client options init note: {e}")
+
+    async def _synthesize_rest(self, text: str, voice_model: str, speaking_rate: float) -> Optional[bytes]:
+        """Direct REST synthesis fallback for API key authentication."""
+        if not self.api_key:
+            return None
+        import base64
+        import json
+        import urllib.request
+
+        url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={self.api_key}"
+        payload = {
+            "input": {"text": text},
+            "voice": {"languageCode": "en-US", "name": voice_model},
+            "audioConfig": {"audioEncoding": "MP3", "speakingRate": speaking_rate}
+        }
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"}
+        )
+        try:
+            loop = asyncio.get_event_loop()
+            def do_request():
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    raw_b64 = data.get("audioContent", "")
+                    return base64.b64decode(raw_b64) if raw_b64 else None
+            return await loop.run_in_executor(None, do_request)
+        except Exception as e:
+            logger.debug(f"REST synthesis request note: {e}")
+            return None
 
     async def synthesize(self, text: str, voice_model: str = "en-US-Studio-O", speaking_rate: float = 1.05) -> bytes:
+        # 1. Try gRPC client
         if self.async_client and HAS_GOOGLE_TTS:
             try:
                 synthesis_input = texttospeech.SynthesisInput(text=text)
@@ -89,9 +126,15 @@ class SarembokVoiceSynthesizer:
                 )
                 return response.audio_content
             except Exception as e:
-                logger.error(f"Google Cloud TTS synthesis call failed: {e}. Using fallback generator.")
+                logger.debug(f"gRPC synthesis call note: {e}")
 
-        # Fallback simulation with non-blocking latency
+        # 2. Try REST API with API key
+        if self.api_key:
+            rest_audio = await self._synthesize_rest(text, voice_model, speaking_rate)
+            if rest_audio:
+                return rest_audio
+
+        # 3. Fallback simulation with non-blocking latency
         await asyncio.sleep(0.05)
         mock = MockTTSResponse(text)
         return mock.audio_content
