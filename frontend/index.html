@@ -7410,7 +7410,7 @@
         window.voiceEnabled = true;
         let speechRecognition = null;
         let isRecordingSpeech = false;
-        let selectedVoiceLang = "en-GB";
+        let selectedVoiceLang = "gemini-vega";
 
         // Live interactive 2-way duplex conversation state
         let liveConversationActive = false;
@@ -7517,62 +7517,98 @@
             return false;
         }
 
-        // Strict blacklist to eliminate Microsoft David and all robotic male voices
+        // Male voice identifiers for separating gender candidates
         const MALE_VOICE_BLACKLIST = [
             "david", "mark", "george", "guy", "male", "boy", "man", "richard", "james",
             "stefan", "frank", "paul", "charles", "ryan", "christopher", "eric", "brian",
             "daniel", "oliver", "tom", "alex", "microsoft david", "microsoft mark", "desktop"
         ];
 
-        function getAdaFemaleVoice() {
-            if (!window.speechSynthesis) return null;
+        function getResolvedVoiceProfile() {
+            if (!window.speechSynthesis) return { voice: null, pitch: 1.0, rate: 1.0 };
             const voices = window.speechSynthesis.getVoices() || [];
-            if (voices.length === 0) return null;
+            const profile = (selectedVoiceLang || "gemini-vega").toLowerCase();
 
-            // 1. Strict blacklist of robotic and male voices
-            const femaleCandidates = voices.filter(v => {
-                const name = (v.name || "").toLowerCase();
-                return !MALE_VOICE_BLACKLIST.some(m => name.includes(m));
-            });
-
-            const pool = femaleCandidates.length > 0 ? femaleCandidates : voices;
-
-            // 2. High priority natural female voices for Ada (Natural/Neural, Google US/UK, Samantha on iOS/macOS, Jenny/Aria on Windows)
-            const priorityNames = [
-                "natural", "neural", "google uk english female", "google us english",
-                "samantha", "jenny", "aria", "victoria", "ava", "hazel", "karen", "susan", "zira"
-            ];
-
-            for (const p of priorityNames) {
-                const match = pool.find(v => {
-                    const n = (v.name || "").toLowerCase();
-                    const isLangOk = (v.lang || "").toLowerCase().startsWith("en") || !v.lang;
-                    return n.includes(p) && isLangOk && !MALE_VOICE_BLACKLIST.some(m => n.includes(m));
-                });
-                if (match) return match;
+            // Split into distinct candidate pools
+            const femaleCandidates = [];
+            const maleCandidates = [];
+            for (const v of voices) {
+                const n = (v.name || "").toLowerCase();
+                const isMale = MALE_VOICE_BLACKLIST.some(m => n.includes(m));
+                if (isMale) {
+                    maleCandidates.push(v);
+                } else {
+                    femaleCandidates.push(v);
+                }
             }
 
-            // 3. Local service English female voice
-            const localEnFemale = pool.find(v => {
-                const n = (v.name || "").toLowerCase();
-                return v.localService && (v.lang || "").toLowerCase().startsWith("en") && !MALE_VOICE_BLACKLIST.some(m => n.includes(m));
-            });
-            if (localEnFemale) return localEnFemale;
+            const femalePool = femaleCandidates.length > 0 ? femaleCandidates : voices;
+            const malePool = maleCandidates.length > 0 ? maleCandidates : voices;
 
-            // 4. Any English non-male voice
-            const anyEnFemale = pool.find(v => {
-                const n = (v.name || "").toLowerCase();
-                return (v.lang || "").toLowerCase().startsWith("en") && !MALE_VOICE_BLACKLIST.some(m => n.includes(m));
-            });
-            if (anyEnFemale) return anyEnFemale;
+            const findInPool = (pool, priorities) => {
+                for (const p of priorities) {
+                    const match = pool.find(v => (v.name || "").toLowerCase().includes(p));
+                    if (match) return match;
+                }
+                return null;
+            };
 
-            // 5. Any non-male candidate
-            return femaleCandidates[0] || null;
+            // 1. GEMINI VEGA (Default High-Clarity Neural Female: bright, articulate, clear)
+            if (profile.includes("vega")) {
+                const vegaPriority = ["natural", "neural", "jenny", "aria", "samantha", "google us english", "ava", "allison", "karen", "zira"];
+                const matched = findInPool(femalePool, vegaPriority) || femalePool[0] || null;
+                return { voice: matched, pitch: 1.10, rate: 1.03 };
+            }
+
+            // 2. GEMINI AOEDE (Warm Studio Female: deeper resonance, warm, measured)
+            if (profile.includes("aoede")) {
+                const aoedePriority = ["hazel", "susan", "catherine", "karen", "sonia", "google uk english female", "zira"];
+                let matched = findInPool(femalePool, aoedePriority);
+                if (!matched && femalePool.length > 1) matched = femalePool[1];
+                if (!matched) matched = femalePool[0] || null;
+                return { voice: matched, pitch: 0.88, rate: 0.95 };
+            }
+
+            // 3. GEMINI KORE (Soft Intimate Female: high, gentle, soft cadence)
+            if (profile.includes("kore")) {
+                const korePriority = ["ava", "victoria", "samantha", "aria", "stephanie", "google us english"];
+                let matched = findInPool(femalePool, korePriority);
+                if (!matched && femalePool.length > 2) matched = femalePool[2];
+                if (!matched) matched = femalePool[0] || null;
+                return { voice: matched, pitch: 1.25, rate: 0.96 };
+            }
+
+            // 4. NEURAL BRITISH FEMALE (Echo: refined UK cadence)
+            if (profile.includes("gb") || profile.includes("echo")) {
+                const gbPriority = ["sonia", "uk", "great britain", "english (united kingdom)", "stephanie", "victoria", "hazel", "en-gb"];
+                const matched = findInPool(femalePool, gbPriority) || femalePool[0] || null;
+                return { voice: matched, pitch: 1.02, rate: 0.98 };
+            }
+
+            // 5. NEURAL AMERICAN MALE (Onyx: deep, authoritative, masculine baritone)
+            if (profile.includes("us") || profile.includes("onyx") || profile.includes("male")) {
+                const onyxPriority = ["onyx", "guy", "david", "mark", "ryan", "alex", "daniel", "google uk english male", "male"];
+                const matched = findInPool(malePool, onyxPriority) || malePool[0] || null;
+                return { voice: matched, pitch: 0.80, rate: 0.98 };
+            }
+
+            // 6. CYBERNETIC SYNTHESIZER (Sovereign: deep robotic vocoder frequency)
+            if (profile.includes("synth")) {
+                const matched = voices[0] || null;
+                return { voice: matched, pitch: 0.45, rate: 1.22 };
+            }
+
+            return { voice: femalePool[0] || voices[0] || null, pitch: 1.0, rate: 1.0 };
+        }
+
+        function getAdaFemaleVoice() {
+            const resolved = getResolvedVoiceProfile();
+            return resolved ? resolved.voice : null;
         }
 
         if (window.speechSynthesis) {
             window.speechSynthesis.onvoiceschanged = () => {
-                getAdaFemaleVoice();
+                getResolvedVoiceProfile();
             };
         }
 
@@ -7635,14 +7671,13 @@
             showInterruptPill();
 
             const utterance = new SpeechSynthesisUtterance(clean);
-            utterance.volume = 1.0;
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0; // Natural warm human pitch
-
-            const preferred = getAdaFemaleVoice();
-            if (preferred) {
-                utterance.voice = preferred;
+            const resolved = getResolvedVoiceProfile();
+            if (resolved && resolved.voice) {
+                utterance.voice = resolved.voice;
             }
+            utterance.volume = 1.0;
+            utterance.pitch = (resolved && resolved.pitch !== undefined) ? resolved.pitch : 1.0;
+            utterance.rate = (resolved && resolved.rate !== undefined) ? resolved.rate : 1.0;
 
             setAvatarSignal("SPEAKING");
             setAudioDucking(true);
@@ -8091,23 +8126,34 @@
         let activeVoiceModel = "Vega";
         function changeVoiceProfile(val) {
             selectedVoiceLang = val;
+            let previewText = "Voice profile updated.";
             if (val === "gemini-vega" || val.includes("vega")) {
                 activeVoiceModel = "Vega";
+                previewText = "Gemini Vega online. Neural high-clarity female voice active.";
                 addTerminalLine("[voice] activated profile: Gemini Vega (Neural Female)", "cyan");
             } else if (val === "gemini-aoede" || val.includes("aoede")) {
                 activeVoiceModel = "Aoede";
+                previewText = "Gemini Aoede online. Warm studio profile active.";
                 addTerminalLine("[voice] activated profile: Gemini Aoede (Warm Studio Female)", "cyan");
             } else if (val === "gemini-kore" || val.includes("kore")) {
                 activeVoiceModel = "Kore";
+                previewText = "Gemini Kore online. Soft intimate profile active.";
                 addTerminalLine("[voice] activated profile: Gemini Kore (Soft Intimate Female)", "cyan");
-            } else if (val === "en-GB") {
+            } else if (val === "en-GB" || val.includes("echo")) {
                 activeVoiceModel = "Echo";
+                previewText = "Neural British female profile active.";
                 addTerminalLine("[voice] activated profile: Neural British Female (Echo)", "cyan");
-            } else if (val === "en-US") {
+            } else if (val === "en-US" || val.includes("onyx")) {
                 activeVoiceModel = "Onyx";
+                previewText = "Neural American male profile active. Operating as Onyx.";
                 addTerminalLine("[voice] activated profile: Neural American Male (Onyx)", "amber");
+            } else if (val === "synth") {
+                activeVoiceModel = "Synth";
+                previewText = "Cybernetic synthesizer matrix engaged.";
+                addTerminalLine("[voice] activated profile: Cybernetic Synthesizer (Sovereign)", "amber");
             } else {
                 activeVoiceModel = val;
+                previewText = `Voice profile set to ${val}.`;
                 addTerminalLine(`[voice] updated voice profile: ${val}`, "amber");
             }
 
@@ -8116,6 +8162,18 @@
                     window.sarembokSocket.send(JSON.stringify({ type: "SET_VOICE_PROFILE", voice: activeVoiceModel }));
                 }
             } catch (_) {}
+
+            // Immediate audible voice preview
+            if (window.speechSynthesis) {
+                try {
+                    window.speechSynthesis.cancel();
+                    setTimeout(() => {
+                        speakText(previewText);
+                    }, 50);
+                } catch (e) {
+                    console.warn("Voice preview notice:", e);
+                }
+            }
         }
 
         async function initSession() {
@@ -8144,6 +8202,11 @@
                 connect();
             } catch (_) {}
             setTimeout(initMetaHumanHologram, 400);
+
+            const voiceEl = document.getElementById("mh-voice-select");
+            if (voiceEl && voiceEl.value) {
+                selectedVoiceLang = voiceEl.value;
+            }
 
             // Auto transition from boot screen
             setTimeout(() => {
@@ -9298,14 +9361,13 @@
             showInterruptPill();
 
             const utterance = new SpeechSynthesisUtterance(clean);
-            utterance.volume = 1.0;
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0; // Natural warm human pitch
-
-            const preferred = getAdaFemaleVoice();
-            if (preferred) {
-                utterance.voice = preferred;
+            const resolved = getResolvedVoiceProfile();
+            if (resolved && resolved.voice) {
+                utterance.voice = resolved.voice;
             }
+            utterance.volume = 1.0;
+            utterance.pitch = (resolved && resolved.pitch !== undefined) ? resolved.pitch : 1.0;
+            utterance.rate = (resolved && resolved.rate !== undefined) ? resolved.rate : 1.0;
 
             utterance.onboundary = () => {
                 triggerSpeechViseme();
