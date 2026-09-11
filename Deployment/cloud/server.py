@@ -28,9 +28,11 @@ from runtime_response_composer import (
     build_runtime_context,
     is_capability_query,
     is_identity_query,
+    is_limitation_query,
     is_self_state_query,
     render_capabilities,
     render_identity,
+    render_limitations,
     render_model_inventory,
 )
 from provider_router import ProviderRouter
@@ -1899,7 +1901,20 @@ def sarembok_process_dialogue(
         STARTED,
     )
 
-    # Direct Runtime Authority Handling (Capabilities, Identity, Model Inventory)
+    # Direct Runtime Authority Handling (Limitations, Capabilities, Identity, Model Inventory)
+    if is_limitation_query(prompt_clean):
+        lim_reply = render_limitations(authority_snapshot)
+        _save_conversation(session_id, prompt_clean, lim_reply)
+        return {
+            "response": lim_reply,
+            "audioText": "Sarembok VE operates within defined architectural boundaries: containerized sandbox isolation, strict human-in-the-loop authorization for high-risk actions, and verified ground-truth telemetry.",
+            "source": "runtime_authority",
+            "model": "runtime-authority",
+            "action": None,
+            "structuredResponse": build_structured_response(lim_reply, provider="runtime_authority", model="runtime-authority"),
+            "metadata": {"provider": "runtime_authority", "model": "runtime-authority"}
+        }
+
     if is_capability_query(prompt_clean):
         cap_reply = render_capabilities(authority_snapshot)
         _save_conversation(session_id, prompt_clean, cap_reply)
@@ -2163,7 +2178,11 @@ def sarembok_process_dialogue(
             "action": None
         }
 
-    if is_capability_query(prompt_clean):
+    if is_limitation_query(prompt_clean):
+        reply = render_limitations(authority_snapshot)
+        source = "runtime_authority"
+        active_model = "runtime-authority"
+    elif is_capability_query(prompt_clean):
         reply = render_capabilities(authority_snapshot)
         source = "runtime_authority"
         active_model = "runtime-authority"
@@ -2173,12 +2192,12 @@ def sarembok_process_dialogue(
         active_model = "runtime-authority"
     else:
         reply = (
-            "I am currently operating in **Local Runtime Authority mode** while upstream cloud models are reconnecting.\n\n"
-            "**All local capabilities remain fully operational:**\n"
-            "- 🎵 **Universal Media & Music:** `play <artist/song/podcast/news>` (e.g., `play kevin hart`, `play bbc news`, `play michael jackson`)\n"
-            "- 🕒 **System Clock & Time:** `what time is it`\n"
-            "- 🌐 **Live Real-Time Intelligence:** `latest tech news`\n"
-            "- ⚡ **System Overview & Commands:** `what can you do` or `what system is this`"
+            "I am currently operating in **Local Sovereign Authority mode** while upstream cloud models initialize.\n\n"
+            "**Active Sovereign Capabilities:**\n"
+            "- 🎵 **Universal Media & Stream Ingestion:** Audio streaming, podcast playback, and news broadcast embedding (`play <topic/artist/news>`)\n"
+            "- 🕒 **System Chronometry & Clock:** Real-time verified UTC/local synchronization (`what time is it`)\n"
+            "- 🌐 **Live Real-Time Intelligence:** Live search feeds and verified factual indexing (`latest news on <topic>`)\n"
+            "- ⚡ **Platform Architecture & Commands:** System state inspection (`what system is this` or `what can you do`)"
         )
         source = "local_runtime"
         active_model = "runtime-fallback"

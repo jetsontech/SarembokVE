@@ -17,9 +17,11 @@ from runtime_response_composer import (
     build_runtime_context,
     is_capability_query,
     is_identity_query,
+    is_limitation_query,
     is_self_state_query,
     render_capabilities,
     render_identity,
+    render_limitations,
     render_model_inventory,
 )
 
@@ -62,7 +64,26 @@ def _dispatch_chat_with_authority(params: dict) -> dict:
         or ""
     ).strip()
 
-    # 1. Capability questions answered directly by Runtime Authority
+    # 1. Limitation / architectural boundary questions answered directly by Runtime Authority
+    if is_limitation_query(prompt):
+        response = render_limitations(snapshot)
+        return {
+            **snapshot,
+            "response": response,
+            "audioText": "Sarembok VE operates within defined architectural boundaries: containerized sandbox isolation, strict human-in-the-loop authorization for high-risk actions, and verified ground-truth telemetry.",
+            "source": "runtime_authority",
+            "model": "runtime-authority",
+            "action": None,
+            "structuredResponse": cloud_server.build_structured_response(
+                response,
+                provider="runtime_authority",
+                model="runtime-authority",
+            ),
+            "agentId": "sarembok-prime",
+            "timestamp": cloud_server.now(),
+        }
+
+    # 2. Capability questions answered directly by Runtime Authority
     if is_capability_query(prompt):
         response = render_capabilities(snapshot)
         return {

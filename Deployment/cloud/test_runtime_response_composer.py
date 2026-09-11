@@ -2,9 +2,11 @@ from runtime_response_composer import (
     build_runtime_context,
     is_capability_query,
     is_identity_query,
+    is_limitation_query,
     is_self_state_query,
     render_capabilities,
     render_identity,
+    render_limitations,
     render_model_inventory,
 )
 
@@ -106,6 +108,34 @@ def test_capability_and_identity_queries():
     assert is_capability_query("help")
     assert not is_capability_query("what is the weather")
     assert not is_capability_query("what is this")
+    assert not is_capability_query("what cant it do")
+    assert not is_capability_query("what can't it do")
+    assert not is_capability_query("what are your limitations")
+
+
+def test_limitation_queries():
+    assert is_limitation_query("what cant it do")
+    assert is_limitation_query("what can't it do")
+    assert is_limitation_query("what cant you do")
+    assert is_limitation_query("what can you not do")
+    assert is_limitation_query("what is it not able to do")
+    assert is_limitation_query("what are your limitations")
+    assert is_limitation_query("what are the limitations")
+    assert is_limitation_query("what are the constraints")
+    assert is_limitation_query("operational boundaries")
+
+    assert not is_limitation_query("what can you do")
+    assert not is_limitation_query("what is this")
+    assert not is_limitation_query("what system is this")
+
+
+def test_limitations():
+    text = render_limitations(SNAPSHOT)
+    assert "ARCHITECTURAL BOUNDARIES" in text
+    assert "Containerized Sandbox Isolation" in text
+    assert "Cryptographic Authorization & Human Guardrails" in text
+    assert "Sovereign Ground Truth vs. Speculative Hallucination" in text
+    assert "Physical World Actuation" in text
 
 
 def test_capabilities():

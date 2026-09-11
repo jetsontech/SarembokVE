@@ -103,8 +103,81 @@ def _normalize_prompt_intent(prompt: str) -> str:
     return " ".join(text.split())
 
 
+def is_limitation_query(prompt: str) -> bool:
+    """Identify questions about Sarembok's operational boundaries, constraints, and limitations."""
+    norm = _normalize_prompt_intent(prompt)
+    if not norm:
+        return False
+
+    limitation_exact = {
+        "what cant it do",
+        "what cant you do",
+        "what cant this do",
+        "what cant be done",
+        "what can it not do",
+        "what can you not do",
+        "what can this not do",
+        "what can not be done",
+        "what is it not able to do",
+        "what are you not able to do",
+        "what are you unable to do",
+        "what is it unable to do",
+        "what are the limitations",
+        "what are your limitations",
+        "what are its limitations",
+        "what limitations",
+        "limitations",
+        "system limitations",
+        "runtime limitations",
+        "what are the constraints",
+        "what are your constraints",
+        "what are its constraints",
+        "constraints",
+        "what are the boundaries",
+        "operational boundaries",
+        "what does it not support",
+        "what do you not support",
+        "what are you not capable of",
+        "what is it not capable of",
+    }
+    if norm in limitation_exact:
+        return True
+
+    markers = (
+        "what cant it do",
+        "what cant you do",
+        "what cant this do",
+        "what cant be done",
+        "what can it not do",
+        "what can you not do",
+        "what can this not do",
+        "what can not be done",
+        "what is it not able to do",
+        "what are you not able to do",
+        "what are you unable to do",
+        "what is it unable to do",
+        "what are the limitations",
+        "what are your limitations",
+        "what are its limitations",
+        "system limitations",
+        "runtime limitations",
+        "what are the constraints",
+        "what are your constraints",
+        "what are its constraints",
+        "operational boundaries",
+        "what does it not support",
+        "what do you not support",
+        "what are you not capable of",
+        "what is it not capable of",
+    )
+    return any(marker in norm for marker in markers)
+
+
 def is_capability_query(prompt: str) -> bool:
     """Identify questions inquiring what Sarembok can do or its supported features."""
+    if is_limitation_query(prompt):
+        return False
+
     norm = _normalize_prompt_intent(prompt)
     if not norm:
         return False
@@ -293,9 +366,39 @@ def render_capabilities(
     ])
 
 
+def render_limitations(snapshot: dict[str, Any] | None = None) -> str:
+    """Produce an authoritative, engineering-grade statement of Sarembok VE's architectural boundaries."""
+    return "\n".join([
+        "### 🛡️ SAREMBOK VE · ARCHITECTURAL BOUNDARIES & OPERATIONAL CONSTRAINTS",
+        "",
+        "Sarembok VE operates as an enterprise-grade sovereign multimodal runtime and autonomous agent matrix. By architectural design and safety policy, several explicit boundaries are strictly enforced:",
+        "",
+        "1. **Containerized Sandbox Isolation**",
+        "   - Autonomous code synthesis, terminal execution, and worker pipelines execute strictly inside isolated containerized sandboxes.",
+        "   - Sarembok cannot access or mutate the underlying host OS kernel, unauthorized local network subnets, or host filesystems beyond provisioned volume mounts.",
+        "",
+        "2. **Cryptographic Authorization & Human Guardrails**",
+        "   - High-impact operations—including cloud infrastructure deletion, unverified payment/billing transactions, or destructive production database drops—require explicit cryptographic API tokens and human confirmation.",
+        "   - Sarembok will not execute irreversible destructive actions autonomously.",
+        "",
+        "3. **Sovereign Ground Truth vs. Speculative Hallucination**",
+        "   - Real-time telemetry, worker node state, GPU inventory, and persistent memory metrics are strictly read from live Runtime Authority, not inferred or invented.",
+        "   - Sarembok refuses to invent false worker counts or claim non-existent hardware resources.",
+        "",
+        "4. **Air-Gapped & Private Intranet Boundaries**",
+        "   - Sarembok cannot access private internal enterprise networks, firewalled intranets, or air-gapped systems without explicit VPN tunnels, WireGuard configurations, or pre-registered authentication bridges.",
+        "",
+        "5. **Physical World Actuation**",
+        "   - Sarembok does not possess direct physical actuators, robotics control, or biometric interception capabilities. Operations are bounded to compute, networking, audio/visual media, and software interfaces.",
+        "",
+        "6. **Deterministic Capacity & Quotas**",
+        "   - Multimodal generation (e.g., FLUX.1 4K visual synthesis, parallel agent clustering) is strictly governed by provisioned cluster VRAM and GPU worker nodes to guarantee deterministic system stability without resource starvation.",
+    ])
+
+
 def is_self_state_query(prompt: str) -> bool:
     """Identify questions whose answer should be grounded directly in runtime state."""
-    if is_identity_query(prompt) or is_capability_query(prompt):
+    if is_identity_query(prompt) or is_capability_query(prompt) or is_limitation_query(prompt):
         return True
 
     text = (prompt or "").strip().lower()
