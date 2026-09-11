@@ -304,7 +304,6 @@ class CloudStore:
                 updated_at TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at DESC);
-            CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id);
             CREATE TABLE IF NOT EXISTS users (
                 id TEXT PRIMARY KEY,
                 email TEXT UNIQUE,
@@ -330,6 +329,9 @@ class CloudStore:
         if chat_cols and "user_id" not in chat_cols:
             self.db.execute("ALTER TABLE chat_sessions ADD COLUMN user_id TEXT DEFAULT 'anonymous'")
             self.db.commit()
+
+        self.db.execute("CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id)")
+        self.db.commit()
 
     def create_agent(self, agent_id: str, display_name: str) -> dict[str, Any]:
         stamp = now()
