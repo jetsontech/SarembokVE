@@ -1950,7 +1950,19 @@ def sarembok_process_dialogue(
         "SELECT role, content FROM conversations WHERE session_id=? ORDER BY created_at DESC LIMIT 20",
         (session_id,)
     ).fetchall()
-    conv_history = list(reversed(conv_rows))
+    deduped_history = []
+    last_role = None
+    last_content = None
+    for r, c in list(reversed(conv_rows)):
+        c_clean = str(c or "").strip()
+        if r == last_role and c_clean == last_content:
+            continue
+        if "Local Sovereign Authority" in c_clean or "Sovereign Fallback" in c_clean:
+            continue
+        deduped_history.append((r, c))
+        last_role = r
+        last_content = c_clean
+    conv_history = deduped_history
 
     # Runtime Authority is the source of truth for live Sarembok platform state
     ensure_sovereign_worker()

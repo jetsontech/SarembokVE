@@ -4353,12 +4353,6 @@
                     <span>EXPORT</span>
                 </button>
 
-                <!-- AI Key & Model Configuration Button -->
-                <button class="hud-voice-btn" id="hud-keys-btn" onclick="openAiKeyModal()" title="Configure AI Provider & API Keys" style="border-color:rgba(245,158,11,0.45); color:var(--amber); background:rgba(245,158,11,0.08);">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3"/></svg>
-                    <span id="hud-keys-label">🔑 AI KEYS</span>
-                </button>
-
                 <button class="hud-voice-btn" id="hud-voice-toggle" onclick="toggleVoiceOutput()" title="Toggle Voice Audio">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
                     <span id="hud-voice-label">VOICE: ON</span>
@@ -7485,7 +7479,7 @@
                         stream: true,
                         admin: isAdm,
                         imageFrame: frameToSend,
-                        apiKey: userKey
+                        sessionId: localStorage.getItem("sarembok_active_session_id") || "sess_main"
                     },
                     delta => {
                         if (myTurnId !== currentTurnId) return;
@@ -7500,16 +7494,6 @@
                 let finalText = result?.response || result?.audioText || streamedText || "Directive executed.";
                 finalText = enrichResponseOnClient(text, finalText);
                 content.innerHTML = md(finalText);
-
-                // If sovereign fallback is triggered, render quick-fix button directly on screen
-                if (finalText.includes("Sovereign Authority") || finalText.includes("sovereign mode") || finalText.includes("Local Sovereign Authority")) {
-                    const fixBtn = document.createElement("button");
-                    fixBtn.className = "browser-action-btn";
-                    fixBtn.style.cssText = "margin-top:12px; padding:8px 14px; font-size:11px; border-color:var(--amber); color:var(--amber); display:inline-flex; align-items:center; gap:6px; cursor:pointer;";
-                    fixBtn.innerHTML = `<span>🔑</span><span>ACTIVATE FRONTIER MODEL (PASTE API KEY)</span>`;
-                    fixBtn.onclick = openAiKeyModal;
-                    content.appendChild(fixBtn);
-                }
 
                 // Async-resolve any unresolved media cards via backend SearchYouTube RPC
                 const hasUnresolvedCards = content.querySelectorAll('iframe[src="about:blank"], a[href*="results?search_query"]').length > 0;
@@ -9692,7 +9676,7 @@
                         admin: isAdm,
                         stream: true,
                         imageFrame: frameToSend,
-                        apiKey: userKey
+                        sessionId: localStorage.getItem("sarembok_active_session_id") || "sess_main"
                     },
                     delta => {
                         if (myTurnId !== currentTurnId) return; // User interrupted
@@ -9724,7 +9708,7 @@
 
                 if (sentenceBuffer.trim() && liveConversationActive && myTurnId === currentTurnId) {
                     enqueueLiveSpeech(sentenceBuffer.trim());
-                } else if (liveConversationActive && liveSpeechQueue.length === 0 && !isSpeakingTurn && myTurnId === currentTurnId) {
+                } else if (liveConversationActive && !streamedResponse && myTurnId === currentTurnId) {
                     enqueueLiveSpeech(finalText);
                 }
 
