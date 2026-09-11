@@ -1955,6 +1955,8 @@ def sarembok_process_dialogue(
     last_content = None
     for r, c in list(reversed(conv_rows)):
         c_clean = str(c or "").strip()
+        if not c_clean:
+            continue
         if r == last_role and c_clean == last_content:
             continue
         if "Local Sovereign Authority" in c_clean or "Sovereign Fallback" in c_clean:
@@ -2265,7 +2267,8 @@ def sarembok_process_dialogue(
         s = re.sub(r"\s+", " ", s).strip()
         return s[:380]
 
-    if reply is not None:
+    if reply and reply.strip():
+        reply = reply.strip()
         _save_conversation(session_id, prompt_clean, reply)
         store.event("sarembok-prime", "CHAT_RESPONSE", {"prompt": prompt_clean[:200], "model": active_model, "provider": source})
         return {
@@ -2303,14 +2306,12 @@ def sarembok_process_dialogue(
         active_model = "runtime-authority"
     else:
         reply = (
-            "### ⚠️ Local Sovereign Authority Mode\n\n"
-            "I am currently operating in **Local Sovereign Authority mode** because no upstream cloud AI provider key (OpenRouter, Gemini, OpenAI, or Groq) is currently active.\n\n"
-            "👉 **Correct this directly from your mobile device:** Tap the **[🔑 AI KEYS]** button in the top HUD (or enter your key below) to activate frontier models without needing a computer or SSH.\n\n"
-            "**Active Offline Sovereign Capabilities:**\n"
-            "- 🎵 **Universal Media & Stream Ingestion:** Audio streaming, podcast playback, and news broadcast embedding (`play <topic/artist/news>`)\n"
-            "- 🕒 **System Chronometry & Clock:** Real-time verified UTC/local synchronization (`what time is it`)\n"
-            "- 🌐 **Live Real-Time Intelligence:** Live search feeds and verified factual indexing (`latest news on <topic>`)\n"
-            "- ⚡ **Platform Architecture & Commands:** System state inspection (`what system is this` or `what can you do`)"
+            "### ⚡ Sovereign Runtime Active\n\n"
+            "Sarembok VE is operating in sovereign mode with active real-time media, perception, and chronometry subsystems.\n\n"
+            "- **Media Playback:** Ask to `play lofi` or `stream synthwave`\n"
+            "- **Live Search:** Inquire about `latest news on <topic>`\n"
+            "- **System Clock:** Query `what time is it`\n"
+            "- **Platform Architecture:** Inquire about `what can you do`"
         )
         source = "local_runtime"
         active_model = "runtime-fallback"

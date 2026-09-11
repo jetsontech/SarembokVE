@@ -8007,6 +8007,7 @@
                 window._activeSpeechUtterance = utterance;
 
                 try {
+                    window.speechSynthesis.cancel();
                     window.speechSynthesis.resume();
                     window.speechSynthesis.speak(utterance);
                     setTimeout(() => {
@@ -8035,18 +8036,20 @@
 
             audio.onended = finishSpeaking;
 
-            audio.onerror = () => {
-                console.info("[tts] Neural audio unavailable; using browser speech fallback.");
+            let fallbackInvoked = false;
+            const triggerFallbackOnce = (source) => {
+                if (fallbackInvoked) return;
+                fallbackInvoked = true;
+                console.info(`[tts] Neural audio unavailable, falling back to browser synthesis (${source}).`);
                 activeNeuralAudio = null;
                 if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
                 fallbackBrowserTTS();
             };
 
+            audio.onerror = () => triggerFallbackOnce("onerror");
             audio.play().catch(err => {
                 console.warn("[tts] Neural audio play failed:", err);
-                activeNeuralAudio = null;
-                if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
-                fallbackBrowserTTS();
+                triggerFallbackOnce("catch");
             });
         }
 
@@ -9815,6 +9818,7 @@
                 window._activeSpeechUtterance = utterance;
 
                 try {
+                    window.speechSynthesis.cancel();
                     window.speechSynthesis.resume();
                     window.speechSynthesis.speak(utterance);
                     setTimeout(() => {
@@ -9843,18 +9847,20 @@
 
             audio.onended = finishSpeaking;
 
-            audio.onerror = () => {
-                console.info("[duplex] Neural audio unavailable, falling back to browser synthesis.");
+            let fallbackInvoked = false;
+            const triggerFallbackOnce = (source) => {
+                if (fallbackInvoked) return;
+                fallbackInvoked = true;
+                console.info(`[duplex] Neural audio unavailable, falling back to browser synthesis (${source}).`);
                 activeNeuralAudio = null;
                 if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
                 fallbackBrowserTTS();
             };
 
+            audio.onerror = () => triggerFallbackOnce("onerror");
             audio.play().catch(err => {
                 console.warn("[duplex] Audio playback blocked/failed, falling back:", err);
-                activeNeuralAudio = null;
-                if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
-                fallbackBrowserTTS();
+                triggerFallbackOnce("catch");
             });
         }
 

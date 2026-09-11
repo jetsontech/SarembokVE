@@ -259,7 +259,15 @@ class ProviderRouter:
         message = choices[0].get('message') or {}
         content = message.get('content') or ''
         usage = payload.get('usage') or {}
-        return content.strip(), usage
+        extracted = content.strip()
+        if not extracted:
+            finish_reason = choices[0].get('finish_reason')
+            reasoning = message.get('reasoning') or message.get('reasoning_content') or ''
+            if reasoning and finish_reason != 'length':
+                extracted = reasoning.strip()
+            else:
+                raise RuntimeError(f'OpenAI-compatible provider returned empty content (finish_reason={finish_reason})')
+        return extracted, usage
 
     def _openai_payload(
         self,
@@ -538,7 +546,6 @@ class ProviderRouter:
                 latency_ms = round((time.monotonic() - started) * 1000, 1)
                 self._history.append({'provider': spec.name, 'model': spec.model, 'latency_ms': latency_ms, 'attempts': 1, 'api': api_name, 'ok': True, 'timestamp': time.time()})
                 logger.info('provider_success provider=%s model=%s latency_ms=%s api=%s finish_reason=%s', spec.name, spec.model, latency_ms, api_name, usage.get('_finish_reason'))
-                return ProviderResult(text, spec.name, spec.model, latency_ms, 1, api_name, usage)
                 return ProviderResult(text, spec.name, spec.model, latency_ms, 1, api_name, usage)
             except Exception as exc:
                 latency_ms = round((time.monotonic() - started) * 1000, 1)
