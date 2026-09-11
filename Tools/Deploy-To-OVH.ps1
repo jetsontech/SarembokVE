@@ -27,7 +27,6 @@ git checkout main
 git reset --hard origin/main
 
 docker compose -f Deployment/cloud/compose.yaml -f Deployment/cloud/compose.production.yaml up -d --force-recreate sarembok-runtime
-docker cp frontend/index.html sarembok-edge:/srv/index.html
 docker restart sarembok-edge
 
 echo "[4/4] Verifying container health..."

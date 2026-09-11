@@ -4557,7 +4557,10 @@
                     <div style="margin-bottom:18px;">
                         <label style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em;">Voice Synthesis Profile</label>
                         <select class="metahuman-select" id="mh-voice-select" onchange="changeVoiceProfile(this.value)">
-                            <option value="en-GB">Neural British Female (Echo)</option>
+                            <option value="gemini-vega" selected>Gemini Vega — Neural Female (Default)</option>
+                            <option value="gemini-aoede">Gemini Aoede — Warm Studio Female</option>
+                            <option value="gemini-kore">Gemini Kore — Soft Intimate Female</option>
+                            <option value="en-GB">Neural British Female (Echo / Samantha)</option>
                             <option value="en-US">Neural American Male (Onyx)</option>
                             <option value="synth">Cybernetic Synthesizer (Sovereign)</option>
                         </select>
@@ -8085,9 +8088,34 @@
             createLiveDigitalHumanSession();
         }
 
+        let activeVoiceModel = "Vega";
         function changeVoiceProfile(val) {
             selectedVoiceLang = val;
-            addTerminalLine(`[voice] updated voice profile: ${val}`, "amber");
+            if (val === "gemini-vega" || val.includes("vega")) {
+                activeVoiceModel = "Vega";
+                addTerminalLine("[voice] activated profile: Gemini Vega (Neural Female)", "cyan");
+            } else if (val === "gemini-aoede" || val.includes("aoede")) {
+                activeVoiceModel = "Aoede";
+                addTerminalLine("[voice] activated profile: Gemini Aoede (Warm Studio Female)", "cyan");
+            } else if (val === "gemini-kore" || val.includes("kore")) {
+                activeVoiceModel = "Kore";
+                addTerminalLine("[voice] activated profile: Gemini Kore (Soft Intimate Female)", "cyan");
+            } else if (val === "en-GB") {
+                activeVoiceModel = "Echo";
+                addTerminalLine("[voice] activated profile: Neural British Female (Echo)", "cyan");
+            } else if (val === "en-US") {
+                activeVoiceModel = "Onyx";
+                addTerminalLine("[voice] activated profile: Neural American Male (Onyx)", "amber");
+            } else {
+                activeVoiceModel = val;
+                addTerminalLine(`[voice] updated voice profile: ${val}`, "amber");
+            }
+
+            try {
+                if (window.sarembokSocket && window.sarembokSocket.readyState === WebSocket.OPEN) {
+                    window.sarembokSocket.send(JSON.stringify({ type: "SET_VOICE_PROFILE", voice: activeVoiceModel }));
+                }
+            } catch (_) {}
         }
 
         async function initSession() {
