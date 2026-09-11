@@ -83,39 +83,78 @@ def build_runtime_context(
     return "\n".join(lines)
 
 
-def is_identity_query(prompt: str) -> bool:
-    """Identify questions about Sarembok's identity or platform architecture."""
+import re
+
+
+def _normalize_prompt_intent(prompt: str) -> str:
+    """Normalize user prompt for robust intent matching: strip punctuation, lowercase, resolve typos/slang."""
     text = (prompt or "").strip().lower()
-    markers = (
-        "what system is this",
-        "what is this system",
-        "what system are you",
-        "what system am i using",
-        "what is sarembok",
-        "who are you",
-        "what are you",
-        "what is your name",
-        "tell me about yourself",
-        "what is your identity",
-    )
-    return any(marker in text for marker in markers)
+    # Remove apostrophes directly so "what's" -> "whats", "it's" -> "its"
+    text = text.replace("'", "")
+    text = re.sub(r"[^\w\s]", " ", text)
+    # Common speech-to-text / typing shortcuts and typos:
+    text = re.sub(r"\b(wht|wat|waht|wt)\b", "what", text)
+    text = re.sub(r"\bwhats\b", "what is", text)
+    text = re.sub(r"\bwhois\b", "who is", text)
+    text = re.sub(r"\bu\b", "you", text)
+    text = re.sub(r"\bur\b", "your", text)
+    text = re.sub(r"\br\b", "are", text)
+    text = re.sub(r"\bsys\b", "system", text)
+    return " ".join(text.split())
 
 
 def is_capability_query(prompt: str) -> bool:
     """Identify questions inquiring what Sarembok can do or its supported features."""
-    text = (prompt or "").strip().lower()
-    if text in ("help", "?", "commands", "features", "capabilities"):
+    norm = _normalize_prompt_intent(prompt)
+    if not norm:
+        return False
+    if norm in ("help", "commands", "features", "capabilities"):
         return True
-    markers = (
+
+    capability_exact = {
         "what can you do",
-        "what can u do",
         "what can it do",
         "what can this do",
+        "what can be done",
+        "what can sarembok do",
+        "what can the system do",
         "what does it do",
         "what does this do",
         "what do you do",
         "what are you able to do",
         "what is it able to do",
+        "what is this able to do",
+        "what is this capable of",
+        "what are your capabilities",
+        "what are its capabilities",
+        "what capabilities",
+        "what are your features",
+        "what are its features",
+        "what features",
+        "how can you help",
+        "how can it help",
+        "how does it work",
+        "how do you work",
+        "what commands",
+        "what can i ask",
+        "show capabilities",
+        "list capabilities",
+    }
+    if norm in capability_exact:
+        return True
+
+    markers = (
+        "what can you do",
+        "what can it do",
+        "what can this do",
+        "what can be done",
+        "what does it do",
+        "what does this do",
+        "what do you do",
+        "what are you able to do",
+        "what is it able to do",
+        "what is this able to do",
+        "what is this capable of",
         "what can sarembok do",
         "what can the system do",
         "what are your capabilities",
@@ -135,7 +174,73 @@ def is_capability_query(prompt: str) -> bool:
         "show capabilities",
         "list capabilities",
     )
-    return any(marker in text for marker in markers)
+    return any(marker in norm for marker in markers)
+
+
+def is_identity_query(prompt: str) -> bool:
+    """Identify questions about Sarembok's identity or platform architecture."""
+    # Capability queries take precedence (e.g., "what can this do" is capability, not identity)
+    if is_capability_query(prompt):
+        return False
+
+    norm = _normalize_prompt_intent(prompt)
+    if not norm:
+        return False
+
+    identity_exact = {
+        "what is this",
+        "what is this thing",
+        "what is this platform",
+        "what is this system",
+        "what is this app",
+        "what is this software",
+        "what is this site",
+        "what is this place",
+        "what is this environment",
+        "what system is this",
+        "what platform is this",
+        "what app is this",
+        "what software is this",
+        "what site is this",
+        "what system are you",
+        "what system am i using",
+        "what is sarembok",
+        "who is sarembok",
+        "who are you",
+        "what are you",
+        "what is your name",
+        "tell me about yourself",
+        "what is your identity",
+        "identify yourself",
+    }
+    if norm in identity_exact:
+        return True
+
+    markers = (
+        "what system is this",
+        "what is this system",
+        "what system are you",
+        "what system am i using",
+        "what is this platform",
+        "what platform is this",
+        "what is this app",
+        "what app is this",
+        "what is this software",
+        "what software is this",
+        "what is this site",
+        "what site is this",
+        "what is this environment",
+        "what is sarembok",
+        "who is sarembok",
+        "who are you",
+        "what are you",
+        "what is your name",
+        "tell me about yourself",
+        "what is your identity",
+        "identify yourself",
+        "what is this",
+    )
+    return any(marker in norm for marker in markers)
 
 
 def render_capabilities(

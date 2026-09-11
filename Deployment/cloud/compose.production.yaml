@@ -1,6 +1,13 @@
 services:
   sarembok-runtime:
     ports: !reset []
+    env_file:
+      - path: ../../.env
+        required: false
+      - path: ./.env
+        required: false
+      - path: ../../Deployment/cloud/.env
+        required: false
     environment:
       SAREMBOK_AUTH_TOKEN: ${SAREMBOK_AUTH_TOKEN:-}
       # Intelligence Provider Interface

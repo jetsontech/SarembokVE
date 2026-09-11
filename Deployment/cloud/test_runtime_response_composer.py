@@ -86,14 +86,26 @@ def test_capability_and_identity_queries():
     assert is_identity_query("what system is this?")
     assert is_identity_query("who are you?")
     assert is_identity_query("what is sarembok?")
+    assert is_identity_query("what is this")
+    assert is_identity_query("what's this")
+    assert is_identity_query("whats this")
+    assert is_identity_query("what is this platform")
+    assert is_identity_query("what is this app")
     assert not is_identity_query("what can you do?")
+    assert not is_identity_query("wht can it do")
+    assert not is_identity_query("what can it do")
 
     assert is_capability_query("what can you do?")
     assert is_capability_query("what can u do")
+    assert is_capability_query("wht can u do")
+    assert is_capability_query("wht can it do")
+    assert is_capability_query("what can it do")
+    assert is_capability_query("what can this do")
     assert is_capability_query("what do you do")
     assert is_capability_query("what are your capabilities")
     assert is_capability_query("help")
     assert not is_capability_query("what is the weather")
+    assert not is_capability_query("what is this")
 
 
 def test_capabilities():

@@ -825,7 +825,9 @@ STOP_WORDS_SEARCH = {
     "what", "whats", "what's", "is", "are", "was", "were", "going", "on", "with", "about",
     "right", "now", "tell", "me", "how", "why", "when", "where", "who", "which", "there",
     "here", "can", "you", "the", "a", "an", "in", "to", "for", "of", "and", "or", "do",
-    "does", "did", "have", "has", "had", "any", "some", "latest", "recent", "today", "news"
+    "does", "did", "have", "has", "had", "any", "some", "latest", "recent", "today", "news",
+    "this", "that", "these", "those", "it", "its", "i", "my", "we", "us", "our", "your",
+    "he", "him", "his", "she", "her", "they", "them", "their", "so", "be", "been", "being"
 }
 
 
@@ -840,7 +842,7 @@ def _extract_search_terms(query: str) -> str:
     filtered = [w for w in words if w.lower() not in STOP_WORDS_SEARCH]
     if filtered:
         return " ".join(filtered)
-    return query.strip()
+    return ""
 
 
 def _fetch_realtime_data(query: str) -> str | None:
@@ -852,6 +854,10 @@ def _fetch_realtime_data(query: str) -> str | None:
 
     # 1. Real-Time News & Current Events (Google News RSS)
     terms = _extract_search_terms(clean_q)
+    is_news_intent = any(k in clean_q.lower() for k in ("news", "headline", "headlines", "current event", "breaking", "update", "happening"))
+    if not terms and not is_news_intent:
+        return None
+
     try:
         if terms and terms.lower() not in ("news", "the news", "current events", ""):
             rss_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(terms)}&hl=en-US&gl=US&ceid=US:en"
@@ -874,18 +880,20 @@ def _fetch_realtime_data(query: str) -> str | None:
     except Exception as exc:
         LOG.debug("News RSS fetch failed: %s", exc)
 
-    # 2. Wikipedia Summary for Entities / Concepts / Research
-    try:
-        entity = terms if terms and len(terms.split()) <= 4 else clean_q
-        wiki_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(entity.replace(' ', '_'))}"
-        req = urllib.request.Request(wiki_url, headers={"User-Agent": "SarembokVE/2.0"})
-        with urllib.request.urlopen(req, timeout=2.0) as resp:
-            wdata = json.loads(resp.read().decode("utf-8"))
-            extract = wdata.get("extract")
-            if extract and len(extract) > 40:
-                results.append(f"### [VERIFIED FACTUAL CONTEXT] ({wdata.get('title', entity)}):\n{extract}")
-    except Exception:
-        pass
+    # 2. Wikipedia Summary for Entities / Concepts / Research (Only if valid non-stopword entity exists)
+    if terms:
+        try:
+            entity = terms if len(terms.split()) <= 4 else ""
+            if entity:
+                wiki_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(entity.replace(' ', '_'))}"
+                req = urllib.request.Request(wiki_url, headers={"User-Agent": "SarembokVE/2.0"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    wdata = json.loads(resp.read().decode("utf-8"))
+                    extract = wdata.get("extract")
+                    if extract and len(extract) > 40:
+                        results.append(f"### [VERIFIED FACTUAL CONTEXT] ({wdata.get('title', entity)}):\n{extract}")
+        except Exception:
+            pass
 
     # 3. DuckDuckGo Instant Answers
     try:
@@ -1995,16 +2003,17 @@ def sarembok_process_dialogue(
     # Real-Time Data Integration: Live search for news, current events, live topics
     realtime_triggers = (
         "news", "headline", "headlines", "current event", "current events", "happened", "happening",
-        "today", "yesterday", "this week", "this month", "now", "latest", "recent", "update", "updates",
-        "who is", "what is", "where is", "when did", "stock", "price", "crypto", "weather", "score",
+        "today", "yesterday", "this week", "this month", "latest", "recent", "update", "updates",
+        "stock", "price", "crypto", "weather", "score",
         "game", "election", "president", "market", "research", "search", "browse", "find out",
-        "tell me about", "look up", "world", "breaking", "what's going on", "whats going on", "what's new", "whats new"
+        "look up", "world", "breaking", "what's going on", "whats going on", "what's new", "whats new"
     )
     live_data = None
-    if any(trig in prompt_lower for trig in realtime_triggers) or len(prompt_clean.split()) <= 3:
-        live_data = _fetch_realtime_data(prompt_clean)
-        if live_data:
-            system_context_parts.append(f"\nREAL-TIME LIVE INTELLIGENCE RETRIEVAL:\n{live_data}\n")
+    if not (is_identity_query(prompt_clean) or is_capability_query(prompt_clean) or is_self_state_query(prompt_clean)):
+        if any(trig in prompt_lower for trig in realtime_triggers):
+            live_data = _fetch_realtime_data(prompt_clean)
+            if live_data:
+                system_context_parts.append(f"\nREAL-TIME LIVE INTELLIGENCE RETRIEVAL:\n{live_data}\n")
 
     # Broader Language Support (Enhancement 8): Multi-language system directive
     LANG_NAMES = {
