@@ -288,6 +288,14 @@ class CloudStore:
                 created_at TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at);
+            CREATE TABLE IF NOT EXISTS chat_sessions (
+                session_id TEXT PRIMARY KEY,
+                title TEXT,
+                messages_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at DESC);
             """
         )
         self.db.commit()
@@ -4184,6 +4192,64 @@ async def process_http_request(connection: Any, request: Any) -> Any:
             ],
             body.encode("utf-8"),
         )
+    def make_api_response(status: int, data: Any):
+        body = json.dumps(data, separators=(",", ":"))
+        body_bytes = body.encode("utf-8")
+        if hasattr(connection, "respond"):
+            resp = connection.respond(status, body)
+            try:
+                del resp.headers["Content-Type"]
+            except Exception:
+                pass
+            resp.headers["Content-Type"] = "application/json; charset=utf-8"
+            resp.headers["Access-Control-Allow-Origin"] = "*"
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
+        return (
+            status,
+            [
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Cache-Control", "no-store"),
+                ("Content-Length", str(len(body_bytes))),
+            ],
+            body_bytes,
+        )
+
+    if path == "/api/chat-sessions":
+        try:
+            rows = store.db.execute("SELECT session_id, title, created_at, updated_at FROM chat_sessions ORDER BY updated_at DESC LIMIT 50").fetchall()
+            sessions = [{"session_id": r[0], "title": r[1], "created_at": r[2], "updated_at": r[3]} for r in rows]
+            return make_api_response(200, {"sessions": sessions})
+        except Exception as exc:
+            return make_api_response(500, {"error": str(exc)})
+
+    if path.startswith("/api/chat-session-load"):
+        try:
+            parsed = urllib.parse.urlparse(path)
+            q = urllib.parse.parse_qs(parsed.query)
+            session_id = q.get("id", [""])[0]
+            row = store.db.execute("SELECT session_id, title, messages_json, created_at, updated_at FROM chat_sessions WHERE session_id = ?", (session_id,)).fetchone()
+            if row:
+                return make_api_response(200, {
+                    "session_id": row[0],
+                    "title": row[1],
+                    "messages": json.loads(row[2] or "[]"),
+                    "created_at": row[3],
+                    "updated_at": row[4]
+                })
+            return make_api_response(404, {"error": "Session not found."})
+        except Exception as exc:
+            return make_api_response(500, {"error": str(exc)})
+
+    if path == "/api/background-tasks":
+        try:
+            rows = store.db.execute("SELECT task_id, task_type, status, created_at, updated_at FROM tasks ORDER BY created_at DESC LIMIT 50").fetchall()
+            tasks = [{"task_id": r[0], "directive": r[1], "status": r[2], "created_at": r[3], "updated_at": r[4]} for r in rows]
+            return make_api_response(200, {"tasks": tasks})
+        except Exception as exc:
+            return make_api_response(500, {"error": str(exc)})
+
     if path in ("/", "/index.html"):
         base_dir = os.path.dirname(os.path.abspath(__file__))
         candidates = [
