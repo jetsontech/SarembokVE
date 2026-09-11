@@ -16,12 +16,7 @@ $remoteCmd = @'
 set -e
 echo "[1/4] Pulling latest commits from origin main..."
 echo "[3/4] Updating production edge and runtime containers..."
-# Determine repository directory (SarembokVE or Sarembok_VE)
-if [ -d "$HOME/SarembokVE" ]; then
-  cd "$HOME/SarembokVE"
-elif [ -d "$HOME/Sarembok_VE" ]; then
-  cd "$HOME/Sarembok_VE"
-fi
+cd "$HOME/SarembokVE"
 git fetch origin main
 git checkout main
 git reset --hard origin/main
