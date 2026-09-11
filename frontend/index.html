@@ -5466,7 +5466,17 @@
             s = cleanedParas.join("\n\n").trim();
 
             // Extract specific query or topic from user prompt
-            let cleanTopic = prompt.replace(/(?:can you\s+)?(?:please\s+)?(?:play|show|open|stream|watch|listen to)\s+(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:video\s+about\s+|on\s+youtube\s+|youtube\s+)?/gi, "").replace(/["']/g, "").trim();
+            let cleanTopic = prompt.replace(/^["'`“‘]+|["'`”’]+$/g, "").trim();
+            const musicSubMatch = cleanTopic.match(/\b(?:play|stream|listen to)\s+(?:me\s+)?(?:some\s+)?([a-z0-9\s\-]+?)(?:,\s*and\s+|\s+and\s+|\s+while\s+|$|\.|\n)/i);
+            const videoSubMatch = cleanTopic.match(/\b(?:watch|show|open)\s+(?:me\s+)?(?:a\s+)?(?:video\s+about\s+)?([a-z0-9\s\-]+?)(?:,\s*and\s+|\s+and\s+|\s+while\s+|$|\.|\n)/i);
+
+            if (musicSubMatch && musicSubMatch[1].trim().length > 2) {
+                cleanTopic = musicSubMatch[1].trim();
+            } else if (videoSubMatch && videoSubMatch[1].trim().length > 2) {
+                cleanTopic = videoSubMatch[1].trim();
+            } else {
+                cleanTopic = cleanTopic.replace(/(?:can you\s+)?(?:please\s+)?(?:play|show|open|stream|watch|listen to)\s+(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:video\s+about\s+|on\s+youtube\s+|youtube\s+)?/gi, "").replace(/["']/g, "").trim();
+            }
             if (!cleanTopic || cleanTopic.length < 2) cleanTopic = "lofi study music";
 
             const topicKey = cleanTopic.toLowerCase();
@@ -5493,7 +5503,7 @@
             const isVideo = ytIntents.some(yi => pLow.includes(yi)) || (pLow.includes("video") && ["open", "launch", "watch", "play", "show", "search"].some(w => pLow.includes(w))) || videoMarkers.some(vm => pLow.includes(vm));
 
             const musicIntents = ["play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio"];
-            const isMusic = !isVideo && (musicIntents.some(mi => pLow.startsWith(mi) || pLow.includes(mi)) || ["lofi", "lo-fi", "synthwave", "ambient", "soundtrack"].some(g => pLow.includes(g)));
+            const isMusic = !isVideo && (musicIntents.some(mi => pLow.startsWith(mi) || pLow.includes(mi)) || ["lofi", "lo-fi", "synthwave", "ambient", "soundtrack", "beats"].some(g => pLow.includes(g)));
 
             const mediaBody = matchedPreset ? `https://www.youtube.com/watch?v=${matchedPreset.id}` : cleanTopic;
 
@@ -5506,13 +5516,21 @@
 
             if (!hasVerifiedMedia && isImage && !s.includes(":::image")) {
                 let imgPrompt = prompt.trim().replace(/^["'`“‘]+|["'`”’]+$/g, "").trim();
-                imgPrompt = imgPrompt.replace(/^(?:can you\s+)?(?:please\s+)?(?:generate|create|render|draw|make|synthesize|paint|illustrate)\s+(?:an?\s+)?(?:4k\s+|8k\s+|hd\s+|cinematic\s+)?(?:image|picture|photo|artwork|illustration|rendering)?\s+(?:of\s+)?/gi, "").trim();
+                const imgSubMatch = imgPrompt.match(/\b(?:generate|create|render|draw|synthesize|paint)\s+(?:an?\s+)?(?:4k\s+|8k\s+|hd\s+|cinematic\s+)?(?:image|picture|photo|artwork|rendering)?\s+(?:of\s+)?([a-z0-9\s\-]+?)(?:,\s*and\s+|\s+and\s+|\s+while\s+|$|\.|\n)/i);
+                if (imgSubMatch && imgSubMatch[1].trim().length > 2) {
+                    imgPrompt = imgSubMatch[1].trim();
+                } else {
+                    imgPrompt = imgPrompt.replace(/^(?:can you\s+)?(?:please\s+)?(?:generate|create|render|draw|make|synthesize|paint|illustrate)\s+(?:an?\s+)?(?:4k\s+|8k\s+|hd\s+|cinematic\s+)?(?:image|picture|photo|artwork|illustration|rendering)?\s+(?:of\s+)?/gi, "").trim();
+                }
                 imgPrompt = imgPrompt || "cybernetic neural core in sovereign computing matrix";
                 const enc = encodeURIComponent(imgPrompt);
                 const seed = Math.floor(Math.random() * 9000000) + 1000000;
                 const imgUrl = `https://image.pollinations.ai/prompt/${enc}?width=1024&height=1024&model=flux&nologo=true&seed=${seed}`;
                 s = `:::image ${imgPrompt.toUpperCase()} · FRONTIER SYNTHESIS\n${imgUrl}\n:::\n\n${s}`.trim();
-            } else if (!hasVerifiedMedia && (isVideo || isMusic)) {
+            }
+
+            // Both image and audio/video can render concurrently in parallel execution
+            if (!hasVerifiedMedia && (isVideo || isMusic) && !s.includes(":::video") && !s.includes(":::music")) {
                 s = s.replace(/:::(?:video|music|youtube)[^\n]*\n[\s\S]*?:::\n?/gi, "").trim();
                 s = s.replace(/:::(?:video|music|youtube)[^\n]*/gi, "").trim();
                 if (isMusic) {

@@ -1680,6 +1680,11 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
     topic = re.sub(r"(?i)\s+(?:on\s+youtube|from\s+youtube|video|stream|song)$", "", topic).strip()
     topic = topic.replace('"', '').replace("'", "").strip() or "lofi study music"
 
+    # Extract subclause topics for multi-task requests
+    music_sub = re.search(r"(?i)\b(?:play|stream|listen to)\s+(?:me\s+)?(?:some\s+)?([a-z0-9\s\-]+?)(?:,\s*and\s+|\s+and\s+|\s+while\s+|$|\.|\n)", prompt)
+    video_sub = re.search(r"(?i)\b(?:watch|show|open)\s+(?:me\s+)?(?:a\s+)?(?:video\s+about\s+)?([a-z0-9\s\-]+?)(?:,\s*and\s+|\s+and\s+|\s+while\s+|$|\.|\n)", prompt)
+    img_sub = re.search(r"(?i)\b(?:generate|create|render|draw|synthesize|paint)\s+(?:an?\s+)?(?:4k\s+|8k\s+|hd\s+|cinematic\s+)?(?:image|picture|photo|artwork|rendering)?\s+(?:of\s+)?([a-z0-9\s\-]+?)(?:,\s*and\s+|\s+and\s+|\s+while\s+|$|\.|\n)", prompt)
+
     # Check for Image Generation Intent
     image_intents = (
         "generate image", "generate an image", "create image", "create an image",
@@ -1696,11 +1701,11 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
 
     # Check for YouTube / Video Intent
     youtube_intents = ("open youtube", "open yt", "play youtube", "search youtube", "watch youtube", "youtube.com", "show video", "watch video", "play video", "video of", "video about")
-    is_video = (not is_image) and (any(yi in p_low for yi in youtube_intents) or ("video" in p_low and any(w in p_low for w in ("open", "launch", "watch", "play", "show", "search"))))
+    is_video = any(yi in p_low for yi in youtube_intents) or ("video" in p_low and any(w in p_low for w in ("open", "launch", "watch", "play", "show", "search")))
 
     # Check for Music & Audio playback intent
     music_intents = ("play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio")
-    is_music = (not is_image) and (any(mi in p_low for mi in music_intents) or any(g in p_low for g in ("lofi", "lo-fi", "synthwave", "ambient", "soundtrack")))
+    is_music = any(mi in p_low for mi in music_intents) or any(g in p_low for g in ("lofi", "lo-fi", "synthwave", "ambient", "soundtrack", "beats"))
 
     # News, clips, sports, games, highlights, movies, lectures must prioritize video stream
     news_or_video_markers = (
@@ -1709,24 +1714,23 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
         "highlights", "match", "soccer", "nfl", "nba", "mlb", "nhl", "premier league",
         "sport", "sports", "fight", "boxing", "ufc", "racing", "f1", "play game"
     )
-    if (not is_image) and any(m in p_low for m in news_or_video_markers):
+    if any(m in p_low for m in news_or_video_markers) and not (is_music and not any(m in p_low for m in ("game", "football", "highlights", "movie"))):
         is_video = True
-        is_music = False
 
-    if is_image or ":::image" in rep:
-        img_data = resolve_image_generation(prompt)
-        img_url = img_data["url"]
-        img_title = img_data["title"].upper()
+    # Resolve specific subclause topic for audio / video search
+    if is_music and music_sub and len(music_sub.group(1).strip()) > 2:
+        topic = music_sub.group(1).strip()
+    elif is_video and video_sub and len(video_sub.group(1).strip()) > 2:
+        topic = video_sub.group(1).strip()
+    else:
+        topic = re.sub(r"(?i)^(?:can you\s+)?(?:please\s+)?(?:play|show|open|stream|watch|listen to)\s+(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:video\s+about\s+|on\s+youtube\s+|youtube\s+)?", "", prompt).strip()
+        topic = re.sub(r"(?i)\s+(?:on\s+youtube|from\s+youtube|video|stream|song)$", "", topic).strip()
+        topic = topic.replace('"', '').replace("'", "").strip() or "lofi study music"
 
-        # Strip any existing or partial :::image blocks first
-        rep = re.sub(r':::image[^\n]*\n[\s\S]*?:::\n?', '', rep).strip()
-        rep = re.sub(r':::image[^\n]*', '', rep).strip()
+    img_query = img_sub.group(1).strip() if (img_sub and len(img_sub.group(1).strip()) > 2) else prompt
 
-        # Prepend clean verified image widget
-        img_badge = img_data.get("badge", "FRONTIER SYNTHESIS")
-        rep = f":::image {img_title} · {img_badge}\n{img_url}\n:::\n\n{rep}".strip()
-
-    elif is_video or is_music or ":::video" in rep or ":::music" in rep or "youtube.com" in rep:
+    # 1. Video or Audio Card
+    if is_video or is_music or ":::video" in rep or ":::music" in rep or "youtube.com" in rep:
         resolved = resolve_youtube_search(topic)
         real_url = resolved["url"]
         display_title = resolved.get("title") or topic.upper()
@@ -1744,13 +1748,27 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
         else:
             rep = f":::video {display_title} · VIDEO STREAM\n{real_url}\n:::\n\n{rep}".strip()
 
-    # Check for Simultaneous Multi-Tasking intent
+    # 2. Generative Image Card (supports co-existing with Audio Stream in Multi-Task mode!)
+    if is_image or ":::image" in rep:
+        img_data = resolve_image_generation(img_query)
+        img_url = img_data["url"]
+        img_title = img_data["title"].upper()
+
+        # Strip any existing or partial :::image blocks first
+        rep = re.sub(r':::image[^\n]*\n[\s\S]*?:::\n?', '', rep).strip()
+        rep = re.sub(r':::image[^\n]*', '', rep).strip()
+
+        # Prepend clean verified image widget
+        img_badge = img_data.get("badge", "FRONTIER SYNTHESIS")
+        rep = f":::image {img_title} · {img_badge}\n{img_url}\n:::\n\n{rep}".strip()
+
+    # 3. Check for Simultaneous Multi-Tasking intent
     task_intents = ("while searching", "simultaneously", "at the same time", "in parallel", "also calculate", "and also", "while calculating", "and search", "multi task", "multitask")
     if any(ti in p_low for ti in task_intents) and ":::tasks" not in rep:
         tasks_lines = []
         if is_image:
             tasks_lines.append("[Visual Synthesis]: FLUX.1 Tensor Core Generation Online")
-        if any(w in p_low for w in ("music", "lofi", "song", "audio")):
+        if is_music or any(w in p_low for w in ("music", "lofi", "song", "audio")):
             tasks_lines.append("[Audio Stream]: Active Cyber Music Channel Online")
         if any(w in p_low for w in ("news", "search", "research", "ai", "market")):
             tasks_lines.append("[Live Intelligence]: Synchronized Real-Time Knowledge Fabric")
