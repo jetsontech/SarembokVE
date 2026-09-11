@@ -165,6 +165,99 @@ const server = http.createServer((req, res) => {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: e.message }));
         }
+    } else if (req.url === '/api/chat-sessions' && req.method === 'GET') {
+        try {
+            const db = new Database(DB_PATH);
+            const sessions = db.prepare(`SELECT session_id, title, created_at, updated_at FROM chat_sessions ORDER BY updated_at DESC LIMIT 50`).all();
+            db.close();
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ sessions }));
+        } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: e.message }));
+        }
+    } else if (req.url === '/api/chat-sessions' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', () => {
+            try {
+                const data = JSON.parse(body || '{}');
+                const { session_id, title, messages } = data;
+                if (!session_id || !messages) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Missing session_id or messages.' }));
+                    return;
+                }
+                const db = new Database(DB_PATH);
+                const titleStr = title || 'Session ' + new Date().toLocaleDateString();
+                const jsonStr = JSON.stringify(messages);
+                db.prepare(`
+                    INSERT INTO chat_sessions (session_id, title, messages_json, updated_at)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(session_id) DO UPDATE SET
+                        title = excluded.title,
+                        messages_json = excluded.messages_json,
+                        updated_at = CURRENT_TIMESTAMP
+                `).run(session_id, titleStr, jsonStr);
+                db.close();
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, session_id }));
+            } catch (e) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: e.message }));
+            }
+        });
+    } else if (req.url.startsWith('/api/chat-sessions') && req.method === 'DELETE') {
+        try {
+            const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost:3000'}`);
+            const sessionId = parsedUrl.searchParams.get('id');
+            if (sessionId) {
+                const db = new Database(DB_PATH);
+                db.prepare(`DELETE FROM chat_sessions WHERE session_id = ?`).run(sessionId);
+                db.close();
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true }));
+        } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: e.message }));
+        }
+    } else if (req.url.startsWith('/api/chat-session-load')) {
+        try {
+            const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost:3000'}`);
+            const sessionId = parsedUrl.searchParams.get('id');
+            const db = new Database(DB_PATH);
+            const row = db.prepare(`SELECT * FROM chat_sessions WHERE session_id = ?`).get(sessionId);
+            db.close();
+            if (row) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    session_id: row.session_id,
+                    title: row.title,
+                    messages: JSON.parse(row.messages_json || '[]'),
+                    created_at: row.created_at,
+                    updated_at: row.updated_at
+                }));
+            } else {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Session not found.' }));
+            }
+        } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: e.message }));
+        }
+    } else if (req.url === '/api/background-tasks') {
+        try {
+            const db = new Database(DB_PATH);
+            const tasks = db.prepare(`SELECT * FROM transaction_log ORDER BY created_at DESC LIMIT 50`).all();
+            const agents = db.prepare(`SELECT * FROM agent_nodes`).all();
+            db.close();
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ tasks, agents }));
+        } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: e.message }));
+        }
     } else if (req.url.startsWith('/api/tts')) {
         try {
             const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost:3000'}`);

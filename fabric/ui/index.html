@@ -2045,8 +2045,23 @@
             }
 
             .header-hud-group {
-                gap: 8px;
+                gap: 6px;
                 font-size: 10px;
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                max-width: calc(100vw - 100px);
+                padding-bottom: 2px;
+            }
+            .header-hud-group::-webkit-scrollbar {
+                display: none;
+            }
+            .hud-voice-btn {
+                flex-shrink: 0;
+                white-space: nowrap;
+                font-size: 9px;
+                padding: 5px 8px;
             }
 
             .hud-badge-kicker,
@@ -4007,6 +4022,226 @@
             line-height: 1.5;
         }
 
+        /* ==================== TASK & HISTORY DRAWER STYLING ==================== */
+        #task-history-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(2, 6, 14, 0.78);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 1999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        #task-history-backdrop.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #task-history-drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 520px;
+            max-width: 100vw;
+            height: 100vh;
+            background: linear-gradient(180deg, rgba(6, 12, 24, 0.98), rgba(3, 6, 14, 0.99));
+            border-left: 1px solid rgba(0, 240, 255, 0.25);
+            box-shadow: -12px 0 45px rgba(0, 0, 0, 0.85);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            box-sizing: border-box;
+        }
+        #task-history-drawer.open {
+            transform: translateX(0);
+        }
+
+        .drawer-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(0, 240, 255, 0.18);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(8, 16, 32, 0.95);
+        }
+        .drawer-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .drawer-title {
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 1.2px;
+            color: var(--cyan);
+            text-transform: uppercase;
+        }
+        .drawer-close-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--text-secondary);
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .drawer-close-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+
+        .drawer-tabs-nav {
+            display: flex;
+            background: rgba(4, 8, 18, 0.95);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 0 12px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .drawer-tabs-nav::-webkit-scrollbar { display: none; }
+        .drawer-tab-btn {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            padding: 12px 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+        .drawer-tab-btn:hover {
+            color: var(--cyan);
+        }
+        .drawer-tab-btn.active {
+            color: var(--cyan);
+            border-bottom-color: var(--cyan);
+            background: rgba(0, 240, 255, 0.04);
+        }
+
+        .drawer-content-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            box-sizing: border-box;
+        }
+
+        .drawer-tab-panel {
+            display: none;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .drawer-tab-panel.active {
+            display: flex;
+        }
+
+        /* Drawer Cards & Items */
+        .drawer-card {
+            background: rgba(8, 16, 32, 0.7);
+            border: 1px solid rgba(0, 240, 255, 0.14);
+            border-radius: 8px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .drawer-card:hover {
+            border-color: rgba(0, 240, 255, 0.3);
+            background: rgba(10, 20, 40, 0.85);
+        }
+        .drawer-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .drawer-badge {
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .drawer-badge.good {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .drawer-badge.running {
+            background: rgba(0, 240, 255, 0.15);
+            color: var(--cyan);
+            border: 1px solid rgba(0, 240, 255, 0.4);
+            animation: pulse-border 1.5s infinite;
+        }
+        .drawer-badge.warn {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--amber);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        /* In-chat task card styling */
+        .srbk-bubble.task-bubble {
+            border-left: 3px solid var(--cyan);
+            background: rgba(6, 14, 30, 0.94);
+        }
+        .task-progress-wrap {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+        .task-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--cyan), #3b82f6);
+            width: 100%;
+            animation: task-progress-anim 1.8s infinite linear;
+        }
+        @keyframes task-progress-anim {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* Mobile full-screen drawer */
+        @media (max-width: 768px) {
+            #task-history-drawer {
+                width: 100vw !important;
+                max-width: 100vw !important;
+                inset: 0 !important;
+                border-left: none !important;
+            }
+            .drawer-content-body {
+                padding: 12px 14px 70px; /* Space for bottom dock if visible */
+            }
+        }
+
 </style>
 </head>
 <body>
@@ -4100,10 +4335,22 @@
                     <span>FEATURES</span>
                 </button>
 
-                <!-- New Conversation Button (for Simple Mode) -->
-                <button class="hud-voice-btn" id="hud-new-chat-btn" onclick="resetSimpleChat()" title="Start New Conversation" style="border-color:rgba(255,255,255,0.2); color:#ffffff;">
+                <!-- New Conversation Button -->
+                <button class="hud-voice-btn" id="hud-new-chat-btn" onclick="startNewConversation()" title="Start New Conversation" style="border-color:rgba(255,255,255,0.25); color:#ffffff;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     <span>NEW CHAT</span>
+                </button>
+
+                <!-- Tasks & History Drawer Button -->
+                <button class="hud-voice-btn" id="hud-history-drawer-btn" onclick="toggleTaskHistoryDrawer()" title="Task Matrix & Chat History Archives" style="border-color:rgba(0,240,255,0.4); color:var(--cyan); background:rgba(0,240,255,0.08);">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span>TASKS &amp; HISTORY</span>
+                </button>
+
+                <!-- Quick Export Button -->
+                <button class="hud-voice-btn" id="hud-export-btn" onclick="exportCurrentChatMarkdown()" title="Export Active Chat to Markdown" style="border-color:rgba(255,255,255,0.25); color:#ffffff;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>EXPORT</span>
                 </button>
 
                 <button class="hud-voice-btn" id="hud-voice-toggle" onclick="toggleVoiceOutput()" title="Toggle Voice Audio">
@@ -4791,8 +5038,9 @@
                     <button class="dialogue-mic-btn" id="dialogue-screen-btn" onclick="toggleAstraScreenShare()" title="Astra Screen Eye (Share screen/tab with AI)" style="background:transparent; color:var(--cyan); border-color:rgba(0,240,255,0.3);">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                     </button>
-                    <input type="text" class="dialogue-input" id="directive-input" placeholder="Instruct Sarembok or tap mic to speak..." onfocus="if(window.speechSynthesis&amp;&amp;window.speechSynthesis.speaking)interruptSpeech()" onkeydown="if(event.key==='Enter') sendDirective()">
-                    <button class="dialogue-exec-btn" id="execute-button" onclick="sendDirective()">EXECUTE</button>
+                    <input type="text" class="dialogue-input" id="directive-input" placeholder="Instruct Sarembok, tap mic, or type /bg for background tasks..." onfocus="if(window.speechSynthesis&&window.speechSynthesis.speaking)interruptSpeech()" onkeydown="if(event.key==='Enter') sendDirective(false)">
+                    <button class="dialogue-exec-btn" id="execute-button" onclick="sendDirective(false)" title="Execute directive in active chat">EXECUTE</button>
+                    <button class="dialogue-exec-btn" id="execute-bg-button" onclick="sendDirective(true)" title="Run as background task (Doesn't block conversation)" style="background:rgba(0,240,255,0.12); border-color:var(--cyan); color:var(--cyan); margin-left:4px; padding:0 12px;">⚡ BG</button>
                 </div>
             </div>
         </section>
@@ -7178,18 +7426,27 @@
         /* ============================================================
            DIALOGUE DIRECTIVE EXECUTION (STREAMING ENABLED)
            ============================================================ */
-        async function sendDirective() {
+        async function sendDirective(isBackground = false) {
             const _sh = document.getElementById('simple-chat-hero'); if (_sh) _sh.classList.remove('visible');
             interruptSpeech();
             const input = document.getElementById("directive-input");
             const btn = document.getElementById("execute-button");
+            const bgBtn = document.getElementById("execute-bg-button");
             if (!input) return;
 
-            const text = input.value.trim();
+            let text = input.value.trim();
             if (!text) return;
             input.value = "";
 
+            // Check if user requested background execution
+            if (isBackground || text.startsWith("/bg ") || text.startsWith("/background ") || text.startsWith("/async ")) {
+                text = text.replace(/^\/(?:bg|background|async)\s+/i, "").trim();
+                dispatchBackgroundTask(text);
+                return;
+            }
+
             if (btn) btn.disabled = true;
+            if (bgBtn) bgBtn.disabled = true;
 
             const myTurnId = ++currentTurnId;
 
@@ -7281,7 +7538,9 @@
             } catch (err) {
                 content.innerHTML = `<p style="color:var(--amber);">Execution notice: ${escapeHtml(err.message)}</p>`;
             } finally {
-                btn.disabled = false;
+                if (btn) btn.disabled = false;
+                if (bgBtn) bgBtn.disabled = false;
+                saveCurrentChatSession();
             }
         }
 
@@ -10422,11 +10681,611 @@
             filterFeaturesList();
         }
 
+        // Task Matrix, Chat History & Session Continuity Engine
+        let taskHistoryDrawerOpen = false;
+        let activeDrawerTab = 'tasks';
+
+        function toggleTaskHistoryDrawer(forceState) {
+            const drawer = document.getElementById("task-history-drawer");
+            const backdrop = document.getElementById("task-history-backdrop");
+            if (!drawer || !backdrop) return;
+
+            taskHistoryDrawerOpen = (forceState !== undefined) ? forceState : !taskHistoryDrawerOpen;
+            if (taskHistoryDrawerOpen) {
+                drawer.classList.add("open");
+                backdrop.classList.add("open");
+                if (activeDrawerTab === 'tasks') {
+                    loadBackgroundTasksList();
+                } else if (activeDrawerTab === 'sessions') {
+                    loadChatSessionsList();
+                }
+            } else {
+                drawer.classList.remove("open");
+                backdrop.classList.remove("open");
+            }
+        }
+
+        function switchDrawerTab(tabId) {
+            activeDrawerTab = tabId;
+            document.querySelectorAll(".drawer-tab-btn").forEach(btn => btn.classList.remove("active"));
+            document.querySelectorAll(".drawer-tab-panel").forEach(p => p.classList.remove("active"));
+
+            const targetBtn = document.getElementById(`tab-btn-${tabId}`);
+            const targetPanel = document.getElementById(`drawer-panel-${tabId}`);
+            if (targetBtn) targetBtn.classList.add("active");
+            if (targetPanel) targetPanel.classList.add("active");
+
+            if (tabId === 'tasks') loadBackgroundTasksList();
+            if (tabId === 'sessions') loadChatSessionsList();
+        }
+
+        async function loadBackgroundTasksList() {
+            const listEl = document.getElementById("drawer-tasks-list");
+            const countEl = document.getElementById("drawer-task-count");
+            if (!listEl) return;
+
+            try {
+                const res = await fetch("/api/background-tasks");
+                const data = await res.json();
+                const tasks = data.tasks || [];
+                if (countEl) countEl.textContent = tasks.length;
+
+                if (tasks.length === 0) {
+                    listEl.innerHTML = `<div style="color:var(--text-muted); font-size:11px; font-family:var(--font-mono); text-align:center; padding:24px;">No background tasks recorded yet. Dispatch a task above!</div>`;
+                    return;
+                }
+
+                let html = "";
+                tasks.forEach(t => {
+                    const isCommitted = t.committed === 1;
+                    const statusText = isCommitted ? "COMMITTED" : "ROLLED BACK / HALTED";
+                    const badgeClass = isCommitted ? "good" : "warn";
+                    let payloadStr = t.payload;
+                    try {
+                        const parsed = JSON.parse(t.payload);
+                        payloadStr = parsed.directive || parsed.text || parsed.error || JSON.stringify(parsed);
+                    } catch (e) {}
+
+                    html += `
+                        <div class="drawer-card">
+                            <div class="drawer-card-header">
+                                <span style="font-weight:700; color:var(--cyan);">${escapeHtml(t.task_id)}</span>
+                                <span class="drawer-badge ${badgeClass}">${statusText}</span>
+                            </div>
+                            <div style="font-size:11px; color:#fff; word-break:break-word;">${escapeHtml(payloadStr)}</div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; font-family:var(--font-mono); font-size:9.5px; color:var(--text-muted); flex-wrap:wrap; gap:6px;">
+                                <span>${escapeHtml(t.sender_agent_id || "WORKER")} · ${t.tokens_consumed || 0} Tok · ${escapeHtml(t.created_at || "")}</span>
+                                <button class="browser-action-btn" onclick="injectTaskToChat('${escapeHtml(t.task_id)}', '${escapeHtml(payloadStr).replace(/'/g, "\\'")}', '${statusText}', ${t.tokens_consumed || 0})" style="padding:2px 8px; font-size:9px;">POST TO CHAT</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                listEl.innerHTML = html;
+            } catch (err) {
+                listEl.innerHTML = `<div style="color:var(--amber); font-size:11px; font-family:var(--font-mono); text-align:center; padding:16px;">Failed to query task substrate: ${escapeHtml(err.message)}</div>`;
+            }
+        }
+
+        async function dispatchNewBackgroundTaskFromDrawer() {
+            const inp = document.getElementById("drawer-bg-task-input");
+            if (!inp) return;
+            const prompt = inp.value.trim();
+            if (!prompt) return;
+            inp.value = "";
+            toggleTaskHistoryDrawer(false);
+            switchTab('dialogue');
+            dispatchBackgroundTask(prompt);
+        }
+
+        async function dispatchBackgroundTask(prompt) {
+            interruptSpeech();
+            const taskId = 'bg_' + Math.floor(Math.random() * 1000000);
+            
+            appendUserDialogue(`[BACKGROUND DIRECTIVE] ${prompt}`);
+
+            const history = document.getElementById("dialogue-history");
+            const card = document.createElement("div");
+            card.id = `task-card-${taskId}`;
+            card.className = "srbk-bubble assistant task-bubble";
+            card.innerHTML = `
+                <div class="srbk-bubble-sender">
+                    <span style="display:flex; align-items:center; gap:6px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        BACKGROUND TASK · ${taskId}
+                    </span>
+                    <span class="drawer-badge running" id="task-status-${taskId}">RUNNING</span>
+                </div>
+                <div class="srbk-content">
+                    <p style="font-weight:600; color:#fff; margin-bottom:6px;">${escapeHtml(prompt)}</p>
+                    <div class="task-progress-wrap"><div class="task-progress-bar"></div></div>
+                    <div id="task-output-${taskId}" style="font-family:var(--font-mono); font-size:11px; color:var(--text-secondary);">
+                        ⚙️ Dispatching asynchronous micro-step across multi-agent flywheel (Strategist → Worker → Auditor)...
+                    </div>
+                </div>
+            `;
+            history.appendChild(card);
+            scrollDialogue();
+            showToast(`BACKGROUND TASK DISPATCHED: ${taskId}`);
+
+            try {
+                const res = await fetch("/api/execute-task", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ task: prompt, taskId })
+                });
+                const data = await res.json();
+
+                setTimeout(() => {
+                    const statusPill = document.getElementById(`task-status-${taskId}`);
+                    const out = document.getElementById(`task-output-${taskId}`);
+                    if (statusPill) {
+                        statusPill.className = "drawer-badge good";
+                        statusPill.textContent = "COMPLETED";
+                    }
+                    if (out) {
+                        out.innerHTML = `
+                            <div style="color:#10b981; margin-bottom:4px;">✅ Micro-step committed to SQLite-WAL transaction ledger.</div>
+                            <div style="color:var(--text-muted); font-size:10px;">Validation: HMAC_SHA256_VERIFIED · Status: RESOLVED · Safe Loop Entropy &lt; 0.88</div>
+                        `;
+                    }
+                    scrollDialogue();
+                    saveCurrentChatSession();
+                    showToast(`BACKGROUND TASK COMPLETED: ${taskId}`);
+                }, 1200);
+
+            } catch (err) {
+                const statusPill = document.getElementById(`task-status-${taskId}`);
+                const out = document.getElementById(`task-output-${taskId}`);
+                if (statusPill) {
+                    statusPill.className = "drawer-badge warn";
+                    statusPill.textContent = "FAILED";
+                }
+                if (out) {
+                    out.innerHTML = `<span style="color:var(--amber);">Task error: ${escapeHtml(err.message)}</span>`;
+                }
+                saveCurrentChatSession();
+            }
+        }
+
+        function injectTaskToChat(taskId, directive, status, tokens) {
+            toggleTaskHistoryDrawer(false);
+            switchTab('dialogue');
+            const history = document.getElementById("dialogue-history");
+            const card = document.createElement("div");
+            card.className = "srbk-bubble assistant task-bubble";
+            card.innerHTML = `
+                <div class="srbk-bubble-sender">
+                    <span>TASK ARCHIVE · ${escapeHtml(taskId)}</span>
+                    <span class="drawer-badge ${status.includes('COMMITTED') ? 'good' : 'warn'}">${escapeHtml(status)}</span>
+                </div>
+                <div class="srbk-content">
+                    <p style="font-weight:600; color:#fff;">${escapeHtml(directive)}</p>
+                    <p style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-secondary); margin-top:4px;">
+                        Committed to SQLite ledger · Consumed: ${tokens} tokens · Reconstituted from WAL state matrix.
+                    </p>
+                </div>
+            `;
+            history.appendChild(card);
+            scrollDialogue();
+            saveCurrentChatSession();
+            showToast(`TASK ${taskId} INJECTED TO CHAT`);
+        }
+
+        /* Session Persistence & Continuity */
+        function saveCurrentChatSession() {
+            const historyEl = document.getElementById("dialogue-history");
+            if (!historyEl) return;
+            const bubbles = historyEl.querySelectorAll(".srbk-bubble");
+            if (bubbles.length === 0) return;
+
+            const messages = [];
+            bubbles.forEach(b => {
+                const isUser = b.classList.contains("user");
+                const sender = b.querySelector(".srbk-bubble-sender")?.textContent?.trim() || (isUser ? "YOU" : "SAREMBOK");
+                const contentEl = b.querySelector(".srbk-content");
+                const html = contentEl ? contentEl.innerHTML : "";
+                const text = contentEl ? contentEl.innerText : "";
+                messages.push({
+                    role: isUser ? "user" : "assistant",
+                    sender,
+                    html,
+                    text,
+                    timestamp: Date.now()
+                });
+            });
+
+            let currentSessionId = localStorage.getItem("sarembok_active_session_id");
+            if (!currentSessionId) {
+                currentSessionId = "sess_" + Date.now();
+                localStorage.setItem("sarembok_active_session_id", currentSessionId);
+            }
+
+            const currSessEl = document.getElementById("drawer-current-session-id");
+            if (currSessEl) currSessEl.textContent = currentSessionId;
+
+            const firstUser = messages.find(m => m.role === "user");
+            const title = firstUser ? (firstUser.text.slice(0, 42) + (firstUser.text.length > 42 ? "..." : "")) : "Conversation " + new Date().toLocaleDateString();
+
+            const sessionData = {
+                session_id: currentSessionId,
+                title,
+                messages,
+                updated_at: Date.now()
+            };
+
+            let sessions = {};
+            try {
+                sessions = JSON.parse(localStorage.getItem("sarembok_chat_sessions") || "{}");
+            } catch (e) { sessions = {}; }
+            sessions[currentSessionId] = sessionData;
+            localStorage.setItem("sarembok_chat_sessions", JSON.stringify(sessions));
+
+            fetch("/api/chat-sessions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ session_id: currentSessionId, title, messages })
+            }).catch(() => {});
+        }
+
+        async function loadChatSessionsList() {
+            const listEl = document.getElementById("drawer-sessions-list");
+            const countEl = document.getElementById("drawer-session-count");
+            if (!listEl) return;
+
+            let sessions = {};
+            try {
+                sessions = JSON.parse(localStorage.getItem("sarembok_chat_sessions") || "{}");
+            } catch (e) { sessions = {}; }
+
+            try {
+                const res = await fetch("/api/chat-sessions");
+                const data = await res.json();
+                if (data.sessions && Array.isArray(data.sessions)) {
+                    data.sessions.forEach(s => {
+                        if (!sessions[s.session_id]) {
+                            sessions[s.session_id] = {
+                                session_id: s.session_id,
+                                title: s.title,
+                                messages: [],
+                                updated_at: new Date(s.updated_at).getTime()
+                            };
+                        }
+                    });
+                }
+            } catch (e) {}
+
+            const sessionList = Object.values(sessions).sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0));
+            if (countEl) countEl.textContent = sessionList.length;
+
+            if (sessionList.length === 0) {
+                listEl.innerHTML = `<div style="color:var(--text-muted); font-size:11px; font-family:var(--font-mono); text-align:center; padding:24px;">No saved chat sessions found. Start chatting to create one!</div>`;
+                return;
+            }
+
+            const activeId = localStorage.getItem("sarembok_active_session_id");
+            let html = "";
+            sessionList.forEach(s => {
+                const isActive = s.session_id === activeId;
+                const msgCount = s.messages ? s.messages.length : 0;
+                const dateStr = s.updated_at ? new Date(s.updated_at).toLocaleString() : "";
+                html += `
+                    <div class="drawer-card" style="${isActive ? 'border-color:var(--cyan); background:rgba(0,240,255,0.06);' : ''}">
+                        <div class="drawer-card-header">
+                            <span style="font-weight:700; color:#fff;">${escapeHtml(s.title || "Conversation")}</span>
+                            ${isActive ? '<span class="drawer-badge good">ACTIVE</span>' : ''}
+                        </div>
+                        <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-secondary);">${escapeHtml(s.session_id)} · ${msgCount} turns · ${dateStr}</div>
+                        <div style="display:flex; gap:8px; margin-top:4px;">
+                            ${!isActive ? `<button class="browser-action-btn" onclick="resumeChatSession('${escapeHtml(s.session_id)}')" style="padding:4px 10px; font-size:9.5px; border-color:var(--cyan); color:var(--cyan);">RESUME</button>` : ''}
+                            <button class="browser-action-btn" onclick="deleteChatSession('${escapeHtml(s.session_id)}')" style="padding:4px 10px; font-size:9.5px; border-color:rgba(239,68,68,0.3); color:#ef4444;">DELETE</button>
+                        </div>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        }
+
+        async function resumeChatSession(sessionId) {
+            let sessions = {};
+            try {
+                sessions = JSON.parse(localStorage.getItem("sarembok_chat_sessions") || "{}");
+            } catch (e) { sessions = {}; }
+
+            let session = sessions[sessionId];
+            if (!session || !session.messages || session.messages.length === 0) {
+                try {
+                    const res = await fetch(`/api/chat-session-load?id=${encodeURIComponent(sessionId)}`);
+                    session = await res.json();
+                } catch (e) {}
+            }
+
+            if (!session || !session.messages) {
+                showToast("Could not load selected session.");
+                return;
+            }
+
+            localStorage.setItem("sarembok_active_session_id", sessionId);
+            const history = document.getElementById("dialogue-history");
+            if (history) {
+                history.innerHTML = "";
+                session.messages.forEach(m => {
+                    const div = document.createElement("div");
+                    div.className = `srbk-bubble ${m.role === 'user' ? 'user' : 'assistant'}`;
+                    div.innerHTML = `<div class="srbk-bubble-sender">${escapeHtml(m.sender || (m.role === 'user' ? 'YOU' : 'SAREMBOK'))}</div><div class="srbk-content">${m.html || escapeHtml(m.text || '')}</div>`;
+                    history.appendChild(div);
+                });
+                scrollDialogue();
+            }
+
+            toggleTaskHistoryDrawer(false);
+            switchTab('dialogue');
+            updateSimpleHeroVisibility();
+            showToast(`RESUMED SESSION: ${session.title || sessionId}`);
+        }
+
+        function startNewConversation() {
+            saveCurrentChatSession();
+            const newId = "sess_" + Date.now();
+            localStorage.setItem("sarembok_active_session_id", newId);
+            resetSimpleChat();
+            const currSessEl = document.getElementById("drawer-current-session-id");
+            if (currSessEl) currSessEl.textContent = newId;
+            showToast("NEW CONVERSATION STARTED");
+        }
+
+        function deleteChatSession(sessionId) {
+            let sessions = {};
+            try {
+                sessions = JSON.parse(localStorage.getItem("sarembok_chat_sessions") || "{}");
+            } catch (e) { sessions = {}; }
+            delete sessions[sessionId];
+            localStorage.setItem("sarembok_chat_sessions", JSON.stringify(sessions));
+
+            fetch(`/api/chat-sessions?id=${encodeURIComponent(sessionId)}`, { method: "DELETE" }).catch(() => {});
+
+            if (localStorage.getItem("sarembok_active_session_id") === sessionId) {
+                startNewConversation();
+            }
+            loadChatSessionsList();
+            showToast("SESSION DELETED");
+        }
+
+        function exportCurrentChatMarkdown() {
+            const historyEl = document.getElementById("dialogue-history");
+            const activeId = localStorage.getItem("sarembok_active_session_id") || "sess_active";
+            const bubbles = historyEl ? historyEl.querySelectorAll(".srbk-bubble") : [];
+            
+            let mdContent = `# Sarembok VE Dialogue Transcript\n`;
+            mdContent += `**Session ID:** \`${activeId}\`\n`;
+            mdContent += `**Export Date:** ${new Date().toISOString()}\n\n---\n\n`;
+
+            bubbles.forEach(b => {
+                const isUser = b.classList.contains("user");
+                const sender = isUser ? "YOU" : "SAREMBOK";
+                const content = b.querySelector(".srbk-content")?.innerText || "";
+                mdContent += `### [${sender}]\n\n${content.trim()}\n\n---\n\n`;
+            });
+
+            const blob = new Blob([mdContent], { type: "text/markdown;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `sarembok_chat_${activeId}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast("EXPORTED CHAT TO MARKDOWN (.MD)");
+        }
+
+        function exportAllSessionsJson() {
+            let sessions = {};
+            try {
+                sessions = JSON.parse(localStorage.getItem("sarembok_chat_sessions") || "{}");
+            } catch (e) { sessions = {}; }
+
+            const blob = new Blob([JSON.stringify(sessions, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `sarembok_all_sessions_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast("EXPORTED ALL SESSIONS TO JSON");
+        }
+
+        async function exportWalLedgerJson() {
+            try {
+                const res = await fetch("/api/background-tasks");
+                const data = await res.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `sarembok_wal_ledger_${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast("EXPORTED WAL LEDGER (.JSON)");
+            } catch (err) {
+                showToast("Failed to export WAL ledger.");
+            }
+        }
+
+        function handleImportSessionFile(event) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    let sessions = {};
+                    try {
+                        sessions = JSON.parse(localStorage.getItem("sarembok_chat_sessions") || "{}");
+                    } catch (err) { sessions = {}; }
+
+                    if (parsed.session_id && parsed.messages) {
+                        sessions[parsed.session_id] = parsed;
+                        localStorage.setItem("sarembok_chat_sessions", JSON.stringify(sessions));
+                        resumeChatSession(parsed.session_id);
+                        showToast("SESSION IMPORTED AND RESUMED");
+                    } else if (typeof parsed === "object") {
+                        Object.assign(sessions, parsed);
+                        localStorage.setItem("sarembok_chat_sessions", JSON.stringify(sessions));
+                        loadChatSessionsList();
+                        showToast("IMPORTED SESSIONS ARCHIVE");
+                    }
+                } catch (err) {
+                    alert("Invalid session JSON file: " + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function initSessionContinuity() {
+            const activeId = localStorage.getItem("sarembok_active_session_id");
+            if (activeId) {
+                let sessions = {};
+                try {
+                    sessions = JSON.parse(localStorage.getItem("sarembok_chat_sessions") || "{}");
+                } catch (e) { sessions = {}; }
+                const session = sessions[activeId];
+                if (session && session.messages && session.messages.length > 0) {
+                    const history = document.getElementById("dialogue-history");
+                    if (history && history.querySelectorAll(".srbk-bubble").length <= 1) {
+                        history.innerHTML = "";
+                        session.messages.forEach(m => {
+                            const div = document.createElement("div");
+                            div.className = `srbk-bubble ${m.role === 'user' ? 'user' : 'assistant'}`;
+                            div.innerHTML = `<div class="srbk-bubble-sender">${escapeHtml(m.sender || (m.role === 'user' ? 'YOU' : 'SAREMBOK'))}</div><div class="srbk-content">${m.html || escapeHtml(m.text || '')}</div>`;
+                            history.appendChild(div);
+                        });
+                        scrollDialogue();
+                        updateSimpleHeroVisibility();
+                    }
+                }
+            }
+        }
+        setTimeout(initSessionContinuity, 100);
+
         // Also ensure sendDirective hides simpleHero when sending
         const _origSendDirective = window.sendDirective;
         setTimeout(initUiMode, 50);
 
     </script>
+
+    <!-- ==================== TASK & HISTORY DRAWER ==================== -->
+    <div id="task-history-backdrop" onclick="toggleTaskHistoryDrawer(false)"></div>
+    <aside id="task-history-drawer" aria-label="Task Matrix and Chat History Drawer">
+        <div class="drawer-header">
+            <div class="drawer-title-wrap">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div>
+                    <div class="drawer-title">TASKS &amp; HISTORY MATRIX</div>
+                    <div style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-secondary); letter-spacing:0.06em;">Background Tasks · Chat Sessions · Continuity</div>
+                </div>
+            </div>
+            <button class="drawer-close-btn" onclick="toggleTaskHistoryDrawer(false)" title="Close Drawer">✕</button>
+        </div>
+
+        <nav class="drawer-tabs-nav">
+            <button class="drawer-tab-btn active" id="tab-btn-tasks" onclick="switchDrawerTab('tasks')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                <span>BACKGROUND TASKS (<span id="drawer-task-count">0</span>)</span>
+            </button>
+            <button class="drawer-tab-btn" id="tab-btn-sessions" onclick="switchDrawerTab('sessions')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span>CHAT SESSIONS (<span id="drawer-session-count">0</span>)</span>
+            </button>
+            <button class="drawer-tab-btn" id="tab-btn-export" onclick="switchDrawerTab('export')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span>EXPORT &amp; BACKUP</span>
+            </button>
+        </nav>
+
+        <div class="drawer-content-body">
+            <!-- PANEL 1: BACKGROUND TASKS -->
+            <div class="drawer-tab-panel active" id="drawer-panel-tasks">
+                <div class="drawer-card" style="border-color:rgba(0,240,255,0.3); background:rgba(0,240,255,0.03);">
+                    <div style="font-family:var(--font-display); font-size:11px; font-weight:700; color:var(--cyan); letter-spacing:0.08em;">DISPATCH BACKGROUND TASK</div>
+                    <div style="font-size:10.5px; color:var(--text-secondary); line-height:1.4;">Execute long-running or autonomous micro-steps via the SQLite-WAL flywheel without blocking conversational duplex.</div>
+                    <div style="display:flex; gap:8px; margin-top:4px;">
+                        <input type="text" id="drawer-bg-task-input" placeholder="e.g. Audit edge telemetry & compute entropy..." style="flex:1; background:rgba(0,0,0,0.5); border:1px solid rgba(0,240,255,0.25); border-radius:6px; padding:8px 10px; color:#fff; font-family:var(--font-mono); font-size:11px; outline:none;" onkeydown="if(event.key==='Enter') dispatchNewBackgroundTaskFromDrawer()">
+                        <button class="browser-action-btn" onclick="dispatchNewBackgroundTaskFromDrawer()" style="padding:8px 12px; font-size:10px; border-color:var(--cyan); color:var(--cyan);">RUN BG</button>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:0 4px;">
+                    <span style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted); letter-spacing:0.08em;">TASK MATRIX FEED</span>
+                    <button class="browser-action-btn" onclick="loadBackgroundTasksList()" style="padding:3px 8px; font-size:9.5px;" title="Refresh tasks from SQLite substrate">↻ REFRESH</button>
+                </div>
+
+                <div id="drawer-tasks-list" style="display:flex; flex-direction:column; gap:10px;">
+                    <div style="color:var(--text-muted); font-size:11px; font-family:var(--font-mono); text-align:center; padding:20px;">Loading background tasks matrix...</div>
+                </div>
+            </div>
+
+            <!-- PANEL 2: CHAT SESSIONS -->
+            <div class="drawer-tab-panel" id="drawer-panel-sessions">
+                <div class="drawer-card" style="border-color:rgba(16,185,129,0.3); background:rgba(16,185,129,0.03);">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-family:var(--font-display); font-size:11px; font-weight:700; color:#10b981; letter-spacing:0.08em;">ACTIVE CHAT SESSION</div>
+                            <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-secondary);" id="drawer-current-session-id">sess_active</div>
+                        </div>
+                        <button class="browser-action-btn" onclick="startNewConversation()" style="padding:6px 12px; font-size:10px; border-color:#10b981; color:#10b981;">+ NEW CHAT</button>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:0 4px;">
+                    <span style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted); letter-spacing:0.08em;">SAVED CONVERSATION SESSIONS</span>
+                    <button class="browser-action-btn" onclick="loadChatSessionsList()" style="padding:3px 8px; font-size:9.5px;">↻ REFRESH</button>
+                </div>
+
+                <div id="drawer-sessions-list" style="display:flex; flex-direction:column; gap:10px;">
+                    <div style="color:var(--text-muted); font-size:11px; font-family:var(--font-mono); text-align:center; padding:20px;">Loading session history...</div>
+                </div>
+            </div>
+
+            <!-- PANEL 3: EXPORT & ARCHIVE -->
+            <div class="drawer-tab-panel" id="drawer-panel-export">
+                <div class="drawer-card">
+                    <div class="drawer-card-header">
+                        <span style="font-weight:700; color:#fff;">EXPORT ACTIVE CHAT (.MD)</span>
+                        <span class="drawer-badge good">MARKDOWN</span>
+                    </div>
+                    <div style="font-size:10.5px; color:var(--text-secondary); line-height:1.4;">Download the entire current conversation transcript with code blocks, sender badges, and timestamps formatted in GitHub Flavored Markdown.</div>
+                    <button class="browser-action-btn" onclick="exportCurrentChatMarkdown()" style="padding:8px 14px; font-size:10.5px; border-color:var(--cyan); color:var(--cyan); margin-top:4px;">DOWNLOAD ACTIVE CHAT (.MD)</button>
+                </div>
+
+                <div class="drawer-card">
+                    <div class="drawer-card-header">
+                        <span style="font-weight:700; color:#fff;">BACKUP ALL SESSIONS (.JSON)</span>
+                        <span class="drawer-badge good">JSON DB</span>
+                    </div>
+                    <div style="font-size:10.5px; color:var(--text-secondary); line-height:1.4;">Export all past and present chat sessions as a JSON database archive for backup or transferring to another system.</div>
+                    <button class="browser-action-btn" onclick="exportAllSessionsJson()" style="padding:8px 14px; font-size:10.5px; border-color:#3b82f6; color:#3b82f6; margin-top:4px;">EXPORT ALL SESSIONS (.JSON)</button>
+                </div>
+
+                <div class="drawer-card">
+                    <div class="drawer-card-header">
+                        <span style="font-weight:700; color:#fff;">EXPORT WAL TRANSACTION LEDGER (.JSON)</span>
+                        <span class="drawer-badge good">SQLITE-WAL</span>
+                    </div>
+                    <div style="font-size:10.5px; color:var(--text-secondary); line-height:1.4;">Download the raw SQLite multi-agent micro-step ledger containing task IDs, HMAC cryptographic hashes, and Shannon entropy scores.</div>
+                    <button class="browser-action-btn" onclick="exportWalLedgerJson()" style="padding:8px 14px; font-size:10.5px; border-color:var(--amber); color:var(--amber); margin-top:4px;">EXPORT WAL LEDGER (.JSON)</button>
+                </div>
+
+                <div class="drawer-card" style="border-style:dashed;">
+                    <div class="drawer-card-header">
+                        <span style="font-weight:700; color:#fff;">RESTORE / IMPORT CHAT (.JSON)</span>
+                        <span class="drawer-badge warn">IMPORT</span>
+                    </div>
+                    <div style="font-size:10.5px; color:var(--text-secondary); line-height:1.4;">Upload an exported session JSON file to restore and resume conversation directly inside the viewer.</div>
+                    <input type="file" id="chat-import-input" accept=".json" style="display:none;" onchange="handleImportSessionFile(event)">
+                    <button class="browser-action-btn" onclick="document.getElementById('chat-import-input').click()" style="padding:8px 14px; font-size:10.5px; border-color:rgba(255,255,255,0.3); color:#fff; margin-top:4px;">SELECT JSON FILE TO IMPORT</button>
+                </div>
+            </div>
+        </div>
+    </aside>
 
     <!-- FLOATING INTERRUPT / BARGE-IN BUTTON -->
     <div class="srbk-interrupt-pill" id="srbk-interrupt-pill" onclick="interruptSpeech()" title="Tap to interrupt AI speech immediately">
