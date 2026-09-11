@@ -1380,14 +1380,15 @@ def resolve_image_generation(
 
     start_time = time.perf_counter()
 
+    p_clean = prompt.strip().strip('"\'`“”‘’')
     cleaned_prompt = re.sub(
-        r"(?i)^(?:can you\s+)?(?:please\s+)?(?:generate|create|render|draw|make|synthesize|paint|illustrate)\s+(?:an?\s+)?(?:image|picture|photo|artwork|illustration|rendering)\s+(?:of\s+)?",
+        r"(?i)^(?:can you\s+)?(?:please\s+)?(?:generate|create|render|draw|make|synthesize|paint|illustrate)\s+(?:an?\s+)?(?:4k\s+|8k\s+|hd\s+|cinematic\s+)?(?:image|picture|photo|artwork|illustration|rendering)?\s+(?:of\s+)?",
         "",
-        prompt,
+        p_clean,
     ).strip()
     cleaned_prompt = re.sub(r"(?i)^(?:a\s+|an\s+)?(?:image|picture|photo|artwork|rendering)\s+(?:of\s+)?", "", cleaned_prompt).strip()
     if not cleaned_prompt:
-        cleaned_prompt = prompt.strip() or "cybernetic neural AI core in sovereign computing matrix"
+        cleaned_prompt = p_clean or "cybernetic neural AI core in sovereign computing matrix"
 
     width = 1024
     height = 1024

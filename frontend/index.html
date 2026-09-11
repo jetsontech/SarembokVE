@@ -5505,7 +5505,8 @@
             const hasVerifiedMedia = /:::(?:video|music|youtube|image)[^\n]*\n\s*https?:\/\/[^\s\n]+\s*\n:::/i.test(s);
 
             if (!hasVerifiedMedia && isImage && !s.includes(":::image")) {
-                let imgPrompt = prompt.replace(/^(?:can you\s+)?(?:please\s+)?(?:generate|create|render|draw|make|synthesize|paint)\s+(?:an?\s+)?(?:image|picture|photo|artwork)\s+(?:of\s+)?/gi, "").trim();
+                let imgPrompt = prompt.trim().replace(/^["'`“‘]+|["'`”’]+$/g, "").trim();
+                imgPrompt = imgPrompt.replace(/^(?:can you\s+)?(?:please\s+)?(?:generate|create|render|draw|make|synthesize|paint|illustrate)\s+(?:an?\s+)?(?:4k\s+|8k\s+|hd\s+|cinematic\s+)?(?:image|picture|photo|artwork|illustration|rendering)?\s+(?:of\s+)?/gi, "").trim();
                 imgPrompt = imgPrompt || "cybernetic neural core in sovereign computing matrix";
                 const enc = encodeURIComponent(imgPrompt);
                 const seed = Math.floor(Math.random() * 9000000) + 1000000;
