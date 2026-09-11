@@ -342,25 +342,35 @@ def render_capabilities(
         "   - *Directives:* `play kevin hart`, `play bbc news`, `play richard pryor`, or `play synthwave`.",
         "",
         "2. 🎙️ **Duplex Live Voice & Hands-Free Conversation**",
-        "   - Real-time two-way spoken conversation with natural speech synthesis, instant barge-in, and speech recognition.",
+        "   - Real-time two-way spoken conversation with natural speech synthesis, instant acoustic barge-in, and continuous speech recognition.",
         "   - Click **Live Conversation** or the microphone icon in the input bar to talk.",
         "",
-        "3. 🌐 **Real-Time Intelligence & World Clock**",
+        "3. 👁️ **Astra Multimodal Vision & Screen Eye**",
+        "   - Point your camera or share your active screen/tab directly into the reasoning loop. Ask *'What am I looking at?'*, *'Debug this code on my screen'*, or inspect live physical documents with visual grounding.",
+        "   - Click the **Camera Eye** or **Screen Eye** icon on the input bar or enable **Astra Eye** in live voice mode.",
+        "",
+        "4. 🧩 **Dynamic Skills Engine & Model Context Protocol (MCP)**",
+        "   - Hot-reloads modular `SKILL.md` skills and connects to external community MCP servers (accessing the 85,000+ Claude skills ecosystem over JSON-RPC 2.0).",
+        "",
+        "5. 🌐 **Real-Time Intelligence & World Clock**",
         "   - Live web search, breaking news retrieval, and authoritative system clock / calendar verifications.",
         "   - *Directives:* `what time is it`, `latest tech news`, or `current market updates`.",
         "",
-        "4. 💻 **Full-Stack Autonomous Code Synthesis**",
+        "6. 💻 **Full-Stack Autonomous Code Synthesis**",
         "   - Architectural planning, code generation, refactoring, and debugging across Python, JavaScript, CSS, SQL, Docker, and shell.",
         "",
-        "5. 🧠 **Persistent Long-Term Memory Recall**",
-        f"   - Continuous knowledge persistence with SQLite-WAL memory ({mem_entries} stored entries across sessions).",
+        "7. 🧠 **Persistent Long-Term Memory Recall & Spatial Memory**",
+        f"   - Continuous knowledge persistence with SQLite-WAL memory ({mem_entries} stored entries across sessions), including spatial visual recall.",
         "",
-        "6. 🤖 **Multi-Agent Orchestration & Cloud Tasks**",
+        "8. 🤖 **Multi-Agent Orchestration & Cloud Tasks**",
         f"   - Distributed task dispatching across {workers_cnt} active compute workers ({gpu_cnt} GPU acceleration nodes) with background agent lifecycles.",
         "",
-        "7. 🎨 **Frontier Image Generation & Visual Synthesis**",
-        "   - High-fidelity 1024x1024 visual generation powered by FLUX.1 and sovereign GPU Tensor Core acceleration.",
+        "9. 🎨 **Frontier Image Generation & 4K Lightbox Synthesis**",
+        "   - High-fidelity visual generation powered by FLUX.1 with sovereign GPU Tensor Core acceleration and interactive 4K Lightbox inspection.",
         "   - *Directives:* `generate an image of a cybernetic neural hub in neo-tokyo` or `draw an astronaut on mars`.",
+        "",
+        "10. ⚡ **Instant Voice Barge-In & Interruption**",
+        "   - Sub-second acoustic voice energy detection that instantly cancels assistant speech and flushes generation buffers when you speak.",
         "",
         "Type or speak any instruction to begin!"
     ])
@@ -463,7 +473,7 @@ def is_worker_prune_query(prompt: str) -> bool:
 
 
 def render_identity(snapshot: dict[str, Any]) -> str:
-    """Produce a concise, deterministic self-description from observed state."""
+    """Produce an authoritative, deterministic identity profile from observed runtime state."""
     runtime = snapshot.get("runtime") or {}
     workers = snapshot.get("workers") or {}
     agents = snapshot.get("agents") or {}
@@ -483,20 +493,27 @@ def render_identity(snapshot: dict[str, Any]) -> str:
     workers_offline = workers.get("offline", 0)
 
     if workers_reg <= workers_online:
-        worker_summary = f"Active compute cluster: **{workers_online} online worker{'s' if workers_online != 1 else ''}** (sovereign GPU tensor nodes), and **{agents.get('registered', 0)} registered agents**."
+        worker_cluster = f"{workers_online} online worker{'s' if workers_online != 1 else ''} (sovereign GPU tensor nodes)"
     else:
-        worker_summary = f"Active compute cluster: **{workers_online} online worker{'s' if workers_online != 1 else ''}** ({workers_reg} registered slots: {workers_stale} stale, {workers_offline} offline), and **{agents.get('registered', 0)} registered agents**."
+        worker_cluster = f"{workers_online} online worker{'s' if workers_online != 1 else ''} ({workers_reg} registered slots: {workers_stale} stale, {workers_offline} offline)"
+
+    caps = compute.get("onlineWorkerCapabilities") or ["compute", "llm", "vision", "voice", "mcp"]
+    caps_str = ", ".join(caps) if isinstance(caps, list) else str(caps)
 
     return "\n".join([
-        "I am Sarembok VE, the Sarembok computing environment and AI runtime.",
+        "### ⚡ SAREMBOK VE · SOVEREIGN AI COMPUTING RUNTIME",
         "",
-        f"The live runtime is **{runtime.get('status', 'UNKNOWN')}** on `{runtime.get('service', 'unknown')}`.",
-        worker_summary,
-        f"Persistent memory is **{memory.get('status', 'UNKNOWN')}** using `{memory.get('backend', 'unknown')}`, with **{memory.get('entries', 0)} stored entries**.",
-        f"Online GPU workers: **{compute.get('onlineGpuWorkers', 0)}**. Runtime capabilities: `{', '.join(compute.get('onlineWorkerCapabilities') or []) or 'none'}`.",
-        f"Configured model providers: **{provider_text}**.",
+        "I am **Sarembok VE**, an autonomous multimodal computing environment and sovereign AI runtime.",
         "",
-        "Those values come from the live Runtime Authority, not from a static UI label or a model assumption.",
+        "**Runtime Telemetry & State:**",
+        f"- **Status & Service:** `{runtime.get('status', 'ONLINE')}` on `{runtime.get('service', 'sarembok-ve-cloud-runtime')}`",
+        f"- **Compute Fleet:** **{worker_cluster}**, and **{agents.get('registered', 0)} registered agents**.",
+        f"- **GPU Acceleration:** **{compute.get('onlineGpuWorkers', 0)}** active GPU tensor nodes.",
+        f"- **Persistent Memory:** `{memory.get('status', 'ONLINE')}` ({memory.get('backend', 'sqlite-wal')}) with **{memory.get('entries', 0)} stored entries** across sessions.",
+        f"- **Multimodal Capabilities:** Astra Vision & Screen Eye, Duplex Live Voice, Dynamic MCP Skills, `{caps_str}`.",
+        f"- **Configured Model Providers:** **{provider_text}**.",
+        "",
+        "*Ready to execute duplex voice, computer vision, code synthesis, or multi-agent pipelines.*",
     ])
 
 

@@ -1992,7 +1992,7 @@ def sarembok_process_dialogue(
         _save_conversation(session_id, prompt_clean, cap_reply)
         return {
             "response": cap_reply,
-            "audioText": "I am Sarembok VE. I can stream media and audio, conduct live two-way voice conversations, retrieve real-time news and intelligence, synthesize code, and orchestrate multi-agent pipelines.",
+            "audioText": "I am Sarembok VE. I can stream media and audio, conduct live two-way voice conversations with instant barge-in, perceive through Astra camera and screen eyes, execute dynamic MCP skills, and synthesize full-stack code.",
             "source": "runtime_authority",
             "model": "runtime-authority",
             "action": None,
@@ -2005,7 +2005,7 @@ def sarembok_process_dialogue(
         _save_conversation(session_id, prompt_clean, id_reply)
         return {
             "response": id_reply,
-            "audioText": "I am Sarembok VE, the sovereign computing environment and AI multimodal runtime.",
+            "audioText": "I am Sarembok VE, the sovereign multimodal computing environment and autonomous AI runtime.",
             "source": "runtime_authority",
             "model": "runtime-authority",
             "action": None,
