@@ -4532,8 +4532,8 @@
                     <div style="padding:12px 16px; background:rgba(0,0,0,0.6); border-top:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                         <span style="font-family:var(--font-mono); font-size:10px; color:var(--text-secondary);">Move cursor to guide gaze · Speak to observe real-time lip synchronization.</span>
                         <div style="display:flex; gap:8px;">
-                            <button class="browser-action-btn" style="padding:6px 12px; font-size:10px; border-color:var(--glow-cyan); color:var(--glow-cyan);" onclick="playVegaReferenceAudio()" title="Listen to the original reference recording (OpenAI Shimmer)">PLAY REFERENCE (SHIMMER)</button>
-                            <button class="browser-action-btn" style="padding:6px 14px; font-size:10px;" onclick="testVoiceGreeting()">TEST VOICE &amp; VISEME</button>
+                            <button class="browser-action-btn" style="padding:6px 12px; font-size:10px; border-color:var(--glow-cyan); color:var(--glow-cyan);" onclick="playVegaReferenceAudio()" title="Play your exact audio recording (New Recording 61.m4a)">PLAY USER RECORDING (NEW RECORDING 61)</button>
+                            <button class="browser-action-btn" style="padding:6px 14px; font-size:10px;" onclick="testVoiceGreeting()" title="Synthesize and play speech using the matching neural model">TEST VEGA NEURAL (AVA)</button>
                         </div>
                     </div>
                 </div>
@@ -7666,6 +7666,8 @@
             if (chipText) chipText.textContent = voiceEnabled ? "VOICE: ON" : "VOICE: OFF";
         }
 
+        let activeNeuralAudio = null;
+
         function speakText(btnOrText) {
             let text = "";
             if (typeof btnOrText === "string") {
@@ -7674,10 +7676,9 @@
                 const bubble = btnOrText.closest(".srbk-bubble");
                 text = bubble ? bubble.querySelector(".srbk-content")?.textContent : "";
             }
-            if (!text || !window.speechSynthesis) return;
+            if (!text) return;
 
-            window.speechSynthesis.cancel();
-            setAudioDucking(false);
+            interruptSpeech();
 
             // Strip code blocks, media/card tags, math delimiters, and links for speech
             const clean = text
@@ -7703,25 +7704,12 @@
             currentUtteranceHistory.push({ text: clean.toLowerCase(), time: Date.now() });
             if (currentUtteranceHistory.length > 25) currentUtteranceHistory.shift();
             showInterruptPill();
-
-            const utterance = new SpeechSynthesisUtterance(clean);
-            const resolved = getResolvedVoiceProfile();
-            if (resolved && resolved.voice) {
-                utterance.voice = resolved.voice;
-            }
-            utterance.volume = 1.0;
-            utterance.pitch = (resolved && resolved.pitch !== undefined) ? resolved.pitch : 1.0;
-            utterance.rate = (resolved && resolved.rate !== undefined) ? resolved.rate : 1.0;
-
             setAvatarSignal("SPEAKING");
             setAudioDucking(true);
 
-            // Drive lip-sync visemes on word boundaries
-            utterance.onboundary = event => {
-                triggerSpeechViseme();
-            };
-
+            let visemeInterval = null;
             const finishSpeaking = () => {
+                if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
                 isSpeakingTurn = false;
                 currentAssistantSpokenText = "";
                 lastSpeechEndTime = Date.now();
@@ -7731,30 +7719,73 @@
                 updateMorphMeters();
                 hideInterruptPill();
                 window._activeSpeechUtterance = null;
+                activeNeuralAudio = null;
 
                 if (liveConversationActive) {
                     resumeRecognitionAfterSpeech(600);
                 }
             };
 
-            utterance.onend = finishSpeaking;
-            utterance.onerror = finishSpeaking;
+            const fallbackBrowserTTS = () => {
+                if (!window.speechSynthesis) { finishSpeaking(); return; }
+                const utterance = new SpeechSynthesisUtterance(clean);
+                const resolved = getResolvedVoiceProfile();
+                if (resolved && resolved.voice) {
+                    utterance.voice = resolved.voice;
+                }
+                utterance.volume = 1.0;
+                utterance.pitch = (resolved && resolved.pitch !== undefined) ? resolved.pitch : 1.0;
+                utterance.rate = (resolved && resolved.rate !== undefined) ? resolved.rate : 1.0;
 
-            // Prevent Chrome V8 garbage-collecting the utterance mid-speech
-            window._activeSpeechUtterance = utterance;
+                utterance.onboundary = () => {
+                    triggerSpeechViseme();
+                };
+                utterance.onend = finishSpeaking;
+                utterance.onerror = finishSpeaking;
+                window._activeSpeechUtterance = utterance;
 
-            try {
-                window.speechSynthesis.resume();
-                window.speechSynthesis.speak(utterance);
-                setTimeout(() => {
-                    if (window.speechSynthesis && window.speechSynthesis.paused) {
-                        window.speechSynthesis.resume();
-                    }
-                }, 60);
-            } catch (err) {
-                console.warn("[tts] speakText error:", err);
-                finishSpeaking();
-            }
+                try {
+                    window.speechSynthesis.resume();
+                    window.speechSynthesis.speak(utterance);
+                    setTimeout(() => {
+                        if (window.speechSynthesis && window.speechSynthesis.paused) {
+                            window.speechSynthesis.resume();
+                        }
+                    }, 60);
+                } catch (err) {
+                    console.warn("[tts] browser fallback error:", err);
+                    finishSpeaking();
+                }
+            };
+
+            // Stream authentic neural audio from backend /api/tts endpoint
+            const profile = (selectedVoiceLang || "gemini-vega");
+            const ttsEndpoint = `/api/tts?text=${encodeURIComponent(clean)}&voice=${encodeURIComponent(profile)}`;
+
+            const audio = new Audio(ttsEndpoint);
+            activeNeuralAudio = audio;
+
+            audio.onplay = () => {
+                visemeInterval = setInterval(() => {
+                    triggerSpeechViseme();
+                }, 160);
+            };
+
+            audio.onended = finishSpeaking;
+
+            audio.onerror = () => {
+                console.info("[tts] Neural audio unavailable; using browser speech fallback.");
+                activeNeuralAudio = null;
+                if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
+                fallbackBrowserTTS();
+            };
+
+            audio.play().catch(err => {
+                console.warn("[tts] Neural audio play failed:", err);
+                activeNeuralAudio = null;
+                if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
+                fallbackBrowserTTS();
+            });
         }
 
         function toggleSpeechRecognition() {
@@ -7846,32 +7877,40 @@
                 vegaRefAudio.pause();
                 vegaRefAudio.currentTime = 0;
             }
-            showToast("PLAYING REFERENCE RECORDING: New Recording 61 (OpenAI Shimmer)...");
+            showToast("PLAYING USER RECORDING: New Recording 61...");
             vegaRefAudio = new Audio("/vega_reference.mp3");
             setAvatarSignal("SPEAKING");
             setAudioDucking(true);
             showInterruptPill();
 
-            const visemeInterval = setInterval(() => {
+            let visemeInterval = setInterval(() => {
                 triggerSpeechViseme();
-            }, 180);
+            }, 160);
 
             vegaRefAudio.onended = () => {
                 clearInterval(visemeInterval);
                 setAvatarSignal("IDLE");
                 setAudioDucking(false);
                 hideInterruptPill();
+                vegaRefAudio = null;
             };
 
-            vegaRefAudio.onerror = () => {
+            vegaRefAudio.onerror = (err) => {
+                console.warn("[audio] Reference recording playback error:", err);
                 clearInterval(visemeInterval);
                 setAvatarSignal("IDLE");
                 setAudioDucking(false);
-                speakText("Sarembok is an independent AI engine and runtime system designed as an Unreal Engine project architecture.");
+                hideInterruptPill();
+                showToast("Could not load reference audio file. Tap page to unlock media permissions.");
             };
 
-            vegaRefAudio.play().catch(() => {
-                speakText("Sarembok is an independent AI engine and runtime system designed as an Unreal Engine project architecture.");
+            vegaRefAudio.play().catch(err => {
+                console.warn("[audio] Reference audio play catch:", err);
+                clearInterval(visemeInterval);
+                setAvatarSignal("IDLE");
+                setAudioDucking(false);
+                hideInterruptPill();
+                showToast("Autoplay blocked. Tap page first to allow audio playback.");
             });
         }
 
@@ -7883,24 +7922,24 @@
             let greeting = "Greetings. I am Ada, the embodied digital intelligence of Sarembok VE. Sovereign neural architecture online.";
             if (profile.includes("vega")) {
                 greeting = "Sarembok is an independent AI engine and runtime system designed as an Unreal Engine project architecture. It is connected directly to a Git repository for development control.";
-                showToast("TESTING AUDIO: Playing Vega (Calibrated to Shimmer)...");
+                showToast("TESTING NEURAL AUDIO: Playing Vega (Ava Neural)...");
             } else if (profile.includes("ada")) {
                 greeting = "Greetings. I am Ada, the embodied digital intelligence of Sarembok VE. Sovereign British neural matrix online.";
-                showToast("TESTING AUDIO: Playing Ada v1 voice...");
+                showToast("TESTING NEURAL AUDIO: Playing Ada v1 (Sonia Neural)...");
             } else if (profile.includes("aoede")) {
                 greeting = "Greetings. This is Gemini Aoede, operating in warm studio resonance mode.";
-                showToast("TESTING AUDIO: Playing Gemini Aoede voice...");
+                showToast("TESTING NEURAL AUDIO: Playing Gemini Aoede voice...");
             } else if (profile.includes("kore")) {
                 greeting = "Hello there. This is Gemini Kore, running soft conversational audio.";
-                showToast("TESTING AUDIO: Playing Gemini Kore voice...");
+                showToast("TESTING NEURAL AUDIO: Playing Gemini Kore voice...");
             } else if (profile.includes("onyx") || profile.includes("us")) {
                 greeting = "Sarembok VE operating system online. Onyx masculine neural voice profile engaged.";
-                showToast("TESTING AUDIO: Playing Onyx voice...");
+                showToast("TESTING NEURAL AUDIO: Playing Onyx voice...");
             } else if (profile.includes("synth")) {
                 greeting = "Sovereign cybernetic synthesizer core active. Direct neural link verified.";
                 showToast("TESTING AUDIO: Playing Synthesizer voice...");
             } else {
-                showToast("TESTING AUDIO: Playing voice response...");
+                showToast("TESTING NEURAL AUDIO: Playing voice response...");
             }
             speakText(greeting);
         }
@@ -9264,10 +9303,18 @@
             currentAssistantSpokenText = "";
             clearTimeout(liveSilenceTimer);
             liveTranscriptBuffer = "";
+            if (vegaRefAudio) {
+                try { vegaRefAudio.pause(); vegaRefAudio.currentTime = 0; } catch (e) {}
+                vegaRefAudio = null;
+            }
+            if (activeNeuralAudio) {
+                try { activeNeuralAudio.pause(); activeNeuralAudio.currentTime = 0; } catch (e) {}
+                activeNeuralAudio = null;
+            }
             if (window.speechSynthesis) {
                 window.speechSynthesis.cancel();
-            setAudioDucking(false);
             }
+            setAudioDucking(false);
             isSpeakingTurn = false;
             isWaitingForAIResponse = false;
             lastSpeechEndTime = Date.now();
@@ -9456,20 +9503,9 @@
             setAudioDucking(true);
             showInterruptPill();
 
-            const utterance = new SpeechSynthesisUtterance(clean);
-            const resolved = getResolvedVoiceProfile();
-            if (resolved && resolved.voice) {
-                utterance.voice = resolved.voice;
-            }
-            utterance.volume = 1.0;
-            utterance.pitch = (resolved && resolved.pitch !== undefined) ? resolved.pitch : 1.0;
-            utterance.rate = (resolved && resolved.rate !== undefined) ? resolved.rate : 1.0;
-
-            utterance.onboundary = () => {
-                triggerSpeechViseme();
-            };
-
+            let visemeInterval = null;
             const finishSpeaking = () => {
+                if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
                 isSpeakingTurn = false;
                 currentAssistantSpokenText = "";
                 lastSpeechEndTime = Date.now();
@@ -9479,6 +9515,7 @@
                 updateMorphMeters();
                 hideInterruptPill();
                 window._activeSpeechUtterance = null;
+                activeNeuralAudio = null;
 
                 if (typeof onCompleteCallback === "function") {
                     onCompleteCallback();
@@ -9494,28 +9531,66 @@
                     resumeRecognitionAfterSpeech(600);
                 } else if (!liveConversationActive) {
                     setAvatarSignal("IDLE");
-                setAudioDucking(false);
+                    setAudioDucking(false);
                 }
             };
 
-            utterance.onend = finishSpeaking;
-            utterance.onerror = finishSpeaking;
+            const fallbackBrowserTTS = () => {
+                if (!window.speechSynthesis) { finishSpeaking(); return; }
+                const utterance = new SpeechSynthesisUtterance(clean);
+                const resolved = getResolvedVoiceProfile();
+                if (resolved && resolved.voice) utterance.voice = resolved.voice;
+                utterance.volume = 1.0;
+                utterance.pitch = (resolved && resolved.pitch !== undefined) ? resolved.pitch : 1.0;
+                utterance.rate = (resolved && resolved.rate !== undefined) ? resolved.rate : 1.0;
 
-            // Retain reference on window to prevent Chrome V8 garbage collection during playback
-            window._activeSpeechUtterance = utterance;
+                utterance.onboundary = () => { triggerSpeechViseme(); };
+                utterance.onend = finishSpeaking;
+                utterance.onerror = finishSpeaking;
+                window._activeSpeechUtterance = utterance;
 
-            try {
-                window.speechSynthesis.resume();
-                window.speechSynthesis.speak(utterance);
-                setTimeout(() => {
-                    if (window.speechSynthesis && window.speechSynthesis.paused) {
-                        window.speechSynthesis.resume();
-                    }
-                }, 60);
-            } catch (err) {
-                console.warn("[duplex] speak error:", err);
-                finishSpeaking();
-            }
+                try {
+                    window.speechSynthesis.resume();
+                    window.speechSynthesis.speak(utterance);
+                    setTimeout(() => {
+                        if (window.speechSynthesis && window.speechSynthesis.paused) {
+                            window.speechSynthesis.resume();
+                        }
+                    }, 60);
+                } catch (err) {
+                    console.warn("[duplex] browser speech error:", err);
+                    finishSpeaking();
+                }
+            };
+
+            // Stream authentic neural audio from backend /api/tts endpoint
+            const profile = (selectedVoiceLang || "gemini-vega");
+            const ttsEndpoint = `/api/tts?text=${encodeURIComponent(clean)}&voice=${encodeURIComponent(profile)}`;
+
+            const audio = new Audio(ttsEndpoint);
+            activeNeuralAudio = audio;
+
+            audio.onplay = () => {
+                visemeInterval = setInterval(() => {
+                    triggerSpeechViseme();
+                }, 160);
+            };
+
+            audio.onended = finishSpeaking;
+
+            audio.onerror = () => {
+                console.info("[duplex] Neural audio unavailable, falling back to browser synthesis.");
+                activeNeuralAudio = null;
+                if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
+                fallbackBrowserTTS();
+            };
+
+            audio.play().catch(err => {
+                console.warn("[duplex] Audio playback blocked/failed, falling back:", err);
+                activeNeuralAudio = null;
+                if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
+                fallbackBrowserTTS();
+            });
         }
 
         // Global hotkey interruption listener (Escape or Spacebar outside input)
