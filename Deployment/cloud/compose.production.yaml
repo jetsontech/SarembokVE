@@ -36,6 +36,8 @@ services:
       - ./capability_registry.py:/app/capability_registry.py:ro
       - ./provider_router.py:/app/provider_router.py:ro
       - ./skills_engine.py:/app/skills_engine.py:ro
+      - ./mcp_client.py:/app/mcp_client.py:ro
+      - ./mcp_servers.json:/app/mcp_servers.json:ro
       - ./mcp_gateway.py:/app/mcp_gateway.py:ro
       - ./skills:/app/skills:ro
       - ../../frontend:/app/frontend:ro
