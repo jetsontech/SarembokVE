@@ -35,6 +35,9 @@ services:
       - ./runtime_authority.py:/app/runtime_authority.py:ro
       - ./capability_registry.py:/app/capability_registry.py:ro
       - ./provider_router.py:/app/provider_router.py:ro
+      - ./skills_engine.py:/app/skills_engine.py:ro
+      - ./mcp_gateway.py:/app/mcp_gateway.py:ro
+      - ./skills:/app/skills:ro
       - ../../frontend:/app/frontend:ro
 
   sarembok-browser:

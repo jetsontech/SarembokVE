@@ -44,6 +44,7 @@ from Deployment.cloud.server import (
     WORKER_OFFLINE_TIMEOUT_SECONDS,
     dispatch,
     evaluate_worker_liveness,
+    prune_stale_workers,
     select_worker,
     store,
     validate_worker_lifecycle_config,
@@ -294,6 +295,37 @@ class TestWorkerLifecycle(unittest.TestCase):
             validate_worker_lifecycle_config(heartbeat_timeout=60, offline_timeout=30, interval=15)
         with self.assertRaises(ValueError):
             validate_worker_lifecycle_config(heartbeat_timeout=60, offline_timeout=180, interval=0)
+
+    def test_16_prune_stale_workers(self) -> None:
+        now_utc = datetime.now(timezone.utc)
+        fresh_stamp = (now_utc - timedelta(seconds=10)).isoformat()
+        old_offline_stamp = (now_utc - timedelta(seconds=7200)).isoformat()
+
+        # Insert 1 active online worker, 1 dead offline worker older than 1h
+        store.db.execute(
+            "INSERT INTO workers (worker_id, capabilities, gpu_vendor, gpu_model, vram_mb, status, last_heartbeat, active_tasks) VALUES (?,?,?,?,?,?,?,?)",
+            ("sovereign-live", '["gpu"]', "NVIDIA", "A100", 81920, "ONLINE", fresh_stamp, 0),
+        )
+        store.db.execute(
+            "INSERT INTO workers (worker_id, capabilities, gpu_vendor, gpu_model, vram_mb, status, last_heartbeat, active_tasks) VALUES (?,?,?,?,?,?,?,?)",
+            ("dead-worker-1", '["inference"]', "None", "None", 0, "OFFLINE", old_offline_stamp, 0),
+        )
+        store.db.commit()
+
+        # Prune with 3600s cutoff
+        pruned = prune_stale_workers(max_offline_age_seconds=3600, now_dt=now_utc)
+        self.assertEqual(pruned, 1)
+
+        # Verify dead worker is gone and live worker remains
+        remaining = store.db.execute("SELECT worker_id FROM workers").fetchall()
+        self.assertEqual(len(remaining), 1)
+        self.assertEqual(remaining[0][0], "sovereign-live")
+
+        # Test PruneWorkers RPC
+        res = dispatch("PruneWorkers", {"force": True})
+        self.assertEqual(res["pruned"], 0)
+        self.assertEqual(res["remaining"]["onlineWorkers"], 1)
+        self.assertEqual(res["remaining"]["registeredWorkers"], 1)
 
 
 if __name__ == "__main__":

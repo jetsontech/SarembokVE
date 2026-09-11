@@ -22,6 +22,7 @@ RPC_CAPABILITIES = {
     'RegisterWorker': ('compute', 'Register a compute worker.'),
     'ListWorkers': ('compute', 'List registered workers and their liveness.'),
     'Heartbeat': ('compute', 'Update a worker heartbeat.'),
+    'PruneWorkers': ('compute', 'Prune dead or offline compute workers from the registry.'),
     'CreateTask': ('scheduler', 'Create a scheduled compute task.'),
     'ScheduleCompute': ('scheduler', 'Schedule a compute task on eligible workers.'),
     'ListTasks': ('scheduler', 'List queued, running, or completed compute tasks.'),

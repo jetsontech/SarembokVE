@@ -435,9 +435,31 @@ def is_self_state_query(prompt: str) -> bool:
         "model availability",
         "available models",
         "configured models",
+        "prune workers",
+        "cleanup workers",
+        "clean workers",
+        "clear offline workers",
+        "prune offline workers",
     )
 
     return any(marker in text for marker in markers)
+
+
+def is_worker_prune_query(prompt: str) -> bool:
+    """Identify commands to prune offline or zombie compute workers."""
+    norm = _normalize_prompt_intent(prompt)
+    prune_markers = (
+        "prune workers",
+        "prune worker",
+        "cleanup workers",
+        "clean workers",
+        "clear offline workers",
+        "prune offline workers",
+        "purge offline workers",
+        "reset workers",
+        "reset worker registry",
+    )
+    return any(m in norm for m in prune_markers)
 
 
 def render_identity(snapshot: dict[str, Any]) -> str:
@@ -455,11 +477,21 @@ def render_identity(snapshot: dict[str, Any]) -> str:
 
     provider_text = ", ".join(provider_names) if provider_names else "none"
 
+    workers_online = workers.get("online", 0)
+    workers_reg = workers.get("registered", 0)
+    workers_stale = workers.get("stale", 0)
+    workers_offline = workers.get("offline", 0)
+
+    if workers_reg <= workers_online:
+        worker_summary = f"Active compute cluster: **{workers_online} online worker{'s' if workers_online != 1 else ''}** (sovereign GPU tensor nodes), and **{agents.get('registered', 0)} registered agents**."
+    else:
+        worker_summary = f"Active compute cluster: **{workers_online} online worker{'s' if workers_online != 1 else ''}** ({workers_reg} registered slots: {workers_stale} stale, {workers_offline} offline), and **{agents.get('registered', 0)} registered agents**."
+
     return "\n".join([
         "I am Sarembok VE, the Sarembok computing environment and AI runtime.",
         "",
         f"The live runtime is **{runtime.get('status', 'UNKNOWN')}** on `{runtime.get('service', 'unknown')}`.",
-        f"It currently has **{workers.get('online', 0)} online workers** out of {workers.get('registered', 0)} registered, and **{agents.get('registered', 0)} registered agents**.",
+        worker_summary,
         f"Persistent memory is **{memory.get('status', 'UNKNOWN')}** using `{memory.get('backend', 'unknown')}`, with **{memory.get('entries', 0)} stored entries**.",
         f"Online GPU workers: **{compute.get('onlineGpuWorkers', 0)}**. Runtime capabilities: `{', '.join(compute.get('onlineWorkerCapabilities') or []) or 'none'}`.",
         f"Configured model providers: **{provider_text}**.",

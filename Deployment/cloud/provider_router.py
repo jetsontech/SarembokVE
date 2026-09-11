@@ -231,7 +231,25 @@ class ProviderRouter:
             headers.update({'HTTP-Referer': 'https://sarembok.com', 'X-Title': 'Sarembok VE'})
         return headers
 
-    def _openai_payload(self, spec: ProviderSpec, messages: list[dict[str, str]], streaming: bool = False, system_prompt: str = '', prompt: str = '') -> dict[str, Any]:
+    @staticmethod
+    def _extract_openai(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        choices = payload.get('choices') or []
+        if not choices:
+            raise RuntimeError('OpenAI-compatible provider returned no choices')
+        message = choices[0].get('message') or {}
+        content = message.get('content') or ''
+        usage = payload.get('usage') or {}
+        return content.strip(), usage
+
+    def _openai_payload(
+        self,
+        spec: ProviderSpec,
+        messages: list[dict[str, str]],
+        streaming: bool = False,
+        system_prompt: str = '',
+        prompt: str = '',
+        tools: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         normalized_messages: list[dict[str, str]] = []
         if messages:
             normalized_messages = list(messages)
@@ -254,11 +272,10 @@ class ProviderRouter:
         }
         if streaming:
             data['stream'] = True
+        if tools:
+            data['tools'] = tools
+            data['tool_choice'] = 'auto'
         if spec.name == 'OpenRouter':
-            # gpt-oss-120b is a reasoning model. Keep reasoning internal and
-            # bound its effort so interactive Sarembok requests reach visible
-            # assistant content promptly. OpenRouter documents reasoning.effort
-            # for this model; reasoning is never forwarded to the client.
             data['reasoning'] = {
                 'effort': self.openrouter_reasoning,
                 'exclude': True,
