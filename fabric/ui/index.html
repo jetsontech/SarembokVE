@@ -1755,6 +1755,12 @@
             box-shadow: 0 0 20px var(--cyan-glow);
             transform: translateY(-1px);
         }
+        .exec-btn-mobile {
+            display: none;
+        }
+        .exec-btn-desktop {
+            display: inline;
+        }
 
         /* ==================== 3. RESEARCH & BROWSER VIEW ==================== */
         .browser-tool-card {
@@ -2045,24 +2051,44 @@
             }
 
             .header-hud-group {
-                gap: 6px;
-                font-size: 10px;
-                overflow-x: visible;
-                flex-wrap: nowrap;
-                align-items: center;
+                gap: 6px !important;
+                overflow: visible !important;
+                flex-wrap: nowrap !important;
+                align-items: center !important;
             }
             .header-hud-group::-webkit-scrollbar {
                 display: none;
             }
-            .hud-voice-btn {
-                flex-shrink: 0;
-                white-space: nowrap;
-                font-size: 10px;
-                padding: 6px 10px;
-                height: 32px;
-                display: inline-flex;
-                align-items: center;
-                gap: 5px;
+
+            /* Clean square touch targets for mobile header buttons */
+            #hud-new-chat-btn,
+            #hud-voice-toggle,
+            #hud-auth-btn,
+            #hud-history-drawer-btn {
+                padding: 0 6px !important;
+                height: 34px !important;
+                min-width: 34px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                border-radius: 8px !important;
+                font-size: 11px !important;
+                flex-shrink: 0 !important;
+            }
+
+            /* Hide verbose labels on mobile so buttons stay compact icons */
+            #hud-new-chat-btn span,
+            #hud-voice-label,
+            #hud-history-drawer-btn span {
+                display: none !important;
+            }
+
+            #hud-auth-label {
+                font-size: 10px !important;
+                max-width: 55px !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                white-space: nowrap !important;
             }
 
             /* Hide secondary desktop buttons on mobile to keep header clean and non-scrolling */
@@ -2092,13 +2118,16 @@
             }
 
             #view-dialogue {
-                padding: 4px 6px !important;
+                padding: 0 !important;
+                margin: 0 !important;
                 flex: 1 !important;
                 min-height: 0 !important;
                 height: 100% !important;
                 max-height: 100% !important;
                 overflow: hidden !important;
                 box-sizing: border-box !important;
+                width: 100vw !important;
+                max-width: 100vw !important;
             }
 
             /* 5. Cyber Deck cards */
@@ -2194,7 +2223,8 @@
 
             /* 6. Dialogue View Mobile Scaling */
             .dialogue-wrap {
-                border-radius: 10px;
+                border-radius: 0 !important;
+                border: none !important;
                 flex: 1 !important;
                 min-height: 0 !important;
                 height: 100% !important;
@@ -2204,14 +2234,15 @@
                 overflow: hidden !important;
                 box-sizing: border-box !important;
                 margin: 0 !important;
+                width: 100vw !important;
+                max-width: 100vw !important;
             }
 
             .dialogue-head {
-                padding: 4px 8px;
-                flex-shrink: 0;
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
+                padding: 6px 10px !important;
+                background: rgba(3, 7, 18, 0.95) !important;
+                border-bottom: 1px solid rgba(0, 240, 255, 0.15) !important;
+                flex-shrink: 0 !important;
             }
 
             .dialogue-title {
@@ -2221,37 +2252,40 @@
             .dialogue-head > div:last-child {
                 display: flex !important;
                 align-items: center !important;
-                gap: 6px !important;
-                overflow-x: auto !important;
+                justify-content: space-between !important;
+                gap: 8px !important;
+                width: 100% !important;
+                overflow-x: hidden !important;
                 white-space: nowrap !important;
                 flex-wrap: nowrap !important;
-                -webkit-overflow-scrolling: touch;
-                padding-bottom: 2px;
-            }
-            .dialogue-head > div:last-child::-webkit-scrollbar {
-                display: none;
             }
 
+            #active-language-select,
+            #admin-exec-btn,
+            #dialogue-voice-toggle-chip,
             #dialogue-gpu-badge,
             #dialogue-status-tag {
                 display: none !important;
             }
 
-            .cyber-select {
-                padding: 3px 6px;
-                font-size: 11px;
-                height: 28px;
-                max-width: 140px;
+            #active-model-select {
+                max-width: 175px !important;
+                flex: 1 !important;
+                height: 32px !important;
+                font-size: 11px !important;
+                padding: 4px 8px !important;
+                border-radius: 8px !important;
+                background: rgba(0, 0, 0, 0.6) !important;
+                border: 1px solid rgba(0, 240, 255, 0.3) !important;
+                color: #fff !important;
             }
 
-            .admin-exec-toggle-btn,
-            .dialogue-voice-chip,
-            .live-conv-toggle-btn {
-                padding: 3px 8px;
-                font-size: 10px;
-                height: 28px;
-                white-space: nowrap;
-                flex-shrink: 0;
+            #live-conv-btn {
+                height: 32px !important;
+                font-size: 10.5px !important;
+                padding: 4px 10px !important;
+                border-radius: 8px !important;
+                flex-shrink: 0 !important;
             }
 
             #live-audio-notice {
@@ -2276,55 +2310,104 @@
             }
 
             .srbk-bubble {
-                padding: 8px 12px;
-                font-size: 13px;
-                line-height: 1.45;
-                border-radius: 8px;
+                padding: 10px 14px;
+                font-size: 14px;
+                line-height: 1.5;
+                border-radius: 12px;
+                max-width: 92% !important;
+                overflow-wrap: anywhere !important;
+                word-break: break-word !important;
+                box-sizing: border-box !important;
+            }
+
+            .srbk-bubble-user {
+                max-width: 88% !important;
+                border-radius: 14px 14px 3px 14px !important;
+            }
+
+            .srbk-bubble-assistant {
+                max-width: 95% !important;
+                border-radius: 14px 14px 14px 3px !important;
             }
 
             .srbk-bubble-sender {
                 font-size: 8.5px;
-                margin-bottom: 3px;
+                margin-bottom: 4px;
             }
 
+            /* MOBILE INPUT BAR: EXPANSIVE FULL-WIDTH INPUT */
             .dialogue-input-bar {
-                flex-shrink: 0;
-                padding: 6px 8px;
-                gap: 6px;
-                background: rgba(3, 6, 16, 0.98);
-                border-top: 1px solid rgba(0, 240, 255, 0.25);
-                display: flex;
-                align-items: center;
-                z-index: 50;
+                flex-shrink: 0 !important;
+                padding: 8px 10px !important;
+                gap: 8px !important;
+                background: rgba(3, 6, 16, 0.98) !important;
+                border-top: 1px solid rgba(0, 240, 255, 0.25) !important;
+                display: flex !important;
+                align-items: center !important;
+                z-index: 50 !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
             }
 
             .dialogue-mic-btn {
-                width: 36px;
-                height: 36px;
-                flex-shrink: 0;
-                border-radius: 8px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 0;
+                width: 42px !important;
+                height: 42px !important;
+                flex-shrink: 0 !important;
+                border-radius: 10px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                padding: 0 !important;
+                background: rgba(0, 240, 255, 0.1) !important;
+                border: 1px solid rgba(0, 240, 255, 0.35) !important;
+                color: var(--cyan) !important;
             }
 
             .dialogue-input {
-                flex: 1;
-                min-width: 0;
-                height: 38px;
-                padding: 6px 10px;
-                font-size: 15px !important;
-                border-radius: 8px;
-                color: #fff;
+                flex: 1 !important;
+                min-width: 0 !important;
+                width: 100% !important;
+                height: 44px !important;
+                padding: 8px 14px !important;
+                font-size: 16px !important; /* Prevents iOS auto-zoom & guarantees full word visibility */
+                border-radius: 10px !important;
+                color: #ffffff !important;
+                background: rgba(0, 0, 0, 0.75) !important;
+                border: 1px solid rgba(0, 240, 255, 0.3) !important;
+                box-sizing: border-box !important;
+            }
+            .dialogue-input:focus {
+                border-color: var(--cyan) !important;
+                box-shadow: 0 0 12px rgba(0, 240, 255, 0.3) !important;
             }
 
             .dialogue-exec-btn {
-                height: 38px;
-                padding: 0 14px;
-                font-size: 11px;
-                flex-shrink: 0;
-                border-radius: 8px;
+                width: 44px !important;
+                height: 44px !important;
+                padding: 0 !important;
+                flex-shrink: 0 !important;
+                border-radius: 10px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: var(--cyan) !important;
+                color: #000 !important;
+                border: none !important;
+            }
+
+            .exec-btn-desktop {
+                display: none !important;
+            }
+            .exec-btn-mobile {
+                display: inline-block !important;
+            }
+
+            /* Hide desktop buttons from mobile input bar to prevent input from collapsing into a tiny box */
+            #dialogue-camera-btn,
+            #dialogue-screen-btn,
+            #execute-bg-button {
+                display: none !important;
             }
 
             .srbk-response-grid {
@@ -3618,7 +3701,10 @@
             padding: 10px 8px !important;
         }
         body.mode-simple #admin-exec-btn,
-        body.mode-simple #active-language-select {
+        body.mode-simple #active-language-select,
+        body.mode-simple #dialogue-voice-toggle-chip,
+        body.mode-simple #dialogue-gpu-badge,
+        body.mode-simple #dialogue-status-tag {
             display: none !important;
         }
         body.mode-simple .dialogue-history {
@@ -3653,7 +3739,7 @@
         }
         body.mode-simple .dialogue-input {
             padding: 10px 16px !important;
-            font-size: 15px !important;
+            font-size: 16px !important;
             color: #ffffff !important;
             font-family: var(--font-sans) !important;
         }
@@ -5074,8 +5160,11 @@
                     <button class="dialogue-mic-btn" id="dialogue-screen-btn" onclick="toggleAstraScreenShare()" title="Astra Screen Eye (Share screen/tab with AI)" style="background:transparent; color:var(--cyan); border-color:rgba(0,240,255,0.3);">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                     </button>
-                    <input type="text" class="dialogue-input" id="directive-input" placeholder="Instruct Sarembok, tap mic, or type /bg for background tasks..." onfocus="if(window.speechSynthesis&&window.speechSynthesis.speaking)interruptSpeech()" onkeydown="if(event.key==='Enter') sendDirective(false)">
-                    <button class="dialogue-exec-btn" id="execute-button" onclick="sendDirective(false)" title="Execute directive in active chat">EXECUTE</button>
+                    <input type="text" class="dialogue-input" id="directive-input" placeholder="Message Vega or tap mic..." onfocus="if(window.speechSynthesis&&window.speechSynthesis.speaking)interruptSpeech()" onkeydown="if(event.key==='Enter') sendDirective(false)">
+                    <button class="dialogue-exec-btn" id="execute-button" onclick="sendDirective(false)" title="Send message to Vega">
+                        <span class="exec-btn-desktop">EXECUTE</span>
+                        <svg class="exec-btn-mobile" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
                     <button class="dialogue-exec-btn" id="execute-bg-button" onclick="sendDirective(true)" title="Run as background task (Doesn't block conversation)" style="background:rgba(0,240,255,0.12); border-color:var(--cyan); color:var(--cyan); margin-left:4px; padding:0 12px;">⚡ BG</button>
                 </div>
             </div>
