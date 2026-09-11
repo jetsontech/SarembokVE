@@ -98,6 +98,12 @@ BROWSER_ALLOWED_METHODS = {
     "CancelActiveStream",
     "SpatialVisualRecall",
     "PruneWorkers",
+    "AuthenticateMaster",
+    "AuthenticateSocialUser",
+    "GetCurrentUser",
+    "ListUserChatSessions",
+    "SaveUserChatSession",
+    "DeleteUserChatSession",
 }
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
@@ -113,6 +119,7 @@ LOG = logging.getLogger("sarembok.cloud")
 ADMIN_PASSCODE = os.getenv("SAREMBOK_ADMIN_PASSCODE", "").strip() or "joc"
 ADMIN_ALLOWED_PASSCODES = {ADMIN_PASSCODE, "joc", "sarembok2026", os.getenv("SAREMBOK_AUTH_TOKEN", "").strip()} - {""}
 ADMIN_TOKENS: set[str] = set()
+USER_SESSIONS: dict[str, dict[str, Any]] = {}
 
 
 import base64
@@ -290,12 +297,25 @@ class CloudStore:
             CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at);
             CREATE TABLE IF NOT EXISTS chat_sessions (
                 session_id TEXT PRIMARY KEY,
+                user_id TEXT DEFAULT 'anonymous',
                 title TEXT,
                 messages_json TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id);
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                email TEXT UNIQUE,
+                name TEXT,
+                avatar_url TEXT,
+                auth_provider TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'user',
+                created_at TEXT NOT NULL,
+                last_login_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
             """
         )
         self.db.commit()
@@ -304,6 +324,11 @@ class CloudStore:
         columns = [row[1] for row in self.db.execute("PRAGMA table_info(tasks)").fetchall()]
         if columns and "required_capability" not in columns:
             self.db.execute("ALTER TABLE tasks ADD COLUMN required_capability TEXT NOT NULL DEFAULT 'compute'")
+            self.db.commit()
+
+        chat_cols = [row[1] for row in self.db.execute("PRAGMA table_info(chat_sessions)").fetchall()]
+        if chat_cols and "user_id" not in chat_cols:
+            self.db.execute("ALTER TABLE chat_sessions ADD COLUMN user_id TEXT DEFAULT 'anonymous'")
             self.db.commit()
 
     def create_agent(self, agent_id: str, display_name: str) -> dict[str, Any]:
@@ -3313,7 +3338,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         return {"success": True, "query": query_text, "observations": obs, "count": len(obs)}
 
 
-    if method == "VerifyAdminPasscode":
+    if method in ("VerifyAdminPasscode", "AuthenticateMaster"):
         passcode = str(params.get("passcode", "")).strip()
         if not passcode:
             return {"success": False, "error": "passcode_required"}
@@ -3321,8 +3346,126 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         if any(hmac.compare_digest(passcode, valid_p) for valid_p in ADMIN_ALLOWED_PASSCODES):
             token = f"adm-{uuid.uuid4().hex}"
             ADMIN_TOKENS.add(token)
-            return {"success": True, "adminToken": token}
+            user = {
+                "id": "master-developer",
+                "email": "developer@sarembok.com",
+                "name": "Sovereign Master",
+                "role": "admin",
+                "provider": "master",
+                "avatarUrl": ""
+            }
+            USER_SESSIONS[token] = {**user, "token": token, "expires": time.time() + 86400 * 7}
+            return {"success": True, "adminToken": token, "token": token, "user": user}
         return {"success": False, "error": "invalid_passcode"}
+
+    if method == "AuthenticateSocialUser":
+        provider = str(params.get("provider", "guest")).lower().strip()
+        email = str(params.get("email", "")).strip().lower()
+        name = str(params.get("name", "")).strip()
+        avatar_url = str(params.get("avatarUrl", "")).strip()
+
+        if provider == "guest":
+            user_id = f"guest-{uuid.uuid4().hex[:8]}"
+            if not name:
+                name = "Guest Explorer"
+            email = f"{user_id}@guest.sarembok.com"
+        else:
+            if not email:
+                email = f"user-{uuid.uuid4().hex[:8]}@{provider}.sarembok.com"
+            import hashlib
+            user_id = f"usr-{hashlib.sha256(email.encode('utf-8')).hexdigest()[:12]}"
+            if not name:
+                name = email.split("@")[0].capitalize()
+
+        stamp = now()
+        try:
+            store.db.execute(
+                "INSERT INTO users(id, email, name, avatar_url, auth_provider, role, created_at, last_login_at) "
+                "VALUES(?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(id) DO UPDATE SET last_login_at=excluded.last_login_at, name=COALESCE(excluded.name, users.name), avatar_url=COALESCE(excluded.avatar_url, users.avatar_url)",
+                (user_id, email, name, avatar_url, provider, "user", stamp, stamp)
+            )
+            store.db.commit()
+        except Exception as exc:
+            LOG.warning("Failed to persist user in SQLite: %s", exc)
+
+        session_token = f"usr-{uuid.uuid4().hex}"
+        user = {
+            "id": user_id,
+            "email": email,
+            "name": name,
+            "avatarUrl": avatar_url,
+            "role": "user",
+            "provider": provider
+        }
+        USER_SESSIONS[session_token] = {**user, "token": session_token, "expires": time.time() + 86400 * 30}
+        return {"success": True, "token": session_token, "user": user}
+
+    if method == "GetCurrentUser":
+        token = str(params.get("token", "") or params.get("sessionToken", "")).strip()
+        user_sess = USER_SESSIONS.get(token)
+        if user_sess:
+            return {"success": True, "user": user_sess}
+        if token in ADMIN_TOKENS:
+            admin_user = {
+                "id": "master-developer",
+                "email": "developer@sarembok.com",
+                "name": "Sovereign Master",
+                "role": "admin",
+                "provider": "master",
+                "avatarUrl": ""
+            }
+            return {"success": True, "user": admin_user}
+        return {"success": False, "error": "unauthenticated"}
+
+    if method == "ListUserChatSessions":
+        token = str(params.get("token", "") or params.get("sessionToken", "")).strip()
+        user_sess = USER_SESSIONS.get(token)
+        is_admin = (token in ADMIN_TOKENS) or (user_sess and user_sess.get("role") == "admin")
+        user_id = user_sess.get("id", "anonymous") if user_sess else "anonymous"
+
+        try:
+            if is_admin:
+                rows = store.db.execute("SELECT session_id, user_id, title, created_at, updated_at FROM chat_sessions ORDER BY updated_at DESC LIMIT 60").fetchall()
+            else:
+                rows = store.db.execute("SELECT session_id, user_id, title, created_at, updated_at FROM chat_sessions WHERE user_id = ? ORDER BY updated_at DESC LIMIT 60", (user_id,)).fetchall()
+            sessions = [{"session_id": r[0], "user_id": r[1], "title": r[2], "created_at": r[3], "updated_at": r[4]} for r in rows]
+            return {"success": True, "sessions": sessions}
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+
+    if method == "SaveUserChatSession":
+        token = str(params.get("token", "") or params.get("sessionToken", "")).strip()
+        user_sess = USER_SESSIONS.get(token)
+        user_id = user_sess.get("id", "anonymous") if user_sess else "anonymous"
+        session_id = str(params.get("sessionId", "")).strip()
+        title = str(params.get("title", "Conversation")).strip()
+        messages = params.get("messages", [])
+        if not session_id:
+            return {"success": False, "error": "session_id_required"}
+        stamp = now()
+        try:
+            store.db.execute(
+                "INSERT INTO chat_sessions(session_id, user_id, title, messages_json, created_at, updated_at) "
+                "VALUES(?,?,?,?,?,?) "
+                "ON CONFLICT(session_id) DO UPDATE SET title=excluded.title, messages_json=excluded.messages_json, updated_at=excluded.updated_at",
+                (session_id, user_id, title, json.dumps(messages), stamp, stamp)
+            )
+            store.db.commit()
+            return {"success": True, "sessionId": session_id}
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+
+    if method == "DeleteUserChatSession":
+        session_id = str(params.get("sessionId", "")).strip()
+        if not session_id:
+            return {"success": False, "error": "session_id_required"}
+        try:
+            store.db.execute("DELETE FROM chat_sessions WHERE session_id = ?", (session_id,))
+            store.db.commit()
+            return {"success": True, "sessionId": session_id}
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
 
     if method == "GetAdminStatus":
         w_stats = get_worker_status_counts()
