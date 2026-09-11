@@ -1884,6 +1884,7 @@ def sarembok_process_dialogue(
     conv_history = list(reversed(conv_rows))
 
     # Runtime Authority is the source of truth for live Sarembok platform state
+    ensure_sovereign_worker()
     authority_snapshot = runtime_authority_snapshot(
         store,
         PROVIDER_ROUTER,
