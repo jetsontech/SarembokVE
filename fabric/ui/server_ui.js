@@ -2,6 +2,23 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+const { execFile } = require('child_process');
+const crypto = require('crypto');
+
+// Supported static audio/asset extensions
+const MIME_TYPES = {
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.ogg': 'audio/ogg',
+    '.m4a': 'audio/mp4',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.svg': 'image/svg+xml',
+    '.json': 'application/json',
+    '.js': 'text/javascript',
+    '.css': 'text/css'
+};
+
 // Zero-dependency SQLite interface: Use better-sqlite3 if present, otherwise native node:sqlite DatabaseSync
 let Database;
 try {
@@ -148,7 +165,119 @@ const server = http.createServer((req, res) => {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: e.message }));
         }
+    } else if (req.url.startsWith('/api/tts')) {
+        try {
+            const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost:3000'}`);
+            const text = (parsedUrl.searchParams.get('text') || '').trim();
+            const voiceParam = (parsedUrl.searchParams.get('voice') || 'Vega').toLowerCase();
+            if (!text) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing text parameter.' }));
+                return;
+            }
+
+            // Empirical voice fidelity mapping: Ava is closest match to New Recording 61 (OpenAI Shimmer)
+            let neuralVoice = 'en-US-AvaNeural';
+            if (voiceParam.includes('ada') || voiceParam.includes('gb') || voiceParam.includes('british')) {
+                neuralVoice = 'en-GB-SoniaNeural';
+            } else if (voiceParam.includes('aoede')) {
+                neuralVoice = 'en-US-JennyNeural';
+            } else if (voiceParam.includes('kore')) {
+                neuralVoice = 'en-US-EmmaNeural';
+            } else if (voiceParam.includes('puck')) {
+                neuralVoice = 'en-US-BrianNeural';
+            } else if (voiceParam.includes('fenrir')) {
+                neuralVoice = 'en-US-GuyNeural';
+            } else if (voiceParam.includes('jenny')) {
+                neuralVoice = 'en-US-JennyNeural';
+            } else if (voiceParam.includes('aria')) {
+                neuralVoice = 'en-US-AriaNeural';
+            }
+
+            const cacheDir = path.resolve(__dirname, '..', '..', 'frontend', '.audio_cache');
+            if (!fs.existsSync(cacheDir)) {
+                fs.mkdirSync(cacheDir, { recursive: true });
+            }
+
+            const hash = crypto.createHash('md5').update(`${neuralVoice}__${text}`).digest('hex');
+            const cachedFile = path.join(cacheDir, `${hash}.mp3`);
+
+            const sendAudioFile = (filePath) => {
+                const stat = fs.statSync(filePath);
+                res.writeHead(200, {
+                    'Content-Type': 'audio/mpeg',
+                    'Content-Length': stat.size,
+                    'Cache-Control': 'public, max-age=86400',
+                    'Access-Control-Allow-Origin': '*'
+                });
+                fs.createReadStream(filePath).pipe(res);
+            };
+
+            if (fs.existsSync(cachedFile)) {
+                sendAudioFile(cachedFile);
+                return;
+            }
+
+            // Synthesize neural audio using edge_tts
+            const args = ['-m', 'edge_tts', '--voice', neuralVoice, '--text', text, '--write-media', cachedFile];
+            execFile('python', args, { timeout: 15000 }, (err, stdout, stderr) => {
+                if (err || !fs.existsSync(cachedFile)) {
+                    console.error('[TTS] edge-tts error:', err || stderr);
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'TTS generation failed', details: stderr || String(err) }));
+                    return;
+                }
+                sendAudioFile(cachedFile);
+            });
+        } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: e.message }));
+        }
     } else {
+        // Handle static assets (.mp3, .wav, .png, etc.)
+        const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost:3000'}`);
+        const pathname = parsedUrl.pathname;
+        const ext = path.extname(pathname).toLowerCase();
+
+        if (MIME_TYPES[ext]) {
+            const cleanName = path.basename(pathname);
+            const candidatePaths = [
+                path.resolve(__dirname, '..', '..', 'frontend', cleanName),
+                path.resolve(__dirname, cleanName),
+                path.resolve(__dirname, '..', '..', 'frontend', pathname.replace(/^\/+/, ''))
+            ];
+            const targetStatic = candidatePaths.find(p => fs.existsSync(p));
+            if (targetStatic) {
+                const stat = fs.statSync(targetStatic);
+                const range = req.headers.range;
+
+                if (range) {
+                    const parts = range.replace(/bytes=/, "").split("-");
+                    const start = parseInt(parts[0], 10);
+                    const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+                    const chunksize = (end - start) + 1;
+                    const file = fs.createReadStream(targetStatic, { start, end });
+                    res.writeHead(206, {
+                        'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+                        'Accept-Ranges': 'bytes',
+                        'Content-Length': chunksize,
+                        'Content-Type': MIME_TYPES[ext],
+                        'Access-Control-Allow-Origin': '*'
+                    });
+                    file.pipe(res);
+                } else {
+                    res.writeHead(200, {
+                        'Content-Length': stat.size,
+                        'Content-Type': MIME_TYPES[ext],
+                        'Accept-Ranges': 'bytes',
+                        'Access-Control-Allow-Origin': '*'
+                    });
+                    fs.createReadStream(targetStatic).pipe(res);
+                }
+                return;
+            }
+        }
+
         res.writeHead(404);
         res.end('Out of Bounds.');
     }
