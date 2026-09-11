@@ -93,6 +93,11 @@ BROWSER_ALLOWED_METHODS = {
     "GenerateImage",
     "ExecuteComputeTask",
     "GetVisualEngineStatus",
+    "ListMcpServers",
+    "RegisterMcpServer",
+    "CancelActiveStream",
+    "SpatialVisualRecall",
+    "PruneWorkers",
 }
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
@@ -1858,7 +1863,8 @@ def sarembok_process_dialogue(
     model: str | None = None,
     language: str = "en",
     conversational: bool = False,
-    admin: bool = False
+    admin: bool = False,
+    image_frame: str | None = None,
 ) -> dict[str, Any]:
     prompt_clean = (prompt or "").strip()
     prompt_lower = prompt_clean.lower()
@@ -2157,13 +2163,31 @@ def sarembok_process_dialogue(
     provider_api = None
     provider_usage = {}
     try:
-        # Pass requested model into ProviderRouter (Enhancement 2)
-        provider_result = PROVIDER_ROUTER.generate(system_prompt, prompt_clean, messages, requested_model=model)
+        # Pass requested model and multimodal image frame into ProviderRouter
+        provider_result = PROVIDER_ROUTER.generate(
+            system_prompt,
+            prompt_clean,
+            messages,
+            requested_model=model,
+            image_frame=image_frame,
+        )
         source = provider_result.provider
         active_model = provider_result.model
         provider_latency_ms = provider_result.latency_ms
         provider_api = provider_result.api
         provider_usage = provider_result.usage
+
+        if image_frame:
+            try:
+                mem_id = f"mem-spatial-{uuid.uuid4().hex[:8]}"
+                stamp = now()
+                store.db.execute(
+                    "INSERT INTO memories(memory_id, tier, key, value, agent_id, created_at) VALUES(?,?,?,?,?,?)",
+                    (mem_id, "SPATIAL", f"visual_obs_{stamp[:19].replace(':', '-')}", f"Visual perception for: {prompt_clean[:120]}", "sarembok-prime", stamp),
+                )
+                store.db.commit()
+            except Exception as e:
+                LOG.debug("Spatial memory record failed: %s", e)
 
         if _is_model_identity_query(prompt_clean):
             reply = (
@@ -2308,6 +2332,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         req_lang = str(params.get("language", "en")).strip().lower() or "en"
         req_conv = bool(params.get("conversational", False))
         req_admin = bool(params.get("admin", False))
+        req_frame = str(params.get("imageFrame") or params.get("image_frame") or params.get("frame") or "").strip() or None
         if req_admin:
             adm_token = str(params.get("adminToken", "") or params.get("adminSessionToken", "")).strip()
             adm_pass = str(params.get("adminPasscode", "") or params.get("passcode", "")).strip()
@@ -2325,6 +2350,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             language=req_lang,
             conversational=req_conv,
             admin=req_admin,
+            image_frame=req_frame,
         )
         if "structuredResponse" not in res:
             res["structuredResponse"] = build_structured_response(
@@ -3208,6 +3234,60 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         )
         counts = get_worker_status_counts()
         return {"pruned": pruned_cnt, "remaining": counts}
+
+    if method == "ListMcpServers":
+        try:
+            try:
+                from mcp_client import get_mcp_client_manager
+            except ImportError:
+                from Deployment.cloud.mcp_client import get_mcp_client_manager
+            servers = get_mcp_client_manager().list_servers()
+            return {"success": True, "servers": servers, "count": len(servers)}
+        except Exception as exc:
+            return {"success": False, "error": str(exc), "servers": []}
+
+    if method == "RegisterMcpServer":
+        name = str(params.get("name", "")).strip()
+        if not name:
+            raise ValueError("name is required")
+        transport = str(params.get("transport", "http")).strip().lower()
+        url = str(params.get("url", "")).strip()
+        command = str(params.get("command", "")).strip()
+        args = params.get("args") or []
+        try:
+            try:
+                from mcp_client import get_mcp_client_manager
+            except ImportError:
+                from Deployment.cloud.mcp_client import get_mcp_client_manager
+            res = get_mcp_client_manager().register_server(
+                name=name,
+                transport=transport,
+                url=url,
+                command=command,
+                args=args if isinstance(args, list) else [],
+            )
+            return {"success": True, "server": res}
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+
+    if method == "CancelActiveStream":
+        # Barge-in cancellation token
+        return {"cancelled": True, "timestamp": now()}
+
+    if method == "SpatialVisualRecall":
+        query_text = str(params.get("query", "")).strip()
+        limit = min(50, max(1, int(params.get("limit", 10))))
+        sql = "SELECT memory_id, key, value, created_at FROM memories WHERE tier='SPATIAL'"
+        qp: list[Any] = []
+        if query_text:
+            sql += " AND (key LIKE ? OR value LIKE ?)"
+            qp.extend([f"%{query_text}%", f"%{query_text}%"])
+        sql += " ORDER BY created_at DESC LIMIT ?"
+        qp.append(limit)
+        rows = store.db.execute(sql, qp).fetchall()
+        obs = [{"memoryId": r[0], "key": r[1], "observation": r[2], "createdAt": r[3]} for r in rows]
+        return {"success": True, "query": query_text, "observations": obs, "count": len(obs)}
+
 
     if method == "VerifyAdminPasscode":
         passcode = str(params.get("passcode", "")).strip()

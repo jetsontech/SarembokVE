@@ -244,13 +244,14 @@ class ProviderRouter:
     def _openai_payload(
         self,
         spec: ProviderSpec,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         streaming: bool = False,
         system_prompt: str = '',
         prompt: str = '',
         tools: list[dict[str, Any]] | None = None,
+        image_frame: str | None = None,
     ) -> dict[str, Any]:
-        normalized_messages: list[dict[str, str]] = []
+        normalized_messages: list[dict[str, Any]] = []
         if messages:
             normalized_messages = list(messages)
             if system_prompt and (not normalized_messages or normalized_messages[0].get('role') != 'system'):
@@ -259,7 +260,17 @@ class ProviderRouter:
             if system_prompt:
                 normalized_messages.append({'role': 'system', 'content': system_prompt})
             if prompt:
-                normalized_messages.append({'role': 'user', 'content': prompt})
+                if image_frame:
+                    b64_url = image_frame if image_frame.startswith("data:") else f"data:image/jpeg;base64,{image_frame}"
+                    normalized_messages.append({
+                        'role': 'user',
+                        'content': [
+                            {'type': 'text', 'text': prompt},
+                            {'type': 'image_url', 'image_url': {'url': b64_url, 'detail': 'low'}}
+                        ]
+                    })
+                else:
+                    normalized_messages.append({'role': 'user', 'content': prompt})
             elif not normalized_messages:
                 normalized_messages.append({'role': 'user', 'content': 'Hello'})
 
@@ -297,11 +308,19 @@ class ProviderRouter:
             raise TimeoutError(f'{spec.name} transient HTTP {exc.code}; deadline exceeded')
         time.sleep(delay)
 
-    def _request(self, spec: ProviderSpec, system_prompt: str, prompt: str, messages: list[dict[str, str]], deadline: float) -> tuple[str, dict[str, Any], str]:
+    def _request(self, spec: ProviderSpec, system_prompt: str, prompt: str, messages: list[dict[str, Any]], deadline: float, image_frame: str | None = None) -> tuple[str, dict[str, Any], str]:
         if spec.kind == 'gemini':
+            clean_b64 = ""
+            if image_frame:
+                clean_b64 = image_frame.split(",", 1)[1] if "," in image_frame else image_frame
+
+            user_parts: list[dict[str, Any]] = [{'text': prompt}]
+            if clean_b64:
+                user_parts.append({'inline_data': {'mime_type': 'image/jpeg', 'data': clean_b64}})
+
             if self.gemini_api == 'generatecontent':
                 url = f'https://generativelanguage.googleapis.com/v1beta/models/{spec.model}:generateContent'
-                data = {'system_instruction': {'parts': [{'text': system_prompt}]}, 'contents': [{'role': 'user', 'parts': [{'text': prompt}]}], 'generationConfig': {'maxOutputTokens': self.max_output_tokens}}
+                data = {'system_instruction': {'parts': [{'text': system_prompt}]}, 'contents': [{'role': 'user', 'parts': user_parts}], 'generationConfig': {'maxOutputTokens': self.max_output_tokens}}
                 headers = {'Content-Type': 'application/json', 'x-goog-api-key': spec.key}
                 api_name = 'generateContent'
             else:
@@ -311,7 +330,7 @@ class ProviderRouter:
                 api_name = 'interactions'
         else:
             url = spec.endpoint
-            data = self._openai_payload(spec, messages, system_prompt=system_prompt, prompt=prompt)
+            data = self._openai_payload(spec, messages, system_prompt=system_prompt, prompt=prompt, image_frame=image_frame)
             headers = self._openai_headers(spec)
             api_name = 'chat.completions'
         req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers)
@@ -333,13 +352,21 @@ class ProviderRouter:
             except urllib.error.HTTPError as exc:
                 self._handle_http_error(spec, exc, attempts, deadline)
 
-    def _request_stream(self, spec: ProviderSpec, system_prompt: str, prompt: str, messages: list[dict[str, str]], deadline: float, on_delta: Callable[[str], None]) -> tuple[str, dict[str, Any], str, float]:
+    def _request_stream(self, spec: ProviderSpec, system_prompt: str, prompt: str, messages: list[dict[str, Any]], deadline: float, on_delta: Callable[[str], None], image_frame: str | None = None) -> tuple[str, dict[str, Any], str, float]:
         if spec.kind == 'gemini':
+            clean_b64 = ""
+            if image_frame:
+                clean_b64 = image_frame.split(",", 1)[1] if "," in image_frame else image_frame
+
+            user_parts: list[dict[str, Any]] = [{'text': prompt}]
+            if clean_b64:
+                user_parts.append({'inline_data': {'mime_type': 'image/jpeg', 'data': clean_b64}})
+
             if self.gemini_api == 'generatecontent':
                 url = f'https://generativelanguage.googleapis.com/v1beta/models/{spec.model}:streamGenerateContent?alt=sse'
                 data = {
                     'system_instruction': {'parts': [{'text': system_prompt}]},
-                    'contents': [{'role': 'user', 'parts': [{'text': prompt}]}],
+                    'contents': [{'role': 'user', 'parts': user_parts}],
                     'generationConfig': {'maxOutputTokens': self.max_output_tokens},
                 }
                 headers = {'Content-Type': 'application/json', 'Accept': 'text/event-stream', 'x-goog-api-key': spec.key}
@@ -361,7 +388,7 @@ class ProviderRouter:
                 api_name = 'interactions'
         elif spec.kind == 'openai':
             url = spec.endpoint
-            data = self._openai_payload(spec, messages, streaming=True, system_prompt=system_prompt, prompt=prompt)
+            data = self._openai_payload(spec, messages, streaming=True, system_prompt=system_prompt, prompt=prompt, image_frame=image_frame)
             headers = self._openai_headers(spec, streaming=True)
             api_name = 'chat.completions.stream'
         else:
@@ -439,7 +466,7 @@ class ProviderRouter:
             except urllib.error.HTTPError as exc:
                 self._handle_http_error(spec, exc, attempts, deadline)
 
-    def generate_stream(self, system_prompt: str, prompt: str, messages: list[dict[str, str]], on_delta: Callable[[str], None], requested_model: str | None = None) -> ProviderResult:
+    def generate_stream(self, system_prompt: str, prompt: str, messages: list[dict[str, Any]], on_delta: Callable[[str], None], requested_model: str | None = None, image_frame: str | None = None) -> ProviderResult:
         providers = self.configured(requested_model=requested_model)
         if not providers:
             raise RuntimeError('no language-model provider configured')
@@ -453,9 +480,9 @@ class ProviderRouter:
             started = time.monotonic()
             try:
                 if spec.kind == 'gemini' or spec.kind == 'openai':
-                    text, usage, api_name, ttft_ms = self._request_stream(spec, system_prompt, prompt, messages, deadline, on_delta)
+                    text, usage, api_name, ttft_ms = self._request_stream(spec, system_prompt, prompt, messages, deadline, on_delta, image_frame=image_frame)
                 else:
-                    text, usage, api_name = self._request(spec, system_prompt, prompt, messages, deadline)
+                    text, usage, api_name = self._request(spec, system_prompt, prompt, messages, deadline, image_frame=image_frame)
                     ttft_ms = round((time.monotonic() - started) * 1000, 1)
                     on_delta(text)
                 latency_ms = round((time.monotonic() - started) * 1000, 1)
@@ -471,10 +498,10 @@ class ProviderRouter:
                 logger.warning('provider_failed provider=%s model=%s error_type=%s error=%s', spec.name, spec.model, type(exc).__name__, error_message)
         raise RuntimeError('all providers failed: ' + ','.join(failures))
 
-    def generate(self, system_prompt: str, prompt: str, messages: list[dict[str, str]], requested_model: str | None = None) -> ProviderResult:
+    def generate(self, system_prompt: str, prompt: str, messages: list[dict[str, Any]], requested_model: str | None = None, image_frame: str | None = None) -> ProviderResult:
         callback = _STREAM_CALLBACK.get()
         if callback is not None:
-            return self.generate_stream(system_prompt, prompt, messages, callback, requested_model=requested_model)
+            return self.generate_stream(system_prompt, prompt, messages, callback, requested_model=requested_model, image_frame=image_frame)
         providers = self.configured(requested_model=requested_model)
         if not providers:
             raise RuntimeError('no language-model provider configured')
@@ -487,10 +514,11 @@ class ProviderRouter:
                 continue
             started = time.monotonic()
             try:
-                text, usage, api_name = self._request(spec, system_prompt, prompt, messages, deadline)
+                text, usage, api_name = self._request(spec, system_prompt, prompt, messages, deadline, image_frame=image_frame)
                 latency_ms = round((time.monotonic() - started) * 1000, 1)
                 self._history.append({'provider': spec.name, 'model': spec.model, 'latency_ms': latency_ms, 'attempts': 1, 'api': api_name, 'ok': True, 'timestamp': time.time()})
                 logger.info('provider_success provider=%s model=%s latency_ms=%s api=%s finish_reason=%s', spec.name, spec.model, latency_ms, api_name, usage.get('_finish_reason'))
+                return ProviderResult(text, spec.name, spec.model, latency_ms, 1, api_name, usage)
                 return ProviderResult(text, spec.name, spec.model, latency_ms, 1, api_name, usage)
             except Exception as exc:
                 latency_ms = round((time.monotonic() - started) * 1000, 1)

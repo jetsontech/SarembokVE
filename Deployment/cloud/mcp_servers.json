@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "sqlite": {
+      "transport": "stdio",
+      "command": "python",
+      "args": ["-m", "sqlite3"],
+      "description": "Local SQLite database querying and inspection MCP server"
+    },
+    "brave-search": {
+      "transport": "http",
+      "url": "https://api.search.brave.com/res/v1/web/search",
+      "description": "Frontier real-time web search MCP connector"
+    },
+    "memory-hub": {
+      "transport": "http",
+      "url": "http://127.0.0.1:8000/mcp",
+      "description": "Sarembok native episodic memory MCP connector"
+    }
+  }
+}

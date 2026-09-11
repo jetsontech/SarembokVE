@@ -157,8 +157,29 @@ class SkillsEngine:
         return self._skills.get(name)
 
     def get_openai_tools(self) -> list[dict[str, Any]]:
-        """Return function calling schema list for OpenAI / Gemini / Groq / Anthropic."""
-        return [skill.to_openai_tool() for skill in self._skills.values() if skill.enabled]
+        """Return function calling schema list for OpenAI / Gemini / Groq / Anthropic, including external MCP tools."""
+        tools = [skill.to_openai_tool() for skill in self._skills.values() if skill.enabled]
+        try:
+            try:
+                from mcp_client import get_mcp_client_manager
+            except ImportError:
+                try:
+                    from Deployment.cloud.mcp_client import get_mcp_client_manager
+                except ImportError:
+                    from .mcp_client import get_mcp_client_manager
+            ext_tools = get_mcp_client_manager().get_all_external_tools()
+            for et in ext_tools:
+                tools.append({
+                    "type": "function",
+                    "function": {
+                        "name": et["name"],
+                        "description": et.get("description", f"External MCP tool from {et.get('mcp_server')}"),
+                        "parameters": et.get("inputSchema", {"type": "object", "properties": {}}),
+                    }
+                })
+        except Exception as exc:
+            logger.debug("External MCP tools unavailable: %s", exc)
+        return tools
 
     def get_mcp_tools(self) -> list[dict[str, Any]]:
         """Return MCP tools list conforming to Model Context Protocol specification."""
@@ -170,7 +191,31 @@ class SkillsEngine:
         arguments: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Execute a skill by name with arguments and context."""
+        """Execute a skill by name with arguments and context (supporting both native skills and external MCP tools)."""
+        args = arguments or {}
+        ctx = context or {}
+
+        # 0. External MCP Client dispatch
+        if name.startswith("mcp_"):
+            try:
+                try:
+                    from mcp_client import get_mcp_client_manager
+                except ImportError:
+                    try:
+                        from Deployment.cloud.mcp_client import get_mcp_client_manager
+                    except ImportError:
+                        from .mcp_client import get_mcp_client_manager
+                mgr = get_mcp_client_manager()
+                for et in mgr.get_all_external_tools():
+                    if et["name"] == name:
+                        srv = et["mcp_server"]
+                        orig_tool = et["mcp_original_name"]
+                        out = mgr.call_external_tool(srv, orig_tool, args)
+                        return {"success": True, "skill": name, "output": out}
+                return {"success": False, "skill": name, "error": f"External MCP tool '{name}' not found."}
+            except Exception as exc:
+                return {"success": False, "skill": name, "error": f"External MCP call failed: {exc}"}
+
         skill = self._skills.get(name)
         if not skill:
             return {
