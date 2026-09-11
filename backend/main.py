@@ -31,6 +31,13 @@ async def gemini_live_proxy(websocket: WebSocket):
             model="gemini-3.1-flash-live-preview",
             config=types.LiveConnectConfig(
                 response_modalities=[types.Modality.AUDIO],
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                            voice_name="Vega"
+                        )
+                    )
+                ),
                 output_audio_transcription=types.AudioTranscriptionConfig(),
                 system_instruction=types.Content(parts=[types.Part.from_text(
                     text="You are the AI core of Sarembok_VE, a frontier multimodal terminal application. "

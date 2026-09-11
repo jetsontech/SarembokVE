@@ -294,8 +294,8 @@
         </div>
 
         <div class="btn-group">
-            <button id="queueAriaBtn" class="btn-secondary">
-                <span>🤖</span> Queue ARIA Turn
+            <button id="queueAriaBtn" class="btn-secondary" style="border-color: var(--glow-cyan);">
+                <span>✨</span> Queue ARIA (Gemini Vega)
             </button>
             <button id="queueAnalystBtn" class="btn-secondary">
                 <span>📊</span> Queue Analyst Turn
@@ -360,7 +360,7 @@ class AudioBridge {
         });
 
         document.getElementById("queueAriaBtn").addEventListener("click", () => {
-            this.sendTurn("ARIA_Orchestrator", "Data ingestion anomaly resolved across distributed edge blocks.", "en-US-Studio-O");
+            this.sendTurn("ARIA_Orchestrator", "Data ingestion anomaly resolved across distributed edge blocks. Operating with Gemini Vega voice.", "Vega");
         });
 
         document.getElementById("queueAnalystBtn").addEventListener("click", () => {

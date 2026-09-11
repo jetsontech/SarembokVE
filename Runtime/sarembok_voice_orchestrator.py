@@ -75,6 +75,57 @@ class SarembokVoiceSynthesizer:
                 except Exception as e:
                     logger.debug(f"Client options init note: {e}")
 
+    async def _synthesize_gemini_live(self, text: str, voice_name: str = "Vega") -> Optional[bytes]:
+        """Synthesizes high-fidelity speech directly using Gemini's native voices (e.g. Vega) via AI Studio key."""
+        if not self.api_key:
+            return None
+        try:
+            import io
+            import wave
+            from google import genai
+            from google.genai import types
+
+            client = genai.Client(api_key=self.api_key, http_options={'api_version': 'v1alpha'})
+            config = types.LiveConnectConfig(
+                response_modalities=[types.Modality.AUDIO],
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                            voice_name=voice_name
+                        )
+                    )
+                )
+            )
+            raw_pcm = bytearray()
+            async def collect_stream():
+                async with client.aio.live.connect(model="gemini-3.1-flash-live-preview", config=config) as session:
+                    await session.send_realtime_input(text=f"Say: {text}")
+                    async for resp in session.receive():
+                        if resp.server_content and resp.server_content.model_turn:
+                            for part in resp.server_content.model_turn.parts:
+                                if part.inline_data and part.inline_data.data:
+                                    raw_pcm.extend(part.inline_data.data)
+                        if resp.server_content and getattr(resp.server_content, 'turn_complete', False):
+                            break
+
+            try:
+                await asyncio.wait_for(collect_stream(), timeout=8.0)
+            except asyncio.TimeoutError:
+                logger.debug("Gemini live stream read timeout; proceeding with received chunks.")
+
+            if raw_pcm:
+                buf = io.BytesIO()
+                with wave.open(buf, 'wb') as wav:
+                    wav.setnchannels(1)
+                    wav.setsampwidth(2)
+                    wav.setframerate(24000)
+                    wav.writeframes(raw_pcm)
+                logger.info(f"Synthesized {len(raw_pcm)} bytes of audio using Gemini {voice_name} voice.")
+                return buf.getvalue()
+        except Exception as e:
+            logger.debug(f"Gemini live voice synthesis note: {e}")
+            return None
+
     async def _synthesize_rest(self, text: str, voice_model: str, speaking_rate: float) -> Optional[bytes]:
         """Direct REST synthesis fallback for API key authentication."""
         if not self.api_key:
@@ -106,8 +157,15 @@ class SarembokVoiceSynthesizer:
             logger.debug(f"REST synthesis request note: {e}")
             return None
 
-    async def synthesize(self, text: str, voice_model: str = "en-US-Studio-O", speaking_rate: float = 1.05) -> bytes:
-        # 1. Try gRPC client
+    async def synthesize(self, text: str, voice_model: str = "Vega", speaking_rate: float = 1.05) -> bytes:
+        # 1. If voice is Vega or any Gemini voice, prioritize Gemini Live Frontier Synthesis
+        if "vega" in voice_model.lower() or voice_model in ("Vega", "Aoede", "Kore", "Puck", "Fenrir", "Charon"):
+            gemini_voice = "Vega" if "vega" in voice_model.lower() else voice_model
+            gemini_audio = await self._synthesize_gemini_live(text, voice_name=gemini_voice)
+            if gemini_audio:
+                return gemini_audio
+
+        # 2. Try Google Cloud TTS gRPC client
         if self.async_client and HAS_GOOGLE_TTS:
             try:
                 synthesis_input = texttospeech.SynthesisInput(text=text)
@@ -128,13 +186,13 @@ class SarembokVoiceSynthesizer:
             except Exception as e:
                 logger.debug(f"gRPC synthesis call note: {e}")
 
-        # 2. Try REST API with API key
+        # 3. Try REST API with API key
         if self.api_key:
             rest_audio = await self._synthesize_rest(text, voice_model, speaking_rate)
             if rest_audio:
                 return rest_audio
 
-        # 3. Fallback simulation with non-blocking latency
+        # 4. Fallback simulation with non-blocking latency
         await asyncio.sleep(0.05)
         mock = MockTTSResponse(text)
         return mock.audio_content
