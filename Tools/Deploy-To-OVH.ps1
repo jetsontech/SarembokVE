@@ -40,14 +40,18 @@ echo " DEPLOYMENT COMPLETE: Sarembok runtime active on OVH!"
 echo "=========================================================="
 '@
 
+$cleanBash = ($remoteCmd -replace "`r`n", "`n") -replace "`r", "`n"
+$b64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($cleanBash))
+$execCmd = "echo '$b64' | base64 -d | bash"
+
 Write-Host "[INFO] Connecting to $User@$ServerIP using key: $KeyPath" -ForegroundColor Yellow
 Write-Host "[NOTE] If prompted, please enter your private key passphrase." -ForegroundColor Gray
 Write-Host ""
 
 if (Test-Path $KeyPath) {
-    ssh -t -i "$KeyPath" "$User@$ServerIP" "$remoteCmd"
+    ssh -t -i "$KeyPath" "$User@$ServerIP" "$execCmd"
 } else {
-    ssh -t "$User@$ServerIP" "$remoteCmd"
+    ssh -t "$User@$ServerIP" "$execCmd"
 }
 
 if ($LASTEXITCODE -eq 0) {

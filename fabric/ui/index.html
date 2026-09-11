@@ -4353,6 +4353,12 @@
                     <span>EXPORT</span>
                 </button>
 
+                <!-- AI Key & Model Configuration Button -->
+                <button class="hud-voice-btn" id="hud-keys-btn" onclick="openAiKeyModal()" title="Configure AI Provider & API Keys" style="border-color:rgba(245,158,11,0.45); color:var(--amber); background:rgba(245,158,11,0.08);">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3"/></svg>
+                    <span id="hud-keys-label">🔑 AI KEYS</span>
+                </button>
+
                 <button class="hud-voice-btn" id="hud-voice-toggle" onclick="toggleVoiceOutput()" title="Toggle Voice Audio">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
                     <span id="hud-voice-label">VOICE: ON</span>
@@ -7468,15 +7474,18 @@
                 const selectedModel = document.getElementById("active-model-select")?.value || "gpt-4o-mini";
                 const selectedLang = document.getElementById("active-language-select")?.value || "en";
                 const isAdm = Boolean(window.adminExecutionActive || text.startsWith("/admin") || text.startsWith("/exec") || text.startsWith("/sh") || text.startsWith("/py"));
+                const userKey = localStorage.getItem("sarembok_user_api_key") || "";
+                const userModel = localStorage.getItem("sarembok_user_model") || selectedModel;
                 const result = await sendRPC(
                     "SarembokChat",
                     {
                         prompt: text,
-                        model: selectedModel,
+                        model: userModel,
                         language: selectedLang,
                         stream: true,
                         admin: isAdm,
-                        imageFrame: frameToSend
+                        imageFrame: frameToSend,
+                        apiKey: userKey
                     },
                     delta => {
                         if (myTurnId !== currentTurnId) return;
@@ -7491,6 +7500,16 @@
                 let finalText = result?.response || result?.audioText || streamedText || "Directive executed.";
                 finalText = enrichResponseOnClient(text, finalText);
                 content.innerHTML = md(finalText);
+
+                // If sovereign fallback is triggered, render quick-fix button directly on screen
+                if (finalText.includes("Sovereign Authority") || finalText.includes("sovereign mode") || finalText.includes("Local Sovereign Authority")) {
+                    const fixBtn = document.createElement("button");
+                    fixBtn.className = "browser-action-btn";
+                    fixBtn.style.cssText = "margin-top:12px; padding:8px 14px; font-size:11px; border-color:var(--amber); color:var(--amber); display:inline-flex; align-items:center; gap:6px; cursor:pointer;";
+                    fixBtn.innerHTML = `<span>🔑</span><span>ACTIVATE FRONTIER MODEL (PASTE API KEY)</span>`;
+                    fixBtn.onclick = openAiKeyModal;
+                    content.appendChild(fixBtn);
+                }
 
                 // Async-resolve any unresolved media cards via backend SearchYouTube RPC
                 const hasUnresolvedCards = content.querySelectorAll('iframe[src="about:blank"], a[href*="results?search_query"]').length > 0;
@@ -9659,18 +9678,21 @@
             try {
                 const selectedModel = document.getElementById("active-model-select")?.value || "gpt-4o-mini";
                 const selectedLang = document.getElementById("active-language-select")?.value || "en";
+                const userKey = localStorage.getItem("sarembok_user_api_key") || "";
+                const userModel = localStorage.getItem("sarembok_user_model") || selectedModel;
 
                 const isAdm = Boolean(window.adminExecutionActive || cleanSpeech.startsWith("/admin") || cleanSpeech.startsWith("/exec") || cleanSpeech.startsWith("/sh") || cleanSpeech.startsWith("/py"));
                 const result = await sendRPC(
                     "SarembokChat",
                     {
                         prompt: cleanSpeech,
-                        model: selectedModel,
+                        model: userModel,
                         language: selectedLang,
                         conversational: true,
                         admin: isAdm,
                         stream: true,
-                        imageFrame: frameToSend
+                        imageFrame: frameToSend,
+                        apiKey: userKey
                     },
                     delta => {
                         if (myTurnId !== currentTurnId) return; // User interrupted
@@ -11166,6 +11188,65 @@
         }
         setTimeout(initSessionContinuity, 100);
 
+        /* AI Model & API Key Modal Controls (Mobile & Desktop) */
+        function openAiKeyModal() {
+            const modal = document.getElementById("ai-key-modal");
+            const backdrop = document.getElementById("ai-key-backdrop");
+            const keyInput = document.getElementById("user-ai-key-input");
+            const modelSelect = document.getElementById("user-ai-model-select");
+            if (keyInput) keyInput.value = localStorage.getItem("sarembok_user_api_key") || "";
+            if (modelSelect) modelSelect.value = localStorage.getItem("sarembok_user_model") || "openai/gpt-4o-mini";
+            if (modal) modal.style.display = "block";
+            if (backdrop) backdrop.style.display = "block";
+        }
+
+        function closeAiKeyModal() {
+            const modal = document.getElementById("ai-key-modal");
+            const backdrop = document.getElementById("ai-key-backdrop");
+            if (modal) modal.style.display = "none";
+            if (backdrop) backdrop.style.display = "none";
+        }
+
+        function toggleApiKeyVisibility() {
+            const input = document.getElementById("user-ai-key-input");
+            if (input) input.type = input.type === "password" ? "text" : "password";
+        }
+
+        function saveUserAiKey() {
+            const keyInput = document.getElementById("user-ai-key-input");
+            const modelSelect = document.getElementById("user-ai-model-select");
+            const key = keyInput ? keyInput.value.trim() : "";
+            const model = modelSelect ? modelSelect.value : "openai/gpt-4o-mini";
+            if (key) {
+                localStorage.setItem("sarembok_user_api_key", key);
+                localStorage.setItem("sarembok_user_model", model);
+                showToast("API KEY & MODEL SAVED · FRONTIER MODE ACTIVE");
+            } else {
+                localStorage.removeItem("sarembok_user_api_key");
+                showToast("NO KEY ENTERED · LOCAL SOVEREIGN MODE");
+            }
+            updateAiKeyHudBadge();
+            closeAiKeyModal();
+        }
+
+        function clearUserAiKey() {
+            localStorage.removeItem("sarembok_user_api_key");
+            const keyInput = document.getElementById("user-ai-key-input");
+            if (keyInput) keyInput.value = "";
+            showToast("KEY REMOVED · RESET TO SOVEREIGN MODE");
+            updateAiKeyHudBadge();
+            closeAiKeyModal();
+        }
+
+        function updateAiKeyHudBadge() {
+            const label = document.getElementById("hud-keys-label");
+            const hasKey = !!localStorage.getItem("sarembok_user_api_key");
+            if (label) {
+                label.textContent = hasKey ? "🔑 KEY: ACTIVE" : "🔑 AI KEYS";
+            }
+        }
+        setTimeout(updateAiKeyHudBadge, 150);
+
         // Also ensure sendDirective hides simpleHero when sending
         const _origSendDirective = window.sendDirective;
         setTimeout(initUiMode, 50);
@@ -11286,6 +11367,49 @@
             </div>
         </div>
     </aside>
+
+    <!-- AI MODEL & API KEY CONFIGURATION MODAL (MOBILE & DESKTOP) -->
+    <div id="ai-key-backdrop" class="drawer-backdrop" onclick="closeAiKeyModal()" style="display:none; z-index:10001;"></div>
+    <div id="ai-key-modal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); width:90vw; max-width:440px; background:#070d14; border:1px solid rgba(245,158,11,0.4); border-radius:14px; box-shadow:0 12px 48px rgba(0,0,0,0.9), 0 0 24px rgba(245,158,11,0.2); padding:20px; z-index:10002; font-family:var(--font-sans); color:#fff;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:18px;">🔑</span>
+                <span style="font-family:var(--font-display); font-size:13px; font-weight:700; letter-spacing:0.08em; color:var(--amber);">AI MODEL &amp; API KEY</span>
+            </div>
+            <button onclick="closeAiKeyModal()" style="background:none; border:none; color:var(--text-muted); font-size:16px; cursor:pointer; padding:4px;">✕</button>
+        </div>
+        <div style="font-size:11px; color:var(--text-secondary); line-height:1.5; margin-bottom:16px;">
+            Configure your AI provider directly from this mobile device or browser. Overrides the offline Sovereign Fallback Mode instantly without needing SSH or a server computer.
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            <div>
+                <label style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted); letter-spacing:0.06em; display:block; margin-bottom:4px;">REASONING MODEL</label>
+                <select id="user-ai-model-select" style="width:100%; background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.2); border-radius:6px; padding:8px 10px; color:#fff; font-size:12px; outline:none; font-family:var(--font-mono);">
+                    <option value="openai/gpt-4o-mini">GPT-4o Mini (Default · Fast &amp; Balanced)</option>
+                    <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash (Multimodal Frontier)</option>
+                    <option value="deepseek/deepseek-chat">DeepSeek V3 (High Reasoning)</option>
+                    <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B (Open Weights Frontier)</option>
+                    <option value="qwen/qwen-2.5-coder-32b-instruct">Qwen 2.5 Coder 32B (Code Synthesis)</option>
+                    <option value="openai/gpt-4o">GPT-4o (Frontier Multimodal)</option>
+                </select>
+            </div>
+            <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <label style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted); letter-spacing:0.06em;">API KEY</label>
+                    <span style="font-size:9.5px; color:var(--text-muted); font-family:var(--font-mono);">OpenRouter / Gemini / Groq / OpenAI</span>
+                </div>
+                <div style="position:relative;">
+                    <input type="password" id="user-ai-key-input" placeholder="sk-or-... or AIza... or gsk_... or sk-..." style="width:100%; background:rgba(0,0,0,0.6); border:1px solid rgba(245,158,11,0.3); border-radius:6px; padding:9px 36px 9px 10px; color:#fff; font-size:11.5px; outline:none; font-family:var(--font-mono);">
+                    <button type="button" onclick="toggleApiKeyVisibility()" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:12px;" title="Toggle Visibility">👁️</button>
+                </div>
+                <div style="font-size:9.5px; color:var(--text-muted); margin-top:4px; font-family:var(--font-mono);">Key is securely stored in local browser memory and sent per-turn to the runtime.</div>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:6px;">
+                <button class="browser-action-btn" onclick="saveUserAiKey()" style="flex:2; padding:10px; font-size:11px; border-color:var(--amber); color:var(--amber); font-weight:700;">💾 SAVE &amp; ACTIVATE KEY</button>
+                <button class="browser-action-btn" onclick="clearUserAiKey()" style="flex:1; padding:10px; font-size:10px; border-color:rgba(255,255,255,0.2); color:var(--text-muted);">CLEAR</button>
+            </div>
+        </div>
+    </div>
 
     <!-- FLOATING INTERRUPT / BARGE-IN BUTTON -->
     <div class="srbk-interrupt-pill" id="srbk-interrupt-pill" onclick="interruptSpeech()" title="Tap to interrupt AI speech immediately">

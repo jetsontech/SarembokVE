@@ -2171,13 +2171,14 @@ def sarembok_process_dialogue(
     provider_api = None
     provider_usage = {}
     try:
-        # Pass requested model and multimodal image frame into ProviderRouter
+        # Pass requested model, multimodal image frame, and dynamic user api_key into ProviderRouter
         provider_result = PROVIDER_ROUTER.generate(
             system_prompt,
             prompt_clean,
             messages,
             requested_model=model,
             image_frame=image_frame,
+            dynamic_key=api_key,
         )
         source = provider_result.provider
         active_model = provider_result.model
@@ -2290,8 +2291,10 @@ def sarembok_process_dialogue(
         active_model = "runtime-authority"
     else:
         reply = (
-            "I am currently operating in **Local Sovereign Authority mode** while upstream cloud models initialize.\n\n"
-            "**Active Sovereign Capabilities:**\n"
+            "### ⚠️ Local Sovereign Authority Mode\n\n"
+            "I am currently operating in **Local Sovereign Authority mode** because no upstream cloud AI provider key (OpenRouter, Gemini, OpenAI, or Groq) is currently active.\n\n"
+            "👉 **Correct this directly from your mobile device:** Tap the **[🔑 AI KEYS]** button in the top HUD (or enter your key below) to activate frontier models without needing a computer or SSH.\n\n"
+            "**Active Offline Sovereign Capabilities:**\n"
             "- 🎵 **Universal Media & Stream Ingestion:** Audio streaming, podcast playback, and news broadcast embedding (`play <topic/artist/news>`)\n"
             "- 🕒 **System Chronometry & Clock:** Real-time verified UTC/local synchronization (`what time is it`)\n"
             "- 🌐 **Live Real-Time Intelligence:** Live search feeds and verified factual indexing (`latest news on <topic>`)\n"
