@@ -18,3 +18,5 @@ jobs:
         run: python -m compileall -q Deployment/cloud
       - name: Run capability regression tests
         run: python Deployment/cloud/test_capabilities.py
+      - name: Run runtime security contract tests
+        run: python Deployment/cloud/test_runtime_security_contract.py
