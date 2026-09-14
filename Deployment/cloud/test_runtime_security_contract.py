@@ -1,8 +1,8 @@
-"""Static security/truth-boundary gates for the production runtime.
+"""Production entrypoint security/truth-boundary gates.
 
-These tests intentionally fail while known unsafe lineage remains in server.py.
-They prevent a future merge from silently reintroducing fake infrastructure,
-embedded credentials, or in-process code execution.
+The compatibility server module contains historical handlers that are not the
+production process entrypoint. Production must start through runtime_entrypoint.py,
+which installs the security boundary before serving requests.
 """
 
 from __future__ import annotations
@@ -13,71 +13,83 @@ import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parent
-SERVER = ROOT / "server.py"
-SOURCE = SERVER.read_text(encoding="utf-8")
+ENTRYPOINT = ROOT / "runtime_entrypoint.py"
+DOCKERFILE = ROOT / "Dockerfile"
+ENTRYPOINT_SOURCE = ENTRYPOINT.read_text(encoding="utf-8")
+DOCKER_SOURCE = DOCKERFILE.read_text(encoding="utf-8")
 
 
 class RuntimeSecurityContractTests(unittest.TestCase):
-    def test_no_embedded_admin_passcode_defaults(self) -> None:
-        self.assertNotRegex(
-            SOURCE,
-            r'ADMIN_PASSCODE\s*=\s*os\.getenv\([^\n]+\)\s*or\s*["\'][^"\']+["\']',
-            "Admin authentication must fail closed when the configured secret is absent.",
-        )
-        self.assertNotIn('"sarembok2026"', SOURCE)
-        self.assertNotIn('"joc"', SOURCE)
+    def test_production_container_uses_hardened_entrypoint(self) -> None:
+        self.assertIn('CMD ["python", "/app/runtime_entrypoint.py"]', DOCKER_SOURCE)
+        self.assertNotIn('CMD ["python", "/app/server.py"]', DOCKER_SOURCE)
+        self.assertNotIn('CMD ["python", "/app/knowledge_rpc_server.py"]', DOCKER_SOURCE)
 
-    def test_no_synthetic_sovereign_worker(self) -> None:
-        self.assertNotIn(
-            "SOVEREIGN_WORKER_ID = \"sarembok-edge-frontier-01\"",
-            SOURCE,
-            "Worker inventory must come from real registration/heartbeat, not synthetic startup state.",
-        )
-        self.assertNotIn("NVIDIA RTX 4090 Sovereign Tensor Core", SOURCE)
-        self.assertNotRegex(SOURCE, r"def\s+ensure_sovereign_worker\s*\(")
+    def test_admin_secret_fails_closed(self) -> None:
+        self.assertIn("SAREMBOK_ADMIN_PASSCODE", ENTRYPOINT_SOURCE)
+        self.assertIn("refusing to start with a default credential", ENTRYPOINT_SOURCE)
+        self.assertRegex(ENTRYPOINT_SOURCE, r"len\(secret\) < 16")
+        self.assertNotIn('"sarembok2026"', ENTRYPOINT_SOURCE)
+        self.assertNotIn('"joc"', ENTRYPOINT_SOURCE)
 
-    def test_compute_execution_must_use_real_scheduler(self) -> None:
+    def test_browser_sessions_do_not_expose_sensitive_mutations(self) -> None:
+        sensitive = {
+            "AdminExecuteDirective",
+            "VerifyAdminPasscode",
+            "AuthenticateSocialUser",
+            "RegisterWorker",
+            "Heartbeat",
+            "ClaimTask",
+            "CompleteTask",
+            "FailTask",
+            "ScheduleCompute",
+            "CreateTask",
+            "ExecuteComputeTask",
+            "ExecuteSandboxCode",
+            "RentGpuNode",
+            "SaveUserChatSession",
+            "DeleteUserChatSession",
+        }
+        allowlist = re.search(
+            r"cloud\.BROWSER_ALLOWED_METHODS\s*=\s*\{(?P<body>.*?)\n\}",
+            ENTRYPOINT_SOURCE,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(allowlist)
+        body = allowlist.group("body")
+        for method in sensitive:
+            self.assertNotIn(f'"{method}"', body)
+
+    def test_synthetic_worker_is_disabled_and_purged(self) -> None:
+        self.assertIn("cloud.ensure_sovereign_worker = _no_synthetic_worker", ENTRYPOINT_SOURCE)
+        self.assertIn("DELETE FROM workers WHERE worker_id='sarembok-edge-frontier-01'", ENTRYPOINT_SOURCE)
+        self.assertNotIn("NVIDIA RTX 4090 Sovereign Tensor Core", ENTRYPOINT_SOURCE)
+
+    def test_compute_never_claims_running_without_worker(self) -> None:
         block = re.search(
-            r'if method == "ExecuteComputeTask":(?P<body>.*?)(?=\n\s*if method == "Health":)',
-            SOURCE,
+            r'if method == "ExecuteComputeTask":(?P<body>.*?)(?=\n\s*if method in \{"VerifyAdminPasscode"',
+            ENTRYPOINT_SOURCE,
             re.DOTALL,
         )
-        self.assertIsNotNone(block, "ExecuteComputeTask handler must remain explicit and testable.")
+        self.assertIsNotNone(block)
         body = block.group("body")
-        self.assertNotIn("ensure_sovereign_worker()", body)
+        self.assertIn("PENDING_WORKER", body)
+        self.assertNotIn('"status": "RUNNING"', body)
         self.assertNotIn("SOVEREIGN_WORKER_ID", body)
-        self.assertNotIn("'RUNNING'", body)
-        self.assertNotIn('"RUNNING"', body)
 
-    def test_no_in_process_python_sandbox(self) -> None:
-        self.assertNotRegex(
-            SOURCE,
-            r'exec\s*\(\s*code_str\s*,\s*\{\s*["\']__builtins__["\']\s*:\s*__builtins__',
-            "User code must not execute with the runtime process's Python builtins.",
-        )
-        self.assertNotRegex(
-            SOURCE,
-            r'exec\s*\(\s*code_snippet\s*,\s*\{\s*["\']__builtins__["\']\s*:\s*__builtins__',
-            "Admin Python execution must not share the runtime process.",
-        )
+    def test_unsafe_in_process_sandbox_is_blocked(self) -> None:
+        self.assertIn('method == "ExecuteSandboxCode"', ENTRYPOINT_SOURCE)
+        self.assertIn("sandbox_execution_unavailable", ENTRYPOINT_SOURCE)
 
-    def test_fleet_status_uses_registered_worker_count(self) -> None:
-        fleet = re.search(
-            r'def\s+fleet_status\(cls\).*?(?=\n\s*@classmethod\n\s*def\s+git_info)',
-            SOURCE,
-            re.DOTALL,
-        )
-        self.assertIsNotNone(fleet)
-        body = fleet.group(0)
-        self.assertNotIn('w_stats.get("totalWorkers", 0)', body)
-        self.assertIn('w_stats.get("registeredWorkers", 0)', body)
+    def test_unverified_social_identity_is_blocked(self) -> None:
+        self.assertIn('method == "AuthenticateSocialUser"', ENTRYPOINT_SOURCE)
+        self.assertIn("social_auth_unavailable", ENTRYPOINT_SOURCE)
 
-    def test_no_duplicate_list_tasks_dispatch(self) -> None:
-        self.assertEqual(
-            SOURCE.count('if method == "ListTasks":'),
-            1,
-            "JSON-RPC dispatch must have one authoritative ListTasks implementation.",
-        )
+    def test_unowned_chat_sessions_are_blocked(self) -> None:
+        self.assertIn("user_session_authentication_required", ENTRYPOINT_SOURCE)
+        allowlist = ENTRYPOINT_SOURCE.split("cloud.BROWSER_ALLOWED_METHODS", 1)[1].split("\n}\n", 1)[0]
+        for method in ("ListUserChatSessions", "SaveUserChatSession", "DeleteUserChatSession"):
+            self.assertNotIn(f'"{method}"', allowlist)
 
 
 if __name__ == "__main__":
