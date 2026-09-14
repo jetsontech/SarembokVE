@@ -33,7 +33,7 @@ class RuntimeSecurityContractTests(unittest.TestCase):
             "BrowserNavigate", "BrowserScreenshot", "BrowserRender",
             "AdminExecuteDirective", "VerifyAdminPasscode", "AuthenticateSocialUser",
             "RegisterWorker", "Heartbeat", "ClaimTask", "CompleteTask", "FailTask",
-            "ScheduleCompute", "CreateTask", "ExecuteComputeTask", "ExecuteSandboxCode",
+            "ScheduleCompute", "CreateTask", "ExecuteSandboxCode",
             "RentGpuNode", "SaveUserChatSession", "DeleteUserChatSession",
         }
         allowlist = re.search(
@@ -44,6 +44,19 @@ class RuntimeSecurityContractTests(unittest.TestCase):
         body = allowlist.group("body")
         for method in sensitive:
             self.assertNotIn(f'"{method}"', body)
+
+    def test_execute_compute_is_public_but_truth_bound(self) -> None:
+        allowlist = re.search(
+            r"cloud\.BROWSER_ALLOWED_METHODS\s*=\s*\{(?P<body>.*?)\n\}",
+            ENTRYPOINT_SOURCE, re.DOTALL,
+        )
+        self.assertIsNotNone(allowlist)
+        self.assertIn('"ExecuteComputeTask"', allowlist.group("body"))
+        self.assertIn('"status": "PENDING_WORKER"', ENTRYPOINT_SOURCE)
+        self.assertNotIn('"status": "RUNNING"', re.search(
+            r'if method == "ExecuteComputeTask":(?P<body>.*?)(?=\n\s*if method == "CreateDigitalHumanSession")',
+            ENTRYPOINT_SOURCE, re.DOTALL,
+        ).group("body"))
 
     def test_direct_browser_control_is_blocked_even_with_stronger_auth(self) -> None:
         self.assertIn('method in {"BrowserNavigate", "BrowserScreenshot", "BrowserRender"}', ENTRYPOINT_SOURCE)
