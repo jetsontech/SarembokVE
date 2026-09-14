@@ -1,151 +1,135 @@
 # SarembokVE
 
-## A New Computing Environment for Autonomous Intelligence
+## AI-Native Computing Environment
 
-**SarembokVE is an independent next-generation computing platform that brings artificial intelligence, persistent identity and memory, autonomous agents, a native operating-system layer, and high-fidelity digital-human embodiment into one coherent computing environment.**
+**SarembokVE is an independent AI-native computing environment and control plane for persistent intelligence, agent execution, orchestration, memory, research, tools, and distributed compute.**
 
-SarembokVE is being built as a real technology platform—not a demo, wrapper, or thin interface over another company's AI.
+SarembokVE is being developed as a real technology platform rather than a conventional AI chat frontend or a thin model wrapper. Its purpose is to make intelligence a native computing capability: the platform maintains runtime state, routes work, coordinates agents and workers, preserves memory, exposes controlled tools, and presents a coherent interactive environment to the user.
 
-The goal is to create a computing environment in which people interact with intelligent digital beings as naturally as they interact with software today, while the platform itself provides the runtime, memory, orchestration, embodiment, security, system integration, and compute infrastructure required to make that possible.
+## What SarembokVE Is Today
 
-## What SarembokVE Is
+The active platform combines a production cloud runtime, browser edge, persistent state, real-time control, model/provider abstraction, and an interactive command environment.
 
-SarembokVE is the foundation for a new class of human-computer interaction:
+### Core platform
 
-- **Persistent AI agents** with identity, memory, state, goals, and continuity across sessions.
-- **Multi-agent orchestration** for complex tasks requiring planning, execution, verification, and coordination.
-- **A native AI runtime** managing agents, tasks, conversations, memory, events, workers, and model/provider routing.
-- **A system/OS layer** designed to give intelligent agents controlled access to computing resources and user environments.
-- **High-fidelity digital-human embodiment** as a first-class part of the platform rather than an optional add-on.
-- **Voice, vision, conversation, and real-time interaction** as native interaction modalities.
-- **Cloud-first execution** so public users do not need Unreal Engine, a gaming PC, a local AI model, Docker, or specialized hardware.
-- **Provider-independent intelligence** so frontier and specialized models can be interchangeable computational components without becoming SarembokVE itself.
-- **Persistent memory and context** so an agent maintains continuity instead of behaving like a stateless chatbot.
-- **Distributed compute** allowing capable machines and workers to contribute resources to the platform.
+- **AI runtime and control plane** for conversations, agents, tasks, events, memory, providers, and execution state.
+- **Real-time WebSocket and JSON-RPC transport** for authenticated browser/runtime control and low-latency interaction.
+- **Persistent SQLite/WAL state** for memory, tasks, conversations, and runtime continuity.
+- **Agent lifecycle and orchestration** supporting agent creation, task execution, planning-oriented workflows, and multi-agent coordination.
+- **Provider-independent model routing** so frontier and specialized models can be selected as computational components without making a single vendor the platform itself.
+- **Research and live-information pathways** for evidence retrieval, current information, and synthesized responses.
+- **Distributed worker architecture** for external compute workers and future GPU-backed workloads.
+- **Browser-first access** through the production edge so users can interact with the environment without installing the underlying infrastructure.
+- **Multimodal interaction surfaces** for text, voice, visual media, documents, code, and other structured response types supported by the runtime.
 
-## The Core Principle
+## The SarembokVE Difference
 
-**The embodiment is part of the system.**
+A conventional AI chatbot generally centers the interaction around a model response. SarembokVE centers the interaction around the **computing environment** surrounding intelligence.
 
-High-fidelity rendering and digital-human technology are development and platform capabilities. They are not public-user prerequisites.
+| Capability | SarembokVE | Conventional AI chat application |
+|---|---|---|
+| Runtime | Controlled AI runtime and execution plane | Primarily a chat service |
+| State | Persistent SQLite/WAL state and session continuity | Often session-centric |
+| Agents | Agent lifecycle and orchestration architecture | Usually a single assistant abstraction |
+| Tasks | Background tasks, scheduling, and execution visibility | Limited or hidden execution model |
+| Models | Provider/model abstraction and routing | Often centered on one provider |
+| Workers | Distributed worker registration and compute coordination | Usually external to the chat product |
+| Interaction | Text plus structured multimodal response surfaces | Primarily conversational text |
+| Research | Retrieval/evidence pathways plus synthesis | Typically model-centric retrieval |
+| System direction | AI-native computing environment | Application layer over conventional computing |
 
-A person should be able to access SarembokVE from a browser, phone, tablet, or other supported client and encounter the Sarembok environment without installing Unreal Engine or building a local workstation capable of rendering the underlying digital-human technology.
+## Sovereignty and Interoperability
 
-The complexity belongs inside the platform.
+SarembokVE is designed to remain independent of any single AI provider or infrastructure vendor.
 
-## SarembokVE Is Not a Wrapper
+External models and systems can be integrated where they provide useful capabilities. They are components inside the SarembokVE architecture rather than the definition of the platform.
 
-SarembokVE is being developed with its own architecture, runtime, protocols, persistence model, orchestration layer, security model, system integration, and intellectual property.
+This separation is intentional. Models can change, providers can change, and compute resources can change without requiring SarembokVE to become a rebranded interface for any one company.
 
-External technologies—including frontier AI models, open-source models, graphics systems, cloud infrastructure, and specialized hardware—may be integrated where they provide useful capabilities. They remain components of a larger SarembokVE architecture.
+## Production Foundation
 
-**SarembokVE's value is the system that coordinates intelligence, memory, embodiment, computation, and action—not merely access to a model.**
+The public SarembokVE environment is deployed at:
 
-This architecture allows providers to change without forcing the entire platform to be redesigned around one vendor.
+**https://sarembok.com**
 
-## The OS and Kernel Direction
+The production foundation currently includes:
 
-SarembokVE is being developed toward a dedicated computing environment rather than remaining a conventional application running on top of an existing desktop paradigm.
+- Containerized cloud runtime and edge deployment.
+- Caddy-based public HTTPS edge routing.
+- Authenticated browser session issuance.
+- WebSocket control and JSON-RPC execution.
+- Runtime health and operational telemetry.
+- Persistent SQLite/WAL storage.
+- Agent and task management.
+- Chat/session continuity through the runtime control plane.
+- Provider routing and model abstraction.
+- Research/intelligence integration paths.
+- External worker registration and compute scheduling architecture.
+- Browser control surfaces for runtime, workers, agents, tasks, memory, research, and multimodal interaction.
 
-The platform's system layer is intended to provide intelligent resource management, agent execution, security boundaries, persistent state, device and compute coordination, services, and machine-level integration.
+The repository and public deployment are intended to represent the same engineering system; production changes are validated against the active runtime rather than simulated with disposable mock infrastructure.
 
-Kernel development is part of that architectural direction: SarembokVE is intended to establish its own system foundation and control the execution environment at a level appropriate for a new AI-native computing architecture.
+## Multimodal Computing Surface
 
-This is not an experiment in putting a chatbot on a desktop. It is an attempt to define a new computing model in which intelligence is a native system capability.
+SarembokVE is designed for more than plain text responses. The frontend contains structured response surfaces for supported capabilities such as:
 
-## The Digital Human
+- Video and media playback.
+- Audio streams.
+- Images and visual synthesis.
+- Research documents and PDFs.
+- Code blocks and developer output.
+- Structured task matrices.
+- Flashcards and interactive content.
+- Persistent dialogue and session continuity.
 
-Traditional software separates the interface from the intelligence behind it.
+These are interface and execution surfaces around the underlying runtime, not independent products.
 
-SarembokVE is designed differently.
+## Digital-Human and System Architecture Direction
 
-The digital human is the visible embodiment of the intelligent system. The agent behind that embodiment maintains identity, memory, cognition, tools, permissions, goals, and relationships with the user's environment.
+SarembokVE is also being developed toward a deeper AI-native system architecture in which intelligence, identity, memory, execution, and high-fidelity embodiment can operate as one computing environment.
 
-High-fidelity embodiment is therefore an architectural concern, not decorative UI. Unreal Engine and comparable high-fidelity rendering technology are development and infrastructure components; they are not public-user installation requirements.
+High-fidelity digital-human technology and Unreal Engine integration are part of that direction. They are platform and development capabilities, not prerequisites for a public browser user.
 
-## Current Platform Foundation
+The longer-term architecture extends toward a dedicated system/OS and kernel layer capable of managing intelligent agents, resource boundaries, device integration, security, persistent state, and machine-level execution as native system functions.
 
-The repository contains the active SarembokVE cloud/runtime foundation, including:
+These are active architectural development directions, not claims that every future layer is already complete in the current public deployment.
 
-- Real-time WebSocket transport.
-- JSON-RPC control and conversation protocol.
-- Public browser sessions with authenticated session boundaries.
-- Agent creation and state management.
-- Persistent memory and conversation storage.
-- Conversation execution and event emission.
-- Model-provider abstraction and routing.
-- Worker registration and distributed compute coordination.
-- Cloud deployment through containers and a public edge layer.
-- Digital-human session architecture.
-- Frontend/browser control surfaces.
-- Integration paths for high-fidelity embodiment technology.
+## Engineering Principles
 
-The platform is being validated as production infrastructure. Development work is directed toward the real SarembokVE system rather than disposable demonstrations.
+### Build the system, not the demo
 
-## Why It Matters
+SarembokVE is designed around durable runtime capabilities, explicit protocols, persistence, observability, security boundaries, and real deployment validation.
 
-Computing has historically required people to learn the language of machines: applications, menus, commands, files, settings, APIs, and increasingly complicated interfaces.
+### Intelligence is a system capability
 
-SarembokVE reverses that relationship.
+The objective is not simply to provide better model answers. The objective is to build a computing environment in which intelligence can reason about objectives, retain continuity, coordinate work, use tools, interact with compute resources, and execute controlled actions.
 
-The objective is a computing environment that can understand the user, maintain continuity, reason about objectives, operate tools, coordinate specialized agents, interact with machines and services, and present itself through a persistent digital human.
+### Provider independence
 
-That creates a path toward computing in which **the operating environment itself becomes intelligent.**
+A model provider should be replaceable. SarembokVE owns the orchestration and execution environment around those models.
 
-## Independence and Interoperability
+### Real infrastructure over simulated infrastructure
 
-SarembokVE is designed to remain technologically independent.
+Development targets the actual cloud runtime, browser edge, persistent state, worker fabric, and production deployment rather than placeholder demonstrations.
 
-Its architecture can incorporate OpenAI, Microsoft, NVIDIA, Anthropic, xAI, open-source models, specialized inference systems, graphics technologies, and other infrastructure where appropriate. No external provider is the definition of SarembokVE.
+## Development Direction
 
-This separation is fundamental to the platform's long-term technical and commercial viability.
+The platform is advancing along several connected layers:
 
-## A Platform, Not a Feature
+**Runtime → agents → memory → orchestration → research → tools → workers → distributed compute → multimodal interaction → digital-human embodiment → AI-native system architecture.**
 
-SarembokVE is intended to support an ecosystem rather than a single application.
+The central engineering challenge is integrating these layers into one coherent environment while maintaining security, reliability, interoperability, and operational control.
 
-Its architecture can serve individual users, developers, businesses, digital-human applications, autonomous software agents, robotics and physical systems, education and training, research, advanced computing, and distributed compute networks.
-
-The same underlying architecture can provide different experiences while preserving a common identity, memory, security, and execution model.
-
-## Building the Technology
-
-SarembokVE follows a simple engineering principle:
-
-> **If the required technology does not exist in the form we need, we build the technology.**
-
-The project is not organized around purchasing a collection of products and assembling them into a demonstration. Third-party technologies are used where technically appropriate, while the distinctive platform capabilities are engineered as SarembokVE technology.
-
-## Serious Development Objective
-
-SarembokVE is intended to become a significant independent technology platform in the emerging AI-computing sector.
-
-The project combines areas that are normally developed separately:
-
-**AI agents + persistent memory + orchestration + operating-system concepts + distributed compute + real-time communication + digital humans + high-fidelity embodiment.**
-
-Bringing these layers together is the central engineering challenge—and the central opportunity.
-
-## Support the Development
-
-SarembokVE is an ambitious technology-development effort. Financial sponsorship and strategic support can accelerate infrastructure, engineering, compute, embodiment technology, security, testing, and development of the SarembokVE system foundation.
-
-Support is directed toward building technology and infrastructure that can become part of a durable independent platform.
-
-## Status
+## Project Status
 
 SarembokVE is under active development.
 
-The cloud runtime, public-session architecture, agent system, persistent memory, conversation layer, WebSocket control plane, provider abstraction, and production deployment foundation are already being engineered and validated.
+The cloud/runtime foundation, authenticated browser sessions, agent and task architecture, persistent memory, WebSocket control plane, provider abstraction, research pathways, distributed-worker foundation, and public production edge are already implemented and being validated.
 
-The project is advancing toward the deeper system architecture: a complete AI-native computing environment with its own system layer, kernel development, and integrated high-fidelity digital-human embodiment.
+The project is continuing toward deeper system integration, expanded compute, richer multimodal operation, high-fidelity digital-human embodiment, and the longer-term AI-native operating-system/kernel architecture.
 
-## Repository
-
-This is the authoritative public development repository for SarembokVE:
+## Authoritative Repository
 
 **https://github.com/jetsontech/SarembokVE**
 
----
-
-**SarembokVE — building the computing environment in which intelligence is native.**
+SarembokVE is being built as an independent computing platform in which **intelligence is a native capability of the environment**.
