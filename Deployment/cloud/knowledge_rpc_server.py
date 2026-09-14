@@ -150,8 +150,15 @@ def _is_model_identity_query(prompt: str) -> bool:
 cloud_server.handler=handler
 
 async def process_http_request(connection,request):
+    headers = getattr(request,"headers",{}) or {}
+    upgrade = headers.get("Upgrade","") if hasattr(headers,"get") else ""
+    if isinstance(upgrade,str) and upgrade.lower() == "websocket":
+        # Never turn a WebSocket upgrade into the normal homepage response.
+        return None
+
     path=getattr(request,"path",None) or getattr(connection,"path","/")
-    if path not in ("/","/index.html"): return await _original_process_http_request(connection,request)
+    if path not in ("/","/index.html"):
+        return await _original_process_http_request(connection,request)
     base_dir=os.path.dirname(os.path.abspath(__file__))
     candidates=[os.path.join(base_dir,"frontend","index.html"),os.path.join(base_dir,"..","frontend","index.html"),os.path.join(base_dir,"..","..","frontend","index.html"),os.path.abspath(os.path.join(os.getcwd(),"frontend","index.html")),"/app/frontend/index.html","frontend/index.html"]
     html_str=None

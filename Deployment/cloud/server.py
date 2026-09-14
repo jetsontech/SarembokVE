@@ -532,87 +532,6 @@ def ensure_scheduler_schema() -> None:
     store.db.commit()
 
 
-SOVEREIGN_WORKER_ID = "sarembok-edge-frontier-01"
-
-
-def ensure_sovereign_worker() -> None:
-    """Ensures the primary sovereign GPU compute worker is registered and actively heartbeated."""
-    try:
-        stamp = now()
-        caps = json.dumps([
-            "compute",
-            "gpu",
-            "inference",
-            "image_generation",
-            "flux_generator",
-            "synthesis",
-            "speech_synthesis",
-            "meta_human",
-            "vision_inference",
-            "deep_reasoning",
-        ])
-        models = json.dumps([
-            "flux-1-schnell",
-            "stable-diffusion-xl",
-            "dall-e-3",
-            "llama-3.3-70b",
-            "deepseek-v3",
-            "qwen-2.5-coder",
-            "gpt-4o-mini",
-        ])
-
-        row = store.db.execute("SELECT worker_id FROM workers WHERE worker_id=?", (SOVEREIGN_WORKER_ID,)).fetchone()
-        if not row:
-            store.db.execute(
-                """
-                INSERT INTO workers (
-                    worker_id,
-                    capabilities,
-                    gpu_vendor,
-                    gpu_model,
-                    vram_mb,
-                    cuda_version,
-                    available_memory_mb,
-                    supported_models,
-                    latency_ms,
-                    status,
-                    last_heartbeat,
-                    active_tasks
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    SOVEREIGN_WORKER_ID,
-                    caps,
-                    "NVIDIA",
-                    "NVIDIA RTX 4090 Sovereign Tensor Core",
-                    24576,
-                    "12.4",
-                    24576,
-                    models,
-                    24.5,
-                    "ONLINE",
-                    stamp,
-                    0,
-                ),
-            )
-        else:
-            store.db.execute(
-                """
-                UPDATE workers
-                SET status='ONLINE',
-                    last_heartbeat=?,
-                    capabilities=?,
-                    supported_models=?,
-                    available_memory_mb=24576
-                WHERE worker_id=?
-                """,
-                (stamp, caps, models, SOVEREIGN_WORKER_ID),
-            )
-        store.db.commit()
-    except Exception as exc:
-        LOG.warning("Failed to ensure sovereign worker: %s", exc)
-
-
 GPU_MARKETPLACE_TIERS = [
     {
         "tierId": "colab-t4",
@@ -1999,7 +1918,6 @@ def sarembok_process_dialogue(
     conv_history = deduped_history
 
     # Runtime Authority is the source of truth for live Sarembok platform state
-    ensure_sovereign_worker()
     authority_snapshot = runtime_authority_snapshot(
         store,
         PROVIDER_ROUTER,
@@ -2619,15 +2537,198 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         worker_id = str(params.get("workerId", "")).strip()
         if not worker_id:
             raise ValueError("workerId is required")
-        caps = json.dumps(params.get("capabilities", ["inference"]))
-        vendor = str(params.get("gpuVendor", "NVIDIA"))
-        model = str(params.get("gpuModel", "RTX 4090"))
-        vram = int(params.get("vramMb", 24576))
-        cuda = str(params.get("cudaVersion", "12.2"))
-        avail_mem = int(params.get("availableMemoryMb", vram))
-        models = json.dumps(params.get("supportedModels", ["default"]))
-        latency = float(params.get("latencyMs", 10.0))
-        status = str(params.get("status", "ONLINE")).upper()
+
+        caps_list = params.get(
+            "capabilities",
+            ["compute", "inference"],
+        )
+
+        if not isinstance(caps_list, list):
+            caps_list = ["compute", "inference"]
+
+        caps_list = [
+            str(cap).strip()
+            for cap in caps_list
+            if str(cap).strip()
+        ]
+
+        # GPU state is never inferred from defaults.
+        # A worker must explicitly report detected hardware.
+        hardware_detected = bool(
+            params.get("hardwareDetected", False)
+        )
+
+        hardware_source = str(
+            params.get("hardwareSource", "")
+        ).strip().lower()
+
+        vendor = str(
+            params.get("gpuVendor", "CPU")
+        ).strip() or "CPU"
+
+        model = str(
+            params.get("gpuModel", "CPU")
+        ).strip() or "CPU"
+
+        vram = int(
+            params.get("vramMb", 0) or 0
+        )
+
+        cuda = str(
+            params.get("cudaVersion", "N/A")
+        ).strip() or "N/A"
+
+        avail_mem = int(
+            params.get("availableMemoryMb", 4096) or 4096
+        )
+
+        models_value = params.get(
+            "supportedModels",
+            ["general_compute"],
+        )
+
+        if not isinstance(models_value, list):
+            models_value = ["general_compute"]
+
+        latency = float(
+            params.get("latencyMs", 10.0)
+        )
+
+        status = str(
+            params.get("status", "ONLINE")
+        ).upper()
+
+        trusted_gpu_sources = {
+            "nvidia-smi",
+            "cuda",
+            "cuda-runtime",
+            "pytorch",
+            "torch",
+            "hardware-probe",
+        }
+
+        # A GPU registration is accepted only when the worker supplies
+        # internally coherent hardware evidence. This is provenance
+        # validation, not remote hardware attestation.
+        gpu_fields_present = any(
+            [
+                hardware_detected,
+                hardware_source not in {"", "none", "cpu"},
+                vendor.upper() not in {"", "CPU", "NONE"},
+                model.upper() not in {"", "CPU", "NONE"},
+                vram > 0,
+                cuda.upper() not in {"", "N/A", "NONE"},
+                "gpu" in caps_list,
+            ]
+        )
+
+        gpu_reported = (
+            hardware_detected
+            and hardware_source in trusted_gpu_sources
+            and vendor.upper() not in {"", "CPU", "NONE"}
+            and model.upper() not in {"", "CPU", "NONE"}
+            and vram > 0
+        )
+
+        if gpu_fields_present and not gpu_reported:
+            # Never allow a contradictory or partial GPU claim to enter
+            # the live worker registry. Downgrade the registration to
+            # CPU truth instead of exposing misleading GPU capability.
+            LOG.warning(
+                "Rejecting inconsistent GPU claim for worker=%s "
+                "source=%s vendor=%s model=%s vram=%s detected=%s",
+                worker_id,
+                hardware_source or "none",
+                vendor,
+                model,
+                vram,
+                hardware_detected,
+            )
+
+            vendor = "CPU"
+            model = "CPU"
+            vram = 0
+            cuda = "N/A"
+            hardware_detected = False
+            hardware_source = "none"
+
+            caps_list = [
+                cap
+                for cap in caps_list
+                if cap not in {
+                    "gpu",
+                    "image_generation",
+                    "flux_generator",
+                    "vision_inference",
+                    "meta_human",
+                }
+            ]
+
+            if not caps_list:
+                caps_list = [
+                    "compute",
+                    "inference",
+                ]
+
+            models_value = [
+                model_name
+                for model_name in models_value
+                if model_name not in {
+                    "flux-1-schnell",
+                    "stable-diffusion-xl",
+                    "dall-e-3",
+                }
+            ]
+
+            if not models_value:
+                models_value = [
+                    "general_compute"
+                ]
+
+        elif not gpu_reported:
+            vendor = "CPU"
+            model = "CPU"
+            vram = 0
+            cuda = "N/A"
+            hardware_detected = False
+            hardware_source = "none"
+
+            caps_list = [
+                cap
+                for cap in caps_list
+                if cap not in {
+                    "gpu",
+                    "image_generation",
+                    "flux_generator",
+                    "vision_inference",
+                    "meta_human",
+                }
+            ]
+
+            if not caps_list:
+                caps_list = [
+                    "compute",
+                    "inference",
+                ]
+
+            models_value = [
+                model_name
+                for model_name in models_value
+                if model_name not in {
+                    "flux-1-schnell",
+                    "stable-diffusion-xl",
+                    "dall-e-3",
+                }
+            ]
+
+            if not models_value:
+                models_value = [
+                    "general_compute"
+                ]
+
+        caps = json.dumps(caps_list)
+        models = json.dumps(models_value)
+
         stamp = now()
         ensure_scheduler_schema()
 
@@ -2640,7 +2741,9 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             (worker_id,),
         ).fetchone()
 
-        active_tasks = int(existing[0]) if existing else 0
+        active_tasks = int(
+            existing[0]
+        ) if existing else 0
 
         store.db.execute(
             """
@@ -2677,7 +2780,23 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         )
 
         store.db.commit()
-        return {"workerId": worker_id, "registered": True, "status": status, "capabilities": json.loads(caps)}
+
+        return {
+            "workerId": worker_id,
+            "registered": True,
+            "status": status,
+            "capabilities": json.loads(caps),
+            "hardwareDetected": gpu_reported,
+            "hardwareSource": (
+                hardware_source
+                if gpu_reported
+                else "none"
+            ),
+            "gpuVendor": vendor,
+            "gpuModel": model,
+            "vramMb": vram,
+            "cudaVersion": cuda,
+        }
 
     if method == "ListWorkers":
         evaluate_worker_liveness()
@@ -4192,7 +4311,6 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         return {
             "status": "COMPLETED",
             "image": img_res,
-            "workerId": SOVEREIGN_WORKER_ID,
             "timestamp": now(),
         }
 
@@ -4200,30 +4318,126 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         return get_visual_engine_status()
 
     if method == "ExecuteComputeTask":
-        task_type = str(params.get("taskType", "inference")).strip()
-        payload = params.get("payload", {})
-        ensure_sovereign_worker()
-        task_id = f"task-{uuid.uuid4().hex[:8]}"
+        task_type = str(
+            params.get("taskType", "inference")
+        ).strip()
+
+        payload = params.get(
+            "payload",
+            {},
+        )
+
+        required_capability = str(
+            params.get(
+                "requiredCapability",
+                "inference",
+            )
+        ).strip() or "inference"
+
+        # Execution is bound to actual registered workers.
+        # This path never creates or upgrades a worker.
+        evaluate_worker_liveness()
+
+        rows = store.db.execute(
+            """
+            SELECT
+                worker_id,
+                capabilities,
+                gpu_vendor,
+                gpu_model,
+                vram_mb,
+                cuda_version,
+                status,
+                last_heartbeat,
+                latency_ms
+            FROM workers
+            WHERE status='ONLINE'
+            ORDER BY latency_ms ASC,
+                     last_heartbeat DESC
+            """
+        ).fetchall()
+
+        selected = None
+
+        for row in rows:
+            try:
+                capabilities = json.loads(
+                    row["capabilities"] or "[]"
+                )
+            except Exception:
+                capabilities = []
+
+            if required_capability in capabilities:
+                selected = row
+                break
+
+        if selected is None:
+            raise RuntimeError(
+                "no_online_worker_for_capability:"
+                + required_capability
+            )
+
+        task_id = (
+            f"task-{uuid.uuid4().hex[:8]}"
+        )
+
         stamp = now()
+
         store.db.execute(
             """
-            INSERT INTO tasks (task_id, task_type, required_capability, payload, assigned_worker_id, status, created_at, updated_at)
-            VALUES (?, ?, 'gpu', ?, ?, 'RUNNING', ?, ?)
+            INSERT INTO tasks (
+                task_id,
+                task_type,
+                required_capability,
+                payload,
+                assigned_worker_id,
+                status,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                ?, ?, ?, ?, ?,
+                'QUEUED', ?, ?
+            )
             """,
-            (task_id, task_type, json.dumps(payload), SOVEREIGN_WORKER_ID, stamp, stamp),
+            (
+                task_id,
+                task_type,
+                required_capability,
+                json.dumps(payload),
+                selected["worker_id"],
+                stamp,
+                stamp,
+            ),
         )
+
         store.db.commit()
-        return {
+
+        result = {
             "taskId": task_id,
-            "workerId": SOVEREIGN_WORKER_ID,
-            "status": "RUNNING",
+            "workerId": selected["worker_id"],
+            "status": "QUEUED",
             "taskType": task_type,
-            "gpuModel": "NVIDIA RTX 4090 Sovereign Tensor Core",
+            "requiredCapability": required_capability,
             "timestamp": stamp,
         }
 
+        if int(
+            selected["vram_mb"] or 0
+        ) > 0:
+            result["gpuModel"] = (
+                selected["gpu_model"]
+            )
+            result["vramMb"] = int(
+                selected["vram_mb"]
+            )
+            result["cudaVersion"] = (
+                selected["cuda_version"]
+            )
+
+        return result
+
     if method == "Health":
-        ensure_sovereign_worker()
         worker_stats = get_worker_status_counts()
         session_count = store.db.execute("SELECT COUNT(*) FROM digital_human_sessions WHERE status!='TERMINATED'").fetchone()[0]
         return {
@@ -4386,6 +4600,13 @@ def process_http_response(connection: Any, request: Any, response: Any) -> Any:
 
 
 async def process_http_request(connection: Any, request: Any) -> Any:
+    LOG.info(
+        "handshake_probe path=%r headers=%r upgrade=%r connection=%r",
+        getattr(request, "path", None),
+        dict(getattr(request, "headers", {}) or {}),
+        getattr(request, "headers", {}).get("Upgrade", None),
+        getattr(request, "headers", {}).get("Connection", None),
+    )
     # If the request is a WebSocket upgrade attempt, return None to continue handshake
     headers = getattr(request, "headers", {})
     upgrade = headers.get("Upgrade", "") if hasattr(headers, "get") else ""
@@ -4514,7 +4735,6 @@ async def worker_lifecycle_loop() -> None:
         while not stop_evt.is_set():
             try:
                 async with get_db_lock():
-                    ensure_sovereign_worker()
                     evaluate_worker_liveness()
             except Exception as exc:
                 LOG.error("error in worker lifecycle loop: %s", exc)
@@ -4531,7 +4751,6 @@ async def serve() -> None:
     global MONITOR_TASK
     LOG.info("startup port=%s max_connections=%s auth_configured=%s db=%s", PORT, MAX_CONNECTIONS, bool(AUTH_TOKEN), DB_PATH)
     ensure_scheduler_schema()
-    ensure_sovereign_worker()
     MONITOR_TASK = asyncio.create_task(worker_lifecycle_loop())
     try:
         async with websockets.serve(

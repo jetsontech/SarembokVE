@@ -3,7 +3,6 @@ services:
     build:
       context: ../..
       dockerfile: Deployment/cloud/Dockerfile.worker
-    container_name: sarembok-worker
     restart: unless-stopped
     init: true
 
@@ -14,11 +13,9 @@ services:
     environment:
       SAREMBOK_WS_URL: ${SAREMBOK_WS_URL:-ws://sarembok-runtime:9000}
       SAREMBOK_AUTH_TOKEN: ${SAREMBOK_AUTH_TOKEN:-}
-      SAREMBOK_WORKER_ID: ${SAREMBOK_WORKER_ID:-sarembok-gpu-worker}
+      SAREMBOK_WORKER_ID: ${SAREMBOK_WORKER_ID:-}
       SAREMBOK_WORKER_HEARTBEAT_INTERVAL: ${SAREMBOK_WORKER_HEARTBEAT_INTERVAL:-15}
       SAREMBOK_WORKER_POLL_INTERVAL: ${SAREMBOK_WORKER_POLL_INTERVAL:-2}
-
-    gpus: all
 
     security_opt:
       - no-new-privileges:true
