@@ -8,6 +8,10 @@ SarembokVE is being built as a real technology platform—not a demo, wrapper, o
 
 The goal is to create a computing environment in which people interact with intelligent digital beings as naturally as they interact with software today, while the platform itself provides the runtime, memory, orchestration, embodiment, security, system integration, and compute infrastructure required to make that possible.
 
+## UI Engineering Note
+
+The production response renderer and browser control surface are being maintained as first-class platform components. Markdown, tables, code blocks, structured responses, model routing controls, telemetry, and task controls must reflect authoritative runtime state and remain selectable/copyable in the browser.
+
 ## What SarembokVE Is
 
 SarembokVE is the foundation for a new class of human-computer interaction:
