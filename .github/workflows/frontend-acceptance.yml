@@ -26,5 +26,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sarembok-ui-proof
-          path: /tmp/sarembok-*.png
+          path: sarembok-*.png
           if-no-files-found: warn
