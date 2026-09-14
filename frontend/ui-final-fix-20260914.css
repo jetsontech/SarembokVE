@@ -1,0 +1,260 @@
+/* SAREMBOKVE_UI_GEOMETRY_FIX_20260914 */
+/* Final conversation-surface geometry. No runtime behavior changes. */
+
+html, body {
+    width: 100% !important;
+    min-height: 100% !important;
+    overflow: hidden !important;
+}
+
+#app {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+}
+
+.cyber-main,
+.main-content,
+.app-main {
+    min-width: 0 !important;
+    min-height: 0 !important;
+}
+
+#view-dialogue.active {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    height: calc(100vh - 62px) !important;
+    min-height: 0 !important;
+    max-height: calc(100vh - 62px) !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    padding: 8px 20px 8px 76px !important;
+}
+
+#view-dialogue .dialogue-wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    width: min(1180px, 100%) !important;
+    max-width: 1180px !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    margin: 0 auto !important;
+}
+
+#view-dialogue .dialogue-head {
+    flex: 0 0 auto !important;
+    min-height: 40px !important;
+    overflow: visible !important;
+}
+
+#view-dialogue .dialogue-history {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+    padding: 18px clamp(10px, 3vw, 48px) 20px !important;
+}
+
+#view-dialogue .srbk-bubble,
+#view-dialogue .srbk-bubble * {
+    box-sizing: border-box !important;
+    white-space: normal !important;
+}
+
+#view-dialogue .srbk-bubble {
+    flex: 0 0 auto !important;
+    width: min(100%, 960px) !important;
+    max-width: 960px !important;
+    line-height: 1.72 !important;
+    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+}
+
+#view-dialogue .srbk-bubble.user {
+    width: fit-content !important;
+    max-width: min(78%, 820px) !important;
+    align-self: flex-end !important;
+}
+
+#view-dialogue .srbk-content,
+#view-dialogue .srbk-content * {
+    max-width: 100% !important;
+    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+}
+
+#view-dialogue .srbk-content p,
+#view-dialogue .srbk-content ul,
+#view-dialogue .srbk-content ol,
+#view-dialogue .srbk-content blockquote,
+#view-dialogue .srbk-content pre {
+    position: static !important;
+    margin-top: 0 !important;
+    margin-bottom: 14px !important;
+}
+
+#view-dialogue .srbk-content h1,
+#view-dialogue .srbk-content h2,
+#view-dialogue .srbk-content h3,
+#view-dialogue .srbk-content h4,
+#view-dialogue .srbk-content h5,
+#view-dialogue .srbk-content h6,
+#view-dialogue .srbk-md-h2,
+#view-dialogue .srbk-md-h3,
+#view-dialogue .srbk-md-h4 {
+    position: static !important;
+    float: none !important;
+    clear: both !important;
+    white-space: normal !important;
+    line-height: 1.28 !important;
+    overflow-wrap: anywhere !important;
+}
+
+#view-dialogue .srbk-content table {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+}
+
+#view-dialogue .srbk-table-wrap {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+}
+
+/* Video occupies the full conversation content width and keeps a true 16:9 viewport. */
+#view-dialogue .srbk-video-card {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    margin: 16px 0 20px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+#view-dialogue .srbk-video-card .srbk-video-player-wrap,
+#view-dialogue .srbk-video-card .srbk-video-wrapper {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 16 / 9 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+}
+
+#view-dialogue .srbk-video-card iframe,
+#view-dialogue .srbk-video-card .srbk-video-iframe,
+#view-dialogue .srbk-video-card video,
+#view-dialogue .srbk-video-card .srbk-video-player {
+    position: absolute !important;
+    inset: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    object-fit: cover !important;
+}
+
+#view-dialogue .srbk-video-card .srbk-video-head {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+
+/* Composer remains inside the viewport on desktop and mobile. */
+#view-dialogue.active .dialogue-input-bar {
+    order: 3 !important;
+    flex: 0 0 auto !important;
+    position: relative !important;
+    bottom: auto !important;
+    width: min(100%, 1080px) !important;
+    max-width: 1080px !important;
+    min-height: 58px !important;
+    height: auto !important;
+    margin: 6px auto 2px !important;
+    box-sizing: border-box !important;
+    z-index: 100 !important;
+}
+
+#view-dialogue .dialogue-input {
+    display: block !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    min-height: 42px !important;
+    height: 42px !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.3 !important;
+}
+
+/* Never fake an input placeholder with a positioned pseudo-element. */
+#view-dialogue .dialogue-input-bar::after {
+    display: none !important;
+    content: none !important;
+}
+
+#view-dialogue .dialogue-input::placeholder {
+    color: #718294 !important;
+    opacity: 1 !important;
+}
+
+#view-dialogue .dialogue-exec-btn {
+    flex: 0 0 auto !important;
+    min-height: 42px !important;
+    height: 42px !important;
+    white-space: nowrap !important;
+}
+
+@media (max-width: 900px) {
+    html, body, #app { overflow: hidden !important; }
+    #view-dialogue.active {
+        height: calc(100vh - 62px) !important;
+        max-height: calc(100vh - 62px) !important;
+        padding: 7px 8px 70px !important;
+    }
+    #view-dialogue .dialogue-history {
+        padding: 14px 10px 18px !important;
+    }
+    #view-dialogue .srbk-bubble,
+    #view-dialogue .srbk-bubble.user {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    #view-dialogue.active .dialogue-input-bar {
+        width: calc(100% - 2px) !important;
+        max-width: none !important;
+    }
+}
+
+@media (max-width: 560px) {
+    #view-dialogue.active {
+        padding-left: 6px !important;
+        padding-right: 6px !important;
+    }
+}
+
+/* SAREMBOKVE_UI_GEOMETRY_FIX_ACTIVE_20260914 */
