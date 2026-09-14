@@ -5,7 +5,20 @@ import websockets
 from provider_router import reset_stream_callback, set_stream_callback
 from runtime_authority import render_markdown as render_runtime_diagnostic
 from runtime_authority import snapshot as runtime_authority_snapshot
-from runtime_response_composer import build_runtime_context,is_capability_query,is_identity_query,is_limitation_query,is_self_state_query,render_capabilities,render_identity,render_limitations,render_model_inventory
+from runtime_response_composer import (
+    build_runtime_context,
+    is_capability_query,
+    is_identity_query,
+    is_limitation_query,
+    is_platform_purpose_query,
+    is_self_state_query,
+    render_capabilities,
+    render_identity,
+    render_limitations,
+    render_model_inventory,
+    render_platform_purpose,
+    spoken_text,
+)
 
 CLOUD_SERVER_PATH="/app/server.py"
 spec=importlib.util.spec_from_file_location("sarembok_cloud_server",CLOUD_SERVER_PATH)
@@ -31,20 +44,39 @@ def _authoritative_snapshot() -> dict:
 def _dispatch_chat_with_authority(params: dict) -> dict:
     snapshot=_authoritative_snapshot()
     prompt=str(params.get("prompt") or params.get("message") or params.get("text") or "").strip()
+
+    if is_platform_purpose_query(prompt):
+        response=render_platform_purpose(snapshot)
+        return {
+            **snapshot,
+            "response":response,
+            "audioText":spoken_text(response, max_chars=1200),
+            "source":"runtime_authority",
+            "model":"runtime-authority",
+            "action":None,
+            "structuredResponse":cloud_server.build_structured_response(
+                response,
+                provider="runtime_authority",
+                model="runtime-authority",
+            ),
+            "agentId":"sarembok-prime",
+            "timestamp":cloud_server.now(),
+        }
+
     if is_limitation_query(prompt):
         response=render_limitations(snapshot)
-        return {**snapshot,"response":response,"audioText":"Sarembok VE operates within defined architectural boundaries: containerized sandbox isolation, strict human-in-the-loop authorization for high-risk actions, and verified ground-truth telemetry.","source":"runtime_authority","model":"runtime-authority","action":None,"structuredResponse":cloud_server.build_structured_response(response,provider="runtime_authority",model="runtime-authority"),"agentId":"sarembok-prime","timestamp":cloud_server.now()}
+        return {**snapshot,"response":response,"audioText":spoken_text(response, max_chars=1200),"source":"runtime_authority","model":"runtime-authority","action":None,"structuredResponse":cloud_server.build_structured_response(response,provider="runtime_authority",model="runtime-authority"),"agentId":"sarembok-prime","timestamp":cloud_server.now()}
     if is_capability_query(prompt):
         response=render_capabilities(snapshot)
-        return {**snapshot,"response":response,"audioText":"I am Sarembok VE. I can stream media and audio, conduct live two-way voice conversations, retrieve real-time news and intelligence, synthesize code, and orchestrate multi-agent pipelines.","source":"runtime_authority","model":"runtime-authority","action":None,"structuredResponse":cloud_server.build_structured_response(response,provider="runtime_authority",model="runtime-authority"),"agentId":"sarembok-prime","timestamp":cloud_server.now()}
+        return {**snapshot,"response":response,"audioText":spoken_text(response, max_chars=1200),"source":"runtime_authority","model":"runtime-authority","action":None,"structuredResponse":cloud_server.build_structured_response(response,provider="runtime_authority",model="runtime-authority"),"agentId":"sarembok-prime","timestamp":cloud_server.now()}
     if is_identity_query(prompt):
         response=render_identity(snapshot)
-        return {**snapshot,"response":response,"audioText":"I am Sarembok VE, the sovereign computing environment and AI multimodal runtime.","source":"runtime_authority","model":"runtime-authority","action":None,"structuredResponse":cloud_server.build_structured_response(response,provider="runtime_authority",model="runtime-authority"),"agentId":"sarembok-prime","timestamp":cloud_server.now()}
+        return {**snapshot,"response":response,"audioText":spoken_text(response, max_chars=1200),"source":"runtime_authority","model":"runtime-authority","action":None,"structuredResponse":cloud_server.build_structured_response(response,provider="runtime_authority",model="runtime-authority"),"agentId":"sarembok-prime","timestamp":cloud_server.now()}
     inventory_query_markers=("what models are available","what other models","other models","which models are available","which models can i use","what models can i use","what llms are available","what llms can i use","what language models are available","what language models can i use","what models are configured","which models are configured","model availability","available models","configured models")
     prompt_lower=prompt.lower()
     if is_self_state_query(prompt) and any(marker in prompt_lower for marker in inventory_query_markers):
         response=render_model_inventory(snapshot)
-        return {**snapshot,"response":response,"audioText":response.replace("*","").replace("`","").replace("#","")[:1200],"source":"runtime_authority","model":"runtime-authority","action":None,"structuredResponse":cloud_server.build_structured_response(response,provider="runtime_authority",model="runtime-authority"),"agentId":"sarembok-prime","timestamp":cloud_server.now()}
+        return {**snapshot,"response":response,"audioText":spoken_text(response, max_chars=1200),"source":"runtime_authority","model":"runtime-authority","action":None,"structuredResponse":cloud_server.build_structured_response(response,provider="runtime_authority",model="runtime-authority"),"agentId":"sarembok-prime","timestamp":cloud_server.now()}
     return _original_dispatch("SarembokChat",params)
 
 
@@ -59,7 +91,7 @@ def dispatch(method: str, params: dict) -> dict:
         prompt=str(params.get("prompt") or params.get("message") or params.get("text") or "").strip()
         if _is_runtime_diagnostic(prompt):
             diagnostic=_authoritative_snapshot(); response=render_runtime_diagnostic(diagnostic)
-            return {**diagnostic,"response":response,"audioText":response.replace("*","").replace("`","").replace("#","")[:1200],"source":"runtime_authority","model":"runtime-authority","action":None,"structuredResponse":cloud_server.build_structured_response(response,provider="runtime_authority",model="runtime-authority"),"agentId":"sarembok-prime","timestamp":cloud_server.now()}
+            return {**diagnostic,"response":response,"audioText":spoken_text(response, max_chars=1200),"source":"runtime_authority","model":"runtime-authority","action":None,"structuredResponse":cloud_server.build_structured_response(response,provider="runtime_authority",model="runtime-authority"),"agentId":"sarembok-prime","timestamp":cloud_server.now()}
         return _dispatch_chat_with_authority(params)
     if method in KnowledgeRuntimeAPI.METHODS: return knowledge_api.dispatch(method,params)
     return _original_dispatch(method,params)

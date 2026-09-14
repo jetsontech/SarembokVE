@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS runtime_runs (
  run_id TEXT PRIMARY KEY, request_id TEXT NOT NULL, parent_run_id TEXT, tenant_id TEXT NOT NULL,
  state TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deadline_at TEXT,
  idempotency_key TEXT, attempt INTEGER NOT NULL DEFAULT 0, checkpoint_id TEXT,
- cancellation_requested INTEGER NOT NULL DEFAULT 0, metadata_json TEXT NOT NULL DEFAULT '{}'
+ cancellation_requested INTEGER NOT NULL DEFAULT 0, metadata_json TEXT NOT NULL DEFAULT '{}',
+ result_json TEXT, error_json TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_runtime_runs_tenant_updated ON runtime_runs(tenant_id,updated_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_runtime_runs_idempotency ON runtime_runs(tenant_id,idempotency_key) WHERE idempotency_key IS NOT NULL;
@@ -40,20 +41,106 @@ class DurableWorkloadStore:
     def __init__(self, cloud_store: Any):
         self.store = cloud_store
         self.db: sqlite3.Connection = cloud_store.db
-        self.db.executescript(RUN_TABLE_SQL); self.db.commit()
+        self.db.executescript(RUN_TABLE_SQL)
+        self._migrate_runtime_runs()
+        self.db.commit()
+
+    def _migrate_runtime_runs(self):
+        columns = {
+            row["name"]
+            for row in self.db.execute("PRAGMA table_info(runtime_runs)").fetchall()
+        }
+        if "result_json" not in columns:
+            self.db.execute("ALTER TABLE runtime_runs ADD COLUMN result_json TEXT")
+        if "error_json" not in columns:
+            self.db.execute("ALTER TABLE runtime_runs ADD COLUMN error_json TEXT")
 
     def _row(self, run_id):
         return self.db.execute("SELECT * FROM runtime_runs WHERE run_id=?", (run_id,)).fetchone()
 
-    def create_run(self, *, tenant_id, request_id, parent_run_id=None, deadline_at=None, idempotency_key=None, metadata=None):
+    def create_run(self, *, tenant_id, request_id, parent_run_id=None,
+                   deadline_at=None, idempotency_key=None, metadata=None,
+                   return_created=False):
+        metadata = metadata or {}
+
         if idempotency_key:
-            row = self.db.execute("SELECT * FROM runtime_runs WHERE tenant_id=? AND idempotency_key=?", (tenant_id,idempotency_key)).fetchone()
-            if row: return self._serialize(row)
+            self.db.execute("BEGIN IMMEDIATE")
+            try:
+                row = self.db.execute(
+                    "SELECT * FROM runtime_runs "
+                    "WHERE tenant_id=? AND idempotency_key=?",
+                    (tenant_id, idempotency_key),
+                ).fetchone()
+                if row:
+                    self.db.commit()
+                    result = self._serialize(row)
+                    return (result, False) if return_created else result
+
+                rid, stamp = new_id("run"), utc_now()
+                self.db.execute(
+                    "INSERT INTO runtime_runs("
+                    "run_id,request_id,parent_run_id,tenant_id,state,created_at,"
+                    "updated_at,deadline_at,idempotency_key,metadata_json"
+                    ") VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        rid,
+                        request_id,
+                        parent_run_id,
+                        tenant_id,
+                        RunState.ACCEPTED.value,
+                        stamp,
+                        stamp,
+                        deadline_at,
+                        idempotency_key,
+                        json.dumps(metadata, sort_keys=True),
+                    ),
+                )
+                self._event_in_transaction(
+                    rid,
+                    "run.accepted",
+                    RunState.ACCEPTED.value,
+                    metadata,
+                )
+                self.db.commit()
+                result = self.get_run(rid)
+                return (result, True) if return_created else result
+            except Exception:
+                self.db.rollback()
+                raise
+
         rid, stamp = new_id("run"), utc_now()
-        self.db.execute("INSERT INTO runtime_runs(run_id,request_id,parent_run_id,tenant_id,state,created_at,updated_at,deadline_at,idempotency_key,metadata_json) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                         (rid,request_id,parent_run_id,tenant_id,RunState.ACCEPTED.value,stamp,stamp,deadline_at,idempotency_key,json.dumps(metadata or {},sort_keys=True)))
-        self.db.commit(); self._event(rid,"run.accepted",RunState.ACCEPTED.value,metadata or {})
-        return self.get_run(rid)
+        self.db.execute(
+            "INSERT INTO runtime_runs("
+            "run_id,request_id,parent_run_id,tenant_id,state,created_at,"
+            "updated_at,deadline_at,idempotency_key,metadata_json"
+            ") VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (
+                rid,
+                request_id,
+                parent_run_id,
+                tenant_id,
+                RunState.ACCEPTED.value,
+                stamp,
+                stamp,
+                deadline_at,
+                idempotency_key,
+                json.dumps(metadata, sort_keys=True),
+            ),
+        )
+        self.db.commit()
+        self._event(rid, "run.accepted", RunState.ACCEPTED.value, metadata)
+        result = self.get_run(rid)
+        return (result, True) if return_created else result
+
+    def find_idempotent(self, tenant_id, idempotency_key):
+        if not idempotency_key:
+            return None
+        row = self.db.execute(
+            "SELECT * FROM runtime_runs "
+            "WHERE tenant_id=? AND idempotency_key=?",
+            (tenant_id, idempotency_key),
+        ).fetchone()
+        return self._serialize(row) if row else None
 
     def transition(self, run_id, state: RunState, **metadata):
         row=self._row(run_id)
@@ -122,12 +209,75 @@ class DurableWorkloadStore:
         ranked=WorkScheduler().rank(workers,req)
         return {"feasible":bool(ranked),"selectedWorkerId":ranked[0].worker_id if ranked else None,"candidates":[{"workerId":w.worker_id,"score":WorkScheduler.score(w,req)} for w in ranked]}
 
+    def _event_in_transaction(self, run_id, event_type, state, payload):
+        self.db.execute(
+            "INSERT INTO runtime_run_events("
+            "run_id,event_type,state,payload_json,created_at"
+            ") VALUES(?,?,?,?,?)",
+            (
+                run_id,
+                event_type,
+                state,
+                json.dumps(payload, sort_keys=True, default=str),
+                utc_now(),
+            ),
+        )
+
     def _event(self,run_id,event_type,state,payload):
-        self.db.execute("INSERT INTO runtime_run_events(run_id,event_type,state,payload_json,created_at) VALUES(?,?,?,?,?)",(run_id,event_type,state,json.dumps(payload,sort_keys=True,default=str),utc_now())); self.db.commit()
+        self._event_in_transaction(run_id,event_type,state,payload)
+        self.db.commit()
+
+    def save_result(self, run_id, result):
+        encoded = json.dumps(result, sort_keys=True, default=str)
+        self.db.execute(
+            "UPDATE runtime_runs SET result_json=?, updated_at=? WHERE run_id=?",
+            (encoded, utc_now(), run_id),
+        )
+        self.db.commit()
+
+    def save_error(self, run_id, error):
+        encoded = json.dumps(error, sort_keys=True, default=str)
+        self.db.execute(
+            "UPDATE runtime_runs SET error_json=?, updated_at=? WHERE run_id=?",
+            (encoded, utc_now(), run_id),
+        )
+        self.db.commit()
+
+    def get_terminal_result(self, run_id):
+        row = self._row(run_id)
+        if row is None:
+            raise KeyError(f"run_not_found: {run_id}")
+        if row["result_json"]:
+            return json.loads(row["result_json"])
+        return None
+
+    def get_terminal_error(self, run_id):
+        row = self._row(run_id)
+        if row is None:
+            raise KeyError(f"run_not_found: {run_id}")
+        if row["error_json"]:
+            return json.loads(row["error_json"])
+        return None
 
     @staticmethod
     def _serialize(row):
-        return {"runId":row["run_id"],"requestId":row["request_id"],"parentRunId":row["parent_run_id"],"tenantId":row["tenant_id"],"state":row["state"],"createdAt":row["created_at"],"updatedAt":row["updated_at"],"deadlineAt":row["deadline_at"],"idempotencyKey":row["idempotency_key"],"attempt":row["attempt"],"checkpointId":row["checkpoint_id"],"cancellationRequested":bool(row["cancellation_requested"]),"metadata":json.loads(row["metadata_json"] or "{}")}
+        return {
+            "runId": row["run_id"],
+            "requestId": row["request_id"],
+            "parentRunId": row["parent_run_id"],
+            "tenantId": row["tenant_id"],
+            "state": row["state"],
+            "createdAt": row["created_at"],
+            "updatedAt": row["updated_at"],
+            "deadlineAt": row["deadline_at"],
+            "idempotencyKey": row["idempotency_key"],
+            "attempt": row["attempt"],
+            "checkpointId": row["checkpoint_id"],
+            "cancellationRequested": bool(row["cancellation_requested"]),
+            "metadata": json.loads(row["metadata_json"] or "{}"),
+            "hasResult": bool(row["result_json"]),
+            "hasError": bool(row["error_json"]),
+        }
 
 
 def install_runtime_workload_api(cloud_server):
@@ -142,7 +292,29 @@ def install_runtime_workload_api(cloud_server):
         if method=="GetRunEvidence": return {"evidence":runtime.get_evidence(str(params.get("runId","")))}
         if method=="GetRunArtifacts": return {"artifacts":runtime.get_artifacts(str(params.get("runId","")))}
         if method=="GetRunTrace": return {"trace":runtime.get_traces(str(params.get("runId","")))}
-        if method=="RecordEvidence": return {"evidence":runtime.add_evidence(str(params["runId"]),str(params["kind"]),params.get("content"),str(params.get("source","unknown")),confidence=params.get("confidence"),scope=params.get("scope"),provenance=params.get("provenance")).__dict__}
+        if method=="RecordEvidence":
+            ev = runtime.add_evidence(
+                str(params["runId"]),
+                str(params["kind"]),
+                params.get("content"),
+                str(params.get("source","unknown")),
+                confidence=params.get("confidence"),
+                scope=params.get("scope"),
+                provenance=params.get("provenance"),
+            )
+            return {
+                "evidence": {
+                    "evidenceId": ev.evidence_id,
+                    "runId": str(params["runId"]),
+                    "kind": ev.kind.value,
+                    "content": ev.content,
+                    "source": ev.source,
+                    "observedAt": ev.observed_at,
+                    "confidence": ev.confidence,
+                    "scope": ev.scope,
+                    "provenance": dict(ev.provenance),
+                }
+            }
         if method=="RecordArtifact":
             payload=params.get("content",""); payload=payload.encode() if isinstance(payload,str) else bytes(payload)
             a=runtime.add_artifact(str(params["runId"]),str(params["name"]),str(params.get("mediaType","application/octet-stream")),payload,str(params.get("storageUri","sarembok://artifact/"+new_id("artifact"))),params.get("metadata")); return {"artifact":a.__dict__}
@@ -155,21 +327,170 @@ def install_runtime_workload_api(cloud_server):
 def install_chat_lifecycle(cloud_server,runtime):
     original=cloud_server.dispatch
     lifecycle_methods={"SarembokChat","Chat","SarembokDialogue","GenerateImage","ExecuteComputeTask","ScheduleCompute"}
+
     def dispatch(method,params):
-        if method not in lifecycle_methods: return original(method,params)
-        request_id=str(params.get("requestId") or new_id("request")); tenant_id=str(params.get("tenantId") or params.get("userId") or "user:anonymous")
-        run=runtime.create_run(tenant_id=tenant_id,request_id=request_id,parent_run_id=params.get("parentRunId"),idempotency_key=params.get("idempotencyKey"),metadata={"method":method,"sessionId":params.get("sessionId")}); run_id=run["runId"]
-        started=__import__("time").perf_counter(); runtime.trace(run_id,"request.accepted","runtime",attributes={"method":method,"requestId":request_id})
+        if method not in lifecycle_methods:
+            return original(method,params)
+
+        request_id=str(params.get("requestId") or new_id("request"))
+        tenant_id=str(params.get("tenantId") or params.get("userId") or "user:anonymous")
+        idempotency_key=params.get("idempotencyKey")
+
+        existing=runtime.find_idempotent(tenant_id,idempotency_key) if idempotency_key else None
+
+        if existing:
+            state=existing["state"]
+
+            if state == RunState.COMPLETED.value:
+                cached=runtime.get_terminal_result(existing["runId"])
+                if cached is not None:
+                    return cached
+
+            if state == RunState.FAILED.value:
+                cached_error=runtime.get_terminal_error(existing["runId"])
+                if cached_error is not None:
+                    raise RuntimeError(
+                        str(cached_error.get("message") or cached_error)
+                    )
+
+            # The request is already executing or awaiting work.
+            # Never execute the underlying operation twice.
+            return {
+                "runId": existing["runId"],
+                "state": state,
+                "idempotentReplay": True,
+                "message": "Request already accepted; execution is already in progress.",
+            }
+
+        run, created=runtime.create_run(
+            tenant_id=tenant_id,
+            request_id=request_id,
+            parent_run_id=params.get("parentRunId"),
+            deadline_at=params.get("deadlineAt"),
+            idempotency_key=idempotency_key,
+            metadata={
+                "method":method,
+                "sessionId":params.get("sessionId"),
+            },
+            return_created=True,
+        )
+
+        # The atomic SQLite creation may discover that another
+        # concurrent request won the idempotency race between the
+        # initial lookup and creation transaction. Never execute
+        # the underlying operation twice.
+        if not created:
+            state=run["state"]
+
+            if state == RunState.COMPLETED.value:
+                cached=runtime.get_terminal_result(run["runId"])
+                if cached is not None:
+                    return cached
+
+            if state == RunState.FAILED.value:
+                cached_error=runtime.get_terminal_error(run["runId"])
+                if cached_error is not None:
+                    raise RuntimeError(
+                        str(cached_error.get("message") or cached_error)
+                    )
+
+            return {
+                "runId": run["runId"],
+                "state": state,
+                "idempotentReplay": True,
+                "message": "Request already accepted; execution is already in progress.",
+            }
+
+        run_id=run["runId"]
+
+        started=__import__("time").perf_counter()
+        runtime.trace(
+            run_id,
+            "request.accepted",
+            "runtime",
+            attributes={
+                "method":method,
+                "requestId":request_id,
+            },
+        )
+
         try:
-            runtime.transition(run_id,RunState.AUTHORIZED,method=method); runtime.transition(run_id,RunState.PLANNED,method=method); runtime.transition(run_id,RunState.EXECUTING,method=method)
-            result=original(method,params); source=str(result.get("source","runtime")) if isinstance(result,dict) else "runtime"; content=result.get("response") if isinstance(result,dict) else result
-            runtime.add_evidence(run_id,EvidenceKind.MODEL_INFERENCE.value,content,source,provenance={"method":method}); runtime.transition(run_id,RunState.VERIFYING,method=method); runtime.transition(run_id,RunState.COMPLETED,method=method)
-            runtime.trace(run_id,"request.completed","runtime",duration_ms=round((__import__("time").perf_counter()-started)*1000,1),attributes={"method":method,"source":source})
-            if isinstance(result,dict): result["runId"]=run_id
+            runtime.transition(run_id,RunState.AUTHORIZED,method=method)
+            runtime.transition(run_id,RunState.PLANNED,method=method)
+            runtime.transition(run_id,RunState.EXECUTING,method=method)
+
+            result=original(method,params)
+
+            source=str(result.get("source","runtime")) if isinstance(result,dict) else "runtime"
+            content=result.get("response") if isinstance(result,dict) else result
+
+            runtime.add_evidence(
+                run_id,
+                EvidenceKind.MODEL_INFERENCE.value,
+                content,
+                source,
+                provenance={"method":method},
+            )
+
+            if isinstance(result,dict):
+                result["runId"]=run_id
+
+            runtime.transition(run_id,RunState.VERIFYING,method=method)
+            runtime.save_result(run_id,result)
+            runtime.transition(run_id,RunState.COMPLETED,method=method)
+
+            runtime.trace(
+                run_id,
+                "request.completed",
+                "runtime",
+                duration_ms=round(
+                    (__import__("time").perf_counter()-started)*1000,
+                    1,
+                ),
+                attributes={
+                    "method":method,
+                    "source":source,
+                },
+            )
+
             return result
+
         except Exception as exc:
-            runtime.add_evidence(run_id,EvidenceKind.RUNTIME_FACT.value,{"error":str(exc)},"runtime",provenance={"method":method}); runtime.trace(run_id,"request.failed","runtime",attributes={"method":method,"error":str(exc)})
-            try: runtime.transition(run_id,RunState.FAILED,method=method,error=str(exc))
-            except Exception: pass
+            error={
+                "type":type(exc).__name__,
+                "message":str(exc),
+                "method":method,
+            }
+
+            try:
+                runtime.add_evidence(
+                    run_id,
+                    EvidenceKind.RUNTIME_FACT.value,
+                    {"error":str(exc)},
+                    "runtime",
+                    provenance={"method":method},
+                )
+                runtime.save_error(run_id,error)
+                runtime.trace(
+                    run_id,
+                    "request.failed",
+                    "runtime",
+                    duration_ms=round(
+                        (__import__("time").perf_counter()-started)*1000,
+                        1,
+                    ),
+                    attributes={
+                        "method":method,
+                        "error":str(exc),
+                    },
+                )
+                runtime.transition(
+                    run_id,
+                    RunState.FAILED,
+                    method=method,
+                    error=str(exc),
+                )
+            except Exception:
+                pass
+
             raise
-    cloud_server.dispatch=dispatch

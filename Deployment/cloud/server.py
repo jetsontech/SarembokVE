@@ -9,6 +9,7 @@ SIGTERM/SIGINT graceful shutdown.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import hmac
 import json
 import logging
@@ -35,6 +36,9 @@ from runtime_response_composer import (
     render_identity,
     render_limitations,
     render_model_inventory,
+    spoken_text,
+    is_platform_purpose_query,
+    render_platform_purpose,
 )
 from provider_router import ProviderRouter
 from capability_registry import CapabilityRegistry
@@ -105,7 +109,8 @@ BROWSER_ALLOWED_METHODS = {
     "SaveUserChatSession",
     "DeleteUserChatSession",
 }
-BROWSER_SESSIONS: dict[str, float] = {}
+BROWSER_SESSION_VERSION = "v1"
+BROWSER_SESSION_CONTEXT = b"SarembokVE-browser-session-v1"
 STARTED = time.time()
 PROVIDER_ROUTER = ProviderRouter()
 CAPABILITY_REGISTRY = CapabilityRegistry()
@@ -2001,6 +2006,27 @@ def sarembok_process_dialogue(
         STARTED,
     )
 
+    # Direct Runtime Authority Handling (Pruning, Platform Purpose, Limitations, Capabilities, Identity, Model Inventory)
+    if is_platform_purpose_query(prompt_clean):
+        purpose_reply = render_platform_purpose(authority_snapshot)
+        _save_conversation(session_id, prompt_clean, purpose_reply)
+        return {
+            "response": purpose_reply,
+            "audioText": spoken_text(purpose_reply, max_chars=1200),
+            "source": "runtime_authority",
+            "model": "runtime-authority",
+            "action": None,
+            "structuredResponse": build_structured_response(
+                purpose_reply,
+                provider="runtime_authority",
+                model="runtime-authority",
+            ),
+            "metadata": {
+                "provider": "runtime_authority",
+                "model": "runtime-authority",
+            },
+        }
+
     # Direct Runtime Authority Handling (Pruning, Limitations, Capabilities, Identity, Model Inventory)
     if is_worker_prune_query(prompt_clean):
         pruned_cnt = prune_stale_workers(force_all_offline=True)
@@ -2279,20 +2305,8 @@ def sarembok_process_dialogue(
         reply = _enrich_multimodal_reply(prompt_clean, reply)
 
     def _spoken_clean(text: str) -> str:
-        if not text:
-            return ""
-        s = re.sub(r":::(?:card|video|audio|doc|pdf|music|tasks)[^\n]*\n?", "", text)
-        s = re.sub(r":::reveal[^\n]*\n?", " Solution: ", s)
-        s = re.sub(r":::", "", s)
-        s = re.sub(r"```[\s\S]*?```", "Code block omitted.", s)
-        s = re.sub(r"\\\[([\s\S]*?)\\\]", r" \1 ", s)
-        s = re.sub(r"\\\(([\s\S]*?)\\\)", r" \1 ", s)
-        s = re.sub(r"\$\$([\s\S]*?)\$\$", r" \1 ", s)
-        s = re.sub(r"\$([^\$]+)\$", r" \1 ", s)
-        s = re.sub(r"https?:\/\/\S+", "", s)
-        s = re.sub(r"[*#_`~|]", "", s)
-        s = re.sub(r"\s+", " ", s).strip()
-        return s[:380]
+        return spoken_text(text, max_chars=1200)
+
 
     if reply and reply.strip():
         reply = reply.strip()
@@ -4229,27 +4243,69 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
     raise ValueError(f"unknown_method: {method}")
 
 
+def _browser_session_signing_key() -> bytes:
+    # Never use the browser token itself as the signing key.
+    # The runtime's existing administrative secret is available in the
+    # process environment and is never rendered into the browser.
+    master = (
+        os.getenv("SAREMBOK_ADMIN_PASSCODE", "").strip()
+        or os.getenv("SAREMBOK_AUTH_TOKEN", "").strip()
+    )
+    if len(master) < 16:
+        raise RuntimeError(
+            "Browser session signing requires a configured runtime secret"
+        )
+    return hmac.new(
+        master.encode("utf-8"),
+        BROWSER_SESSION_CONTEXT,
+        hashlib.sha256,
+    ).digest()
+
+
 def issue_browser_session() -> str:
-    now_ts = time.time()
-    # Prune expired sessions opportunistically.
-    expired = [token for token, expiry in BROWSER_SESSIONS.items() if expiry <= now_ts]
-    for token in expired:
-        BROWSER_SESSIONS.pop(token, None)
-    token = secrets.token_urlsafe(32)
-    BROWSER_SESSIONS[token] = now_ts + BROWSER_SESSION_TTL_SECONDS
+    now_ts = int(time.time())
+    expiry = now_ts + BROWSER_SESSION_TTL_SECONDS
+    nonce = secrets.token_urlsafe(24)
+    payload = f"{BROWSER_SESSION_VERSION}.{expiry}.{nonce}"
+    signature = hmac.new(
+        _browser_session_signing_key(),
+        payload.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    token = f"{payload}.{signature}"
     return token
 
 
 def browser_session_valid(token: Any) -> bool:
     if not isinstance(token, str) or not token:
         return False
-    expiry = BROWSER_SESSIONS.get(token)
-    if expiry is None:
+
+    parts = token.split(".")
+    if len(parts) != 4:
         return False
-    if expiry <= time.time():
-        BROWSER_SESSIONS.pop(token, None)
+
+    version, expiry_text, nonce, supplied_signature = parts
+    if version != BROWSER_SESSION_VERSION:
         return False
-    return True
+    if not nonce or not supplied_signature:
+        return False
+
+    try:
+        expiry = int(expiry_text)
+    except (TypeError, ValueError):
+        return False
+
+    if expiry <= int(time.time()):
+        return False
+
+    payload = f"{version}.{expiry}.{nonce}"
+    expected_signature = hmac.new(
+        _browser_session_signing_key(),
+        payload.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+    return hmac.compare_digest(supplied_signature, expected_signature)
 
 
 def authenticate(request: dict[str, Any], method: str) -> None:
@@ -4304,7 +4360,13 @@ async def handler(websocket) -> None:
                 LOG.info("rpc_success method=%s request_id=%s", method, request.get("id"))
             except PermissionError as exc:
                 response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32001, "message": str(exc)}}
-                LOG.warning("rpc_auth_failed peer=%s", peer)
+                failed_method = request.get("method") if isinstance(request, dict) else None
+                LOG.warning(
+                    "rpc_auth_failed peer=%s method=%s reason=%s",
+                    peer,
+                    failed_method,
+                    exc,
+                )
             except Exception as exc:
                 response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32000, "message": str(exc)}}
                 LOG.warning("rpc_error peer=%s error=%s", peer, exc)
