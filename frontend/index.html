@@ -7070,6 +7070,13 @@
             if (!text) return "";
             let s = String(text);
 
+            /* SAREMBOK_MD_NORMALIZATION_20260914 */
+            /* Normalize provider-escaped Markdown before parsing. */
+            s = s.replace(/\\n/g, "\n");
+            s = s.replace(/\\([*_`#|])/g, "$1");
+            s = s.replace(/([.!?])\s+-\s+(?=\*\*|[A-Za-z])/g, "$1\n- ");
+            s = s.replace(/\s+(?=\d+\.\s+\*\*)/g, "\n");
+
             // 1. Code blocks
             s = s.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
                 return `<div class="srbk-code-block"><div class="srbk-code-head"><span>${lang || "CODE"}</span><button class="srbk-copy-btn" type="button" onclick="copyCode(this)">COPY</button></div><pre><code>${escapeHtml(code.trim())}</code></pre></div>`;
