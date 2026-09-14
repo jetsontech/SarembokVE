@@ -2,22 +2,18 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-import time
 
 ROOT = Path(__file__).resolve().parents[2]
 PATH = ROOT / "frontend/index.html"
 MARKER = "SAREMBOK_IDENTITY_PRONUNCIATION_REPAIR_20260914"
 
-
 def run(*args, check=True):
     print("$", " ".join(args))
     return subprocess.run(args, cwd=ROOT, check=check, text=True)
 
-
 def fail(message):
     print("PATCH FAILED:", message, file=sys.stderr)
     raise SystemExit(1)
-
 
 run("git", "status", "--short")
 status = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT, text=True, capture_output=True, check=True).stdout.strip()
@@ -27,13 +23,53 @@ if status:
 s = PATH.read_text(encoding="utf-8")
 original = s
 
-# Controlled rename of the entire vision identifier family. All dependent
-# references are in this frontend file, so this preserves the existing feature.
-for old, new in (("Astra", "Vision"), ("astra", "vision")):
+# Rename only the actual vision subsystem identifiers. Do not globally replace
+# the word 'Astra', because compound names such as AstraVision would otherwise
+# become VisionVision.
+identifier_replacements = [
+    ("activeAstraFrame", "activeVisionFrame"),
+    ("astraVisionMode", "visionMode"),
+    ("astraScreenStream", "visionScreenStream"),
+    ("captureAstraCameraFrame", "captureVisionCameraFrame"),
+    ("toggleAstraScreenShare", "toggleVisionScreenShare"),
+    ("setAstraActiveFrame", "setVisionActiveFrame"),
+    ("clearAstraFrame", "clearVisionFrame"),
+    ("toggleAstraVisionMode", "toggleVisionMode"),
+    ("astra-frame-preview-bar", "vision-frame-preview-bar"),
+    ("astra-frame-thumb", "vision-frame-thumb"),
+    ("astra-frame-label", "vision-frame-label"),
+    ("astra-vision-toggle-btn", "vision-toggle-btn"),
+]
+for old, new in identifier_replacements:
     s = s.replace(old, new)
 
-# Remove the browser voice named "aria" from voice heuristics. Do NOT alter
-# standard aria-* accessibility attributes.
+# Visible legacy product terminology: preserve semantics, remove obsolete brand.
+visible_replacements = [
+    ("Astra Vision Eye (Camera &amp; Screen)", "Live Vision (Camera &amp; Screen)"),
+    ("Astra Vision Eye", "Live Vision"),
+    ("Astra Camera Eye", "Camera Vision"),
+    ("Astra Screen Eye", "Screen Vision"),
+    ("Astra perception frame", "Vision perception frame"),
+    ("Toggle Astra Multimodal Eye", "Toggle live multimodal vision"),
+    ("Astra Multimodal Eye", "Live Multimodal Vision"),
+    ("ASTRA MULTIMODAL VISION", "LIVE MULTIMODAL VISION"),
+    ("ASTRA MULTIMODAL EYE", "LIVE MULTIMODAL VISION"),
+    ("ASTRA EYE VIEWPORT ATTACHED", "LIVE VISION VIEWPORT ATTACHED"),
+    ("ASTRA EYE: OFF", "VISION: OFF"),
+    ("ASTRA EYE: ON", "VISION: ON"),
+    ("ASTRA EYE OFF", "VISION OFF"),
+    ("ASTRA MULTIMODAL EYE ACTIVE", "LIVE MULTIMODAL VISION ACTIVE"),
+    ("ASTRA SCREEN EYE ACTIVE", "LIVE SCREEN VISION ACTIVE"),
+    ("ASTRA SCREEN SHARE STOPPED", "SCREEN SHARE STOPPED"),
+    ("ASTRA CAMERA VIEWPORT CAPTURED", "CAMERA VIEWPORT CAPTURED"),
+    ("Astra camera &amp; screen perception", "live camera &amp; screen perception"),
+    ("Astra camera & screen perception", "live camera & screen perception"),
+]
+for old, new in visible_replacements:
+    s = s.replace(old, new)
+
+# Remove the browser voice named 'aria' from selection heuristics. Do not touch
+# accessibility attributes such as aria-label or aria-hidden.
 s = s.replace('"jenny", "aria", "samantha", "victoria", "ava"',
               '"jenny", "samantha", "victoria", "ava"')
 s = s.replace(
@@ -45,8 +81,8 @@ s = s.replace(
     'const vegaPriority = ["jenny", "shimmer", "google us english", "natural", "neural", "samantha", "ava"];'
 )
 
-# Browser TTS: visual branding stays SarembokVE; spoken branding becomes
-# "Sarembok V E".
+# Browser TTS: on-screen branding remains SarembokVE; speech becomes
+# 'Sarembok V E'.
 pronunciation = '''
         // SAREMBOK_PRODUCT_PRONUNCIATION_20260914
         function normalizeSarembokSpeech(text) {
@@ -77,9 +113,7 @@ if MARKER not in s:
 if s == original:
     fail("frontend unchanged")
 
-PATH.write_text(s, encoding="utf-8")
-
-# Structural integrity checks.
+# Structural integrity checks before writing/committing.
 required = [
     "captureVisionCameraFrame",
     "toggleVisionScreenShare",
@@ -98,23 +132,19 @@ if missing:
     fail("missing required symbols: " + ", ".join(missing))
 
 old_identifier_hits = re.findall(
-    r'(?i)\\b(?:astra|activeastra|toggleastra|captureastra|setastra|clearastra)\\w*\\b', s
+    r'(?i)\b(?:astra|activeastra|toggleastra|captureastra|setastra|clearastra)\w*\b', s
 )
 if old_identifier_hits:
     fail("old vision identifiers remain: " + ", ".join(sorted(set(old_identifier_hits))[:20]))
 
-# The only remaining case-insensitive 'aria' matches should be HTML
-# accessibility attributes (aria-label, aria-hidden, etc.), not a product or
-# voice name.
-voice_hits = []
+# No standalone obsolete voice/product token may remain. Standard aria-* HTML
+# accessibility attributes are intentionally exempted.
 for i, line in enumerate(s.splitlines(), 1):
     low = line.lower()
     if "aria" in low and not re.search(r'aria-[a-z-]+', low):
-        voice_hits.append((i, line.strip()))
-if voice_hits:
-    fail("non-accessibility Aria references remain: " + str(voice_hits[:10]))
+        fail(f"non-accessibility Aria reference remains on line {i}: {line.strip()}")
 
-# Preserve the important V2 repairs while making the identifier change.
+# Ensure all previous production repairs remain present.
 for token in (
     "SAREMBOK_VIDEO_LAYOUT_V2_20260914",
     "SAREMBOK_COLLAPSED_TABLE_RECOVERY_20260914",
@@ -126,25 +156,23 @@ for token in (
     if token not in s:
         fail("previous production repair missing: " + token)
 
-print("\n===== FRONTEND IDENTITY REPAIR: PASS =====")
+PATH.write_text(s, encoding="utf-8")
+print("FRONTEND IDENTITY/PRONUNCIATION REPAIR: PASS")
 print("Visual product name: SarembokVE")
 print("Spoken product name: Sarembok V E")
-print("Old Vision/Astra identifiers: removed")
-print("Browser voice named Aria: removed from selection heuristics")
-print("Standard aria-* accessibility attributes: preserved")
+print("Old vision identifiers: removed")
+print("Browser voice named aria: removed")
+print("aria-* accessibility attributes: preserved")
 
-print("\n===== DIFF =====")
 run("git", "diff", "--check")
 run("git", "diff", "--stat")
-run("git", "diff", "--", "frontend/index.html")
 
-# Remove this one-shot repair utility before committing so production history
-# contains only the actual frontend fix.
+# Remove this one-shot repair utility before committing; only the actual
+# frontend change belongs in the production commit.
 run("git", "rm", "--", str(Path(__file__).relative_to(ROOT)))
 run("git", "add", "frontend/index.html")
 run("git", "diff", "--cached", "--check")
 run("git", "status", "--short")
-
 run("git", "commit", "-m", "fix: standardize vision identity and SarembokVE pronunciation")
 run("git", "push", "origin", "main")
 
@@ -163,7 +191,7 @@ run("docker", "exec", "sarembok-edge", "wget", "-qO-", "http://sarembok-runtime:
 run("curl", "-fsS", "--max-time", "15", "https://sarembok.com/health")
 
 print("\n===== LIVE FRONTEND VERIFY =====")
-live = ROOT / "/tmp/sarembok-live.html"
+live = ROOT / "sarembok-live.html"
 run("curl", "-fsS", "--max-time", "15", "https://sarembok.com/", "-o", str(live))
 ls = live.read_text(encoding="utf-8")
 checks = {
@@ -182,7 +210,8 @@ for k, ok in checks.items():
 if not all(checks.values()):
     fail("live frontend verification failed")
 
-print("\n===== FINAL GIT =====")
+# Cleanup verification artifact and verify a clean worktree.
+Path("sarembok-live.html").unlink(missing_ok=True)
 run("git", "status", "--short")
 run("git", "rev-parse", "--short", "HEAD")
-print("\nIDENTITY/PRONUNCIATION REPAIR COMPLETE")
+print("IDENTITY/PRONUNCIATION REPAIR COMPLETE")
