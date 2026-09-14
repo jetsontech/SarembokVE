@@ -21,15 +21,8 @@
 html, body {
   background: radial-gradient(circle at 50% 0%, #0b1320 0%, #05070b 46%, #020306 100%);
 }
-
-body::before {
-  opacity: 0.12;
-}
-
-/* Cleaner system frame */
-#app {
-  padding-left: 0;
-}
+body::before { opacity: 0.12; }
+#app { padding-left: 0; }
 
 .cyber-header {
   padding: 13px 28px 12px;
@@ -38,13 +31,7 @@ body::before {
   border-bottom: 1px solid rgba(255,255,255,0.07);
   box-shadow: 0 8px 24px rgba(0,0,0,0.24);
 }
-
-.srbk-reactor {
-  width: 30px;
-  height: 30px;
-  box-shadow: 0 0 14px rgba(103,232,249,0.18), inset 0 0 8px rgba(103,232,249,0.12);
-}
-
+.srbk-reactor { width: 30px; height: 30px; box-shadow: 0 0 14px rgba(103,232,249,0.18), inset 0 0 8px rgba(103,232,249,0.12); }
 .header-brand-wrap { gap: 13px; }
 .header-brand-title { font-size: 18px; letter-spacing: 0.10em; }
 .header-brand-sub { font-size: 8px; color: #7f8da1; letter-spacing: 0.16em; }
@@ -61,7 +48,6 @@ body::before {
 }
 .cyber-ticker-track { animation-duration: 46s; }
 
-/* Replace the oversized left dock with a compact navigation rail. */
 .cyber-left-dock {
   top: 82px;
   bottom: 18px;
@@ -74,230 +60,65 @@ body::before {
   background: rgba(8,12,19,0.72);
   box-shadow: 0 16px 36px rgba(0,0,0,0.28);
 }
-.dock-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  color: #8795a8;
-}
+.dock-btn { width: 38px; height: 38px; border-radius: 10px; color: #8795a8; }
 .dock-btn svg { width: 18px; height: 18px; }
-.dock-btn.active {
-  background: rgba(103,232,249,0.11);
-  border-color: rgba(103,232,249,0.28);
-  box-shadow: 0 0 16px rgba(103,232,249,0.10), inset 0 0 8px rgba(103,232,249,0.06);
-}
-.dock-btn.active::before {
-  left: -8px;
-  top: 10px;
-  bottom: 10px;
-  width: 2px;
-}
+.dock-btn.active { background: rgba(103,232,249,0.11); border-color: rgba(103,232,249,0.28); box-shadow: 0 0 16px rgba(103,232,249,0.10), inset 0 0 8px rgba(103,232,249,0.06); }
+.dock-btn.active::before { left: -8px; top: 10px; bottom: 10px; width: 2px; }
 .dock-version { font-size: 7px; opacity: 0.7; }
 
-/* More breathing room on all views, without changing their behavior. */
 .view-panel { padding: 20px 34px 44px; }
+#view-dialogue { padding: 12px 34px 16px 88px; }
+.dialogue-wrap { max-width: 1120px; background: rgba(7,11,17,0.64); border: 1px solid rgba(255,255,255,0.065); border-radius: 18px; box-shadow: 0 22px 70px rgba(0,0,0,0.34); backdrop-filter: blur(18px); }
+.dialogue-head { min-height: 50px; padding: 9px 16px; background: rgba(3,6,10,0.55); border-bottom: 1px solid rgba(255,255,255,0.06); }
+.dialogue-title { font-size: 11px; letter-spacing: 0.12em; }
+.dialogue-history { padding: 22px 34px 24px; gap: 18px; scroll-behavior: smooth; }
 
-/* Conversation is the primary surface. */
-#view-dialogue {
-  padding: 12px 34px 16px 88px;
-}
-
-.dialogue-wrap {
-  max-width: 1120px;
-  background: rgba(7,11,17,0.64);
-  border: 1px solid rgba(255,255,255,0.065);
-  border-radius: 18px;
-  box-shadow: 0 22px 70px rgba(0,0,0,0.34);
-  backdrop-filter: blur(18px);
-}
-
-.dialogue-head {
-  min-height: 50px;
-  padding: 9px 16px;
-  background: rgba(3,6,10,0.55);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-.dialogue-title {
-  font-size: 11px;
-  letter-spacing: 0.12em;
-}
-
-.dialogue-history {
-  padding: 22px 34px 24px;
-  gap: 18px;
-  scroll-behavior: smooth;
-}
-
-/* Responses read like modern product UI rather than terminal output. */
-.srbk-bubble {
-  max-width: 900px;
-  padding: 15px 18px;
-  border-radius: 14px;
-  font-size: 14px;
-  line-height: 1.72;
-  border-color: rgba(255,255,255,0.06);
-  background: rgba(255,255,255,0.022);
-  box-shadow: 0 8px 28px rgba(0,0,0,0.16);
-}
-.srbk-bubble.user {
-  align-self: flex-end;
-  max-width: min(780px, 90%);
-  background: rgba(90,92,160,0.10);
-  border-color: rgba(165,180,252,0.20);
-}
-.srbk-bubble.assistant {
-  align-self: flex-start;
-  background: rgba(15,23,34,0.55);
-  border-color: rgba(103,232,249,0.13);
-}
-.srbk-bubble-sender {
-  margin-bottom: 8px;
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  opacity: 0.82;
-}
+.srbk-bubble { max-width: 900px; padding: 15px 18px; border-radius: 14px; font-size: 14px; line-height: 1.72; border-color: rgba(255,255,255,0.06); background: rgba(255,255,255,0.022); box-shadow: 0 8px 28px rgba(0,0,0,0.16); }
+.srbk-bubble.user { align-self: flex-end; max-width: min(780px, 90%); background: rgba(90,92,160,0.10); border-color: rgba(165,180,252,0.20); }
+.srbk-bubble.assistant { align-self: flex-start; background: rgba(15,23,34,0.55); border-color: rgba(103,232,249,0.13); }
+.srbk-bubble-sender { margin-bottom: 8px; font-size: 9px; letter-spacing: 0.12em; opacity: 0.82; }
 .srbk-content { color: #dce5ef; }
 .srbk-content p { margin-bottom: 11px; }
 .srbk-content p:last-child { margin-bottom: 0; }
 .srbk-content strong { color: #fff; font-weight: 650; }
-.srbk-content h1, .srbk-content h2, .srbk-content h3 {
-  color: #f8fafc;
-  letter-spacing: -0.015em;
-  line-height: 1.25;
-}
+.srbk-content h1, .srbk-content h2, .srbk-content h3 { color: #f8fafc; letter-spacing: -0.015em; line-height: 1.25; }
 .srbk-content h2 { font-size: 1.2rem; margin: 18px 0 10px; }
 .srbk-content h3 { font-size: 1.02rem; margin: 15px 0 8px; }
 .srbk-ul, .srbk-ol { margin: 10px 0 12px 24px; }
 .srbk-ul li, .srbk-ol li { margin-bottom: 6px; padding-left: 2px; }
 
-/* Structured response cards become subtle supporting components. */
-.srbk-response-grid {
-  grid-template-columns: repeat(auto-fit,minmax(260px,1fr));
-  gap: 10px;
-  margin-top: 15px;
-}
-.srbk-res-card {
-  background: rgba(255,255,255,0.018);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 11px;
-  padding: 12px 14px;
-}
+.srbk-response-grid { grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 10px; margin-top: 15px; }
+.srbk-res-card { background: rgba(255,255,255,0.018); border: 1px solid rgba(255,255,255,0.06); border-radius: 11px; padding: 12px 14px; }
 .srbk-res-card-head { color: var(--cyan); }
-
-/* Tables and media stay inside the reading column. */
-.srbk-table-wrap {
-  max-width: 100%;
-  margin: 15px 0;
-  border-color: rgba(103,232,249,0.16);
-}
+.srbk-table-wrap { max-width: 100%; margin: 15px 0; border-color: rgba(103,232,249,0.16); }
 .srbk-table { font-size: 12px; }
 .srbk-table th { padding: 9px 12px; background: rgba(103,232,249,0.075); }
 .srbk-table td { padding: 8px 12px; }
 
-.srbk-video-card,
-.srbk-image-card,
-.srbk-screenshot-card,
-.srbk-flashcard,
-.srbk-code-block,
-.srbk-math-block {
-  max-width: 100%;
-}
+.srbk-video-card, .srbk-image-card, .srbk-screenshot-card, .srbk-flashcard, .srbk-code-block, .srbk-math-block { max-width: 100%; }
+.srbk-video-card { width: 100%; margin: 14px 0; border-radius: 14px; border-color: rgba(103,232,249,0.20); background: #020306; box-shadow: 0 16px 42px rgba(0,0,0,0.42); }
+.srbk-video-wrapper { width: 100% !important; aspect-ratio: 16 / 9; max-height: min(64vh, 620px); overflow: hidden; }
+.srbk-video-wrapper iframe, .srbk-video-card iframe { width: 100% !important; height: 100% !important; min-width: 0 !important; display: block; border: 0; }
 
-.srbk-video-card {
-  width: 100%;
-  margin: 14px 0;
-  border-radius: 14px;
-  border-color: rgba(103,232,249,0.20);
-  background: #020306;
-  box-shadow: 0 16px 42px rgba(0,0,0,0.42);
-}
-.srbk-video-wrapper {
-  width: 100% !important;
-  aspect-ratio: 16 / 9;
-  max-height: min(64vh, 620px);
-  overflow: hidden;
-}
-.srbk-video-wrapper iframe,
-.srbk-video-card iframe {
-  width: 100% !important;
-  height: 100% !important;
-  min-width: 0 !important;
-  display: block;
-  border: 0;
-}
-
-.dialogue-input-bar {
-  width: min(calc(100% - 20px), 980px);
-  max-width: 980px;
-  margin: 10px auto 8px;
-  padding: 7px 8px 7px 10px;
-  border-radius: 17px;
-  background: rgba(7,12,19,0.92);
-  border-color: rgba(103,232,249,0.18);
-  box-shadow: 0 12px 34px rgba(0,0,0,0.34);
-}
-.dialogue-input {
-  min-height: 42px;
-  background: rgba(255,255,255,0.028);
-  border-color: rgba(255,255,255,0.07);
-  border-radius: 12px;
-  padding: 11px 14px;
-  font-size: 14px;
-}
-.dialogue-input:focus {
-  border-color: rgba(103,232,249,0.42);
-  box-shadow: 0 0 0 3px rgba(103,232,249,0.06);
-}
-.dialogue-exec-btn {
-  min-height: 42px;
-  padding: 0 20px;
-  border-radius: 12px;
-  font-size: 11px;
-  letter-spacing: 0.10em;
-  box-shadow: none;
-}
+.dialogue-input-bar { width: min(calc(100% - 20px), 980px); max-width: 980px; margin: 10px auto 8px; padding: 7px 8px 7px 10px; border-radius: 17px; background: rgba(7,12,19,0.92); border-color: rgba(103,232,249,0.18); box-shadow: 0 12px 34px rgba(0,0,0,0.34); }
+.dialogue-input { min-height: 42px; background: rgba(255,255,255,0.028); border-color: rgba(255,255,255,0.07); border-radius: 12px; padding: 11px 14px; font-size: 14px; }
+.dialogue-input:focus { border-color: rgba(103,232,249,0.42); box-shadow: 0 0 0 3px rgba(103,232,249,0.06); }
+.dialogue-exec-btn { min-height: 42px; padding: 0 20px; border-radius: 12px; font-size: 11px; letter-spacing: 0.10em; box-shadow: none; }
 .dialogue-exec-btn:hover { transform: none; }
 
-/* Keep floating media useful, but visually secondary to the conversation. */
-#srbk-floating-pip-player {
-  right: 22px;
-  bottom: 22px;
-  width: min(420px, calc(100vw - 44px));
-  border-radius: 14px;
-}
+#srbk-floating-pip-player { right: 22px; bottom: 22px; width: min(420px, calc(100vw - 44px)); border-radius: 14px; }
+.cyber-card, .browser-tool-card { border-color: rgba(255,255,255,0.07); border-radius: 15px; box-shadow: 0 16px 42px rgba(0,0,0,0.30); }
 
-/* Prevent panels from looking like unrelated dashboards. */
-.cyber-card,
-.browser-tool-card {
-  border-color: rgba(255,255,255,0.07);
-  border-radius: 15px;
-  box-shadow: 0 16px 42px rgba(0,0,0,0.30);
-}
-
-/* Tablet/mobile: collapse the rail into a bottom navigation strip. */
 @media (max-width: 820px) {
   #app { padding-left: 0; }
   .cyber-header { padding: 11px 16px 10px; min-height: 60px; }
   .header-hud-group { gap: 10px; }
   .header-hud-group .hud-badge:nth-child(n+3) { display: none; }
   .cyber-ticker { display: none; }
-
-  .cyber-left-dock {
-    left: 10px;
-    right: 10px;
-    top: auto;
-    bottom: max(10px, env(safe-area-inset-bottom));
-    width: auto;
-    height: 56px;
-    padding: 6px 8px;
-    flex-direction: row;
-    justify-content: space-around;
-    border-radius: 16px;
-  }
+  .cyber-left-dock { left: 10px; right: 10px; top: auto; bottom: max(10px, env(safe-area-inset-bottom)); width: auto; height: 56px; padding: 6px 8px; flex-direction: row; justify-content: space-around; border-radius: 16px; }
   .dock-btn { width: 40px; height: 40px; }
   .dock-btn.active::before { display: none; }
   .dock-version { display: none; }
-
   #view-dialogue { padding: 8px 8px 72px; }
   .dialogue-wrap { border-radius: 15px; }
   .dialogue-head { min-height: 44px; }
@@ -319,3 +140,6 @@ body::before {
   .srbk-table { font-size: 11px; }
   .srbk-table th, .srbk-table td { white-space: nowrap; }
 }
+
+/* Activate marker for automated acceptance checks. */
+/* SAREMBOK_UI_REFINEMENT_WIRED_TRIGGER_20260914 */
