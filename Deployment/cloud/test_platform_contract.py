@@ -1,7 +1,3 @@
-import os
-import subprocess
-from pathlib import Path
-
 import pytest
 
 from platform_contract import (
@@ -72,33 +68,3 @@ def test_artifact_hash_and_trace_contract():
 
 def test_canonical_json_is_stable():
     assert canonical_json({"b": 2, "a": 1}) == '{"a":1,"b":2}'
-
-
-def test_production_md_renderer_normalization_once_in_ci():
-    """One-shot production UI repair; never mutates developer workstations."""
-    if os.getenv("GITHUB_ACTIONS") != "true":
-        return
-    root = Path(__file__).resolve().parents[2]
-    frontend = root / "frontend" / "index.html"
-    source = frontend.read_text(encoding="utf-8")
-    marker = "SAREMBOK_MD_NORMALIZATION_20260914"
-    if marker not in source:
-        md_start = source.index("function md(text) {")
-        needle = "let s = String(text);"
-        pos = source.index(needle, md_start)
-        replacement = r'''let s = String(text);
-
-            /* SAREMBOK_MD_NORMALIZATION_20260914 */
-            /* Normalize provider-escaped Markdown before parsing. */
-            s = s.replace(/\\n/g, "\n");
-            s = s.replace(/\\([*_`#|])/g, "$1");
-            s = s.replace(/([.!?])\s+-\s+(?=\*\*|[A-Za-z])/g, "$1\n- ");
-            s = s.replace(/\s+(?=\d+\.\s+\*\*)/g, "\n");'''
-        source = source[:pos] + replacement + source[pos + len(needle):]
-        frontend.write_text(source, encoding="utf-8")
-        git = lambda *args: subprocess.run(["git", *args], cwd=root, check=True)
-        git("config", "user.name", "github-actions[bot]")
-        git("config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
-        git("add", "frontend/index.html")
-        git("commit", "-m", "fix: Sarembok md renderer normalization")
-        git("push")
