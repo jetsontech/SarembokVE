@@ -7,25 +7,51 @@ ROOT = Path(__file__).resolve().parents[2]
 PATH = ROOT / "frontend/index.html"
 MARKER = "SAREMBOK_IDENTITY_PRONUNCIATION_REPAIR_20260914"
 
+
 def run(*args, check=True):
     print("$", " ".join(args))
     return subprocess.run(args, cwd=ROOT, check=check, text=True)
+
 
 def fail(message):
     print("PATCH FAILED:", message, file=sys.stderr)
     raise SystemExit(1)
 
-run("git", "status", "--short")
-status = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT, text=True, capture_output=True, check=True).stdout.strip()
-if status:
-    fail("working tree is not clean; refusing to modify unrelated work")
+
+# The first version of this repair wrote frontend/index.html before it reached
+# validation. Accept only that isolated known partial state; refuse everything else.
+status_lines = subprocess.run(
+    ["git", "status", "--porcelain"], cwd=ROOT, text=True,
+    capture_output=True, check=True
+).stdout.splitlines()
+allowed = {" M frontend/index.html", "M  frontend/index.html", "MM frontend/index.html"}
+unexpected = [line for line in status_lines if line not in allowed]
+if unexpected:
+    fail("unexpected working-tree changes: " + "; ".join(unexpected))
+
+print("$ git status --short")
+for line in status_lines:
+    print(line)
 
 s = PATH.read_text(encoding="utf-8")
 original = s
 
-# Rename only the actual vision subsystem identifiers. Do not globally replace
-# the word 'Astra', because compound names such as AstraVision would otherwise
-# become VisionVision.
+# Repair malformed compound identifiers created by the first failed global rename.
+partial_identifier_repairs = [
+    ("toggleVisionVisionMode", "toggleVisionMode"),
+    ("captureVisionVisionCameraFrame", "captureVisionCameraFrame"),
+    ("captureVisionVisionFrame", "captureVisionCameraFrame"),
+    ("toggleVisionVisionScreenShare", "toggleVisionScreenShare"),
+    ("setVisionVisionActiveFrame", "setVisionActiveFrame"),
+    ("clearVisionVisionFrame", "clearVisionFrame"),
+    ("activeVisionVisionFrame", "activeVisionFrame"),
+    ("visionVisionMode", "visionMode"),
+    ("visionVisionScreenStream", "visionScreenStream"),
+]
+for old, new in partial_identifier_repairs:
+    s = s.replace(old, new)
+
+# Rename any original identifier family that remains, but only by exact symbol.
 identifier_replacements = [
     ("activeAstraFrame", "activeVisionFrame"),
     ("astraVisionMode", "visionMode"),
@@ -43,7 +69,7 @@ identifier_replacements = [
 for old, new in identifier_replacements:
     s = s.replace(old, new)
 
-# Visible legacy product terminology: preserve semantics, remove obsolete brand.
+# Visible legacy terminology: exact replacements only.
 visible_replacements = [
     ("Astra Vision Eye (Camera &amp; Screen)", "Live Vision (Camera &amp; Screen)"),
     ("Astra Vision Eye", "Live Vision"),
@@ -68,8 +94,7 @@ visible_replacements = [
 for old, new in visible_replacements:
     s = s.replace(old, new)
 
-# Remove the browser voice named 'aria' from selection heuristics. Do not touch
-# accessibility attributes such as aria-label or aria-hidden.
+# Remove the browser voice named 'aria'. Keep normal aria-* accessibility markup.
 s = s.replace('"jenny", "aria", "samantha", "victoria", "ava"',
               '"jenny", "samantha", "victoria", "ava"')
 s = s.replace(
@@ -81,8 +106,7 @@ s = s.replace(
     'const vegaPriority = ["jenny", "shimmer", "google us english", "natural", "neural", "samantha", "ava"];'
 )
 
-# Browser TTS: on-screen branding remains SarembokVE; speech becomes
-# 'Sarembok V E'.
+# Browser TTS: visual brand stays SarembokVE; spoken form is Sarembok V E.
 pronunciation = '''
         // SAREMBOK_PRODUCT_PRONUNCIATION_20260914
         function normalizeSarembokSpeech(text) {
@@ -110,10 +134,8 @@ if MARKER not in s:
         fail("style tag not found")
     s = s.replace(style, style + f"        /* {MARKER} */\n", 1)
 
-if s == original:
-    fail("frontend unchanged")
-
-# Structural integrity checks before writing/committing.
+# Structural checks happen BEFORE writing so a validation failure cannot leave
+# another partially modified frontend.
 required = [
     "captureVisionCameraFrame",
     "toggleVisionScreenShare",
@@ -137,14 +159,11 @@ old_identifier_hits = re.findall(
 if old_identifier_hits:
     fail("old vision identifiers remain: " + ", ".join(sorted(set(old_identifier_hits))[:20]))
 
-# No standalone obsolete voice/product token may remain. Standard aria-* HTML
-# accessibility attributes are intentionally exempted.
 for i, line in enumerate(s.splitlines(), 1):
     low = line.lower()
     if "aria" in low and not re.search(r'aria-[a-z-]+', low):
         fail(f"non-accessibility Aria reference remains on line {i}: {line.strip()}")
 
-# Ensure all previous production repairs remain present.
 for token in (
     "SAREMBOK_VIDEO_LAYOUT_V2_20260914",
     "SAREMBOK_COLLAPSED_TABLE_RECOVERY_20260914",
@@ -156,7 +175,14 @@ for token in (
     if token not in s:
         fail("previous production repair missing: " + token)
 
-PATH.write_text(s, encoding="utf-8")
+if s == original:
+    print("Frontend content already matches the target; proceeding with repository cleanup/deploy.")
+else:
+    # Atomic replace: write to a sibling temporary and rename only after all checks pass.
+    tmp = PATH.with_suffix(PATH.suffix + ".repair-tmp")
+    tmp.write_text(s, encoding="utf-8")
+    tmp.replace(PATH)
+
 print("FRONTEND IDENTITY/PRONUNCIATION REPAIR: PASS")
 print("Visual product name: SarembokVE")
 print("Spoken product name: Sarembok V E")
@@ -166,9 +192,6 @@ print("aria-* accessibility attributes: preserved")
 
 run("git", "diff", "--check")
 run("git", "diff", "--stat")
-
-# Remove this one-shot repair utility before committing; only the actual
-# frontend change belongs in the production commit.
 run("git", "rm", "--", str(Path(__file__).relative_to(ROOT)))
 run("git", "add", "frontend/index.html")
 run("git", "diff", "--cached", "--check")
@@ -210,7 +233,11 @@ for k, ok in checks.items():
 if not all(checks.values()):
     fail("live frontend verification failed")
 
-# Cleanup verification artifact and verify a clean worktree.
+# Verify obsolete identifiers did not return in production HTML.
+legacy = re.findall(r'(?i)\b(?:astra|activeastra|toggleastra|captureastra|setastra|clearastra)\w*\b', ls)
+if legacy:
+    fail("legacy vision identifiers remain in live frontend: " + ", ".join(sorted(set(legacy))[:20]))
+
 Path("sarembok-live.html").unlink(missing_ok=True)
 run("git", "status", "--short")
 run("git", "rev-parse", "--short", "HEAD")
