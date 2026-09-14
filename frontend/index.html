@@ -11090,7 +11090,7 @@
         }
 
         /* Session Persistence & Continuity */
-        function saveCurrentChatSession() {
+        async function saveCurrentChatSession() {
             const historyEl = document.getElementById("dialogue-history");
             if (!historyEl) return;
             const bubbles = historyEl.querySelectorAll(".srbk-bubble");
@@ -11138,11 +11138,18 @@
             sessions[currentSessionId] = sessionData;
             localStorage.setItem("sarembok_chat_sessions", JSON.stringify(sessions));
 
-            fetch("/api/chat-sessions", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ session_id: currentSessionId, title, messages })
-            }).catch(() => {});
+            try {
+                const result = await sendRPC("SaveUserChatSession", {
+                    sessionId: currentSessionId,
+                    title,
+                    messages
+                });
+                if (!result?.success) {
+                    console.warn("SaveUserChatSession failed:", result);
+                }
+            } catch (err) {
+                console.warn("SaveUserChatSession error:", err);
+            }
         }
 
         async function loadChatSessionsList() {
@@ -11156,9 +11163,8 @@
             } catch (e) { sessions = {}; }
 
             try {
-                const res = await fetch("/api/chat-sessions");
-                const data = await res.json();
-                if (data.sessions && Array.isArray(data.sessions)) {
+                const data = await sendRPC("ListUserChatSessions", {});
+                if (data?.success && Array.isArray(data.sessions)) {
                     data.sessions.forEach(s => {
                         if (!sessions[s.session_id]) {
                             sessions[s.session_id] = {
@@ -11170,7 +11176,9 @@
                         }
                     });
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.warn("ListUserChatSessions error:", e);
+            }
 
             const sessionList = Object.values(sessions).sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0));
             if (countEl) countEl.textContent = sessionList.length;
@@ -11259,7 +11267,16 @@
             delete sessions[sessionId];
             localStorage.setItem("sarembok_chat_sessions", JSON.stringify(sessions));
 
-            fetch(`/api/chat-sessions?id=${encodeURIComponent(sessionId)}`, { method: "DELETE" }).catch(() => {});
+            (async () => {
+                try {
+                    const result = await sendRPC("DeleteUserChatSession", { sessionId });
+                    if (!result?.success) {
+                        console.warn("DeleteUserChatSession failed:", result);
+                    }
+                } catch (err) {
+                    console.warn("DeleteUserChatSession error:", err);
+                }
+            })();
 
             if (localStorage.getItem("sarembok_active_session_id") === sessionId) {
                 startNewConversation();
