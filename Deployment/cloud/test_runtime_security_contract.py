@@ -1,9 +1,4 @@
-"""Production entrypoint security/truth-boundary gates.
-
-The compatibility server module contains historical handlers that are not the
-production process entrypoint. Production must start through runtime_entrypoint.py,
-which installs the security boundary before serving requests.
-"""
+"""Production entrypoint security/truth-boundary gates."""
 
 from __future__ import annotations
 
@@ -13,7 +8,7 @@ import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parent
-ENTRYPOINT = ROOT / "runtime_entrypoint.py"
+ENTRYPOINT = ROOT / "runtime_entrypoint_v2.py"
 DOCKERFILE = ROOT / "Dockerfile"
 ENTRYPOINT_SOURCE = ENTRYPOINT.read_text(encoding="utf-8")
 DOCKER_SOURCE = DOCKERFILE.read_text(encoding="utf-8")
@@ -21,7 +16,7 @@ DOCKER_SOURCE = DOCKERFILE.read_text(encoding="utf-8")
 
 class RuntimeSecurityContractTests(unittest.TestCase):
     def test_production_container_uses_hardened_entrypoint(self) -> None:
-        self.assertIn('CMD ["python", "/app/runtime_entrypoint.py"]', DOCKER_SOURCE)
+        self.assertIn('CMD ["python", "/app/runtime_entrypoint_v2.py"]', DOCKER_SOURCE)
         self.assertNotIn('CMD ["python", "/app/server.py"]', DOCKER_SOURCE)
         self.assertNotIn('CMD ["python", "/app/knowledge_rpc_server.py"]', DOCKER_SOURCE)
 
@@ -34,26 +29,14 @@ class RuntimeSecurityContractTests(unittest.TestCase):
 
     def test_browser_sessions_do_not_expose_sensitive_mutations(self) -> None:
         sensitive = {
-            "AdminExecuteDirective",
-            "VerifyAdminPasscode",
-            "AuthenticateSocialUser",
-            "RegisterWorker",
-            "Heartbeat",
-            "ClaimTask",
-            "CompleteTask",
-            "FailTask",
-            "ScheduleCompute",
-            "CreateTask",
-            "ExecuteComputeTask",
-            "ExecuteSandboxCode",
-            "RentGpuNode",
-            "SaveUserChatSession",
-            "DeleteUserChatSession",
+            "AdminExecuteDirective", "VerifyAdminPasscode", "AuthenticateSocialUser",
+            "RegisterWorker", "Heartbeat", "ClaimTask", "CompleteTask", "FailTask",
+            "ScheduleCompute", "CreateTask", "ExecuteComputeTask", "ExecuteSandboxCode",
+            "RentGpuNode", "SaveUserChatSession", "DeleteUserChatSession",
         }
         allowlist = re.search(
             r"cloud\.BROWSER_ALLOWED_METHODS\s*=\s*\{(?P<body>.*?)\n\}",
-            ENTRYPOINT_SOURCE,
-            re.DOTALL,
+            ENTRYPOINT_SOURCE, re.DOTALL,
         )
         self.assertIsNotNone(allowlist)
         body = allowlist.group("body")
@@ -67,9 +50,8 @@ class RuntimeSecurityContractTests(unittest.TestCase):
 
     def test_compute_never_claims_running_without_worker(self) -> None:
         block = re.search(
-            r'if method == "ExecuteComputeTask":(?P<body>.*?)(?=\n\s*if method in \{"VerifyAdminPasscode"',
-            ENTRYPOINT_SOURCE,
-            re.DOTALL,
+            r'if method == "ExecuteComputeTask":(?P<body>.*?)(?=\n\s*if method == "CreateDigitalHumanSession")',
+            ENTRYPOINT_SOURCE, re.DOTALL,
         )
         self.assertIsNotNone(block)
         body = block.group("body")
@@ -81,6 +63,10 @@ class RuntimeSecurityContractTests(unittest.TestCase):
         self.assertIn('method == "ExecuteSandboxCode"', ENTRYPOINT_SOURCE)
         self.assertIn("sandbox_execution_unavailable", ENTRYPOINT_SOURCE)
 
+    def test_admin_shell_and_python_are_blocked(self) -> None:
+        self.assertIn('method == "AdminExecuteDirective"', ENTRYPOINT_SOURCE)
+        self.assertIn("admin_execution_unavailable", ENTRYPOINT_SOURCE)
+
     def test_unverified_social_identity_is_blocked(self) -> None:
         self.assertIn('method == "AuthenticateSocialUser"', ENTRYPOINT_SOURCE)
         self.assertIn("social_auth_unavailable", ENTRYPOINT_SOURCE)
@@ -90,6 +76,14 @@ class RuntimeSecurityContractTests(unittest.TestCase):
         allowlist = ENTRYPOINT_SOURCE.split("cloud.BROWSER_ALLOWED_METHODS", 1)[1].split("\n}\n", 1)[0]
         for method in ("ListUserChatSessions", "SaveUserChatSession", "DeleteUserChatSession"):
             self.assertNotIn(f'"{method}"', allowlist)
+
+    def test_image_generation_does_not_claim_a_local_worker(self) -> None:
+        self.assertIn('method == "GenerateImage"', ENTRYPOINT_SOURCE)
+        self.assertIn('result["workerId"] = None', ENTRYPOINT_SOURCE)
+        self.assertIn('result["executionMode"] = "provider_routed"', ENTRYPOINT_SOURCE)
+
+    def test_visual_tier_three_is_not_reported_as_verified_online(self) -> None:
+        self.assertIn('tier3["status"] = "AVAILABLE_IF_REACHABLE"', ENTRYPOINT_SOURCE)
 
 
 if __name__ == "__main__":
