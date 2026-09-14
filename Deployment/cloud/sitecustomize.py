@@ -12,12 +12,30 @@ os.environ.setdefault("SAREMBOK_LLM_MAX_OUTPUT_TOKENS", "8192")
 
 _EMOJI_RE = re.compile(r"[\U0001F1E0-\U0001FAFF\u2600-\u27BF\uFE0F\u200D]")
 
+_PRODUCT_DIRECTIVE = (
+    "SAREMBOKVE PRODUCT IDENTITY: Sarembok V E is an AI-native computing environment "
+    "and sovereign control plane, not merely a chatbot or thin model wrapper. "
+    "It provides a runtime for agent lifecycle, persistent memory, tool execution, "
+    "research, orchestration, provider abstraction, worker/compute scheduling, and "
+    "multimodal interaction where enabled. When explaining Sarembok V E, describe the "
+    "computing environment and runtime architecture first; conversation is one interface. "
+    "Do not reduce Sarembok V E to a chat application. Do not claim capabilities that "
+    "are not supported by the authoritative runtime context. Produce complete answers "
+    "that finish the requested task. Do not use emoji or decorative Unicode symbols "
+    "in assistant responses."
+)
+
 
 def _strip_emoji(value: str) -> str:
     text = str(value or "")
     text = _EMOJI_RE.sub("", text)
     text = re.sub(r"[ \t]{2,}", " ", text)
     return text
+
+
+def _system_prompt(system_prompt: str) -> str:
+    base = str(system_prompt or "").strip()
+    return f"{_PRODUCT_DIRECTIVE}\n\n{base}" if base else _PRODUCT_DIRECTIVE
 
 
 try:
@@ -42,7 +60,7 @@ try:
             spec,
             messages,
             streaming=streaming,
-            system_prompt=system_prompt,
+            system_prompt=_system_prompt(system_prompt),
             prompt=prompt,
             tools=tools,
             image_frame=image_frame,
@@ -66,7 +84,7 @@ try:
 
         result = _original_generate_stream(
             self,
-            system_prompt,
+            _system_prompt(system_prompt),
             prompt,
             messages,
             safe_delta,
@@ -84,7 +102,7 @@ try:
     def _generate_without_emoji(self, system_prompt, prompt, messages, requested_model=None, image_frame=None, dynamic_key=None):
         result = _original_generate(
             self,
-            system_prompt,
+            _system_prompt(system_prompt),
             prompt,
             messages,
             requested_model=requested_model,
