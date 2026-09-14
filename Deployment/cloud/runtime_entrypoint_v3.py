@@ -18,14 +18,18 @@ if len(secret) < 16:
 cloud.ADMIN_PASSCODE = secret
 cloud.ADMIN_ALLOWED_PASSCODES = {secret}
 
-# Browser sessions are public/read-safe only. Direct browser navigation/rendering
-# is excluded because an unrestricted browser surface can become an SSRF path.
+# Browser sessions are public/read-safe, with one tightly bounded user action:
+# ExecuteComputeTask is allowed because this entrypoint only queues work against
+# a real registered worker and truthfully returns PENDING_WORKER when none exists.
+# Direct browser navigation/rendering is excluded because an unrestricted
+# browser surface can become an SSRF path.
 cloud.BROWSER_ALLOWED_METHODS = {
     "SarembokChat", "GetRuntimeInfo", "GetProviderMetrics",
     "GetDigitalHumanSession", "ListDigitalHumanSessions",
     "GetFeedbackSummary", "SearchMemories", "ListMemories",
     "ListWorkers", "ListTasks", "GetVisualEngineStatus",
     "GetVisionStatus", "GetGpuMarketplace", "GetCurrentUser",
+    "ExecuteComputeTask",
 }
 
 
