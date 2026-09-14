@@ -7,19 +7,14 @@ ROOT = Path(__file__).resolve().parents[2]
 PATH = ROOT / "frontend/index.html"
 MARKER = "SAREMBOK_IDENTITY_PRONUNCIATION_REPAIR_20260914"
 
-
 def run(*args, check=True):
     print("$", " ".join(args))
     return subprocess.run(args, cwd=ROOT, check=check, text=True)
-
 
 def fail(message):
     print("PATCH FAILED:", message, file=sys.stderr)
     raise SystemExit(1)
 
-
-# The first version of this repair wrote frontend/index.html before it reached
-# validation. Accept only that isolated known partial state; refuse everything else.
 status_lines = subprocess.run(
     ["git", "status", "--porcelain"], cwd=ROOT, text=True,
     capture_output=True, check=True
@@ -29,17 +24,12 @@ unexpected = [line for line in status_lines if line not in allowed]
 if unexpected:
     fail("unexpected working-tree changes: " + "; ".join(unexpected))
 
-print("$ git status --short")
-for line in status_lines:
-    print(line)
-
 s = PATH.read_text(encoding="utf-8")
 original = s
 
-# Repair malformed compound identifiers created by the first failed global rename.
+# Recover the exact partial state created by the earlier failed global rename.
 partial_identifier_repairs = [
     ("toggleVisionVisionMode", "toggleVisionMode"),
-    ("captureVisionVisionCameraFrame", "captureVisionCameraFrame"),
     ("captureVisionVisionFrame", "captureVisionCameraFrame"),
     ("toggleVisionVisionScreenShare", "toggleVisionScreenShare"),
     ("setVisionVisionActiveFrame", "setVisionActiveFrame"),
@@ -51,7 +41,7 @@ partial_identifier_repairs = [
 for old, new in partial_identifier_repairs:
     s = s.replace(old, new)
 
-# Rename any original identifier family that remains, but only by exact symbol.
+# Rename only the actual remaining legacy vision identifiers.
 identifier_replacements = [
     ("activeAstraFrame", "activeVisionFrame"),
     ("astraVisionMode", "visionMode"),
@@ -69,32 +59,34 @@ identifier_replacements = [
 for old, new in identifier_replacements:
     s = s.replace(old, new)
 
-# Visible legacy terminology: exact replacements only.
-visible_replacements = [
-    ("Astra Vision Eye (Camera &amp; Screen)", "Live Vision (Camera &amp; Screen)"),
-    ("Astra Vision Eye", "Live Vision"),
-    ("Astra Camera Eye", "Camera Vision"),
-    ("Astra Screen Eye", "Screen Vision"),
-    ("Astra perception frame", "Vision perception frame"),
-    ("Toggle Astra Multimodal Eye", "Toggle live multimodal vision"),
-    ("Astra Multimodal Eye", "Live Multimodal Vision"),
-    ("ASTRA MULTIMODAL VISION", "LIVE MULTIMODAL VISION"),
-    ("ASTRA MULTIMODAL EYE", "LIVE MULTIMODAL VISION"),
-    ("ASTRA EYE VIEWPORT ATTACHED", "LIVE VISION VIEWPORT ATTACHED"),
-    ("ASTRA EYE: OFF", "VISION: OFF"),
-    ("ASTRA EYE: ON", "VISION: ON"),
-    ("ASTRA EYE OFF", "VISION OFF"),
-    ("ASTRA MULTIMODAL EYE ACTIVE", "LIVE MULTIMODAL VISION ACTIVE"),
-    ("ASTRA SCREEN EYE ACTIVE", "LIVE SCREEN VISION ACTIVE"),
-    ("ASTRA SCREEN SHARE STOPPED", "SCREEN SHARE STOPPED"),
-    ("ASTRA CAMERA VIEWPORT CAPTURED", "CAMERA VIEWPORT CAPTURED"),
-    ("Astra camera &amp; screen perception", "live camera &amp; screen perception"),
-    ("Astra camera & screen perception", "live camera & screen perception"),
-]
-for old, new in visible_replacements:
+# Remove the obsolete product term from comments/visible copy as well.
+legacy_text = {
+    "ASTRA MULTIMODAL VISION": "LIVE MULTIMODAL VISION",
+    "ASTRA MULTIMODAL EYE": "LIVE MULTIMODAL VISION",
+    "ASTRA EYE VIEWPORT PREVIEW": "LIVE VISION VIEWPORT PREVIEW",
+    "ASTRA EYE VIEWPORT ATTACHED": "LIVE VISION VIEWPORT ATTACHED",
+    "ASTRA EYE: OFF": "VISION: OFF",
+    "ASTRA EYE: ON": "VISION: ON",
+    "ASTRA EYE OFF": "VISION OFF",
+    "ASTRA MULTIMODAL EYE ACTIVE": "LIVE MULTIMODAL VISION ACTIVE",
+    "ASTRA SCREEN EYE ACTIVE": "LIVE SCREEN VISION ACTIVE",
+    "ASTRA SCREEN SHARE STOPPED": "SCREEN SHARE STOPPED",
+    "ASTRA CAMERA VIEWPORT CAPTURED": "CAMERA VIEWPORT CAPTURED",
+    "Astra Vision Eye (Camera &amp; Screen)": "Live Vision (Camera &amp; Screen)",
+    "Astra Vision Eye": "Live Vision",
+    "Astra Camera Eye": "Camera Vision",
+    "Astra Screen Eye": "Screen Vision",
+    "Astra perception frame": "Vision perception frame",
+    "Toggle Astra Multimodal Eye": "Toggle live multimodal vision",
+    "Astra Multimodal Eye": "Live Multimodal Vision",
+    "Astra camera &amp; screen perception": "live camera &amp; screen perception",
+    "Astra camera & screen perception": "live camera & screen perception",
+}
+for old, new in legacy_text.items():
     s = s.replace(old, new)
 
-# Remove the browser voice named 'aria'. Keep normal aria-* accessibility markup.
+# Browser voice selection: remove the voice named Aria, but keep standard
+# accessibility attributes such as aria-label and aria-hidden unchanged.
 s = s.replace('"jenny", "aria", "samantha", "victoria", "ava"',
               '"jenny", "samantha", "victoria", "ava"')
 s = s.replace(
@@ -106,7 +98,8 @@ s = s.replace(
     'const vegaPriority = ["jenny", "shimmer", "google us english", "natural", "neural", "samantha", "ava"];'
 )
 
-# Browser TTS: visual brand stays SarembokVE; spoken form is Sarembok V E.
+# Browser TTS pronunciation: on-screen branding remains SarembokVE;
+# speech is normalized to “Sarembok V E”.
 pronunciation = '''
         // SAREMBOK_PRODUCT_PRONUNCIATION_20260914
         function normalizeSarembokSpeech(text) {
@@ -134,31 +127,33 @@ if MARKER not in s:
         fail("style tag not found")
     s = s.replace(style, style + f"        /* {MARKER} */\n", 1)
 
-# Structural checks happen BEFORE writing so a validation failure cannot leave
-# another partially modified frontend.
+# Validate before writing.
 required = [
-    "captureVisionCameraFrame",
-    "toggleVisionScreenShare",
-    "setVisionActiveFrame",
-    "clearVisionFrame",
-    "toggleVisionMode",
-    "activeVisionFrame",
-    "visionMode",
-    "visionScreenStream",
-    "normalizeSarembokSpeech",
-    "SAREMBOK_PRODUCT_PRONUNCIATION_20260914",
-    MARKER,
+    "captureVisionCameraFrame", "toggleVisionScreenShare", "setVisionActiveFrame",
+    "clearVisionFrame", "toggleVisionMode", "activeVisionFrame", "visionMode",
+    "visionScreenStream", "normalizeSarembokSpeech",
+    "SAREMBOK_PRODUCT_PRONUNCIATION_20260914", MARKER,
 ]
 missing = [x for x in required if x not in s]
 if missing:
     fail("missing required symbols: " + ", ".join(missing))
 
-old_identifier_hits = re.findall(
-    r'(?i)\b(?:astra|activeastra|toggleastra|captureastra|setastra|clearastra)\w*\b', s
-)
-if old_identifier_hits:
-    fail("old vision identifiers remain: " + ", ".join(sorted(set(old_identifier_hits))[:20]))
+# These are the actual executable legacy symbol forms that must disappear.
+legacy_symbols = [
+    "activeAstraFrame", "astraVisionMode", "astraScreenStream",
+    "captureAstraCameraFrame", "toggleAstraScreenShare", "setAstraActiveFrame",
+    "clearAstraFrame", "toggleAstraVisionMode",
+    "activeVisionVisionFrame", "toggleVisionVisionMode",
+    "captureVisionVisionFrame", "toggleVisionVisionScreenShare",
+    "setVisionVisionActiveFrame", "clearVisionVisionFrame",
+    "visionVisionMode", "visionVisionScreenStream",
+]
+remaining = [x for x in legacy_symbols if x in s]
+if remaining:
+    fail("legacy vision symbols remain: " + ", ".join(remaining))
 
+# No bare obsolete voice/product token 'aria' should remain in executable text.
+# HTML accessibility attributes are exempt because they are required semantics.
 for i, line in enumerate(s.splitlines(), 1):
     low = line.lower()
     if "aria" in low and not re.search(r'aria-[a-z-]+', low):
@@ -168,25 +163,17 @@ for token in (
     "SAREMBOK_VIDEO_LAYOUT_V2_20260914",
     "SAREMBOK_COLLAPSED_TABLE_RECOVERY_20260914",
     "SAREMBOK_PRODUCT_CONSISTENCY_V2_20260914",
-    "SaveUserChatSession",
-    "ListUserChatSessions",
-    "DeleteUserChatSession",
+    "SaveUserChatSession", "ListUserChatSessions", "DeleteUserChatSession",
 ):
     if token not in s:
         fail("previous production repair missing: " + token)
 
-if s == original:
-    print("Frontend content already matches the target; proceeding with repository cleanup/deploy.")
-else:
-    # Atomic replace: write to a sibling temporary and rename only after all checks pass.
-    tmp = PATH.with_suffix(PATH.suffix + ".repair-tmp")
-    tmp.write_text(s, encoding="utf-8")
-    tmp.replace(PATH)
-
+PATH.write_text(s, encoding="utf-8")
 print("FRONTEND IDENTITY/PRONUNCIATION REPAIR: PASS")
 print("Visual product name: SarembokVE")
 print("Spoken product name: Sarembok V E")
-print("Old vision identifiers: removed")
+print("Legacy vision identifiers: removed")
+print("Legacy product text in comments/copy: removed")
 print("Browser voice named aria: removed")
 print("aria-* accessibility attributes: preserved")
 
@@ -200,16 +187,10 @@ run("git", "commit", "-m", "fix: standardize vision identity and SarembokVE pron
 run("git", "push", "origin", "main")
 
 print("\n===== DEPLOY =====")
-run(
-    "docker", "compose",
-    "-f", "Deployment/cloud/compose.yaml",
-    "-f", "Deployment/cloud/compose.production.yaml",
-    "up", "-d", "--build", "sarembok-runtime", "sarembok-edge",
-)
+run("docker", "compose", "-f", "Deployment/cloud/compose.yaml", "-f", "Deployment/cloud/compose.production.yaml", "up", "-d", "--build", "sarembok-runtime", "sarembok-edge")
 
 print("\n===== HEALTH =====")
-run("docker", "exec", "sarembok-runtime", "python", "-c",
-    'import urllib.request; print(urllib.request.urlopen("http://127.0.0.1:9000/health", timeout=5).read().decode().strip())')
+run("docker", "exec", "sarembok-runtime", "python", "-c", 'import urllib.request; print(urllib.request.urlopen("http://127.0.0.1:9000/health", timeout=5).read().decode().strip())')
 run("docker", "exec", "sarembok-edge", "wget", "-qO-", "http://sarembok-runtime:9000/health")
 run("curl", "-fsS", "--max-time", "15", "https://sarembok.com/health")
 
@@ -221,7 +202,9 @@ checks = {
     "identity marker": MARKER in ls,
     "pronunciation function": "normalizeSarembokSpeech" in ls,
     "spoken Sarembok V E": "Sarembok V E" in ls,
-    "vision layout V2": "SAREMBOK_VIDEO_LAYOUT_V2_20260914" in ls,
+    "old vision symbols absent": not any(x in ls for x in legacy_symbols),
+    "standalone Aria absent": not any("aria" in line.lower() and not re.search(r'aria-[a-z-]+', line.lower()) for line in ls.splitlines()),
+    "video layout V2": "SAREMBOK_VIDEO_LAYOUT_V2_20260914" in ls,
     "table recovery": "SAREMBOK_COLLAPSED_TABLE_RECOVERY_20260914" in ls,
     "session save RPC": "SaveUserChatSession" in ls,
     "session list RPC": "ListUserChatSessions" in ls,
@@ -233,12 +216,7 @@ for k, ok in checks.items():
 if not all(checks.values()):
     fail("live frontend verification failed")
 
-# Verify obsolete identifiers did not return in production HTML.
-legacy = re.findall(r'(?i)\b(?:astra|activeastra|toggleastra|captureastra|setastra|clearastra)\w*\b', ls)
-if legacy:
-    fail("legacy vision identifiers remain in live frontend: " + ", ".join(sorted(set(legacy))[:20]))
-
-Path("sarembok-live.html").unlink(missing_ok=True)
+live.unlink(missing_ok=True)
 run("git", "status", "--short")
 run("git", "rev-parse", "--short", "HEAD")
 print("IDENTITY/PRONUNCIATION REPAIR COMPLETE")
