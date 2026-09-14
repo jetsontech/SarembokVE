@@ -11,6 +11,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
+        /* SAREMBOK_PRODUCT_CONSISTENCY_V2_20260914 */
+
         /* Universal Dark Cyber Element Resets */
         button {
             background: transparent;
@@ -1287,6 +1289,9 @@
 
         /* Video Streams & YouTube Player Cards */
         .srbk-video-card {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
             margin: 16px 0;
             border: 1px solid rgba(0, 240, 255, 0.35);
             border-radius: 12px;
@@ -1297,11 +1302,16 @@
         .srbk-video-head {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-width: 0;
+            width: 100%;
             padding: 10px 14px;
             background: linear-gradient(90deg, rgba(8, 16, 36, 0.95), rgba(4, 9, 22, 0.95));
             border-bottom: 1px solid rgba(0, 240, 255, 0.18);
         }
+
         .srbk-video-badge {
             font-family: var(--font-mono);
             font-size: 10px;
@@ -1331,17 +1341,23 @@
         .srbk-video-player-wrap {
             position: relative;
             width: 100%;
+            max-width: 100%;
+            min-width: 0;
             aspect-ratio: 16 / 9;
+            overflow: hidden;
             background: #020612;
         }
         .srbk-video-iframe {
             position: absolute;
-            top: 0;
-            left: 0;
+            inset: 0;
+            display: block;
             width: 100%;
+            max-width: 100%;
+            min-width: 0;
             height: 100%;
-            border: none;
+            border: 0;
         }
+
         .srbk-video-player {
             width: 100%;
             display: block;
@@ -4407,7 +4423,33 @@
         .srbk-table-wrap td { color:#dbe4f0; }
         .srbk-bubble, .srbk-bubble * { user-select:text !important; -webkit-user-select:text !important; }
         
-    </style>
+    
+        /* SAREMBOK_VIDEO_LAYOUT_V2_20260914 */
+        .srbk-video-card,
+        .srbk-video-player-wrap,
+        .srbk-video-iframe {
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 700px) {
+            .srbk-video-card {
+                margin: 12px 0;
+                border-radius: 10px;
+            }
+
+            .srbk-video-head {
+                padding: 9px 10px;
+                gap: 7px;
+            }
+
+            .srbk-video-badge {
+                white-space: normal;
+                overflow-wrap: anywhere;
+                line-height: 1.35;
+            }
+        }
+
+</style>
 </head>
 <body>
 
@@ -5146,7 +5188,7 @@
                         <div class="live-mic-meter-wrap" id="live-mic-meter-wrap" title="Microphone Activity Level">
                             <div class="live-mic-meter-bar" id="live-mic-meter-bar"></div>
                         </div>
-                        <button class="browser-action-btn" id="astra-vision-toggle-btn" style="padding:4px 10px; font-size:10px; border-color:var(--cyan); color:var(--cyan);" onclick="toggleAstraVisionMode()" title="Toggle Astra Multimodal Eye (Feeds Camera / Screen frames with each voice query)">👁️ ASTRA EYE: OFF</button>
+                        <button class="browser-action-btn" id="astra-vision-toggle-btn" style="padding:4px 10px; font-size:10px; border-color:var(--cyan); color:var(--cyan);" onclick="toggleAstraVisionMode()" title="Toggle live multimodal vision (Feeds Camera / Screen frames with each voice query)">👁️ VISION: OFF</button>
                         <button class="browser-action-btn" id="wake-word-toggle-btn" style="padding:4px 10px; font-size:10px; border-color:#10b981; color:#10b981;" onclick="toggleWakeWordRequirement()" title="Toggle Wake Word requirement (Hey Sarembok)">WAKE WORD: OFF (HANDS-FREE)</button>
                         <button class="browser-action-btn" style="padding:4px 10px; font-size:10px; border-color:var(--amber); color:var(--amber);" onclick="interruptSpeech()">STOP / BARGE-IN</button>
                     </div>
@@ -5186,7 +5228,7 @@
                             </div>
                             <div class="simple-starter-card" onclick="startSimpleVision()">
                                 <div class="simple-starter-icon">👁️</div>
-                                <div class="simple-starter-title">Astra Vision Eye</div>
+                                <div class="simple-starter-title">Live Vision</div>
                                 <div class="simple-starter-desc">Share camera snapshots or screens to inspect &amp; troubleshoot</div>
                             </div>
                             <div class="simple-starter-card" onclick="populateDirective('generate a 4k image of a cybernetic neural hub in neo-tokyo', true)">
@@ -5205,14 +5247,14 @@
                     <div class="srbk-bubble assistant">
                         <div class="srbk-bubble-sender">SAREMBOK</div>
                         <div class="srbk-content">
-                            <p>⚡ <strong>Sarembok VE Multimodal Runtime Online.</strong> Sovereign cluster ready for duplex live voice, Astra camera &amp; screen perception, dynamic MCP skills, code synthesis, and research directives.</p>
+                            <p>⚡ <strong>Sarembok VE Multimodal Runtime Online.</strong> Sovereign cluster ready for duplex live voice, live camera &amp; screen perception, dynamic MCP skills, code synthesis, and research directives.</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- ASTRA EYE VIEWPORT PREVIEW -->
                 <div class="astra-frame-preview-bar" id="astra-frame-preview-bar" style="display:none; align-items:center; gap:8px; padding:6px 12px; background:rgba(0,240,255,0.08); border:1px solid rgba(0,240,255,0.3); border-radius:8px; margin-bottom:8px; font-family:var(--font-mono); font-size:11px;">
-                    <span style="color:var(--cyan); font-weight:700;">📷 ASTRA EYE VIEWPORT ATTACHED</span>
+                    <span style="color:var(--cyan); font-weight:700;">📷 LIVE VISION VIEWPORT ATTACHED</span>
                     <img id="astra-frame-thumb" style="width:40px; height:30px; object-fit:cover; border-radius:4px; border:1px solid var(--cyan);" />
                     <span id="astra-frame-label" style="color:var(--text-secondary); font-size:10px;">Camera / Screen</span>
                     <button type="button" onclick="clearAstraFrame()" style="margin-left:auto; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:11px;" title="Clear frame attachment">✕ CLEAR</button>
@@ -5222,10 +5264,10 @@
                     <button class="dialogue-mic-btn" id="dialogue-mic-btn" onclick="toggleSpeechRecognition()" title="Voice Dictation (Speech-to-Text)">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
                     </button>
-                    <button class="dialogue-mic-btn" id="dialogue-camera-btn" onclick="captureAstraCameraFrame()" title="Astra Camera Eye (Attach camera snapshot)" style="background:transparent; color:var(--cyan); border-color:rgba(0,240,255,0.3);">
+                    <button class="dialogue-mic-btn" id="dialogue-camera-btn" onclick="captureAstraCameraFrame()" title="Camera Vision (Attach camera snapshot)" style="background:transparent; color:var(--cyan); border-color:rgba(0,240,255,0.3);">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                     </button>
-                    <button class="dialogue-mic-btn" id="dialogue-screen-btn" onclick="toggleAstraScreenShare()" title="Astra Screen Eye (Share screen/tab with AI)" style="background:transparent; color:var(--cyan); border-color:rgba(0,240,255,0.3);">
+                    <button class="dialogue-mic-btn" id="dialogue-screen-btn" onclick="toggleAstraScreenShare()" title="Screen Vision (Share screen/tab with AI)" style="background:transparent; color:var(--cyan); border-color:rgba(0,240,255,0.3);">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                     </button>
                     <input type="text" class="dialogue-input" id="directive-input" placeholder="Message Vega or tap mic..." onfocus="if(window.speechSynthesis&&window.speechSynthesis.speaking)interruptSpeech()" onkeydown="if(event.key==='Enter') sendDirective(false)">
@@ -5775,13 +5817,13 @@
                         </div>
                     </div>
 
-                    <!-- CARD 2: ASTRA MULTIMODAL VISION -->
+                    <!-- CARD 2: LIVE MULTIMODAL VISION -->
                     <div class="feature-card" data-cat="multimodal">
                         <div class="feature-card-header">
                             <div class="feature-card-title-group">
                                 <div class="feature-icon-badge">👁️</div>
                                 <div>
-                                    <div class="feature-title-text">Astra Vision Eye (Camera &amp; Screen)</div>
+                                    <div class="feature-title-text">Live Vision (Camera &amp; Screen)</div>
                                     <span class="cyber-card-badge cyan" style="font-size:9px; padding:1px 6px;">MULTIMODAL REASONING</span>
                                 </div>
                             </div>
@@ -6999,13 +7041,34 @@
 
             // 2. Video vs. Music intent
             const videoMarkers = [
-                "video", "clip", "movie", "trailer", "lecture", "interview", "documentary",
-                "stream live", "live stream", "broadcast", "on youtube", "game", "football",
+                "clip", "movie", "trailer", "lecture", "interview", "documentary",
+                "stream live", "live stream", "broadcast", "on youtube", "football",
                 "highlights", "match", "soccer", "nfl", "nba", "mlb", "nhl", "premier league",
                 "sport", "sports", "fight", "boxing", "ufc", "racing", "f1", "play game"
             ];
-            const ytIntents = ["open youtube", "open yt", "play youtube", "search youtube", "watch youtube", "youtube.com", "show video", "watch video", "play video", "video of", "video about"];
-            const isVideo = ytIntents.some(yi => pLow.includes(yi)) || (pLow.includes("video") && ["open", "launch", "watch", "play", "show", "search"].some(w => pLow.includes(w))) || videoMarkers.some(vm => pLow.includes(vm));
+
+            const ytIntents = [
+                "open youtube", "open yt", "play youtube", "search youtube",
+                "watch youtube", "youtube.com", "show video", "watch video",
+                "play video", "video of", "video about"
+            ];
+
+            const explicitVideoRequest =
+                /\b(?:open|launch|watch|play|show|stream|search|find)\b[\s\S]{0,80}\b(?:video|clip|movie|trailer|lecture|interview|documentary|youtube|highlights|match|sports?|fight|boxing|ufc|racing|f1)\b/i.test(pLow) ||
+                /\b(?:video|clip|movie|trailer|lecture|interview|documentary)\b[\s\S]{0,60}\b(?:about|of|on)\b/i.test(pLow);
+
+            const isVideo =
+                ytIntents.some(yi => pLow.includes(yi)) ||
+                explicitVideoRequest ||
+                videoMarkers.some(vm => {
+                    const escaped = vm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                    return new RegExp(
+                        "\\b(?:open|launch|watch|play|show|stream|search|find)\\b[\\s\\S]{0,60}\\b" +
+                        escaped +
+                        "\\b",
+                        "i"
+                    ).test(pLow);
+                });
 
             const musicIntents = ["play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio"];
             const isMusic = !isVideo && (musicIntents.some(mi => pLow.startsWith(mi) || pLow.includes(mi)) || ["lofi", "lo-fi", "synthwave", "ambient", "soundtrack", "beats"].some(g => pLow.includes(g)));
@@ -7127,6 +7190,34 @@
             // 10. Standalone YouTube links on their own line
             s = s.replace(/(?:^|\n)(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?[^\s]+|youtu\.be\/[\w-]+))\b/gi, (match, url) => {
                 return "\n" + renderVideoCard("", url);
+            });
+
+            // SAREMBOK_COLLAPSED_TABLE_RECOVERY_20260914
+            // Recover pipe-delimited comparison output that providers
+            // occasionally collapse onto a single physical line.
+            s = s.replace(/(^|\n)([^\n]*\|[^\n]*\|[^\n]*\|[^\n]*)/g, (match, prefix, line) => {
+                const trimmed = line.trim();
+
+                if (!trimmed || /https?:\/\//i.test(trimmed)) return match;
+
+                const cells = trimmed
+                    .split("|")
+                    .map(cell => cell.trim())
+                    .filter(Boolean);
+
+                if (cells.length < 4 || cells.length % 2 !== 0) return match;
+
+                const rows = [];
+                for (let i = 0; i < cells.length; i += 2) {
+                    rows.push(`| ${cells[i]} | ${cells[i + 1]} |`);
+                }
+
+                if (rows.length < 2) return match;
+
+                return prefix +
+                    rows[0] + "\n" +
+                    "| --- | --- |\n" +
+                    rows.slice(1).join("\n");
             });
 
             // 10. Markdown Tables
@@ -7537,7 +7628,7 @@
                 const b64 = captureCurrentOpenCVFrame();
                 if (b64) {
                     setAstraActiveFrame(b64, "Camera Viewport");
-                    showToast("ASTRA CAMERA VIEWPORT CAPTURED");
+                    showToast("CAMERA VIEWPORT CAPTURED");
                 } else {
                     showToast("CAMERA INITIALIZING · RETRY IN A MOMENT");
                 }
@@ -7549,7 +7640,7 @@
                 astraScreenStream.getTracks().forEach(t => t.stop());
                 astraScreenStream = null;
                 clearAstraFrame();
-                showToast("ASTRA SCREEN SHARE STOPPED");
+                showToast("SCREEN SHARE STOPPED");
                 const btn = document.getElementById("dialogue-screen-btn");
                 if (btn) btn.style.background = "transparent";
                 return;
@@ -7581,7 +7672,7 @@
                 ctx.drawImage(screenVideo, 0, 0, 640, 360);
                 const b64 = canvas.toDataURL("image/jpeg", 0.65);
                 setAstraActiveFrame(b64, "Screen Viewport");
-                showToast("ASTRA SCREEN EYE ACTIVE · VIEWPORT CAPTURED");
+                showToast("LIVE SCREEN VISION ACTIVE · VIEWPORT CAPTURED");
 
                 const btn = document.getElementById("dialogue-screen-btn");
                 if (btn) btn.style.background = "rgba(0, 240, 255, 0.25)";
@@ -7614,18 +7705,18 @@
             const btn = document.getElementById("astra-vision-toggle-btn");
             if (btn) {
                 if (astraVisionMode) {
-                    btn.textContent = "👁️ ASTRA EYE: ON";
+                    btn.textContent = "👁️ VISION: ON";
                     btn.style.borderColor = "var(--cyan)";
                     btn.style.color = "var(--cyan)";
                     btn.style.background = "rgba(0, 240, 255, 0.15)";
-                    showToast("ASTRA MULTIMODAL EYE ACTIVE · Camera/screen auto-grounded");
+                    showToast("LIVE MULTIMODAL VISION ACTIVE · Camera/screen auto-grounded");
                     if (!opencvActive) startOpenCVSensor();
                 } else {
-                    btn.textContent = "👁️ ASTRA EYE: OFF";
+                    btn.textContent = "👁️ VISION: OFF";
                     btn.style.borderColor = "";
                     btn.style.color = "";
                     btn.style.background = "transparent";
-                    showToast("ASTRA EYE OFF");
+                    showToast("VISION OFF");
                 }
             }
         }
@@ -7761,7 +7852,7 @@
             let imgHtml = "";
             if (imageFrame) {
                 const src = imageFrame.startsWith("data:") ? imageFrame : `data:image/jpeg;base64,${imageFrame}`;
-                imgHtml = `<div style="margin-top:6px;"><img src="${src}" style="max-width:200px; max-height:140px; border-radius:6px; border:1px solid var(--cyan); object-fit:cover;" alt="Astra perception frame" /></div>`;
+                imgHtml = `<div style="margin-top:6px;"><img src="${src}" style="max-width:200px; max-height:140px; border-radius:6px; border:1px solid var(--cyan); object-fit:cover;" alt="Vision perception frame" /></div>`;
             }
             div.innerHTML = `<div class="srbk-bubble-sender">YOU</div><div class="srbk-content"><p>${escapeHtml(text)}</p>${imgHtml}</div>`;
             history.appendChild(div);
@@ -10830,7 +10921,7 @@
                     <div class="srbk-bubble assistant">
                         <div class="srbk-bubble-sender">SAREMBOK</div>
                         <div class="srbk-content">
-                            <p>⚡ <strong>Sarembok VE Multimodal Runtime Online.</strong> Sovereign cluster ready for duplex live voice, Astra camera &amp; screen perception, dynamic MCP skills, code synthesis, and research directives.</p>
+                            <p>⚡ <strong>Sarembok VE Multimodal Runtime Online.</strong> Sovereign cluster ready for duplex live voice, live camera &amp; screen perception, dynamic MCP skills, code synthesis, and research directives.</p>
                         </div>
                     </div>
                 `;
