@@ -1,0 +1,23 @@
+name: Platform Contract Tests
+
+on:
+  push:
+    branches: [main, platform-blueprint-2026-09-14]
+  pull_request:
+    branches: [main]
+
+jobs:
+  platform-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependency
+        run: python -m pip install --upgrade pytest
+      - name: Compile platform runtime
+        run: python -m py_compile Deployment/cloud/platform_contract.py Deployment/cloud/runtime_workload.py Deployment/cloud/knowledge_rpc_server.py Deployment/cloud/capability_registry.py Deployment/cloud/mcp_gateway.py
+      - name: Run contract tests
+        working-directory: Deployment/cloud
+        run: python -m pytest -q test_platform_contract.py test_runtime_workload.py
