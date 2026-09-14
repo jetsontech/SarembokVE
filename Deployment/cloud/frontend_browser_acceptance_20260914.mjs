@@ -21,7 +21,7 @@ page.on('pageerror', err => pageErrors.push(String(err)));
 try {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForTimeout(2500);
-  await page.screenshot({ path: '/tmp/sarembok-boot.png', fullPage: true });
+  await page.screenshot({ path: '/work/sarembok-boot.png', fullPage: true });
   check('browser navigation', page.url().startsWith(url));
   check('no pageerror during boot', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
 
@@ -76,7 +76,7 @@ try {
     };
   });
   check('dialogue controls visible', interactionState.ok, JSON.stringify(interactionState));
-  await page.screenshot({ path: '/tmp/sarembok-dialogue.png', fullPage: true });
+  await page.screenshot({ path: '/work/sarembok-dialogue.png', fullPage: true });
 
   window.__srbkExecuteHit = false;
   await page.evaluate(() => {
