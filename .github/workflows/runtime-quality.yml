@@ -17,4 +17,4 @@ jobs:
       - name: Compile runtime Python
         run: python -m compileall -q Deployment/cloud
       - name: Run capability regression tests
-        run: python -m pytest Deployment/cloud/test_capabilities.py -q
+        run: python Deployment/cloud/test_capabilities.py
