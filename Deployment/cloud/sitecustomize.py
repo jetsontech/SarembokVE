@@ -23,6 +23,17 @@ def _strip_emoji(value: str) -> str:
 try:
     from provider_router import ProviderRouter
 
+    _original_init = ProviderRouter.__init__
+
+    def _init_with_full_budget(self, *args, **kwargs):
+        _original_init(self, *args, **kwargs)
+        try:
+            self.max_output_tokens = max(8192, int(os.getenv("SAREMBOK_LLM_MAX_OUTPUT_TOKENS", "8192")))
+        except ValueError:
+            self.max_output_tokens = 8192
+
+    ProviderRouter.__init__ = _init_with_full_budget
+
     _original_openai_payload = ProviderRouter._openai_payload
 
     def _openai_payload_with_full_budget(self, spec, messages, streaming=False, system_prompt="", prompt="", tools=None, image_frame=None):
@@ -37,7 +48,7 @@ try:
             image_frame=image_frame,
         )
         try:
-            budget = max(64, int(os.getenv("SAREMBOK_LLM_MAX_OUTPUT_TOKENS", "8192")))
+            budget = max(8192, int(os.getenv("SAREMBOK_LLM_MAX_OUTPUT_TOKENS", "8192")))
         except ValueError:
             budget = 8192
         data["max_tokens"] = budget
