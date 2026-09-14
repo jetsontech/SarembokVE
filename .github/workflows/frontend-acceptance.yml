@@ -1,0 +1,22 @@
+name: SarembokVE Frontend Acceptance
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  browser-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Chromium acceptance against production
+        run: |
+          docker run --rm --ipc=host \
+            -v "$GITHUB_WORKSPACE:/work" \
+            -w /work \
+            mcr.microsoft.com/playwright:latest \
+            node Deployment/cloud/frontend_browser_acceptance_20260914.mjs https://sarembok.com/
