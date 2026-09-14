@@ -4304,7 +4304,13 @@ async def handler(websocket) -> None:
                 LOG.info("rpc_success method=%s request_id=%s", method, request.get("id"))
             except PermissionError as exc:
                 response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32001, "message": str(exc)}}
-                LOG.warning("rpc_auth_failed peer=%s", peer)
+                failed_method = request.get("method") if isinstance(request, dict) else None
+                LOG.warning(
+                    "rpc_auth_failed peer=%s method=%s reason=%s",
+                    peer,
+                    failed_method,
+                    exc,
+                )
             except Exception as exc:
                 response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32000, "message": str(exc)}}
                 LOG.warning("rpc_error peer=%s error=%s", peer, exc)
