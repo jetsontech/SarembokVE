@@ -18,5 +18,5 @@ jobs:
           docker run --rm --ipc=host \
             -v "$GITHUB_WORKSPACE:/work" \
             -w /work \
-            mcr.microsoft.com/playwright:latest \
-            node Deployment/cloud/frontend_browser_acceptance_20260914.mjs https://sarembok.com/
+            mcr.microsoft.com/playwright:v1.55.0-noble \
+            bash -lc 'npm install --no-save playwright@1.55.0 >/tmp/playwright-install.log 2>&1 && node Deployment/cloud/frontend_browser_acceptance_20260914.mjs https://sarembok.com/'
