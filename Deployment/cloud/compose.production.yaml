@@ -10,7 +10,6 @@ services:
         required: false
     environment:
       SAREMBOK_AUTH_TOKEN: ${SAREMBOK_AUTH_TOKEN:-}
-      # Intelligence Provider Interface
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
@@ -26,7 +25,7 @@ services:
       GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
       SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS: ${SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS:-25}
       SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS: ${SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS:-35}
-      SAREMBOK_LLM_MAX_OUTPUT_TOKENS: ${SAREMBOK_LLM_MAX_OUTPUT_TOKENS:-1200}
+      SAREMBOK_LLM_MAX_OUTPUT_TOKENS: ${SAREMBOK_LLM_MAX_OUTPUT_TOKENS:-8192}
     volumes:
       - sarembok-data:/data
       - ./server.py:/app/server.py:ro
@@ -58,7 +57,6 @@ services:
     environment:
       SAREMBOK_SITE_ADDRESS: ${SAREMBOK_PUBLIC_HOST:-${SAREMBOK_SITE_ADDRESS:-sarembok.com}}
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
-
     ports:
       - "80:80"
       - "443:443"
