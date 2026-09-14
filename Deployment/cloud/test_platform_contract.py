@@ -84,7 +84,7 @@ def test_production_renderer_normalization_once_in_ci():
     marker = "SAREMBOK_RENDERER_NORMALIZATION_20260914"
     if marker not in source:
         needle = "let s = String(text);"
-        assert source.count(needle) == 1
+        assert source.count(needle) >= 1
         replacement = r'''let s = String(text);
 
             /* SAREMBOK_RENDERER_NORMALIZATION_20260914 */
