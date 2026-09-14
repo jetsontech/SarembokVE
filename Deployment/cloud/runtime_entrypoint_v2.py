@@ -9,11 +9,11 @@ import knowledge_rpc_server
 
 cloud = knowledge_rpc_server.cloud_server
 
-secret = os.getenv("SAREMBOK_ADMIN_PASSCODE", "").strip()
+secret = (os.getenv("SAREMBOK_ADMIN_PASSCODE", "") or os.getenv("SAREMBOK_AUTH_TOKEN", "")).strip()
 if not secret:
-    raise RuntimeError("SAREMBOK_ADMIN_PASSCODE must be configured; refusing to start with a default credential")
+    raise RuntimeError("SAREMBOK_ADMIN_PASSCODE or SAREMBOK_AUTH_TOKEN must be configured; refusing to start with a default credential")
 if len(secret) < 16:
-    raise RuntimeError("SAREMBOK_ADMIN_PASSCODE must be at least 16 characters")
+    raise RuntimeError("Administrative runtime secret must be at least 16 characters")
 
 cloud.ADMIN_PASSCODE = secret
 cloud.ADMIN_ALLOWED_PASSCODES = {secret}
