@@ -21,6 +21,7 @@ page.on('pageerror', err => pageErrors.push(String(err)));
 try {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForTimeout(2500);
+  await page.screenshot({ path: '/tmp/sarembok-boot.png', fullPage: true });
   check('browser navigation', page.url().startsWith(url));
   check('no pageerror during boot', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
 
@@ -38,7 +39,6 @@ try {
   check('legacy vision symbols absent', !identity.legacy);
   check('bare Aria absent', !identity.bareAria);
 
-  // Verify all primary dock tabs actually switch the active view.
   const tabs = ['workspace', 'deck', 'metahuman', 'dialogue', 'agents', 'memory', 'fabric', 'research', 'compute', 'features'];
   for (const tab of tabs) {
     const btn = page.locator(`#dock-btn-${tab}`);
@@ -51,7 +51,11 @@ try {
     check(`tab ${tab} activates view`, active.includes(`view-${tab}`), active.join(', '));
   }
 
-  // Simple/Cockpit mode controls must toggle body state without throwing.
+  // Always return to the actual conversation surface before testing its controls.
+  await page.locator('#dock-btn-dialogue').click();
+  await page.waitForTimeout(120);
+  check('dialogue surface active for interaction test', await page.locator('#view-dialogue').evaluate(el => el.classList.contains('active')));
+
   await page.locator('#mode-btn-simple').click();
   await page.waitForTimeout(100);
   check('simple mode activates', await page.evaluate(() => document.body.classList.contains('mode-simple')));
@@ -59,7 +63,22 @@ try {
   await page.waitForTimeout(100);
   check('cockpit mode restores', await page.evaluate(() => !document.body.classList.contains('mode-simple')));
 
-  // Execute button wiring is tested without sending a production request.
+  const interactionState = await page.evaluate(() => {
+    const button = document.getElementById('execute-button');
+    const input = document.getElementById('directive-input');
+    if (!button || !input) return { ok: false, reason: 'missing dialogue control' };
+    const b = button.getBoundingClientRect();
+    const i = input.getBoundingClientRect();
+    return {
+      ok: b.width > 0 && b.height > 0 && i.width > 0 && i.height > 0,
+      button: { width: b.width, height: b.height },
+      input: { width: i.width, height: i.height }
+    };
+  });
+  check('dialogue controls visible', interactionState.ok, JSON.stringify(interactionState));
+  await page.screenshot({ path: '/tmp/sarembok-dialogue.png', fullPage: true });
+
+  window.__srbkExecuteHit = false;
   await page.evaluate(() => {
     window.__srbkExecuteHit = false;
     window.sendDirective = () => { window.__srbkExecuteHit = true; };
@@ -67,12 +86,10 @@ try {
   await page.locator('#execute-button').click();
   check('execute button dispatches', await page.evaluate(() => window.__srbkExecuteHit === true));
 
-  // Features button must navigate to the feature view.
   await page.locator('#hud-features-btn').click();
   await page.waitForTimeout(100);
   check('features button opens features', await page.locator('#view-features').evaluate(el => el.classList.contains('active')));
 
-  // History drawer and its tabs.
   await page.locator('#hud-history-drawer-btn').click();
   await page.waitForTimeout(100);
   check('history drawer opens', await page.locator('#task-history-drawer').evaluate(el => el.classList.contains('open')));
@@ -84,7 +101,6 @@ try {
   }
   await page.locator('#task-history-backdrop').click().catch(() => {});
 
-  // Video card must stay inside the chat width at desktop and mobile sizes.
   for (const width of [1440, 700, 390]) {
     await page.setViewportSize({ width, height: 900 });
     const result = await page.evaluate(() => {
@@ -115,7 +131,6 @@ try {
     check(`video fits at ${width}px`, result.ok, JSON.stringify(result));
   }
 
-  // Markdown renderer should produce real tables/lists and not escaped pipe artifacts.
   const markdown = await page.evaluate(() => {
     const standard = window.md('### Comparison\n\n| Feature | SarembokVE | Chat app |\n| --- | --- | --- |\n| Memory | Persistent | Session-limited |\n| Planning | Task graph | Prompt response |\n\n- One\n- Two');
     const neutral = window.enrichResponseOnClient(
@@ -130,7 +145,6 @@ try {
   check('neutral prompt has no unsolicited video card', !/srbk-video-card|srbk-music-card|<iframe/i.test(markdown.neutral));
   check('explicit video intent creates video card', /srbk-video-card/i.test(markdown.videoPrompt));
 
-  // Text can be selected from a rendered response bubble.
   const selection = await page.evaluate(() => {
     const bubble = document.querySelector('.srbk-bubble .srbk-content');
     if (!bubble) return { ok: false, reason: 'no bubble' };
@@ -143,7 +157,6 @@ try {
   });
   check('response text is selectable', selection.ok, selection.text);
 
-  // Auth menu should open without navigating or throwing.
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.locator('#hud-auth-btn').click();
   check('auth menu opens', await page.locator('#hud-user-dropdown').isVisible());
