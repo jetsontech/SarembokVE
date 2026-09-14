@@ -27,4 +27,4 @@ VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD python -c "import os,socket; s=socket.create_connection(('127.0.0.1',int(os.getenv('SAREMBOK_PORT','9000'))),2); s.close()"
 
-CMD ["python", "/app/runtime_entrypoint.py"]
+CMD ["python", "/app/runtime_entrypoint_v2.py"]
