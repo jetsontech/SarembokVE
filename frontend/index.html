@@ -7284,7 +7284,21 @@
         /* ============================================================
            WEBSOCKET RPC & STREAMING CONNECTION
            ============================================================ */
-        function connect() {
+        let telemetryInterval = null;
+        let reconnectTimer = null;
+        let socketGeneration = 0;
+
+        async function connect() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
+
+            if (!window.browserSessionToken) {
+                try {
+                    await initSession();
+                } catch (_) {}
+            }
+
             let proto = window.location.protocol === "https:" ? "wss:" : "ws:";
             let host = window.location.host || "127.0.0.1:9000";
             
@@ -7295,6 +7309,7 @@
                 host = "sarembok.com";
             }
             const wsUrl = `${proto}//${host}/ws`;
+            const generation = ++socketGeneration;
 
             console.log("Connecting to Sarembok runtime:", wsUrl);
             try {
@@ -7308,7 +7323,11 @@
                 console.log("Sarembok runtime connected.");
                 addTerminalLine("[ws:link] runtime link active :: authenticated", "emerald");
                 refreshTelemetry();
-                setInterval(refreshTelemetry, 25000);
+
+                if (telemetryInterval) {
+                    clearInterval(telemetryInterval);
+                }
+                telemetryInterval = setInterval(refreshTelemetry, 25000);
             };
 
             ws.onmessage = event => {
@@ -7341,8 +7360,23 @@
 
             ws.onerror = err => console.error("WebSocket error:", err);
             ws.onclose = () => {
+                if (typeof generation !== "undefined" && generation !== socketGeneration) return;
+
                 console.warn("WebSocket closed. Reconnecting in 3s...");
-                setTimeout(connect, 3000);
+
+                if (telemetryInterval) {
+                    clearInterval(telemetryInterval);
+                    telemetryInterval = null;
+                }
+
+                if (reconnectTimer) {
+                    clearTimeout(reconnectTimer);
+                }
+
+                reconnectTimer = setTimeout(() => {
+                    reconnectTimer = null;
+                    connect();
+                }, 3000);
             };
         }
 

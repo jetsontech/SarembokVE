@@ -24,12 +24,32 @@ cloud.ADMIN_ALLOWED_PASSCODES = {secret}
 # Direct browser navigation/rendering is excluded because an unrestricted
 # browser surface can become an SSRF path.
 cloud.BROWSER_ALLOWED_METHODS = {
-    "SarembokChat", "GetRuntimeInfo", "GetProviderMetrics",
-    "GetDigitalHumanSession", "ListDigitalHumanSessions",
-    "GetFeedbackSummary", "SearchMemories", "ListMemories",
-    "ListWorkers", "ListTasks", "GetVisualEngineStatus",
-    "GetVisionStatus", "GetGpuMarketplace", "GetCurrentUser",
+    # Read-only/runtime surfaces
+    "GetRuntimeInfo",
+    "GetProviderMetrics",
+    "GetDigitalHumanSession",
+    "ListDigitalHumanSessions",
+    "GetFeedbackSummary",
+    "SearchMemories",
+    "ListMemories",
+    "ListWorkers",
+    "ListTasks",
+    "GetVisualEngineStatus",
+    "GetVisionStatus",
+    "GetGpuMarketplace",
+    "GetCurrentUser",
     "ExecuteComputeTask",
+
+    # Normal browser application operations
+    "SarembokChat",
+    "SubmitFeedback",
+    "StoreMemory",
+    "DeleteMemory",
+    "ClearMemories",
+    "SearchYouTube",
+    "CancelActiveStream",
+    "ProcessVisionFrame",
+    "CreateDigitalHumanSession",
 }
 
 
