@@ -20,3 +20,11 @@ jobs:
             -w /work \
             mcr.microsoft.com/playwright:v1.55.0-noble \
             bash -lc 'npm install --no-save playwright@1.55.0 >/tmp/playwright-install.log 2>&1 && node Deployment/cloud/frontend_browser_acceptance_20260914.mjs https://sarembok.com/'
+
+      - name: Upload rendered UI proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sarembok-ui-proof
+          path: /tmp/sarembok-*.png
+          if-no-files-found: warn
