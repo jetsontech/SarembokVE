@@ -78,7 +78,6 @@ try {
   check('dialogue controls visible', interactionState.ok, JSON.stringify(interactionState));
   await page.screenshot({ path: '/work/sarembok-dialogue.png', fullPage: true });
 
-  window.__srbkExecuteHit = false;
   await page.evaluate(() => {
     window.__srbkExecuteHit = false;
     window.sendDirective = () => { window.__srbkExecuteHit = true; };
