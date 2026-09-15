@@ -7452,8 +7452,17 @@
                     if (data.id && pending.has(data.id)) {
                         const entry = pending.get(data.id);
                         pending.delete(data.id);
-                        if (data.error) entry.rej(data.error);
-                        else entry.res(data.result);
+                        if (data.error) {
+                            const rpcError = new Error(
+                                String(data.error.message || "RPC request failed")
+                            );
+                            if (data.error.code !== undefined) rpcError.code = data.error.code;
+                            if (data.error.data !== undefined) rpcError.data = data.error.data;
+                            rpcError.rpcError = data.error;
+                            entry.rej(rpcError);
+                        } else {
+                            entry.res(data.result);
+                        }
                     }
                 } catch (err) {
                     console.error("WebSocket message parse error:", err);
@@ -7484,8 +7493,6 @@
             const isReady = await ensureConnected(6000);
             if (!isReady) {
                 throw new Error("Runtime WebSocket not open");
-            }
-            if (!window.browserSessionToken) {
             }
             if (!window.browserSessionToken) {
                 try {
@@ -12199,8 +12206,19 @@
       try {
         return await originalSendRPC(method, params, onDelta);
       } catch (err) {
-        var message = String((err && err.message) || err || "");
-        if (!/permission_denied|authentication_required/i.test(message)) throw err;
+        var message = String(
+          (err && err.message) ||
+          (err && err.rpcError && err.rpcError.message) ||
+          err ||
+          ""
+        );
+        var code = err && err.code;
+        var authFailure =
+          code === -32001 ||
+          /permission_denied|authentication_required/i.test(message);
+
+        if (!authFailure) throw err;
+
         await refreshBrowserSession();
         return await originalSendRPC(method, params, onDelta);
       }
