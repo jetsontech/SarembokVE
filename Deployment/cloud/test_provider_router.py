@@ -59,7 +59,12 @@ class ProviderRouterTests(unittest.TestCase):
         self.assertFalse(router._provider_available("Groq"))
 
     def test_no_duplicate_openrouter_fallback_spec(self) -> None:
-        with patch.dict(os.environ, {"OPENROUTER_API_KEY": "or-test", "SAREMBOK_PROVIDER_ORDER": "Groq,OpenRouter"}, clear=False):
+        env = {
+            "OPENROUTER_API_KEY": "or-test",
+            "GROQ_API_KEY": "gsk-test",
+            "SAREMBOK_PROVIDER_ORDER": "Groq,OpenRouter",
+        }
+        with patch.dict(os.environ, env, clear=False):
             specs = pr.ProviderRouter().configured(requested_model="openai/gpt-oss-120b")
         self.assertEqual(sum(1 for spec in specs if spec.name == "OpenRouter"), 1)
         self.assertEqual(sum(1 for spec in specs if spec.name == "Groq"), 1)
