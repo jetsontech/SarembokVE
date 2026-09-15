@@ -21,19 +21,21 @@ class ReviewModel:
     external: bool = True
 
 
-# Current model targets. Availability is intentionally key-gated at runtime;
-# this registry must never imply that a secret or paid service is configured.
+# The OpenAI target is configurable because model lifecycle changes faster than
+# Sarembok's architecture. As of the current API catalog, GPT-5.6 Sol is the
+# frontier general-purpose model for complex reasoning/coding; the environment
+# can pin a different approved coding reviewer without changing the council.
 REVIEW_MODELS: tuple[ReviewModel, ...] = (
     ReviewModel(
-        "OpenAI Codex Max",
+        "OpenAI Frontier Coding Reviewer",
         "OpenAI",
-        "gpt-5.1-codex-max",
+        os.getenv("SAREMBOK_OPENAI_REVIEW_MODEL", "gpt-5.6-sol"),
         "long-horizon coding, architecture, and implementation review",
     ),
     ReviewModel(
         "Claude Opus",
         "Anthropic",
-        "claude-opus-4-8",
+        os.getenv("SAREMBOK_ANTHROPIC_REVIEW_MODEL", "claude-opus-4-8"),
         "independent architecture, reasoning, and adversarial review",
     ),
 )
