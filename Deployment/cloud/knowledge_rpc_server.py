@@ -377,8 +377,22 @@ async def handler(websocket) -> None:
                 response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}
                 cloud_server.LOG.info("rpc_success method=%s request_id=%s streamed=%s", method, request.get("id"), stream_requested)
             except PermissionError:
-                response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32001, "message": "permission_denied"}}
-                cloud_server.LOG.warning("rpc_auth_failed peer=%s", peer)
+                failed_method = request.get("method") if isinstance(request, dict) else None
+                failed_request_id = request.get("id") if isinstance(request, dict) else None
+                failed_params = request.get("params") if isinstance(request, dict) else None
+                session_present = isinstance(failed_params, dict) and isinstance(failed_params.get("sessionToken"), str) and bool(failed_params.get("sessionToken"))
+                auth_token_present = isinstance(failed_params, dict) and isinstance(failed_params.get("authToken"), str) and bool(failed_params.get("authToken"))
+                browser_method_allowed = bool(failed_method in cloud_server.BROWSER_ALLOWED_METHODS) if isinstance(failed_method, str) else False
+                response = {"jsonrpc": "2.0", "id": failed_request_id, "error": {"code": -32001, "message": "permission_denied"}}
+                cloud_server.LOG.warning(
+                    "rpc_auth_failed peer=%s method=%s request_id=%s session_present=%s auth_token_present=%s browser_method_allowed=%s",
+                    peer,
+                    failed_method,
+                    failed_request_id,
+                    session_present,
+                    auth_token_present,
+                    browser_method_allowed,
+                )
             except Exception as exc:
                 if token_ctx is not None:
                     try:
