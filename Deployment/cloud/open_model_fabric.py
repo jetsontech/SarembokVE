@@ -36,7 +36,12 @@ def install() -> None:
     original_metrics = router_cls.metrics
 
     def configured(self, requested_model: str | None = None, dynamic_key: str | None = None):
-        selected = requested_model or _selected_open_model(get_open_model, get_open_models)
+        # A caller-supplied model always wins. A user-supplied dynamic key also
+        # retains its provider-native model default; only the normal runtime
+        # path receives the open-model-first default.
+        selected = requested_model
+        if selected is None and dynamic_key is None:
+            selected = _selected_open_model(get_open_model, get_open_models)
         return original_configured(self, requested_model=selected, dynamic_key=dynamic_key)
 
     def metrics(self) -> dict[str, Any]:
