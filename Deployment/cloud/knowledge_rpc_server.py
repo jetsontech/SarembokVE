@@ -143,11 +143,7 @@ def _history_from_params(params: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _direct_media_response(prompt: str, snapshot: dict[str, Any]) -> dict[str, Any] | None:
-    """Handle media intents without spending an LLM call.
-
-    This is deliberately deterministic: a pasted YouTube URL is preserved exactly,
-    while play/watch/search requests use Sarembok's verified YouTube resolver.
-    """
+    """Handle media intents without spending an LLM call."""
     text = prompt.strip()
     low = text.lower()
     match = _YOUTUBE_URL_RE.search(text)
@@ -180,12 +176,10 @@ def _direct_media_response(prompt: str, snapshot: dict[str, Any]) -> dict[str, A
 def _provider_unavailable_response(snapshot: dict[str, Any], exc: Exception) -> dict[str, Any]:
     provider = snapshot.get("provider") or {}
     configured = provider.get("configuredProviders") or []
-    health = ", ".join(
-        f"{item.get('name')}: {item.get('health')}" for item in configured if item.get("name")
-    ) or "no provider health data"
+    health = ", ".join(f"{item.get('name')}: {item.get('health')}" for item in configured if item.get("name")) or "no provider health data"
     text = (
         "## Sarembok AI execution is temporarily degraded\n\n"
-        f"The runtime is online, but no language-model provider is currently available.\n\n"
+        "The runtime is online, but no language-model provider is currently available.\n\n"
         f"**Provider health:** {health}\n\n"
         "Sarembok has not fabricated an answer. Retry when the provider cooldowns clear or provider billing/rate limits are restored."
     )
@@ -223,18 +217,23 @@ For ordinary questions, be natural, useful, and concise. For technical questions
     requested_model = str(params.get("model") or "").strip() or None
     api_key = str(params.get("apiKey") or "").strip() or None
     image_frame = params.get("imageFrame")
-    result = cloud_server.PROVIDER_ROUTER.generate(
-        system_prompt,
-        prompt,
-        messages,
-        requested_model=requested_model,
-        image_frame=image_frame if isinstance(image_frame, str) else None,
-        dynamic_key=api_key,
-    )
+    result = cloud_server.PROVIDER_ROUTER.generate(system_prompt, prompt, messages, requested_model=requested_model, image_frame=image_frame if isinstance(image_frame, str) else None, dynamic_key=api_key)
     text = result.text.strip()
     if not text:
         raise RuntimeError("provider returned empty response")
     return _response(snapshot, text, source=result.provider, model=result.model, provider_api=result.api, latency_ms=result.latency_ms, usage=result.usage)
+
+
+def _is_legacy_static_response(text: str) -> bool:
+    normalized = (text or "").strip().lower()
+    markers = (
+        "sovereign runtime active",
+        "sarembok ve is operating in sovereign mode",
+        "cyber audio & multimodal synthesis initialized",
+        "execution notice: all providers failed",
+        "all providers failed:",
+    )
+    return any(marker in normalized for marker in markers)
 
 
 def _dispatch_chat_with_authority(params: dict[str, Any]) -> dict[str, Any]:
@@ -268,7 +267,7 @@ def _dispatch_chat_with_authority(params: dict[str, Any]) -> dict[str, Any]:
         result = _original_dispatch("SarembokChat", params)
         if isinstance(result, dict):
             text = str(result.get("response") or "")
-            if "Sovereign Runtime Active" not in text and "Sarembok VE is operating in sovereign mode" not in text:
+            if not _is_legacy_static_response(text):
                 return result
     except Exception as exc:
         cloud_server.LOG.warning("legacy chat dispatch failed; continuing to grounded provider path: %s", exc)
@@ -395,3 +394,10 @@ async def process_http_request(connection, request):
         resp.headers["Cache-Control"] = "no-cache"
         return resp
     return (200, [("Content-Type", "text/html; charset=utf-8")], html_str.encode("utf-8"))
+
+
+cloud_server.handler = handler
+cloud_server.process_http_request = process_http_request
+
+if __name__ == "__main__":
+    asyncio.run(cloud_server.main())
