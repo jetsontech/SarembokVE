@@ -40,6 +40,19 @@ class OpenModelRuntimeTests(unittest.TestCase):
         self.assertEqual("Groq", specs[0].name)
         self.assertEqual("openai/gpt-oss-120b", specs[0].model)
 
+    def test_dynamic_user_key_keeps_provider_native_default(self):
+        router = ProviderRouter()
+        with patch.dict(
+            os.environ,
+            {
+                "LLM_MODEL": "gpt-5.6-luna",
+            },
+            clear=True,
+        ):
+            specs = router.configured(dynamic_key="sk-test")
+        self.assertEqual("UserOpenAI", specs[0].name)
+        self.assertEqual("gpt-5.6-luna", specs[0].model)
+
     def test_explicit_open_model_routes_to_requested_openrouter_model(self):
         router = ProviderRouter()
         with patch.dict(
