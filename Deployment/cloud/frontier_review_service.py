@@ -15,6 +15,13 @@ from typing import Any
 from frontier_review_council import ReviewModel, build_review_prompt, configured_review_models
 
 
+_SYSTEM = (
+    "You are Sarembok's independent engineering review council. "
+    "Return concrete findings, severity, evidence, and recommended correction. "
+    "Do not invent repository facts."
+)
+
+
 def _request_json(url: str, headers: dict[str, str], payload: dict[str, Any], timeout: int) -> dict[str, Any]:
     request = urllib.request.Request(
         url,
@@ -29,28 +36,31 @@ def _request_json(url: str, headers: dict[str, str], payload: dict[str, Any], ti
 def _review_openai(model: ReviewModel, prompt: str, timeout: int) -> str:
     payload = {
         "model": model.model_id,
-        "messages": [
-            {"role": "system", "content": "You are Sarembok's independent engineering review council. Return concrete findings, severity, evidence, and recommended correction. Do not invent repository facts."},
-            {"role": "user", "content": prompt},
-        ],
-        "max_tokens": 4096,
-        "temperature": 0.1,
+        "instructions": _SYSTEM,
+        "input": prompt,
+        "max_output_tokens": 4096,
     }
     data = _request_json(
-        "https://api.openai.com/v1/chat/completions",
+        "https://api.openai.com/v1/responses",
         {"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"},
         payload,
         timeout,
     )
-    return str((((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "")).strip()
+    if data.get("output_text"):
+        return str(data["output_text"]).strip()
+    parts: list[str] = []
+    for item in data.get("output") or []:
+        for content in item.get("content") or []:
+            if isinstance(content, dict) and content.get("type") in {"output_text", "text"} and content.get("text"):
+                parts.append(str(content["text"]))
+    return "\n".join(parts).strip()
 
 
 def _review_anthropic(model: ReviewModel, prompt: str, timeout: int) -> str:
     payload = {
         "model": model.model_id,
         "max_tokens": 4096,
-        "temperature": 0.1,
-        "system": "You are Sarembok's independent engineering review council. Return concrete findings, severity, evidence, and recommended correction. Do not invent repository facts.",
+        "system": _SYSTEM,
         "messages": [{"role": "user", "content": prompt}],
     }
     data = _request_json(
