@@ -30,11 +30,13 @@ class FrontierReviewCouncilTests(unittest.TestCase):
     def test_each_configured_provider_is_optional(self):
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test"}, clear=True):
             models = configured_review_models()
-        self.assertEqual(["OpenAI Codex Max"], [model.name for model in models])
+        self.assertEqual(["OpenAI Frontier Coding Reviewer"], [model.name for model in models])
+        self.assertEqual("gpt-5.6-sol", models[0].model_id)
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test"}, clear=True):
             models = configured_review_models()
         self.assertEqual(["Claude Opus"], [model.name for model in models])
+        self.assertEqual("claude-opus-4-8", models[0].model_id)
 
     def test_review_prompt_is_bounded_and_model_neutral(self):
         prompt = build_review_prompt(
