@@ -5479,41 +5479,95 @@ button,
 
 
 <script>
-/* SAREMBOK_BROWSER_VIDEO_INTENT_V7_20260915 */
-(function installVideoIntentV7() {
-    const originalEnrich = window.enrichResponseOnClient;
-
-    if (typeof originalEnrich !== "function") return;
-    if (originalEnrich.__sarembokVideoV7) return;
-
+/* SAREMBOK_BROWSER_VIDEO_INTENT_V8_20260915 */
+(function installVideoIntentV8() {
     function explicitVideoIntent(prompt) {
-        return /\b(?:watch|play|show|open|stream|listen to)\b[\s\S]{0,120}\b(?:video|youtube|clip|footage|recording|movie|documentary)\b/i.test(
-            String(prompt || "")
-        ) || /\b(?:video|youtube)\b[\s\S]{0,80}\b(?:about|on|of|from)\b/i.test(
-            String(prompt || "")
+        const text = String(prompt || "").trim();
+
+        return (
+            /\b(?:watch|play|show|open|stream|listen to)\b[\s\S]{0,120}\b(?:video|youtube|clip|footage|recording|movie|documentary)\b/i.test(text)
+            ||
+            /\b(?:video|youtube)\b[\s\S]{0,80}\b(?:about|on|of|from)\b/i.test(text)
         );
     }
 
-    function v7(prompt, response) {
-        const rendered = originalEnrich(prompt, response);
+    function install() {
+        const originalEnrich = window.enrichResponseOnClient;
+        const renderer = window.renderVideoCard;
 
-        if (!explicitVideoIntent(prompt)) return rendered;
-        if (/srbk-video-card/i.test(rendered)) return rendered;
+        if (typeof originalEnrich !== "function") return false;
+        if (typeof renderer !== "function") return false;
 
-        const cleanPrompt = String(prompt || "")
-            .replace(/^[\s\S]*?\b(?:about|on|of|from)\b/i, "")
-            .trim() || "requested video";
+        if (originalEnrich.__sarembokVideoV8) {
+            window.__srbkVideoIntentV8Ready = true;
+            return true;
+        }
 
-        const card = window.renderVideoCard(
-            cleanPrompt.toUpperCase(),
-            cleanPrompt
-        );
+        function v8(prompt, response) {
+            const rendered = originalEnrich(prompt, response);
 
-        return String(rendered || "") + "\n" + card;
+            if (!explicitVideoIntent(prompt)) {
+                return rendered;
+            }
+
+            if (/srbk-video-card/i.test(String(rendered || ""))) {
+                return rendered;
+            }
+
+            const originalPrompt = String(prompt || "").trim();
+
+            const cleanPrompt =
+                originalPrompt
+                    .replace(
+                        /^[\s\S]*?\b(?:about|on|of|from)\b/i,
+                        ""
+                    )
+                    .trim()
+                || originalPrompt
+                || "requested video";
+
+            const card = renderer(
+                cleanPrompt.toUpperCase(),
+                cleanPrompt
+            );
+
+            return String(rendered || "") + "\n" + card;
+        }
+
+        v8.__sarembokVideoV8 = true;
+        window.enrichResponseOnClient = v8;
+        window.__srbkVideoIntentV8Ready = true;
+
+        return true;
     }
 
-    v7.__sarembokVideoV7 = true;
-    window.enrichResponseOnClient = v7;
+    function installWhenReady() {
+        if (install()) return;
+
+        requestAnimationFrame(() => {
+            if (install()) return;
+
+            setTimeout(() => {
+                install();
+            }, 0);
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener(
+            "DOMContentLoaded",
+            installWhenReady,
+            { once: true }
+        );
+    } else {
+        installWhenReady();
+    }
+
+    window.addEventListener(
+        "load",
+        installWhenReady,
+        { once: true }
+    );
 })();
 </script>
 

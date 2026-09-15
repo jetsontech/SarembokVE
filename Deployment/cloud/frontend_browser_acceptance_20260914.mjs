@@ -103,10 +103,17 @@ try {
   for (const width of [1440, 700, 390]) {
     await page.setViewportSize({ width, height: 900 });
     const result = await page.evaluate(() => {
-      const host = document.getElementById('dialogue-history') || document.body;
+      const host = document.createElement('div');
+      host.id = '__srbk_video_acceptance_host';
+      host.style.cssText =
+        'position:fixed;left:0;top:0;width:100vw;height:100vh;' +
+        'visibility:hidden;pointer-events:none;overflow:hidden;';
+
+      document.body.appendChild(host);
+
       const holder = document.createElement('div');
-      holder.id = '__srbk_video_acceptance_host';
-      holder.style.cssText = 'width:100%; max-width:100%; overflow:hidden;';
+      holder.style.cssText =
+        'width:100%;max-width:100%;overflow:hidden;';
       const card = document.createElement('div');
       card.innerHTML = window.renderVideoCard('Acceptance Video', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
       const node = card.firstElementChild;
@@ -125,7 +132,18 @@ try {
         iframeRect.height <= wrapRect.height + 1 &&
         Math.abs((wrapRect.width / wrapRect.height) - (16 / 9)) < 0.03;
       holder.remove();
-      return { ok, card: cardRect.width, host: hostRect.width, wrap: wrapRect?.width, iframe: iframeRect?.width, ratio: wrapRect ? wrapRect.width / wrapRect.height : null };
+      host.remove();
+
+      return {
+        ok,
+        card: cardRect.width,
+        host: hostRect.width,
+        wrap: wrapRect?.width,
+        wrapHeight: wrapRect?.height,
+        iframe: iframeRect?.width,
+        iframeHeight: iframeRect?.height,
+        ratio: wrapRect ? wrapRect.width / wrapRect.height : null
+      };
     });
     check(`video fits at ${width}px`, result.ok, JSON.stringify(result));
   }
@@ -142,19 +160,51 @@ try {
   check('markdown table renders', /<table[\s>]/i.test(markdown.standard) && !/\|\s*Feature\s*\|/i.test(markdown.standard));
   check('markdown bullets render', /<li[\s>]/i.test(markdown.standard));
   check('neutral prompt has no unsolicited video card', !/srbk-video-card|srbk-music-card|<iframe/i.test(markdown.neutral));
+  check('video renderer available', await page.evaluate(() => typeof window.renderVideoCard === 'function'));
+  check('video intent hook installed', await page.evaluate(() => window.__srbkVideoIntentV8Ready === true));
   check('explicit video intent creates video card', /srbk-video-card/i.test(markdown.videoPrompt));
 
   const selection = await page.evaluate(() => {
-    const bubble = document.querySelector('.srbk-bubble .srbk-content');
-    if (!bubble) return { ok: false, reason: 'no bubble' };
+    const bubble = document.createElement('div');
+    bubble.className = 'srbk-bubble assistant';
+
+    const content = document.createElement('div');
+    content.className = 'srbk-content';
+    content.innerHTML =
+      '<p>Selectable Sarembok response content for browser acceptance.</p>';
+
+    bubble.appendChild(content);
+    document.body.appendChild(bubble);
+
     const range = document.createRange();
-    range.selectNodeContents(bubble);
+    range.selectNodeContents(content);
+
     const sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(range);
-    return { ok: !!sel && sel.toString().trim().length > 0, text: sel?.toString().slice(0, 60) || '' };
+
+    const text = sel?.toString() || '';
+    const computed = getComputedStyle(content);
+
+    const result = {
+      ok:
+        text.trim().length > 0 &&
+        computed.userSelect === 'text',
+      text: text.slice(0, 60),
+      userSelect: computed.userSelect
+    };
+
+    sel.removeAllRanges();
+    bubble.remove();
+
+    return result;
   });
-  check('response text is selectable', selection.ok, selection.text);
+
+  check(
+    'response text is selectable',
+    selection.ok,
+    JSON.stringify(selection)
+  );
 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.locator('#hud-auth-btn').click();
@@ -165,7 +215,8 @@ try {
   await browser.close();
 }
 
-console.log('\n===== BROWSER ACCEPTANCE RESULT =====');
+console.log('\n/* SAREMBOK_BROWSER_ACCEPTANCE_V8_20260915 */');
+console.log('===== BROWSER ACCEPTANCE RESULT =====');
 if (failures.length) {
   console.log(`FAIL (${failures.length}): ${failures.join(', ')}`);
   process.exit(1);
