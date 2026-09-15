@@ -13,9 +13,17 @@ import os
 from typing import Any
 
 
+def _selected_open_model(get_open_model, get_open_models) -> str:
+    requested = os.getenv("SAREMBOK_OPEN_MODEL", "openai/gpt-oss-120b").strip()
+    if requested and get_open_model(requested):
+        return requested
+    models = get_open_models("general")
+    return models[0].model_id if models else "openai/gpt-oss-120b"
+
+
 def install() -> None:
     try:
-        from open_model_registry import get_open_model, get_open_models
+        from open_model_registry import get_open_model, get_open_models, local_model_ids
         import provider_router
     except Exception:
         return
@@ -28,21 +36,19 @@ def install() -> None:
     original_metrics = router_cls.metrics
 
     def configured(self, requested_model: str | None = None, dynamic_key: str | None = None):
-        selected = requested_model
-        if not selected:
-            selected = os.getenv("SAREMBOK_OPEN_MODEL", "openai/gpt-oss-120b").strip() or None
+        selected = requested_model or _selected_open_model(get_open_model, get_open_models)
         return original_configured(self, requested_model=selected, dynamic_key=dynamic_key)
 
     def metrics(self) -> dict[str, Any]:
         result = original_metrics(self)
-        selected = os.getenv("SAREMBOK_OPEN_MODEL", "openai/gpt-oss-120b").strip()
+        selected = _selected_open_model(get_open_model, get_open_models)
         spec = get_open_model(selected)
         result["openModelFabric"] = {
             "enabled": True,
             "principle": "WE DON'T BUY IT. WE BUILD IT.",
             "defaultModel": selected,
             "defaultModelRegistered": spec is not None,
-            "defaultModelLocal": selected in __import__("open_model_registry").local_model_ids(),
+            "defaultModelLocal": selected in local_model_ids(),
             "openModelCount": len(get_open_models()),
         }
         return result
