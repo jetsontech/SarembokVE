@@ -191,11 +191,13 @@ class SkillsEngine:
         arguments: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Execute a skill by name with arguments and context (supporting both native skills and external MCP tools)."""
+        """Execute a native skill or an external MCP capability through the policy boundary."""
         args = arguments or {}
         ctx = context or {}
 
-        # 0. External MCP Client dispatch
+        # 0. External MCP capability dispatch. Never execute an external tool
+        # merely because an LLM supplied an mcp_* name: the name must resolve
+        # to a discovered tool and then pass the Sarembok capability policy.
         if name.startswith("mcp_"):
             try:
                 try:
@@ -205,15 +207,56 @@ class SkillsEngine:
                         from Deployment.cloud.mcp_client import get_mcp_client_manager
                     except ImportError:
                         from .mcp_client import get_mcp_client_manager
+                try:
+                    from mcp_capability_policy import get_mcp_capability_policy
+                except ImportError:
+                    try:
+                        from Deployment.cloud.mcp_capability_policy import get_mcp_capability_policy
+                    except ImportError:
+                        from .mcp_capability_policy import get_mcp_capability_policy
+
                 mgr = get_mcp_client_manager()
                 for et in mgr.get_all_external_tools():
-                    if et["name"] == name:
-                        srv = et["mcp_server"]
-                        orig_tool = et["mcp_original_name"]
-                        out = mgr.call_external_tool(srv, orig_tool, args)
-                        return {"success": True, "skill": name, "output": out}
-                return {"success": False, "skill": name, "error": f"External MCP tool '{name}' not found."}
+                    if et["name"] != name:
+                        continue
+                    server_name = et["mcp_server"]
+                    original_name = et["mcp_original_name"]
+                    decision = get_mcp_capability_policy().authorize(
+                        server_name,
+                        et,
+                        args,
+                        ctx,
+                    )
+                    if not decision.allowed:
+                        logger.warning(
+                            "Blocked MCP capability %s/%s audit=%s reason=%s",
+                            server_name,
+                            original_name,
+                            decision.audit_id,
+                            decision.reason,
+                        )
+                        return {
+                            "success": False,
+                            "skill": name,
+                            "error": decision.reason,
+                            "policy": decision.as_dict(),
+                        }
+
+                    out = mgr.call_external_tool(server_name, original_name, args)
+                    return {
+                        "success": True,
+                        "skill": name,
+                        "output": out,
+                        "policy": decision.as_dict(),
+                    }
+
+                return {
+                    "success": False,
+                    "skill": name,
+                    "error": f"External MCP tool '{name}' not found.",
+                }
             except Exception as exc:
+                logger.exception("External MCP call failed for %s", name)
                 return {"success": False, "skill": name, "error": f"External MCP call failed: {exc}"}
 
         skill = self._skills.get(name)
@@ -223,9 +266,6 @@ class SkillsEngine:
                 "error": f"Skill '{name}' not found in registered skills.",
                 "availableSkills": list(self._skills.keys()),
             }
-
-        args = arguments or {}
-        ctx = context or {}
 
         # 1. Custom native execution handler
         handler = self._handlers.get(name)
