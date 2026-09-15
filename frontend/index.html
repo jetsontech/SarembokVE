@@ -7859,6 +7859,59 @@
             return paragraphs.join("");
         }
 
+        async function copyResponse(btn) {
+            const bubble = btn.closest(".srbk-bubble, .ws-bubble");
+            if (!bubble) return;
+
+            const content =
+                bubble.querySelector(".srbk-content, .ws-content-text");
+
+            if (!content) return;
+
+            const text = (content.innerText || content.textContent || "").trim();
+            if (!text) return;
+
+            let copied = false;
+
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                    copied = true;
+                }
+            } catch (_) {}
+
+            if (!copied) {
+                try {
+                    const ta = document.createElement("textarea");
+                    ta.value = text;
+                    ta.setAttribute("readonly", "");
+                    ta.style.position = "fixed";
+                    ta.style.opacity = "0";
+                    ta.style.pointerEvents = "none";
+                    document.body.appendChild(ta);
+                    ta.select();
+                    ta.setSelectionRange(0, ta.value.length);
+                    copied = document.execCommand("copy");
+                    ta.remove();
+                } catch (_) {}
+            }
+
+            const original = btn.textContent;
+            btn.textContent = copied ? "COPIED!" : "COPY FAILED";
+            btn.setAttribute(
+                "aria-label",
+                copied ? "Response copied" : "Response copy failed"
+            );
+
+            if (copied) {
+                showToast("RESPONSE COPIED TO CLIPBOARD");
+            }
+
+            setTimeout(() => {
+                btn.textContent = original || "COPY";
+            }, 1800);
+        }
+
         function copyCode(btn) {
             const pre = btn.closest(".srbk-code-block")?.querySelector("pre code");
             if (!pre) return;
@@ -8441,6 +8494,7 @@
                     <div class="srbk-bubble-tools">
                         <button class="srbk-tool-btn" onclick="submitMessageFeedback(this, 1)" title="Helpful response (Thumbs Up)">👍</button>
                         <button class="srbk-tool-btn" onclick="submitMessageFeedback(this, -1)" title="Needs refinement (Thumbs Down)">👎</button>
+                        <button class="srbk-tool-btn" onclick="copyResponse(this)" title="Copy complete response">COPY</button>
                         <button class="srbk-tool-btn srbk-speak-btn" onclick="speakText(this)" title="Narrate response">🔊</button>
                     </div>
                 </div>
@@ -11245,8 +11299,16 @@
             assistantBubble.className = 'ws-bubble assistant';
             assistantBubble.innerHTML = `
                 <div class="ws-bubble-body">
-                    <div style="font-size:11px; font-family:var(--font-mono); color:var(--cyan); margin-bottom:6px;">
-                        ANTIGRAVITY GEMINI · V3.8-FLASH
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:6px;">
+                        <div style="font-size:11px; font-family:var(--font-mono); color:var(--cyan);">
+                            ANTIGRAVITY GEMINI · V3.8-FLASH
+                        </div>
+                        <button
+                            class="srbk-tool-btn"
+                            type="button"
+                            onclick="copyResponse(this)"
+                            title="Copy complete response"
+                            aria-label="Copy complete response">COPY</button>
                     </div>
                     <div class="ws-content-text" style="line-height:1.6;"></div>
                 </div>
@@ -11268,39 +11330,48 @@
                     const rpcRes = await sendRPC("SarembokChat", { prompt: text, stream: true }, delta => {
                         streamed = true;
                         fullText += delta;
-                        contentEl.innerHTML = formatMarkdown(fullText);
+                        contentEl.innerHTML = md(fullText);
                         chatPane.scrollTop = chatPane.scrollHeight;
                     });
 
                     if (!streamed) {
                         fullText = rpcRes?.response || rpcRes?.audioText || "Directive executed successfully.";
-                        contentEl.innerHTML = formatMarkdown(fullText);
+                        contentEl.innerHTML = md(fullText);
                     }
                 }
             } catch (err) {
-                console.warn("[workspace] RPC streaming fallback:", err);
+                console.error("[workspace] SarembokChat execution failed:", err);
+
+                const message = (err && err.message)
+                    ? String(err.message)
+                    : "SarembokChat execution failed";
+
+                contentEl.innerHTML =
+                    '<p style="color:var(--amber);"><strong>Execution failed.</strong> '
+                    + escapeHtml(message)
+                    + '</p>';
+
+                updateWsStatus("Execution failed · no transaction committed");
+                setWsAgentState('WORKER', 'IDLE');
+                setWsAgentState('STRATEGIST', 'IDLE');
+                setWsAgentState('AUDITOR', 'IDLE');
+
+                const failedStatus = document.getElementById('ws-active-status-bar');
+                if (failedStatus) {
+                    failedStatus.innerHTML =
+                        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.5">' +
+                        '<line x1="18" y1="6" x2="6" y2="18"></line>' +
+                        '<line x1="6" y1="6" x2="18" y2="18"></line>' +
+                        '</svg>' +
+                        '<span style="color:var(--amber);">Execution failed · No transaction committed</span>';
+                }
+
+                chatPane.scrollTop = chatPane.scrollHeight;
+                return;
             }
 
             if (!fullText) {
-                // Standalone simulated resilient answer
-                updateWsStatus("3. Dispatching Worker & Executing Logic...");
-                setWsAgentState('WORKER', 'BUSY');
-                await new Promise(r => setTimeout(r, 600));
-
-                fullText = `### Directive Processed: ${escapeHtml(text)}
-
-` +
-                    `- **Session Envelope**: \`ses_${Date.now().toString(16)}\`
-` +
-                    `- **Execution Engine**: Sovereign Protocol V3.8-Flash Edge Kernel
-` +
-                    `- **Memory Snapshot**: Committed to WAL store with SHA-256 HMAC
-` +
-                    `- **Entropy Status**: 0.14 [STABLE, threshold < 0.88]
-
-` +
-                    `All micro-steps verified and validated without recursion anomalies.`;
-                contentEl.innerHTML = formatMarkdown(fullText);
+                throw new Error("SarembokChat returned no response");
             }
 
             // Finish status
