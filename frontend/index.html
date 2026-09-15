@@ -5010,6 +5010,441 @@
 }
 
 </style>
+
+
+<style id="SAREMBOK_MOBILE_UX_V6_20260915">
+
+/* ============================================================
+   SAREMBOK MOBILE UX V6 — 20260915
+   Dialogue stage / composer / navigation / header correction
+   Desktop layout intentionally unaffected.
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+    /* --------------------------------------------------------
+       GLOBAL MOBILE SURFACE
+       -------------------------------------------------------- */
+
+    html,
+    body {
+        width: 100% !important;
+        height: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        overscroll-behavior: none !important;
+    }
+
+    #app {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        padding-left: 0 !important;
+        padding-bottom: calc(62px + env(safe-area-inset-bottom, 0px)) !important;
+        overflow: hidden !important;
+    }
+
+    /* --------------------------------------------------------
+       HEADER — NEVER CLIP THE HEADER INTO THE VIEWPORT EDGE
+       -------------------------------------------------------- */
+
+    .cyber-header {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        min-height: 70px !important;
+        padding: 8px 10px !important;
+        gap: 10px !important;
+        justify-content: flex-start !important;
+        align-items: center !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
+        flex-shrink: 0 !important;
+    }
+
+    .cyber-header::-webkit-scrollbar {
+        display: none !important;
+    }
+
+    .header-brand-wrap {
+        flex: 0 0 auto !important;
+        min-width: max-content !important;
+    }
+
+    .header-hud-group {
+        flex: 0 0 auto !important;
+        width: max-content !important;
+        max-width: none !important;
+        min-width: max-content !important;
+        gap: 8px !important;
+        overflow: visible !important;
+    }
+
+    .header-hud-group > * {
+        flex: 0 0 auto !important;
+    }
+
+    /* The scrolling ticker is visual noise on a narrow touch stage. */
+    .cyber-ticker {
+        display: none !important;
+    }
+
+    /* --------------------------------------------------------
+       MODEL / MODE / CONTROL ROWS
+       -------------------------------------------------------- */
+
+    .dialogue-head {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: 0 0 auto !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        flex-wrap: nowrap !important;
+        justify-content: flex-start !important;
+        align-items: center !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+
+    .dialogue-head::-webkit-scrollbar {
+        display: none !important;
+    }
+
+    .dialogue-head > * {
+        flex: 0 0 auto !important;
+        min-width: max-content !important;
+    }
+
+    /* --------------------------------------------------------
+       DIALOGUE STAGE
+       -------------------------------------------------------- */
+
+    #view-dialogue {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        display: none !important;
+        flex-direction: column !important;
+    }
+
+    #view-dialogue.active {
+        display: flex !important;
+    }
+
+    .dialogue-wrap {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+    }
+
+    /* --------------------------------------------------------
+       ACTUAL SCROLLING CHAT REGION
+       -------------------------------------------------------- */
+
+    #dialogue-history {
+        flex: 1 1 auto !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        max-width: 100% !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior: contain !important;
+
+        /*
+           Reserve real vertical space for the fixed composer
+           and the fixed bottom navigation. This is the critical
+           correction for the screenshot overlap.
+        */
+        padding:
+            12px
+            10px
+            calc(170px + env(safe-area-inset-bottom, 0px))
+            10px !important;
+
+        scroll-padding-bottom:
+            calc(170px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    #dialogue-history > * {
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    /* --------------------------------------------------------
+       RESPONSE BUBBLES
+       -------------------------------------------------------- */
+
+    #dialogue-history .srbk-bubble {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow-wrap: anywhere !important;
+        word-break: normal !important;
+        box-sizing: border-box !important;
+    }
+
+    #dialogue-history .srbk-content,
+    #dialogue-history .srbk-bubble-body {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow-wrap: anywhere !important;
+        word-break: normal !important;
+        user-select: text !important;
+        -webkit-user-select: text !important;
+    }
+
+    #dialogue-history .srbk-bubble.user {
+        align-self: stretch !important;
+        width: min(100%, 100%) !important;
+    }
+
+    #dialogue-history .srbk-bubble.assistant {
+        align-self: stretch !important;
+        width: 100% !important;
+    }
+
+    /* --------------------------------------------------------
+       VIDEO / RICH MEDIA — FIT THE CHAT STAGE
+       -------------------------------------------------------- */
+
+    #dialogue-history iframe,
+    #dialogue-history video {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 52dvh !important;
+        border: 0 !important;
+    }
+
+    #dialogue-history iframe {
+        aspect-ratio: 16 / 9 !important;
+        height: auto !important;
+        min-height: 180px !important;
+    }
+
+    #dialogue-history img {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+
+    .srbk-video-card,
+    .srbk-video-wrapper,
+    .srbk-media-card,
+    .srbk-media-wrapper,
+    .srbk-image-wrapper {
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    /* --------------------------------------------------------
+       FIXED DIALOGUE COMPOSER
+       -------------------------------------------------------- */
+
+    .srbk-mobile-dialogue-composer {
+        position: fixed !important;
+        left: 8px !important;
+        right: 8px !important;
+        bottom: calc(67px + env(safe-area-inset-bottom, 0px)) !important;
+        width: auto !important;
+        max-width: none !important;
+        margin: 0 !important;
+        z-index: 1100 !important;
+        box-sizing: border-box !important;
+
+        background:
+            linear-gradient(
+                to bottom,
+                rgba(2,4,8,0.16) 0%,
+                rgba(2,4,8,0.88) 28%,
+                rgba(2,4,8,0.98) 100%
+            ) !important;
+
+        padding:
+            8px
+            0
+            8px !important;
+
+        border-radius: 18px !important;
+    }
+
+    .srbk-mobile-dialogue-composer > * {
+        max-width: 100% !important;
+    }
+
+    .srbk-mobile-dialogue-composer input,
+    .srbk-mobile-dialogue-composer textarea {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        font-size: 16px !important;
+    }
+
+    .srbk-mobile-dialogue-composer button {
+        touch-action: manipulation !important;
+    }
+
+    /* --------------------------------------------------------
+       FIXED BOTTOM DOCK
+       -------------------------------------------------------- */
+
+    .cyber-left-dock {
+        position: fixed !important;
+        left: 0 !important;
+        right: 0 !important;
+        top: auto !important;
+        bottom: 0 !important;
+        width: 100% !important;
+        height: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
+        min-height: 60px !important;
+        max-height: 76px !important;
+
+        padding:
+            5px
+            max(6px, env(safe-area-inset-left, 0px))
+            max(4px, env(safe-area-inset-bottom, 0px))
+            max(6px, env(safe-area-inset-right, 0px)) !important;
+
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 7px !important;
+
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        white-space: nowrap !important;
+
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
+        scroll-snap-type: x proximity !important;
+
+        z-index: 1200 !important;
+    }
+
+    .cyber-left-dock::-webkit-scrollbar {
+        display: none !important;
+    }
+
+    .dock-btn {
+        flex: 0 0 44px !important;
+        width: 44px !important;
+        min-width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        touch-action: manipulation !important;
+        scroll-snap-align: center !important;
+    }
+
+    .dock-version {
+        display: none !important;
+    }
+
+    /* --------------------------------------------------------
+       SIMPLE CHAT MODE
+       -------------------------------------------------------- */
+
+    body.mode-simple #view-dialogue,
+    #app.mode-simple #view-dialogue {
+        padding: 0 !important;
+    }
+
+    body.mode-simple .dialogue-wrap,
+    #app.mode-simple .dialogue-wrap {
+        height: 100% !important;
+        min-height: 0 !important;
+    }
+
+    body.mode-simple #dialogue-history,
+    #app.mode-simple #dialogue-history {
+        padding-bottom:
+            calc(170px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    /* --------------------------------------------------------
+       TOUCH / FOCUS
+       -------------------------------------------------------- */
+
+    button,
+    input,
+    textarea,
+    select {
+        touch-action: manipulation;
+    }
+
+    #directive-input,
+    #ws-prompt-input {
+        -webkit-user-select: text !important;
+        user-select: text !important;
+    }
+}
+
+</style>
+
+
+
+<script>
+/* SAREMBOK_MOBILE_DIALOGUE_COMPOSER_INIT_V6 */
+(function initSarembokMobileDialogueComposer() {
+    function markComposer() {
+        const view = document.getElementById("view-dialogue");
+        const input = document.getElementById("directive-input");
+        const execute = document.getElementById("execute-button");
+
+        if (!view || !input || !execute) return;
+
+        let candidate = execute;
+
+        while (
+            candidate &&
+            candidate !== view &&
+            !(candidate.contains(input) && candidate.contains(execute))
+        ) {
+            candidate = candidate.parentElement;
+        }
+
+        if (
+            candidate &&
+            candidate !== view &&
+            candidate.contains(input) &&
+            candidate.contains(execute)
+        ) {
+            candidate.classList.add("srbk-mobile-dialogue-composer");
+        }
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", markComposer);
+    } else {
+        markComposer();
+    }
+
+    window.addEventListener("load", markComposer);
+    window.addEventListener("resize", markComposer);
+})();
+</script>
+
 </head>
 <body>
 <form id="srbk-admin-passcode-form" style="display:none" onsubmit="return false;"></form>
