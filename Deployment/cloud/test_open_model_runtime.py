@@ -2,10 +2,15 @@ import os
 import unittest
 from unittest.mock import patch
 
-# Production starts this hook automatically; importing it explicitly makes the
-# contract test independent of the test runner's sys.path startup behavior.
+# Production installs the fabric through sitecustomize. Tests must install the
+# same runtime bridge explicitly because Python may load sitecustomize before
+# the test directory is added to sys.path.
 import sitecustomize  # noqa: F401
+from open_model_fabric import install as install_open_model_fabric
 from provider_router import ProviderRouter
+
+# Make the test contract deterministic regardless of Python startup ordering.
+install_open_model_fabric()
 
 
 class OpenModelRuntimeTests(unittest.TestCase):
