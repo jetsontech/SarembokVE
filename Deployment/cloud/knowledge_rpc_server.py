@@ -1,9 +1,8 @@
 """Production JSON-RPC entrypoint with authoritative chat routing.
 
 The cloud server remains the compatibility/runtime implementation. This entrypoint
-adds the Runtime Authority boundary, MCP truth reporting, and a grounded provider
-path for ordinary conversation so generic prompts never fall into the legacy
-static capability banner.
+adds the Runtime Authority boundary, MCP truth reporting, grounded provider
+execution, deterministic media handling, and provider-failure containment.
 """
 from __future__ import annotations
 
@@ -11,6 +10,7 @@ import asyncio
 import importlib.util
 import json
 import os
+import re
 import sys
 import time
 from typing import Any
@@ -54,15 +54,12 @@ _original_dispatch = cloud_server.dispatch
 _original_process_http_request = cloud_server.process_http_request
 
 CHAT_METHODS = {"SarembokChat", "Chat", "SarembokDialogue"}
+_YOUTUBE_URL_RE = re.compile(r"https?://(?:www\.)?(?:youtube\.com/watch\?v=([A-Za-z0-9_-]{11})(?:[^\s)]*)?|youtu\.be/([A-Za-z0-9_-]{11})(?:[^\s)]*)?)", re.IGNORECASE)
 
 
 def _authoritative_snapshot() -> dict[str, Any]:
     cloud_server.evaluate_worker_liveness()
-    return runtime_authority_snapshot(
-        cloud_server.store,
-        cloud_server.PROVIDER_ROUTER,
-        cloud_server.STARTED,
-    )
+    return runtime_authority_snapshot(cloud_server.store, cloud_server.PROVIDER_ROUTER, cloud_server.STARTED)
 
 
 def _response(snapshot: dict[str, Any], text: str, *, source: str, model: str, provider_api: str | None = None, latency_ms: float | None = None, usage: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -76,17 +73,8 @@ def _response(snapshot: dict[str, Any], text: str, *, source: str, model: str, p
         "latencyMs": latency_ms,
         "usage": usage or {},
         "action": None,
-        "structuredResponse": cloud_server.build_structured_response(
-            text,
-            provider=source,
-            model=model,
-        ),
-        "metadata": {
-            "source": source,
-            "model": model,
-            "providerApi": provider_api,
-            "latencyMs": latency_ms,
-        },
+        "structuredResponse": cloud_server.build_structured_response(text, provider=source, model=model),
+        "metadata": {"source": source, "model": model, "providerApi": provider_api, "latencyMs": latency_ms},
         "agentId": "sarembok-prime",
         "timestamp": cloud_server.now(),
     }
@@ -94,32 +82,16 @@ def _response(snapshot: dict[str, Any], text: str, *, source: str, model: str, p
 
 def _is_runtime_diagnostic(prompt: str) -> bool:
     text = prompt.lower()
-    markers = (
-        "system diagnostic",
-        "runtime diagnostic",
-        "registered workers",
-        "compute capabilities",
-        "persistent memory status",
-        "scheduler status",
-        "provider currently serving",
-    )
+    markers = ("system diagnostic", "runtime diagnostic", "registered workers", "compute capabilities", "persistent memory status", "scheduler status", "provider currently serving")
     return sum(1 for marker in markers if marker in text) >= 2
 
 
 def _is_model_identity_query(prompt: str) -> bool:
-    markers = (
-        "what model is this",
-        "what model are you",
-        "what model do you use",
-        "what model is running",
-        "what model is active",
-        "what model are you running",
-    )
+    markers = ("what model is this", "what model are you", "what model do you use", "what model is running", "what model is active", "what model are you running")
     return any(marker in prompt.lower() for marker in markers)
 
 
 def _mcp_truth(snapshot: dict[str, Any]) -> str:
-    """Answer MCP questions only from actual Sarembok implementation state."""
     config_path = os.path.join(os.path.dirname(__file__), "mcp_servers.json")
     configured: list[str] = []
     try:
@@ -129,9 +101,8 @@ def _mcp_truth(snapshot: dict[str, Any]) -> str:
         if isinstance(servers, dict):
             configured = sorted(str(name) for name in servers)
     except Exception:
-        configured = []
-
-    lines = [
+        pass
+    return "\n".join([
         "## SarembokVE MCP Status",
         "",
         "MCP means **Model Context Protocol**.",
@@ -144,28 +115,12 @@ def _mcp_truth(snapshot: dict[str, Any]) -> str:
         "- Native gateway: **present in the runtime codebase**",
         "- Public MCP endpoint: **not claimed here unless an actual HTTP route is configured and verified**",
         "- Invented tools, endpoints, API keys, call-rate limits, agent counts, GPU counts, or repository statistics are **not authoritative** and must not be presented as Sarembok facts.",
-    ]
-    return "\n".join(lines)
+    ])
 
 
 def _is_mcp_query(prompt: str) -> bool:
     text = prompt.lower()
-    return "mcp" in text and any(
-        marker in text
-        for marker in (
-            "server",
-            "servers",
-            "skill",
-            "skills",
-            "protocol",
-            "tool",
-            "tools",
-            "add",
-            "have",
-            "support",
-            "endpoint",
-        )
-    )
+    return "mcp" in text and any(marker in text for marker in ("server", "servers", "skill", "skills", "protocol", "tool", "tools", "add", "have", "support", "endpoint"))
 
 
 def _history_from_params(params: dict[str, Any]) -> list[dict[str, Any]]:
@@ -187,8 +142,51 @@ def _history_from_params(params: dict[str, Any]) -> list[dict[str, Any]]:
     return history
 
 
+def _direct_media_response(prompt: str, snapshot: dict[str, Any]) -> dict[str, Any] | None:
+    """Handle media intents without spending an LLM call."""
+    text = prompt.strip()
+    low = text.lower()
+    match = _YOUTUBE_URL_RE.search(text)
+    if match:
+        video_id = match.group(1) or match.group(2)
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        block = f":::video YouTube video · VIDEO STREAM\n{url}\n:::\n\nOpened the requested YouTube video."
+        return _response(snapshot, block, source="runtime-media", model="youtube-resolver")
+
+    media_markers = ("youtube", "video", "football", "highlights", "music", "song", "lofi", "lo-fi", "synthwave", "jazz", "classical", "ambient", "audio", "listen")
+    play_prefix = re.match(r"^\s*pla(?:y)?\b\s*(.*)$", text, re.IGNORECASE)
+    watch_prefix = re.match(r"^\s*(?:watch|show|open|stream)\b\s*(.*)$", text, re.IGNORECASE)
+    if not (play_prefix or watch_prefix) or not any(marker in low for marker in media_markers):
+        return None
+
+    topic = (play_prefix.group(1) if play_prefix else watch_prefix.group(1)).strip(" .:-")
+    if not topic:
+        topic = "lofi study music"
+    resolved = cloud_server.resolve_youtube_search(topic)
+    url = str(resolved.get("url") or "").strip()
+    if not url:
+        return None
+    title = str(resolved.get("title") or topic).strip()
+    is_audio = bool(play_prefix) and not any(marker in low for marker in ("video", "youtube", "football", "highlights", "movie", "trailer", "clip"))
+    kind = "music" if is_audio else "video"
+    block = f":::{kind} {title} · {'AUDIO STREAM' if is_audio else 'VIDEO STREAM'}\n{url}\n:::\n\n{'Playing' if is_audio else 'Streaming'} **{title}**."
+    return _response(snapshot, block, source="runtime-media", model="youtube-resolver")
+
+
+def _provider_unavailable_response(snapshot: dict[str, Any], exc: Exception) -> dict[str, Any]:
+    provider = snapshot.get("provider") or {}
+    configured = provider.get("configuredProviders") or []
+    health = ", ".join(f"{item.get('name')}: {item.get('health')}" for item in configured if item.get("name")) or "no provider health data"
+    text = (
+        "## Sarembok AI execution is temporarily degraded\n\n"
+        "The runtime is online, but no language-model provider is currently available.\n\n"
+        f"**Provider health:** {health}\n\n"
+        "Sarembok has not fabricated an answer. Retry when the provider cooldowns clear or provider billing/rate limits are restored."
+    )
+    return _response(snapshot, text, source="provider-health", model="none", usage={"errorType": type(exc).__name__})
+
+
 def _grounded_provider_chat(params: dict[str, Any], snapshot: dict[str, Any]) -> dict[str, Any]:
-    """Use the configured provider for ordinary dialogue with a strict truth boundary."""
     prompt = str(params.get("prompt") or params.get("message") or params.get("text") or "").strip()
     if not prompt:
         raise ValueError("prompt is required")
@@ -198,7 +196,6 @@ def _grounded_provider_chat(params: dict[str, Any], snapshot: dict[str, Any]) ->
         "registeredWorkers": int((snapshot.get("workers") or {}).get("registered", 0) or 0),
         "llmConfigured": bool(cloud_server.PROVIDER_ROUTER.configured()),
     })
-
     system_prompt = """You are SarembokVE, the conversational intelligence layer of a real AI-native computing environment.
 
 Answer the user's actual question directly. Do not replace ordinary conversation with a platform-status banner.
@@ -220,35 +217,32 @@ For ordinary questions, be natural, useful, and concise. For technical questions
     requested_model = str(params.get("model") or "").strip() or None
     api_key = str(params.get("apiKey") or "").strip() or None
     image_frame = params.get("imageFrame")
-
-    result = cloud_server.PROVIDER_ROUTER.generate(
-        system_prompt,
-        prompt,
-        messages,
-        requested_model=requested_model,
-        image_frame=image_frame if isinstance(image_frame, str) else None,
-        dynamic_key=api_key,
-    )
-
+    result = cloud_server.PROVIDER_ROUTER.generate(system_prompt, prompt, messages, requested_model=requested_model, image_frame=image_frame if isinstance(image_frame, str) else None, dynamic_key=api_key)
     text = result.text.strip()
     if not text:
         raise RuntimeError("provider returned empty response")
+    return _response(snapshot, text, source=result.provider, model=result.model, provider_api=result.api, latency_ms=result.latency_ms, usage=result.usage)
 
-    return _response(
-        snapshot,
-        text,
-        source=result.provider,
-        model=result.model,
-        provider_api=result.api,
-        latency_ms=result.latency_ms,
-        usage=result.usage,
+
+def _is_legacy_static_response(text: str) -> bool:
+    normalized = (text or "").strip().lower()
+    markers = (
+        "sovereign runtime active",
+        "sarembok ve is operating in sovereign mode",
+        "cyber audio & multimodal synthesis initialized",
+        "execution notice: all providers failed",
+        "all providers failed:",
     )
+    return any(marker in normalized for marker in markers)
 
 
 def _dispatch_chat_with_authority(params: dict[str, Any]) -> dict[str, Any]:
     snapshot = _authoritative_snapshot()
     prompt = str(params.get("prompt") or params.get("message") or params.get("text") or "").strip()
 
+    media = _direct_media_response(prompt, snapshot)
+    if media is not None:
+        return media
     if _is_mcp_query(prompt):
         return _response(snapshot, _mcp_truth(snapshot), source="runtime-authority", model="runtime-authority")
     if is_platform_purpose_query(prompt):
@@ -261,36 +255,28 @@ def _dispatch_chat_with_authority(params: dict[str, Any]) -> dict[str, Any]:
         return _response(snapshot, render_identity(snapshot), source="runtime-authority", model="runtime-authority")
 
     inventory_query_markers = (
-        "what models are available",
-        "what other models",
-        "other models",
-        "which models are available",
-        "which models can i use",
-        "what models can i use",
-        "what llms are available",
-        "what llms can i use",
-        "what language models are available",
-        "what language models can i use",
-        "what models are configured",
-        "which models are configured",
-        "model availability",
-        "available models",
-        "configured models",
+        "what models are available", "what other models", "other models", "which models are available",
+        "which models can i use", "what models can i use", "what llms are available", "what llms can i use",
+        "what language models are available", "what language models can i use", "what models are configured",
+        "which models are configured", "model availability", "available models", "configured models",
     )
     if is_self_state_query(prompt) and any(marker in prompt.lower() for marker in inventory_query_markers):
         return _response(snapshot, render_model_inventory(snapshot), source="runtime-authority", model="runtime-authority")
 
-    # Preserve the established runtime execution path first. If the legacy path
-    # returns its static fallback banner, replace only that response with the
-    # grounded provider path. This keeps lifecycle, media, memory, and task
-    # handling intact while eliminating the generic-answer failure mode.
-    result = _original_dispatch("SarembokChat", params)
-    if isinstance(result, dict):
-        text = str(result.get("response") or "")
-        if "Sovereign Runtime Active" not in text and "Sarembok VE is operating in sovereign mode" not in text:
-            return result
+    try:
+        result = _original_dispatch("SarembokChat", params)
+        if isinstance(result, dict):
+            text = str(result.get("response") or "")
+            if not _is_legacy_static_response(text):
+                return result
+    except Exception as exc:
+        cloud_server.LOG.warning("legacy chat dispatch failed; continuing to grounded provider path: %s", exc)
 
-    return _grounded_provider_chat(params, snapshot)
+    try:
+        return _grounded_provider_chat(params, snapshot)
+    except Exception as exc:
+        cloud_server.LOG.warning("grounded provider chat failed: %s", exc)
+        return _provider_unavailable_response(snapshot, exc)
 
 
 def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -300,8 +286,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         prompt = str(params.get("prompt") or params.get("message") or params.get("text") or "").strip()
         if _is_runtime_diagnostic(prompt):
             diagnostic = _authoritative_snapshot()
-            response = render_runtime_diagnostic(diagnostic)
-            return _response(diagnostic, response, source="runtime-authority", model="runtime-authority")
+            return _response(diagnostic, render_runtime_diagnostic(diagnostic), source="runtime-authority", model="runtime-authority")
         return _dispatch_chat_with_authority(params)
     if method in KnowledgeRuntimeAPI.METHODS:
         return knowledge_api.dispatch(method, params)
@@ -309,8 +294,6 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
 
 
 cloud_server.dispatch = dispatch
-
-# Install durable workload API and wrap real chat/compute requests with persisted lifecycle traces.
 _runtime_workload = install_runtime_workload_api(cloud_server)
 install_chat_lifecycle(cloud_server, _runtime_workload)
 
@@ -328,8 +311,7 @@ async def handler(websocket) -> None:
                 request = json.loads(raw)
                 method, params = cloud_server.validate_request(request)
                 prompt_for_stream_check = str(params.get("prompt") or params.get("message") or params.get("text") or "").strip()
-                model_identity_query = _is_model_identity_query(prompt_for_stream_check)
-                stream_requested = bool(params.get("stream")) and method in CHAT_METHODS and not model_identity_query
+                stream_requested = bool(params.get("stream")) and method in CHAT_METHODS and not _is_model_identity_query(prompt_for_stream_check)
                 first_delta_at = [None]
                 started_at = time.perf_counter()
                 if stream_requested:
@@ -340,10 +322,7 @@ async def handler(websocket) -> None:
                         if first_delta_at[0] is None:
                             first_delta_at[0] = time.perf_counter()
                         event = {"jsonrpc": "2.0", "method": "SarembokChat.delta", "params": {"id": request_id, "text": text}}
-                        future = asyncio.run_coroutine_threadsafe(
-                            websocket.send(json.dumps(event, separators=(",", ":"))),
-                            loop,
-                        )
+                        future = asyncio.run_coroutine_threadsafe(websocket.send(json.dumps(event, separators=(",", ":"))), loop)
                         future.result(timeout=10)
 
                     token_ctx = set_stream_callback(emit_delta)
@@ -359,8 +338,8 @@ async def handler(websocket) -> None:
                             metadata["ttft_ms"] = round((first_delta_at[0] - started_at) * 1000, 1) if first_delta_at[0] is not None else None
                 response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}
                 cloud_server.LOG.info("rpc_success method=%s request_id=%s streamed=%s", method, request.get("id"), stream_requested)
-            except PermissionError as exc:
-                response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32001, "message": str(exc)}}
+            except PermissionError:
+                response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32001, "message": "permission_denied"}}
                 cloud_server.LOG.warning("rpc_auth_failed peer=%s", peer)
             except Exception as exc:
                 if token_ctx is not None:
@@ -382,7 +361,6 @@ async def process_http_request(connection, request):
     upgrade = headers.get("Upgrade", "") if hasattr(headers, "get") else ""
     if isinstance(upgrade, str) and upgrade.lower() == "websocket":
         return None
-
     path = getattr(request, "path", None) or getattr(connection, "path", "/")
     if path not in ("/", "/index.html"):
         return await _original_process_http_request(connection, request)
@@ -396,10 +374,10 @@ async def process_http_request(connection, request):
         "frontend/index.html",
     ]
     html_str = None
-    for cand in candidates:
-        if os.path.exists(cand):
+    for candidate in candidates:
+        if os.path.exists(candidate):
             try:
-                with open(cand, "r", encoding="utf-8") as handle:
+                with open(candidate, "r", encoding="utf-8") as handle:
                     html_str = handle.read()
                 break
             except Exception as exc:
