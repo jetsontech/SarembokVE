@@ -116,3 +116,14 @@ try:
 except Exception:
     # Never prevent the runtime from starting because of a safeguard.
     pass
+
+
+# Frontier open-model fabric: make the capability registry an actual routing
+# input before the runtime creates its ProviderRouter singleton. This remains
+# fail-safe and preserves the original provider behavior if the registry is
+# unavailable.
+try:
+    from open_model_fabric import install as _install_open_model_fabric
+    _install_open_model_fabric()
+except Exception:
+    pass
