@@ -25,6 +25,21 @@ class OpenModelRuntimeTests(unittest.TestCase):
         self.assertEqual("Groq", specs[0].name)
         self.assertEqual("openai/gpt-oss-120b", specs[0].model)
 
+    def test_invalid_default_model_falls_back_to_registered_open_model(self):
+        router = ProviderRouter()
+        with patch.dict(
+            os.environ,
+            {
+                "GROQ_API_KEY": "gsk_test",
+                "SAREMBOK_OPEN_MODEL": "not-a-real-registered-model",
+                "SAREMBOK_PROVIDER_ORDER": "Groq",
+            },
+            clear=True,
+        ):
+            specs = router.configured()
+        self.assertEqual("Groq", specs[0].name)
+        self.assertEqual("openai/gpt-oss-120b", specs[0].model)
+
     def test_explicit_open_model_routes_to_requested_openrouter_model(self):
         router = ProviderRouter()
         with patch.dict(
