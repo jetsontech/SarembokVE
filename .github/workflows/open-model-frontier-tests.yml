@@ -1,0 +1,33 @@
+name: Open Model Frontier Contract Tests
+
+on:
+  push:
+    paths:
+      - 'Deployment/cloud/open_model_registry.py'
+      - 'Deployment/cloud/frontier_review_council.py'
+      - 'Deployment/cloud/test_open_model_frontier.py'
+      - 'Architecture/ADR_OPEN_MODEL_FIRST_FRONTIER_REVIEW.md'
+      - '.github/workflows/open-model-frontier-tests.yml'
+  pull_request:
+    paths:
+      - 'Deployment/cloud/open_model_registry.py'
+      - 'Deployment/cloud/frontier_review_council.py'
+      - 'Deployment/cloud/test_open_model_frontier.py'
+      - 'Architecture/ADR_OPEN_MODEL_FIRST_FRONTIER_REVIEW.md'
+      - '.github/workflows/open-model-frontier-tests.yml'
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Deployment/cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile
+        run: python -m py_compile open_model_registry.py frontier_review_council.py test_open_model_frontier.py
+      - name: Contract tests
+        run: python -m unittest -v test_open_model_frontier.py
