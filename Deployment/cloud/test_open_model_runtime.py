@@ -2,6 +2,9 @@ import os
 import unittest
 from unittest.mock import patch
 
+# Production starts this hook automatically; importing it explicitly makes the
+# contract test independent of the test runner's sys.path startup behavior.
+import sitecustomize  # noqa: F401
 from provider_router import ProviderRouter
 
 
@@ -22,10 +25,18 @@ class OpenModelRuntimeTests(unittest.TestCase):
         self.assertEqual("Groq", specs[0].name)
         self.assertEqual("openai/gpt-oss-120b", specs[0].model)
 
-    def test_explicit_model_still_wins(self):
+    def test_explicit_open_model_routes_to_requested_openrouter_model(self):
         router = ProviderRouter()
-        with patch.dict(os.environ, {"GROQ_API_KEY": "gsk_test"}, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "OPENROUTER_API_KEY": "sk-or-test",
+                "SAREMBOK_PROVIDER_ORDER": "OpenRouter",
+            },
+            clear=True,
+        ):
             specs = router.configured(requested_model="llama-3.3-70b")
+        self.assertEqual("OpenRouter", specs[0].name)
         self.assertEqual("meta-llama/llama-3.3-70b-instruct", specs[0].model)
 
     def test_metrics_expose_open_model_fabric(self):
