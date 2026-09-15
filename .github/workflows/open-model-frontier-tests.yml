@@ -4,15 +4,23 @@ on:
   push:
     paths:
       - 'Deployment/cloud/open_model_registry.py'
+      - 'Deployment/cloud/open_model_fabric.py'
+      - 'Deployment/cloud/sitecustomize.py'
       - 'Deployment/cloud/frontier_review_council.py'
+      - 'Deployment/cloud/frontier_review_service.py'
       - 'Deployment/cloud/test_open_model_frontier.py'
+      - 'Deployment/cloud/test_open_model_runtime.py'
       - 'Architecture/ADR_OPEN_MODEL_FIRST_FRONTIER_REVIEW.md'
       - '.github/workflows/open-model-frontier-tests.yml'
   pull_request:
     paths:
       - 'Deployment/cloud/open_model_registry.py'
+      - 'Deployment/cloud/open_model_fabric.py'
+      - 'Deployment/cloud/sitecustomize.py'
       - 'Deployment/cloud/frontier_review_council.py'
+      - 'Deployment/cloud/frontier_review_service.py'
       - 'Deployment/cloud/test_open_model_frontier.py'
+      - 'Deployment/cloud/test_open_model_runtime.py'
       - 'Architecture/ADR_OPEN_MODEL_FIRST_FRONTIER_REVIEW.md'
       - '.github/workflows/open-model-frontier-tests.yml'
 
@@ -28,6 +36,6 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile
-        run: python -m py_compile open_model_registry.py frontier_review_council.py test_open_model_frontier.py
+        run: python -m py_compile open_model_registry.py open_model_fabric.py sitecustomize.py frontier_review_council.py frontier_review_service.py test_open_model_frontier.py test_open_model_runtime.py
       - name: Contract tests
-        run: python -m unittest -v test_open_model_frontier.py
+        run: python -m unittest -v test_open_model_frontier.py test_open_model_runtime.py
