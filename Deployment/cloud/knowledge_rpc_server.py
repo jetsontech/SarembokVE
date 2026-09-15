@@ -43,6 +43,44 @@ cloud_server = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = cloud_server
 spec.loader.exec_module(cloud_server)
 
+# Enforce the browser bearer-session boundary at the production RPC entrypoint,
+# immediately after the compatibility server is loaded. This is deliberately
+# applied here rather than relying on frontend filtering or a model-layer policy.
+# Administrative execution, authentication, worker registration/control, GPU
+# rental/control, arbitrary compute, task mutation, and MCP registration are not
+# browser-session capabilities.
+BROWSER_SESSION_LEAST_PRIVILEGE_METHODS = frozenset({
+    "SarembokChat",
+    "GetRuntimeInfo",
+    "GetProviderMetrics",
+    "BrowserNavigate",
+    "BrowserScreenshot",
+    "BrowserRender",
+    "CreateDigitalHumanSession",
+    "GetDigitalHumanSession",
+    "ListDigitalHumanSessions",
+    "CloseDigitalHumanSession",
+    "SubmitFeedback",
+    "GetFeedbackSummary",
+    "SearchMemories",
+    "StoreMemory",
+    "ListMemories",
+    "ListWorkers",
+    "ListTasks",
+    "GenerateImage",
+    "GetVisualEngineStatus",
+    "GetVisionStatus",
+    "SearchYouTube",
+    "ResolveMediaStream",
+    "ListMcpServers",
+    "CancelActiveStream",
+    "SpatialVisualRecall",
+    "GetCurrentUser",
+    "ListUserChatSessions",
+    "SaveUserChatSession",
+})
+cloud_server.BROWSER_ALLOWED_METHODS = set(BROWSER_SESSION_LEAST_PRIVILEGE_METHODS)
+
 sys.path.insert(0, "/app/Runtime")
 from sarembok_knowledge_api import KnowledgeRuntimeAPI
 from sarembok_knowledge_runtime import PersistentKnowledgeRuntime
