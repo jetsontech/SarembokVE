@@ -1,45 +1,24 @@
-/* SAREMBOK_LINK_PASTE_INLINE_20260915
- * Preserve pasted URLs in the primary Message Sarembok field as explicit
- * Markdown links so the submitted prompt retains a clickable inline target.
+/* SAREMBOK_LINK_INLINE_20260915_V2
+ * URLs are kept as raw user input. Linkification belongs to the response renderer,
+ * not the input control. This prevents double Markdown/link transformations.
  */
 (function () {
   'use strict';
 
   const INPUT_ID = 'directive-input';
-  const URL_RE = /https?:\/\/[^\s<]+/gi;
-
-  function normalizeUrl(raw) {
-    return raw.replace(/[),.;!?]+$/g, '');
-  }
-
-  function linkifyPastedText(text) {
-    URL_RE.lastIndex = 0;
-    return text.replace(URL_RE, function (match) {
-      const url = normalizeUrl(match);
-      return url ? `[${url}](${url})` : match;
-    });
-  }
 
   function install() {
     const input = document.getElementById(INPUT_ID);
-    if (!input || input.dataset.srbkLinkPasteInstalled === '1') return;
-    input.dataset.srbkLinkPasteInstalled = '1';
+    if (!input || input.dataset.srbkLinkPasteInstalled === '2') return;
+    input.dataset.srbkLinkPasteInstalled = '2';
 
-    input.addEventListener('paste', function (event) {
-      const clipboard = event.clipboardData;
-      if (!clipboard) return;
-      const text = clipboard.getData('text/plain');
-      if (!text) return;
-      URL_RE.lastIndex = 0;
-      if (!URL_RE.test(text)) return;
-
-      event.preventDefault();
-      const normalized = linkifyPastedText(text);
-      const start = input.selectionStart ?? input.value.length;
-      const end = input.selectionEnd ?? start;
-      input.setRangeText(normalized, start, end, 'end');
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
+    // Intentionally do not rewrite pasted text. Native paste preserves the exact
+    // URL and the renderer is responsible for making it clickable in responses.
+    input.addEventListener('paste', function () {
+      // Native browser paste path; retained as an explicit listener so older
+      // deployments cannot re-register the previous Markdown-mutating handler.
+      return true;
+    }, { passive: true });
   }
 
   if (document.readyState === 'loading') {
