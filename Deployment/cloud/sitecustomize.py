@@ -127,3 +127,81 @@ try:
     _install_open_model_fabric()
 except Exception:
     pass
+
+
+# Browser-session least privilege boundary.
+# knowledge_rpc_server loads server.py through importlib under the stable module
+# name "sarembok_cloud_server". Wrap that loader so the session scope is reduced
+# before knowledge_rpc_server captures the runtime dispatch function.
+#
+# These methods cover the public browser product surface: chat, runtime
+# telemetry, user-owned memory/session data, feedback, media/vision features,
+# digital-human lifecycle, and read-only worker/task/MCP visibility. Administrative
+# execution, worker registration/control, GPU rental, master/social authentication,
+# arbitrary compute execution, task mutation, and MCP registration are deliberately
+# excluded from the browser bearer session.
+try:
+    import importlib.util as _importlib_util
+
+    _original_spec_from_file_location = _importlib_util.spec_from_file_location
+
+    _BROWSER_SESSION_LEAST_PRIVILEGE_METHODS = {
+        "SarembokChat",
+        "GetRuntimeInfo",
+        "GetProviderMetrics",
+        "BrowserNavigate",
+        "BrowserScreenshot",
+        "BrowserRender",
+        "CreateDigitalHumanSession",
+        "GetDigitalHumanSession",
+        "ListDigitalHumanSessions",
+        "CloseDigitalHumanSession",
+        "SubmitFeedback",
+        "GetFeedbackSummary",
+        "SearchMemories",
+        "StoreMemory",
+        "ListMemories",
+        "ListWorkers",
+        "ListTasks",
+        "GenerateImage",
+        "GetVisualEngineStatus",
+        "GetVisionStatus",
+        "SearchYouTube",
+        "ResolveMediaStream",
+        "ListMcpServers",
+        "CancelActiveStream",
+        "SpatialVisualRecall",
+        "GetCurrentUser",
+        "ListUserChatSessions",
+        "SaveUserChatSession",
+    }
+
+    class _CloudServerLoaderProxy:
+        def __init__(self, loader):
+            self._loader = loader
+
+        def create_module(self, spec):
+            create = getattr(self._loader, "create_module", None)
+            return create(spec) if create else None
+
+        def exec_module(self, module):
+            self._loader.exec_module(module)
+            allowed = set(_BROWSER_SESSION_LEAST_PRIVILEGE_METHODS)
+            module.BROWSER_ALLOWED_METHODS = allowed
+            log = getattr(module, "LOG", None)
+            if log is not None:
+                log.info("browser_session_policy applied methods=%d", len(allowed))
+
+        def __getattr__(self, name):
+            return getattr(self._loader, name)
+
+    def _secure_spec_from_file_location(name, location, *args, **kwargs):
+        spec = _original_spec_from_file_location(name, location, *args, **kwargs)
+        if spec is not None and name == "sarembok_cloud_server" and str(location) == "/app/server.py" and spec.loader is not None:
+            spec.loader = _CloudServerLoaderProxy(spec.loader)
+        return spec
+
+    _importlib_util.spec_from_file_location = _secure_spec_from_file_location
+except Exception:
+    # Never prevent the runtime from starting because of a safeguard.
+    pass
