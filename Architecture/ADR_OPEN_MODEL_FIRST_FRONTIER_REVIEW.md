@@ -25,14 +25,25 @@ Sarembok operation.
 3. Sarembok-controlled GPU worker capacity as hardware becomes available.
 4. Proprietary frontier models for independent review/specialist reasoning.
 
+The runtime now makes the open-model registry an actual routing input through
+the startup fabric bridge. The default open model is `openai/gpt-oss-120b`,
+while `SAREMBOK_OPEN_MODEL` can select another registered open model. Explicit
+user model requests continue to take precedence.
+
 ## Review council
 
-The initial council contract supports:
+The council is implemented as a bounded, independent review service. It sends
+only the task, implementation summary, and deterministic verification packet;
+it does not receive the entire repository by default and it never mutates
+production automatically.
 
-- OpenAI `gpt-5.1-codex-max` for long-horizon coding and implementation review.
+Current review targets are configurable:
+
+- OpenAI frontier coding/architecture reviewer: `gpt-5.6-sol` by default.
 - Anthropic `claude-opus-4-8` for independent architecture/reasoning review.
 
-Credentials are optional and must never be inferred from model metadata.
+The OpenAI target is environment-configurable because model lifecycle changes
+faster than Sarembok's architecture. Both credentials are optional.
 
 ## Required invariants
 
@@ -43,6 +54,8 @@ Credentials are optional and must never be inferred from model metadata.
 - Review findings are evidence, not automatic authority to mutate production.
 - Production changes require deterministic verification and a decision gate.
 - Secrets are never returned in capability or telemetry payloads.
+- The runtime startup bridge is fail-safe and cannot prevent boot if the
+  optional frontier modules are unavailable.
 
 ## Engineering loop
 
