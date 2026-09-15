@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 import os
-import urllib.error
 import unittest
 from unittest.mock import patch
 
 import provider_router as pr
+
+
+class FakeHTTPError:
+    def __init__(self, code: int, body: bytes = b"", headers: dict[str, str] | None = None) -> None:
+        self.code = code
+        self._body = body
+        self.headers = headers or {}
+
+    def read(self) -> bytes:
+        return self._body
 
 
 class ProviderRouterTests(unittest.TestCase):
@@ -35,9 +44,7 @@ class ProviderRouterTests(unittest.TestCase):
     def test_402_enters_billing_cooldown(self) -> None:
         router = pr.ProviderRouter()
         spec = pr.ProviderSpec("OpenRouter", "openai/gpt-4o-mini", "openai", "https://example.invalid", "test")
-        body = b'{"error":{"message":"This request requires more credits","code":402}}'
-        response = urllib.error.HTTPError(spec.endpoint, 402, "Payment Required", {}, None)
-        response.read = lambda: body
+        response = FakeHTTPError(402, b'{"error":{"message":"This request requires more credits","code":402}}')
         with self.assertRaisesRegex(RuntimeError, "billing_unavailable"):
             router._handle_http_error(spec, response, 1, 9999999999)
         self.assertFalse(router._provider_available("OpenRouter"))
@@ -46,8 +53,7 @@ class ProviderRouterTests(unittest.TestCase):
     def test_429_uses_retry_after(self) -> None:
         router = pr.ProviderRouter()
         spec = pr.ProviderSpec("Groq", "openai/gpt-oss-120b", "openai", "https://example.invalid", "test")
-        response = urllib.error.HTTPError(spec.endpoint, 429, "Too Many Requests", {"Retry-After": "17"}, None)
-        response.read = lambda: b'{"error":{"message":"rate limit"}}'
+        response = FakeHTTPError(429, b'{"error":{"message":"rate limit"}}', {"Retry-After": "17"})
         with self.assertRaisesRegex(RuntimeError, "cooldown=17s"):
             router._handle_http_error(spec, response, 1, 9999999999)
         self.assertFalse(router._provider_available("Groq"))
