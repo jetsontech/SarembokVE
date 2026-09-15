@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,7 +27,6 @@ class SkillDefinition:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_openai_tool(self) -> dict[str, Any]:
-        """Format as an OpenAI / Gemini / Anthropic compatible function tool."""
         return {
             "type": "function",
             "function": {
@@ -42,7 +40,6 @@ class SkillDefinition:
         }
 
     def to_mcp_tool(self) -> dict[str, Any]:
-        """Format as a standard Model Context Protocol (MCP) tool schema."""
         return {
             "name": self.name,
             "description": self.description,
@@ -64,11 +61,9 @@ class SkillsEngine:
         self._load_skills()
 
     def register_handler(self, skill_name: str, handler: Callable[[dict[str, Any], dict[str, Any]], Any]) -> None:
-        """Register a native Python execution handler for a skill."""
         self._handlers[skill_name] = handler
 
     def _parse_frontmatter(self, text: str) -> tuple[dict[str, Any], str]:
-        """Parse YAML/JSON style frontmatter delimited by ---."""
         pattern = r"^---\s*\n(.*?)\n---\s*\n(.*)$"
         match = re.match(pattern, text, re.DOTALL)
         if not match:
@@ -76,16 +71,13 @@ class SkillsEngine:
 
         raw_fm, body = match.group(1), match.group(2)
         meta: dict[str, Any] = {}
-
         try:
             in_params = False
             param_lines = []
-
             for line in raw_fm.splitlines():
                 stripped = line.strip()
                 if not stripped or stripped.startswith("#"):
                     continue
-
                 if ":" in line and not in_params:
                     parts = line.split(":", 1)
                     k = parts[0].strip()
@@ -100,53 +92,44 @@ class SkillsEngine:
                         meta[k] = v
                 elif in_params:
                     param_lines.append(line)
-
             if in_params and param_lines:
-                param_text = "\n".join(param_lines).strip()
                 try:
-                    meta["parameters"] = json.loads(param_text)
+                    meta["parameters"] = json.loads("\n".join(param_lines).strip())
                 except Exception:
                     meta["parameters"] = {"type": "object", "properties": {}}
-
         except Exception as exc:
             logger.warning("Error parsing SKILL.md frontmatter: %s", exc)
-
         return meta, body.strip()
 
     def _load_skills(self) -> None:
-        """Scan skills_dir and load all valid SKILL.md files."""
         self._skills.clear()
         if not self.skills_dir.exists():
             return
-
         for entry in self.skills_dir.iterdir():
-            if entry.is_dir():
-                skill_file = entry / "SKILL.md"
-                if skill_file.exists():
-                    try:
-                        content = skill_file.read_text(encoding="utf-8")
-                        meta, body = self._parse_frontmatter(content)
-                        name = meta.get("name", entry.name)
-                        desc = meta.get("description", f"Autonomous skill for {name}")
-                        domain = meta.get("domain", "general")
-                        params = meta.get("parameters", {"type": "object", "properties": {}})
-
-                        skill = SkillDefinition(
-                            name=name,
-                            description=desc,
-                            domain=domain,
-                            parameters=params,
-                            instructions=body,
-                            skill_dir=str(entry),
-                            metadata=meta,
-                        )
-                        self._skills[name] = skill
-                        logger.info("Loaded skill: %s (domain=%s)", name, domain)
-                    except Exception as exc:
-                        logger.error("Failed to load skill from %s: %s", skill_file, exc)
+            if not entry.is_dir():
+                continue
+            skill_file = entry / "SKILL.md"
+            if not skill_file.exists():
+                continue
+            try:
+                content = skill_file.read_text(encoding="utf-8")
+                meta, body = self._parse_frontmatter(content)
+                name = meta.get("name", entry.name)
+                skill = SkillDefinition(
+                    name=name,
+                    description=meta.get("description", f"Autonomous skill for {name}"),
+                    domain=meta.get("domain", "general"),
+                    parameters=meta.get("parameters", {"type": "object", "properties": {}}),
+                    instructions=body,
+                    skill_dir=str(entry),
+                    metadata=meta,
+                )
+                self._skills[name] = skill
+                logger.info("Loaded skill: %s (domain=%s)", name, skill.domain)
+            except Exception as exc:
+                logger.error("Failed to load skill from %s: %s", skill_file, exc)
 
     def reload(self) -> int:
-        """Hot-reload all skills from disk."""
         self._load_skills()
         return len(self._skills)
 
@@ -156,34 +139,59 @@ class SkillsEngine:
     def get_skill(self, name: str) -> SkillDefinition | None:
         return self._skills.get(name)
 
+    @staticmethod
+    def _mcp_manager():
+        try:
+            from mcp_client import get_mcp_client_manager
+        except ImportError:
+            try:
+                from Deployment.cloud.mcp_client import get_mcp_client_manager
+            except ImportError:
+                from .mcp_client import get_mcp_client_manager
+        return get_mcp_client_manager()
+
+    @staticmethod
+    def _mcp_policy():
+        try:
+            from mcp_capability_policy import get_mcp_capability_policy
+        except ImportError:
+            try:
+                from Deployment.cloud.mcp_capability_policy import get_mcp_capability_policy
+            except ImportError:
+                from .mcp_capability_policy import get_mcp_capability_policy
+        return get_mcp_capability_policy()
+
     def get_openai_tools(self) -> list[dict[str, Any]]:
-        """Return function calling schema list for OpenAI / Gemini / Groq / Anthropic, including external MCP tools."""
+        """Return model function schemas, including discovered external MCP tools."""
         tools = [skill.to_openai_tool() for skill in self._skills.values() if skill.enabled]
         try:
-            try:
-                from mcp_client import get_mcp_client_manager
-            except ImportError:
-                try:
-                    from Deployment.cloud.mcp_client import get_mcp_client_manager
-                except ImportError:
-                    from .mcp_client import get_mcp_client_manager
-            ext_tools = get_mcp_client_manager().get_all_external_tools()
-            for et in ext_tools:
+            for et in self._mcp_manager().get_all_external_tools():
                 tools.append({
                     "type": "function",
                     "function": {
                         "name": et["name"],
                         "description": et.get("description", f"External MCP tool from {et.get('mcp_server')}"),
                         "parameters": et.get("inputSchema", {"type": "object", "properties": {}}),
-                    }
+                    },
                 })
         except Exception as exc:
             logger.debug("External MCP tools unavailable: %s", exc)
         return tools
 
     def get_mcp_tools(self) -> list[dict[str, Any]]:
-        """Return MCP tools list conforming to Model Context Protocol specification."""
-        return [skill.to_mcp_tool() for skill in self._skills.values() if skill.enabled]
+        """Return native plus namespaced external MCP tools."""
+        tools = [skill.to_mcp_tool() for skill in self._skills.values() if skill.enabled]
+        try:
+            for et in self._mcp_manager().get_all_external_tools():
+                tools.append({
+                    "name": et["name"],
+                    "description": et.get("description", f"External MCP tool from {et.get('mcp_server')}"),
+                    "inputSchema": et.get("inputSchema", {"type": "object", "properties": {}}),
+                    "annotations": et.get("annotations", {}),
+                })
+        except Exception as exc:
+            logger.debug("External MCP tools unavailable for MCP gateway: %s", exc)
+        return tools
 
     def execute_skill(
         self,
@@ -191,49 +199,23 @@ class SkillsEngine:
         arguments: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Execute a native skill or an external MCP capability through the policy boundary."""
+        """Execute a native skill or external MCP capability through the policy boundary."""
         args = arguments or {}
         ctx = context or {}
 
-        # 0. External MCP capability dispatch. Never execute an external tool
-        # merely because an LLM supplied an mcp_* name: the name must resolve
-        # to a discovered tool and then pass the Sarembok capability policy.
         if name.startswith("mcp_"):
             try:
-                try:
-                    from mcp_client import get_mcp_client_manager
-                except ImportError:
-                    try:
-                        from Deployment.cloud.mcp_client import get_mcp_client_manager
-                    except ImportError:
-                        from .mcp_client import get_mcp_client_manager
-                try:
-                    from mcp_capability_policy import get_mcp_capability_policy
-                except ImportError:
-                    try:
-                        from Deployment.cloud.mcp_capability_policy import get_mcp_capability_policy
-                    except ImportError:
-                        from .mcp_capability_policy import get_mcp_capability_policy
-
-                mgr = get_mcp_client_manager()
+                mgr = self._mcp_manager()
                 for et in mgr.get_all_external_tools():
                     if et["name"] != name:
                         continue
                     server_name = et["mcp_server"]
                     original_name = et["mcp_original_name"]
-                    decision = get_mcp_capability_policy().authorize(
-                        server_name,
-                        et,
-                        args,
-                        ctx,
-                    )
+                    decision = self._mcp_policy().authorize(server_name, et, args, ctx)
                     if not decision.allowed:
                         logger.warning(
                             "Blocked MCP capability %s/%s audit=%s reason=%s",
-                            server_name,
-                            original_name,
-                            decision.audit_id,
-                            decision.reason,
+                            server_name, original_name, decision.audit_id, decision.reason,
                         )
                         return {
                             "success": False,
@@ -241,7 +223,6 @@ class SkillsEngine:
                             "error": decision.reason,
                             "policy": decision.as_dict(),
                         }
-
                     out = mgr.call_external_tool(server_name, original_name, args)
                     return {
                         "success": True,
@@ -249,12 +230,7 @@ class SkillsEngine:
                         "output": out,
                         "policy": decision.as_dict(),
                     }
-
-                return {
-                    "success": False,
-                    "skill": name,
-                    "error": f"External MCP tool '{name}' not found.",
-                }
+                return {"success": False, "skill": name, "error": f"External MCP tool '{name}' not found."}
             except Exception as exc:
                 logger.exception("External MCP call failed for %s", name)
                 return {"success": False, "skill": name, "error": f"External MCP call failed: {exc}"}
@@ -267,25 +243,14 @@ class SkillsEngine:
                 "availableSkills": list(self._skills.keys()),
             }
 
-        # 1. Custom native execution handler
         handler = self._handlers.get(name)
         if handler:
             try:
-                result = handler(args, ctx)
-                return {
-                    "success": True,
-                    "skill": name,
-                    "output": result,
-                }
+                return {"success": True, "skill": name, "output": handler(args, ctx)}
             except Exception as exc:
                 logger.error("Error executing handler for skill %s: %s", name, exc)
-                return {
-                    "success": False,
-                    "skill": name,
-                    "error": str(exc),
-                }
+                return {"success": False, "skill": name, "error": str(exc)}
 
-        # 2. Default execution dispatch
         return {
             "success": True,
             "skill": name,
@@ -293,7 +258,6 @@ class SkillsEngine:
         }
 
 
-# Global singleton instance
 _GLOBAL_SKILLS_ENGINE: SkillsEngine | None = None
 
 
