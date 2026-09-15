@@ -4811,5 +4811,94 @@ async def main() -> None:
         LOG.info("shutdown_complete")
 
 
+
+# SAREMBOK_BROWSER_SESSION_PERSISTENCE_V2_20260915
+# Restart-safe browser bearer sessions. Raw session tokens are never persisted.
+# The existing in-memory session implementation remains authoritative when
+# available; the SQLite record is a restart-safe fallback only.
+if "# SAREMBOK_BROWSER_SESSION_PERSISTENCE_V2_20260915" not in globals().get("__doc__", ""):
+    def _sarembok_browser_session_hash(token: str) -> str:
+        return hashlib.sha256(str(token).encode("utf-8")).hexdigest()
+
+    def _sarembok_browser_session_install_persistence() -> None:
+        if globals().get("_SAREMBOK_BROWSER_SESSION_PERSISTENCE_INSTALLED", False):
+            return
+        issue_fn = globals().get("issue_browser_session")
+        valid_fn = globals().get("browser_session_valid")
+        db_path = str(globals().get("DB_PATH") or "").strip()
+        if not callable(issue_fn) or not callable(valid_fn) or not db_path:
+            LOG.warning("browser_session_persistence unavailable: missing runtime session functions")
+            return
+
+        def ensure_table() -> None:
+            with sqlite3.connect(db_path, timeout=10) as db:
+                db.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS browser_sessions (
+                        token_hash TEXT PRIMARY KEY,
+                        expires_at REAL NOT NULL,
+                        created_at REAL NOT NULL
+                    )
+                    """
+                )
+                db.execute("DELETE FROM browser_sessions WHERE expires_at <= ?", (time.time(),))
+                db.commit()
+
+        ensure_table()
+
+        def issue_persisted(*args, **kwargs):
+            result = issue_fn(*args, **kwargs)
+            if isinstance(result, dict):
+                token = result.get("sessionToken")
+                if isinstance(token, str) and token:
+                    try:
+                        ttl = max(1, int(result.get("expiresIn")))
+                    except (TypeError, ValueError):
+                        ttl = max(300, int(globals().get("BROWSER_SESSION_TTL_SECONDS", 3600)))
+                    now_ts = time.time()
+                    with sqlite3.connect(db_path, timeout=10) as db:
+                        db.execute(
+                            "INSERT OR REPLACE INTO browser_sessions(token_hash, expires_at, created_at) VALUES (?, ?, ?)",
+                            (_sarembok_browser_session_hash(token), now_ts + ttl, now_ts),
+                        )
+                        db.execute("DELETE FROM browser_sessions WHERE expires_at <= ?", (now_ts,))
+                        db.commit()
+            return result
+
+        def valid_persisted(token, *args, **kwargs):
+            try:
+                if valid_fn(token, *args, **kwargs):
+                    return True
+            except Exception:
+                # Fall through to restart-safe verification.
+                pass
+            if not isinstance(token, str) or not token:
+                return False
+            token_hash = _sarembok_browser_session_hash(token)
+            now_ts = time.time()
+            with sqlite3.connect(db_path, timeout=10) as db:
+                row = db.execute(
+                    "SELECT expires_at FROM browser_sessions WHERE token_hash=?",
+                    (token_hash,),
+                ).fetchone()
+                if not row:
+                    return False
+                try:
+                    expires_at = float(row[0])
+                except (TypeError, ValueError):
+                    expires_at = 0.0
+                if expires_at <= now_ts:
+                    db.execute("DELETE FROM browser_sessions WHERE token_hash=?", (token_hash,))
+                    db.commit()
+                    return False
+                return True
+
+        globals()["issue_browser_session"] = issue_persisted
+        globals()["browser_session_valid"] = valid_persisted
+        globals()["_SAREMBOK_BROWSER_SESSION_PERSISTENCE_INSTALLED"] = True
+        LOG.info("browser_session_persistence enabled db=%s", db_path)
+
+    _sarembok_browser_session_install_persistence()
+
 if __name__ == "__main__":
     asyncio.run(main())

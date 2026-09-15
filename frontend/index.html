@@ -4456,6 +4456,10 @@
     <link rel="stylesheet" href="/ui-product-final-20260914.css">
 </head>
 <body>
+<form id="srbk-admin-passcode-form" style="display:none" onsubmit="return false;"></form>
+<form id="srbk-master-passcode-form" style="display:none" onsubmit="return false;"></form>
+<form id="srbk-provider-key-form" style="display:none" onsubmit="return false;"></form>
+
 
     <!-- Neural particle canvas -->
     <canvas id="srbk-bg-canvas"></canvas>
@@ -6267,7 +6271,7 @@
 
                 <div style="margin-bottom:14px;">
                     <label style="display:block; font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); margin-bottom:6px;">ADMINISTRATIVE PASSCODE:</label>
-                    <input type="password" id="admin-auth-passcode" placeholder="Enter administrative passcode..." style="width:100%; background:rgba(6,9,19,0.9); border:1px solid rgba(245,158,11,0.3); color:var(--text-primary); padding:10px 14px; border-radius:6px; font-family:var(--font-mono); font-size:13px; outline:none;" onkeydown="if(event.key==='Enter') verifyAdminPasscodeAction()">
+                    <input type="password" id="admin-auth-passcode" placeholder="Enter administrative passcode..." style="width:100%; background:rgba(6,9,19,0.9); border:1px solid rgba(245,158,11,0.3); color:var(--text-primary); padding:10px 14px; border-radius:6px; font-family:var(--font-mono); font-size:13px; outline:none;" onkeydown="if(event.key==='Enter') verifyAdminPasscodeAction()" form="srbk-admin-passcode-form">
                     <div id="admin-auth-error" style="display:none; color:#ef4444; font-family:var(--font-mono); font-size:11px; margin-top:6px;"></div>
                 </div>
 
@@ -7482,7 +7486,6 @@
                 throw new Error("Runtime WebSocket not open");
             }
             if (!window.browserSessionToken) {
-                window.browserSessionToken = sessionStorage.getItem("srbk_browser_session_token") || null;
             }
             if (!window.browserSessionToken) {
                 try {
@@ -8908,7 +8911,6 @@
                     const data = await resp.json();
                     if (data && data.sessionToken) {
                         window.browserSessionToken = data.sessionToken;
-                        sessionStorage.setItem("srbk_browser_session_token", data.sessionToken);
                     }
                 }
             } catch (err) {
@@ -12082,7 +12084,7 @@
             <div style="margin-bottom:14px;">
                 <label style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted); letter-spacing:0.06em; display:block; margin-bottom:6px;">MASTER PASSCODE OR TOKEN</label>
                 <div style="position:relative;">
-                    <input type="password" id="master-passcode-input" placeholder="Enter master administrative passcode..." style="width:100%; background:rgba(0,0,0,0.6); border:1px solid rgba(245,158,11,0.4); border-radius:8px; padding:10px 36px 10px 12px; color:#fff; font-size:13px; outline:none; font-family:var(--font-mono);" onkeydown="if(event.key==='Enter') submitMasterLogin()">
+                    <input type="password" id="master-passcode-input" placeholder="Enter master administrative passcode..." style="width:100%; background:rgba(0,0,0,0.6); border:1px solid rgba(245,158,11,0.4); border-radius:8px; padding:10px 36px 10px 12px; color:#fff; font-size:13px; outline:none; font-family:var(--font-mono);" onkeydown="if(event.key==='Enter') submitMasterLogin()" form="srbk-master-passcode-form">
                     <button type="button" onclick="toggleMasterPasscodeVisibility()" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:14px;" title="Toggle Visibility">👁️</button>
                 </div>
             </div>
@@ -12126,7 +12128,7 @@
                     <span style="font-size:9.5px; color:var(--text-muted); font-family:var(--font-mono);">OpenRouter / Gemini / Groq / OpenAI</span>
                 </div>
                 <div style="position:relative;">
-                    <input type="password" id="user-ai-key-input" placeholder="sk-or-... or AIza... or gsk_... or sk-..." style="width:100%; background:rgba(0,0,0,0.6); border:1px solid rgba(245,158,11,0.3); border-radius:6px; padding:9px 36px 9px 10px; color:#fff; font-size:11.5px; outline:none; font-family:var(--font-mono);">
+                    <input type="password" id="user-ai-key-input" placeholder="sk-or-... or AIza... or gsk_... or sk-..." style="width:100%; background:rgba(0,0,0,0.6); border:1px solid rgba(245,158,11,0.3); border-radius:6px; padding:9px 36px 9px 10px; color:#fff; font-size:11.5px; outline:none; font-family:var(--font-mono);" form="srbk-provider-key-form">
                     <button type="button" onclick="toggleApiKeyVisibility()" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:12px;" title="Toggle Visibility">👁️</button>
                 </div>
                 <div style="font-size:9.5px; color:var(--text-muted); margin-top:4px; font-family:var(--font-mono);">Key is securely stored in local browser memory and sent per-turn to the runtime.</div>
@@ -12149,6 +12151,101 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         <span id="srbk-toast-msg">NOTIFICATION</span>
     </div>
+
+
+
+<script id="srbk-client-repair-v2">
+(function () {
+  "use strict";
+
+  if (window.__srbkClientRepairV2) return;
+  window.__srbkClientRepairV2 = true;
+
+  var refreshPromise = null;
+
+  function clearBrowserSession() {
+    try { window.browserSessionToken = null; } catch (_) {}
+  }
+
+  function refreshBrowserSession() {
+    if (refreshPromise) return refreshPromise;
+    clearBrowserSession();
+    refreshPromise = fetch("/session", {
+      method: "GET",
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { "Accept": "application/json" }
+    }).then(function (resp) {
+      if (!resp.ok) throw new Error("session refresh HTTP " + resp.status);
+      return resp.json();
+    }).then(function (data) {
+      if (!data || typeof data.sessionToken !== "string" || !data.sessionToken) {
+        throw new Error("session refresh returned no token");
+      }
+      window.browserSessionToken = data.sessionToken;
+      return data.sessionToken;
+    }).finally(function () {
+      refreshPromise = null;
+    });
+    return refreshPromise;
+  }
+
+  function installRpcRecovery() {
+    if (typeof window.sendRPC !== "function" || window.__srbkSendRpcRecoveryV2) return;
+    var originalSendRPC = window.sendRPC;
+    window.__srbkSendRpcRecoveryV2 = true;
+
+    window.sendRPC = async function (method, params, onDelta) {
+      try {
+        return await originalSendRPC(method, params, onDelta);
+      } catch (err) {
+        var message = String((err && err.message) || err || "");
+        if (!/permission_denied|authentication_required/i.test(message)) throw err;
+        await refreshBrowserSession();
+        return await originalSendRPC(method, params, onDelta);
+      }
+    };
+  }
+
+  function repairPasswordForms() {
+    var specs = [
+      ["admin-auth-passcode", "srbk-admin-passcode-form", "adminPasscode", "off"],
+      ["master-passcode-input", "srbk-master-passcode-form", "masterPasscode", "off"],
+      ["user-ai-key-input", "srbk-provider-key-form", "providerApiKey", "off"]
+    ];
+
+    specs.forEach(function (item) {
+      var input = document.getElementById(item[0]);
+      if (!input) return;
+      if (!document.getElementById(item[1])) {
+        var form = document.createElement("form");
+        form.id = item[1];
+        form.setAttribute("onsubmit", "return false;");
+        form.style.display = "none";
+        document.body.appendChild(form);
+      }
+      input.setAttribute("form", item[1]);
+      if (!input.getAttribute("name")) input.setAttribute("name", item[2]);
+      if (!input.getAttribute("autocomplete")) input.setAttribute("autocomplete", item[3]);
+    });
+  }
+
+  function start() {
+    installRpcRecovery();
+    repairPasswordForms();
+    setTimeout(installRpcRecovery, 0);
+    setTimeout(repairPasswordForms, 0);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start, { once: true });
+  } else {
+    start();
+  }
+
+  window.sarembokRefreshBrowserSession = refreshBrowserSession;
+})();
+</script>
 
 </body>
 </html>
