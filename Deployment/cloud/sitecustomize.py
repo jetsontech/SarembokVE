@@ -5,6 +5,7 @@ and browser speech must never receive decorative emoji characters.
 """
 from __future__ import annotations
 
+import importlib.util
 import os
 import re
 
@@ -114,14 +115,11 @@ try:
 
     ProviderRouter.generate = _generate_without_emoji
 except Exception:
-    # Never prevent the runtime from starting because of a safeguard.
     pass
 
 
 # Frontier open-model fabric: make the capability registry an actual routing
-# input before the runtime creates its ProviderRouter singleton. This remains
-# fail-safe and preserves the original provider behavior if the registry is
-# unavailable.
+# input before the runtime creates its ProviderRouter singleton.
 try:
     from open_model_fabric import install as _install_open_model_fabric
     _install_open_model_fabric()
@@ -129,79 +127,79 @@ except Exception:
     pass
 
 
-# Browser-session least privilege boundary.
-# knowledge_rpc_server loads server.py through importlib under the stable module
-# name "sarembok_cloud_server". Wrap that loader so the session scope is reduced
-# before knowledge_rpc_server captures the runtime dispatch function.
-#
-# These methods cover the public browser product surface: chat, runtime
-# telemetry, user-owned memory/session data, feedback, media/vision features,
-# digital-human lifecycle, and read-only worker/task/MCP visibility. Administrative
-# execution, worker registration/control, GPU rental, master/social authentication,
-# arbitrary compute execution, task mutation, and MCP registration are deliberately
-# excluded from the browser bearer session.
-try:
-    import importlib.util as _importlib_util
+# Browser bearer sessions use a narrow public capability surface. This bootstrap
+# hook exists only to bridge the legacy cloud server loader; the authoritative
+# browser session scope is applied to the actual server module before the RPC
+# entrypoint captures its dispatch function.
+_BROWSER_SESSION_LEAST_PRIVILEGE_METHODS = frozenset({
+    "SarembokChat",
+    "GetRuntimeInfo",
+    "GetProviderMetrics",
+    "BrowserNavigate",
+    "BrowserScreenshot",
+    "BrowserRender",
+    "CreateDigitalHumanSession",
+    "GetDigitalHumanSession",
+    "ListDigitalHumanSessions",
+    "CloseDigitalHumanSession",
+    "SubmitFeedback",
+    "GetFeedbackSummary",
+    "SearchMemories",
+    "StoreMemory",
+    "ListMemories",
+    "ListWorkers",
+    "ListTasks",
+    "GenerateImage",
+    "GetVisualEngineStatus",
+    "GetVisionStatus",
+    "SearchYouTube",
+    "ResolveMediaStream",
+    "ListMcpServers",
+    "CancelActiveStream",
+    "SpatialVisualRecall",
+    "GetCurrentUser",
+    "ListUserChatSessions",
+    "SaveUserChatSession",
+})
 
-    _original_spec_from_file_location = _importlib_util.spec_from_file_location
+_original_spec_from_file_location = importlib.util.spec_from_file_location
 
-    _BROWSER_SESSION_LEAST_PRIVILEGE_METHODS = {
-        "SarembokChat",
-        "GetRuntimeInfo",
-        "GetProviderMetrics",
-        "BrowserNavigate",
-        "BrowserScreenshot",
-        "BrowserRender",
-        "CreateDigitalHumanSession",
-        "GetDigitalHumanSession",
-        "ListDigitalHumanSessions",
-        "CloseDigitalHumanSession",
-        "SubmitFeedback",
-        "GetFeedbackSummary",
-        "SearchMemories",
-        "StoreMemory",
-        "ListMemories",
-        "ListWorkers",
-        "ListTasks",
-        "GenerateImage",
-        "GetVisualEngineStatus",
-        "GetVisionStatus",
-        "SearchYouTube",
-        "ResolveMediaStream",
-        "ListMcpServers",
-        "CancelActiveStream",
-        "SpatialVisualRecall",
-        "GetCurrentUser",
-        "ListUserChatSessions",
-        "SaveUserChatSession",
-    }
 
-    class _CloudServerLoaderProxy:
-        def __init__(self, loader):
-            self._loader = loader
+class _CloudServerLoaderProxy:
+    def __init__(self, loader):
+        self._loader = loader
 
-        def create_module(self, spec):
-            create = getattr(self._loader, "create_module", None)
-            return create(spec) if create else None
+    def create_module(self, spec):
+        create = getattr(self._loader, "create_module", None)
+        return create(spec) if create else None
 
-        def exec_module(self, module):
-            self._loader.exec_module(module)
-            allowed = set(_BROWSER_SESSION_LEAST_PRIVILEGE_METHODS)
-            module.BROWSER_ALLOWED_METHODS = allowed
+    def exec_module(self, module):
+        self._loader.exec_module(module)
+        name = str(getattr(module, "__name__", ""))
+        if name == "sarembok_cloud_server" or name.endswith("server"):
+            module.BROWSER_ALLOWED_METHODS = set(_BROWSER_SESSION_LEAST_PRIVILEGE_METHODS)
             log = getattr(module, "LOG", None)
             if log is not None:
-                log.info("browser_session_policy applied methods=%d", len(allowed))
+                log.info("browser_session_policy applied methods=%d", len(_BROWSER_SESSION_LEAST_PRIVILEGE_METHODS))
 
-        def __getattr__(self, name):
-            return getattr(self._loader, name)
+    def __getattr__(self, name):
+        return getattr(self._loader, name)
 
-    def _secure_spec_from_file_location(name, location, *args, **kwargs):
-        spec = _original_spec_from_file_location(name, location, *args, **kwargs)
-        if spec is not None and name == "sarembok_cloud_server" and str(location) == "/app/server.py" and spec.loader is not None:
-            spec.loader = _CloudServerLoaderProxy(spec.loader)
+
+def _secure_spec_from_file_location(name, location, *args, **kwargs):
+    spec = _original_spec_from_file_location(name, location, *args, **kwargs)
+    if spec is None or spec.loader is None:
         return spec
+    try:
+        location_name = os.path.basename(os.path.normpath(str(location))).lower()
+    except Exception:
+        location_name = ""
+    module_name = str(name or "")
+    if location_name == "server.py" and (
+        module_name == "sarembok_cloud_server" or module_name.endswith("server")
+    ):
+        spec.loader = _CloudServerLoaderProxy(spec.loader)
+    return spec
 
-    _importlib_util.spec_from_file_location = _secure_spec_from_file_location
-except Exception:
-    # Never prevent the runtime from starting because of a safeguard.
-    pass
+
+importlib.util.spec_from_file_location = _secure_spec_from_file_location
