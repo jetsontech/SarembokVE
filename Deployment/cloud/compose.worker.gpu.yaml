@@ -1,3 +1,0 @@
-services:
-  sarembok-worker:
-    gpus: all

@@ -2120,8 +2120,28 @@
             #hud-export-btn,
             #hud-live-2way-btn,
             #hud-fabric-btn,
-            #hud-telemetry-toggle-btn,
+            #hud-telemetry-toggle-btn {
+                display: none !important;
+            }
+
+            /* Mode pill: keep visible on mobile but compact */
             .hud-mode-pill-wrap {
+                display: flex !important;
+                padding: 2px !important;
+                margin-right: 4px !important;
+            }
+            .hud-mode-btn {
+                padding: 4px 8px !important;
+                font-size: 9.5px !important;
+            }
+            .hud-mode-btn span {
+                display: inline !important;
+                font-size: 9px !important;
+            }
+
+            /* Reduce bottom dock to 8 icons — hide compute & features on mobile */
+            #dock-btn-compute,
+            #dock-btn-features {
                 display: none !important;
             }
 
@@ -2341,7 +2361,7 @@
                 min-height: 0 !important;
                 height: auto !important;
                 max-height: none !important;
-                padding: 8px 10px;
+                padding: 8px 10px calc(60px + env(safe-area-inset-bottom, 0px)) !important;
                 gap: 8px;
                 overflow-y: auto !important;
                 -webkit-overflow-scrolling: touch;
@@ -2376,11 +2396,12 @@
             /* MOBILE INPUT BAR: FLOATING PILL ELEVATED OFF CHIN & NAV */
             .dialogue-input-bar {
                 flex-shrink: 0 !important;
-                margin: 0 auto calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+                /* Bottom margin clears 52px fixed bottom dock + safe area + breathing room */
+                margin: 0 auto calc(58px + env(safe-area-inset-bottom, 0px)) !important;
                 width: calc(100% - 16px) !important;
                 max-width: 640px !important;
                 padding: 6px 8px !important;
-                gap: 8px !important;
+                gap: 6px !important;
                 background: rgba(6, 12, 26, 0.98) !important;
                 border: 1px solid rgba(0, 240, 255, 0.35) !important;
                 border-radius: 26px !important;
@@ -2423,9 +2444,10 @@
                 box-shadow: 0 0 14px rgba(0, 240, 255, 0.3) !important;
             }
 
-            .dialogue-exec-btn {
-                width: 44px !important;
-                height: 44px !important;
+            /* Primary send button: cyan circle */
+            #execute-button.dialogue-exec-btn {
+                width: 42px !important;
+                height: 42px !important;
                 padding: 0 !important;
                 flex-shrink: 0 !important;
                 border-radius: 50% !important;
@@ -2444,11 +2466,30 @@
                 display: inline-block !important;
             }
 
-            /* Hide desktop buttons from mobile input bar to prevent input from collapsing into a tiny box */
+            /* Hide camera & screen buttons on mobile; show BG as compact pill */
             #dialogue-camera-btn,
-            #dialogue-screen-btn,
-            #execute-bg-button {
+            #dialogue-screen-btn {
                 display: none !important;
+            }
+
+            /* BG button: compact pill visible on mobile */
+            #execute-bg-button {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                width: auto !important;
+                height: 42px !important;
+                padding: 0 11px !important;
+                flex-shrink: 0 !important;
+                border-radius: 21px !important;
+                font-size: 10px !important;
+                font-weight: 700 !important;
+                letter-spacing: 0.04em !important;
+                font-family: var(--font-mono) !important;
+                background: rgba(0, 240, 255, 0.12) !important;
+                border: 1px solid rgba(0, 240, 255, 0.45) !important;
+                color: var(--cyan) !important;
+                margin-left: 2px !important;
             }
 
             /* MAIN WORKSPACE MOBILE ERGONOMICS: ELEVATE ALL INPUTS */
@@ -2465,7 +2506,7 @@
             }
             .workspace-input-wrap {
                 padding: 0 10px !important;
-                margin-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+                margin-bottom: calc(58px + env(safe-area-inset-bottom, 0px)) !important;
                 width: 100% !important;
             }
             .ws-input-box {

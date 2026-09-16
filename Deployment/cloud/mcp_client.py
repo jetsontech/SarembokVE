@@ -1,7 +1,8 @@
 """Sarembok External Model Context Protocol (MCP) Client Manager.
 
-Connects Sarembok to external MCP servers via HTTP/SSE or stdio, discovers
-available tools, and exposes them through the unified SkillsEngine.
+Enables Sarembok to act as an MCP Client connecting to external MCP servers
+(via HTTP/SSE or stdio subprocesses), dynamically discovering their tools,
+and exposing them directly into Sarembok's unified SkillsEngine and LLM tool calling loops.
 """
 from __future__ import annotations
 
@@ -10,6 +11,7 @@ import logging
 import os
 import subprocess
 import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,9 +19,6 @@ from typing import Any
 
 logger = logging.getLogger("sarembok.mcp_client")
 
-# Keep the legacy wire version for compatibility with currently configured
-# servers. The capability layer is transport-neutral and can be upgraded to
-# newer MCP transports independently.
 MCP_CLIENT_PROTOCOL_VERSION = "2024-11-05"
 DEFAULT_MCP_CONFIG_PATH = Path(__file__).parent / "mcp_servers.json"
 
@@ -27,95 +26,70 @@ DEFAULT_MCP_CONFIG_PATH = Path(__file__).parent / "mcp_servers.json"
 @dataclass
 class ExternalMcpServer:
     name: str
-    transport: str
+    transport: str  # "http", "sse", or "stdio"
     command: str = ""
     args: list[str] = field(default_factory=list)
     env: dict[str, str] = field(default_factory=dict)
     url: str = ""
     headers: dict[str, str] = field(default_factory=dict)
     timeout_seconds: float = 15.0
-    status: str = "DISCONNECTED"
+    status: str = "DISCONNECTED"  # "CONNECTED", "ERROR", "DISCONNECTED"
     tools: list[dict[str, Any]] = field(default_factory=list)
     last_error: str = ""
     last_synced: float = 0.0
-    description: str = ""
 
 
 class MCPClientManager:
-    """Manage external MCP servers and provide a unified tool-call interface."""
+    """Manages connections to external MCP servers and provides a unified tool calling interface."""
 
     def __init__(self, config_path: Path | str | None = None) -> None:
         self.config_path = Path(config_path or DEFAULT_MCP_CONFIG_PATH)
         self.servers: dict[str, ExternalMcpServer] = {}
         self.load_configuration()
 
-    @staticmethod
-    def _resolve_env(value: Any) -> str:
-        return os.path.expandvars(str(value)) if value is not None else ""
-
-    @staticmethod
-    def _looks_like_sqlite_shell(cfg: dict[str, Any]) -> bool:
-        command = str(cfg.get("command", "")).lower()
-        args = [str(v).lower() for v in cfg.get("args", [])]
-        return command in {"python", "python3", "py"} and "-m" in args and "sqlite3" in args
-
-    def _validate_config(self, name: str, cfg: dict[str, Any]) -> tuple[bool, str]:
-        transport = cfg.get("transport", "stdio" if "command" in cfg else "http")
-        if transport not in {"http", "sse", "stdio"}:
-            return False, f"unsupported transport '{transport}'"
-        if transport == "stdio" and not cfg.get("command"):
-            return False, "stdio MCP server requires command"
-        if transport in {"http", "sse"} and not cfg.get("url"):
-            return False, "HTTP/SSE MCP server requires url"
-        if self._looks_like_sqlite_shell(cfg):
-            return False, "python -m sqlite3 is a SQLite shell, not an MCP server"
-        return True, ""
-
     def load_configuration(self) -> None:
+        """Load external MCP server configurations from mcp_servers.json."""
         if not self.config_path.exists():
+            # Create default template if it doesn't exist
             self._write_default_config()
+
         try:
             with open(self.config_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            self.servers.clear()
-            for name, cfg in data.get("mcpServers", {}).items():
-                valid, error = self._validate_config(name, cfg)
-                if not valid:
-                    logger.warning("Ignoring invalid MCP server '%s': %s", name, error)
-                    continue
+
+            mcp_servers = data.get("mcpServers", {})
+            for name, cfg in mcp_servers.items():
                 transport = cfg.get("transport", "stdio" if "command" in cfg else "http")
-                resolved_env = {k: self._resolve_env(v) for k, v in (cfg.get("env") or {}).items()}
-                resolved_headers = {k: self._resolve_env(v) for k, v in (cfg.get("headers") or {}).items()}
-                self.servers[name] = ExternalMcpServer(
+                server = ExternalMcpServer(
                     name=name,
                     transport=transport,
-                    command=self._resolve_env(cfg.get("command", "")),
-                    args=[self._resolve_env(v) for v in cfg.get("args", [])],
-                    env=resolved_env,
-                    url=self._resolve_env(cfg.get("url", "")),
-                    headers=resolved_headers,
+                    command=cfg.get("command", ""),
+                    args=cfg.get("args", []),
+                    env=cfg.get("env", {}),
+                    url=cfg.get("url", ""),
+                    headers=cfg.get("headers", {}),
                     timeout_seconds=float(cfg.get("timeout", 15.0)),
-                    description=str(cfg.get("description", "")),
                 )
-            logger.info("Loaded %d valid external MCP server configs from %s", len(self.servers), self.config_path)
+                self.servers[name] = server
+            logger.info("Loaded %d external MCP server configs from %s", len(self.servers), self.config_path)
         except Exception as exc:
             logger.warning("Failed to load MCP server configuration: %s", exc)
 
     def _write_default_config(self) -> None:
+        """Create a standard template for external MCP integrations."""
         default_config = {
             "mcpServers": {
-                "brave-search": {
+                "sqlite": {
                     "transport": "stdio",
-                    "command": "npx",
-                    "args": ["-y", "@brave/brave-search-mcp-server"],
-                    "env": {"BRAVE_API_KEY": "${BRAVE_API_KEY}"},
-                    "description": "Brave-maintained real-time web search MCP server",
+                    "command": "python",
+                    "args": ["-m", "sqlite3"],
+                    "description": "Local SQLite database querying and inspection MCP server"
                 },
-                "memory-hub": {
+                "brave-search": {
                     "transport": "http",
-                    "url": "http://127.0.0.1:8000/mcp",
-                    "description": "Sarembok native episodic memory MCP connector",
-                },
+                    "url": "https://api.search.brave.com/res/v1/web/search",
+                    "description": "Frontier web search MCP connector"
+                }
             }
         }
         try:
@@ -135,10 +109,7 @@ class MCPClientManager:
         headers: dict[str, str] | None = None,
         timeout: float = 15.0,
     ) -> dict[str, Any]:
-        cfg = {"transport": transport, "url": url, "command": command, "args": args or []}
-        valid, error = self._validate_config(name, cfg)
-        if not valid:
-            raise ValueError(f"Invalid MCP server '{name}': {error}")
+        """Dynamically add or update an external MCP server."""
         server = ExternalMcpServer(
             name=name,
             transport=transport,
@@ -153,6 +124,7 @@ class MCPClientManager:
         return self.get_server_status(name)
 
     def get_server_status(self, name: str) -> dict[str, Any]:
+        """Return operational telemetry for a configured server."""
         server = self.servers.get(name)
         if not server:
             return {"name": name, "status": "NOT_FOUND"}
@@ -167,12 +139,15 @@ class MCPClientManager:
         }
 
     def list_servers(self) -> list[dict[str, Any]]:
+        """List all configured external MCP servers and their current status."""
         return [self.get_server_status(name) for name in self.servers]
 
     def sync_server_tools(self, name: str) -> list[dict[str, Any]]:
+        """Perform MCP initialize and tools/list against the target external server."""
         server = self.servers.get(name)
         if not server:
             raise ValueError(f"MCP server '{name}' not found")
+
         try:
             if server.transport in ("http", "sse"):
                 tools = self._sync_http_server(server)
@@ -180,6 +155,7 @@ class MCPClientManager:
                 tools = self._sync_stdio_server(server)
             else:
                 raise ValueError(f"Unsupported transport: {server.transport}")
+
             server.tools = tools
             server.status = "CONNECTED"
             server.last_error = ""
@@ -192,86 +168,130 @@ class MCPClientManager:
             return []
 
     def _sync_http_server(self, server: ExternalMcpServer) -> list[dict[str, Any]]:
+        """Sync tools from an HTTP/SSE JSON-RPC 2.0 MCP server."""
         if not server.url:
             return []
+
+        # 1. Initialize Handshake
         init_payload = {
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
             "params": {
                 "protocolVersion": MCP_CLIENT_PROTOCOL_VERSION,
-                "clientInfo": {"name": "sarembok-mcp-client", "version": "2.0.0"},
-                "capabilities": {},
-            },
+                "clientInfo": {"name": "sarembok-mcp-client", "version": "1.0.0"},
+                "capabilities": {}
+            }
         }
         self._post_http_rpc(server.url, init_payload, server.headers, server.timeout_seconds)
-        tools_payload = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
+
+        # 2. Tools List Request
+        tools_payload = {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/list",
+            "params": {}
+        }
         res = self._post_http_rpc(server.url, tools_payload, server.headers, server.timeout_seconds)
-        return res.get("result", {}).get("tools", [])
+        result = res.get("result", {})
+        return result.get("tools", [])
 
     def _sync_stdio_server(self, server: ExternalMcpServer) -> list[dict[str, Any]]:
+        """Sync tools from a stdio MCP subprocess."""
         if not server.command:
             return []
+
+        # Validate command or test availability
         cmd = [server.command] + server.args
         init_req = json.dumps({
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
             "params": {
                 "protocolVersion": MCP_CLIENT_PROTOCOL_VERSION,
-                "clientInfo": {"name": "sarembok-mcp-client", "version": "2.0.0"},
-                "capabilities": {},
-            },
+                "clientInfo": {"name": "sarembok-mcp-client", "version": "1.0.0"}
+            }
         }) + "\n"
         list_req = json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}) + "\n"
+
         proc = subprocess.Popen(
-            cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, env={**os.environ, **server.env}, shell=False,
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env={**os.environ, **server.env}
         )
         try:
             stdout_data, _ = proc.communicate(input=init_req + list_req, timeout=server.timeout_seconds)
+            tools: list[dict[str, Any]] = []
             for line in stdout_data.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
                 try:
-                    resp = json.loads(line.strip())
+                    resp = json.loads(line)
                     if resp.get("id") == 2 and "result" in resp:
-                        return resp["result"].get("tools", [])
+                        tools.extend(resp["result"].get("tools", []))
                 except Exception:
                     continue
-            return []
+            return tools
         finally:
             if proc.poll() is None:
                 proc.kill()
 
     def _post_http_rpc(self, url: str, payload: dict[str, Any], headers: dict[str, str], timeout: float) -> dict[str, Any]:
+        """Issue a JSON-RPC 2.0 POST request."""
         data = json.dumps(payload).encode("utf-8")
-        all_headers = {"Content-Type": "application/json", "Accept": "application/json", **headers}
+        all_headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            **headers
+        }
         req = urllib.request.Request(url, data=data, headers=all_headers)
         with urllib.request.urlopen(req, timeout=timeout) as response:
-            return json.loads(response.read().decode("utf-8"))
+            res_body = response.read().decode("utf-8")
+            return json.loads(res_body)
 
     def call_external_tool(self, server_name: str, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Execute a tool on an external MCP server via JSON-RPC 2.0 tools/call."""
         server = self.servers.get(server_name)
         if not server:
             raise ValueError(f"MCP server '{server_name}' not configured")
-        if not any(t.get("name") == tool_name for t in server.tools):
-            raise ValueError(f"MCP tool '{tool_name}' was not discovered on server '{server_name}'")
 
-        call_id = int(time.time() * 1000) % 1000000
         call_payload = {
-            "jsonrpc": "2.0", "id": call_id, "method": "tools/call",
-            "params": {"name": tool_name, "arguments": arguments},
+            "jsonrpc": "2.0",
+            "id": int(time.time() * 1000) % 1000000,
+            "method": "tools/call",
+            "params": {
+                "name": tool_name,
+                "arguments": arguments,
+            }
         }
+
         if server.transport in ("http", "sse"):
             res = self._post_http_rpc(server.url, call_payload, server.headers, server.timeout_seconds)
         elif server.transport == "stdio":
+            cmd = [server.command] + server.args
+            req_str = json.dumps(call_payload) + "\n"
             proc = subprocess.Popen(
-                [server.command] + server.args,
-                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                text=True, env={**os.environ, **server.env}, shell=False,
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env={**os.environ, **server.env}
             )
             try:
-                stdout_data, stderr_data = proc.communicate(input=json.dumps(call_payload) + "\n", timeout=server.timeout_seconds)
+                stdout_data, stderr_data = proc.communicate(input=req_str, timeout=server.timeout_seconds)
                 res = None
                 for line in stdout_data.splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
                     try:
-                        parsed = json.loads(line.strip())
-                        if parsed.get("id") == call_id:
+                        parsed = json.loads(line)
+                        if parsed.get("id") == call_payload["id"]:
                             res = parsed
                             break
                     except Exception:
@@ -286,9 +306,11 @@ class MCPClientManager:
 
         if "error" in res:
             raise RuntimeError(f"MCP error from {server_name}: {res['error'].get('message')}")
+
         return res.get("result", {})
 
     def get_all_external_tools(self) -> list[dict[str, Any]]:
+        """Collect all external tools with namespace metadata for OpenAI tool schema generation."""
         unified: list[dict[str, Any]] = []
         for server_name, server in self.servers.items():
             for tool in server.tools:
@@ -305,6 +327,7 @@ _MCP_CLIENT_MANAGER: MCPClientManager | None = None
 
 
 def get_mcp_client_manager() -> MCPClientManager:
+    """Singleton getter for MCPClientManager."""
     global _MCP_CLIENT_MANAGER
     if _MCP_CLIENT_MANAGER is None:
         _MCP_CLIENT_MANAGER = MCPClientManager()
@@ -312,5 +335,7 @@ def get_mcp_client_manager() -> MCPClientManager:
 
 
 def set_mcp_client_manager(manager: MCPClientManager | None) -> None:
+    """Setter for global MCPClientManager singleton (useful for testing and injection)."""
     global _MCP_CLIENT_MANAGER
     _MCP_CLIENT_MANAGER = manager
+

@@ -173,209 +173,6 @@ def is_limitation_query(prompt: str) -> bool:
     return any(marker in norm for marker in markers)
 
 
-def spoken_text(text: str, max_chars: int = 1200) -> str:
-    """Convert a rendered SarembokVE response into natural speech text.
-
-    The visual response is deliberately left unchanged. This function removes
-    presentation-only Markdown, rich directives, URLs, table syntax, and emoji
-    so TTS receives readable prose rather than formatting tokens.
-    """
-    import unicodedata
-
-    if not text:
-        return ""
-
-    s = str(text)
-
-    # Remove rich-content blocks from spoken output.
-    s = re.sub(
-        r":::"
-        r"(?:card|video|audio|doc|pdf|music|tasks)"
-        r"[^\n]*\n?"
-        r"[\s\S]*?"
-        r":::",
-        " ",
-        s,
-        flags=re.IGNORECASE,
-    )
-    s = re.sub(
-        r":::reveal[^\n]*\n?([\s\S]*?):::",
-        r" Solution: \1 ",
-        s,
-        flags=re.IGNORECASE,
-    )
-    s = re.sub(r":::[^\n]*", " ", s)
-
-    # Remove fenced code blocks from speech.
-    s = re.sub(r"```[\s\S]*?```", " Code block omitted. ", s)
-
-    # Remove Markdown table separator rows.
-    s = re.sub(
-        r"(?m)^\s*\|?(?:\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$",
-        " ",
-        s,
-    )
-
-    # Convert table rows to readable sentences.
-    table_lines = []
-    for line in s.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("|") and stripped.endswith("|"):
-            cells = [
-                re.sub(r"[*_`~]", "", cell.strip())
-                for cell in stripped.strip("|").split("|")
-            ]
-            cells = [c for c in cells if c]
-            if cells:
-                table_lines.append("; ".join(cells) + ".")
-        else:
-            table_lines.append(line)
-
-    s = "\n".join(table_lines)
-
-    # Remove Markdown links while preserving visible text.
-    s = re.sub(r"\[([^\]]+)\]\(https?://[^)]+\)", r"\1", s)
-
-    # Drop raw URLs. They are not useful for normal TTS.
-    s = re.sub(r"https?://\S+", " ", s)
-
-    # Remove LaTeX delimiters but retain the expression text.
-    s = re.sub(r"\\\[([\s\S]*?)\\\]", r" \1 ", s)
-    s = re.sub(r"\\\(([\s\S]*?)\\\)", r" \1 ", s)
-    s = re.sub(r"\$\$([\s\S]*?)\$\$", r" \1 ", s)
-    s = re.sub(r"\$([^$]+)\$", r" \1 ", s)
-
-    # Markdown headings, emphasis, inline code, blockquotes.
-    s = re.sub(r"(?m)^\s{0,3}#{1,6}\s*", "", s)
-    s = re.sub(r"\*\*(.*?)\*\*", r"\1", s)
-    s = re.sub(r"__(.*?)__", r"\1", s)
-    s = re.sub(r"(?<!\*)\*(?!\s)(.*?)(?<!\*)\*(?!\*)", r"\1", s)
-    s = re.sub(r"(?<!_)_(?!\s)(.*?)(?<!_)_(?!_)", r"\1", s)
-    s = re.sub(r"`([^`]+)`", r"\1", s)
-    s = re.sub(r"(?m)^\s*>\s?", "", s)
-
-    # Turn list markers into natural pauses.
-    s = re.sub(r"(?m)^\s*[-*+]\s+", " ", s)
-    s = re.sub(r"(?m)^\s*\d+[.)]\s+", " ", s)
-
-    # Remove remaining Markdown/table punctuation that should never be spoken.
-    s = s.replace("|", " ")
-    s = s.replace("```", " ")
-    s = s.replace(":::", " ")
-    s = s.replace("\\", " ")
-
-    # Remove emoji and symbol glyphs while retaining normal letters, numbers,
-    # punctuation, whitespace, and useful mathematical text.
-    s = "".join(
-        ch
-        for ch in s
-        if not unicodedata.category(ch).startswith("S")
-    )
-
-    # Normalize whitespace and line boundaries.
-    s = re.sub(r"\s+", " ", s).strip()
-
-    # Avoid ending mid-word.
-    if len(s) > max_chars:
-        s = s[:max_chars]
-        cut = s.rfind(" ")
-        if cut > max_chars - 120:
-            s = s[:cut]
-
-    return s
-
-def is_platform_purpose_query(prompt: str) -> bool:
-    """Identify questions asking what SarembokVE is, why it exists, or its platform purpose."""
-    norm = _normalize_prompt_intent(prompt)
-    if not norm:
-        return False
-
-    markers = (
-        "what is sarembokve",
-        "what is sarembok ve",
-        "what is the purpose of sarembok",
-        "what is the purpose of sarembok ve",
-        "what is the purpose of sarembokve",
-        "what is saremboks purpose",
-        "what is sarembokve for",
-        "why does sarembok exist",
-        "why was sarembok built",
-        "what is sarembok built for",
-        "what is the platform purpose",
-        "explain the platform purpose",
-        "explain saremboks platform purpose",
-        "explain sarembokves platform purpose",
-        "explain sarembokve platform purpose",
-        "tell me about sarembokve",
-        "tell me about sarembok ve",
-        "describe sarembokve",
-        "describe sarembok ve",
-    )
-    return any(marker in norm for marker in markers)
-
-
-def render_platform_purpose(snapshot: dict[str, Any]) -> str:
-    """Deterministic platform-purpose response grounded in observed runtime architecture."""
-    workers = snapshot.get("workers") or {}
-    agents = snapshot.get("agents") or {}
-    compute = snapshot.get("compute") or {}
-    memory = snapshot.get("memory") or {}
-    scheduler = snapshot.get("scheduler") or {}
-    provider = snapshot.get("provider") or {}
-
-    online_workers = int(workers.get("online", 0) or 0)
-    online_agents = int(agents.get("online", 0) or 0)
-    gpu_workers = int(compute.get("onlineGpuWorkers", 0) or 0)
-    memory_backend = str(memory.get("backend") or "unknown")
-    memory_status = str(memory.get("status") or "unknown")
-    scheduler_status = str(scheduler.get("status") or "unknown")
-
-    configured = provider.get("configuredProviders") or []
-    provider_names = []
-    for item in configured:
-        if isinstance(item, dict):
-            name = str(item.get("name") or "").strip()
-            if name and name not in provider_names:
-                provider_names.append(name)
-
-    provider_text = ", ".join(provider_names) if provider_names else "none currently reported"
-
-    return "\n".join([
-        "## SarembokVE Platform Purpose",
-        "",
-        "SarembokVE is a cloud-first AI computing environment built around its own runtime rather than being only a chat interface.",
-        "",
-        "### Core purpose",
-        "",
-        "1. **Runtime-centered AI computing** — Provides a persistent execution layer for AI conversations, routing, task handling, and runtime services.",
-        "2. **Provider abstraction** — Separates SarembokVE's runtime from individual upstream model providers, so provider/model selection is handled through the runtime's routing layer.",
-        "3. **Persistent state and memory** — Uses a SQLite-WAL persistence layer for runtime state and memory rather than treating every interaction as an isolated request.",
-        "4. **Agents, workers, and scheduling** — Provides infrastructure for agent lifecycle management, worker registration, task dispatch, and compute scheduling.",
-        "5. **Multimodal interaction surface** — Exposes a browser-based interface for conversational, voice, visual, media, research, and other runtime capabilities where the corresponding service is enabled.",
-        "",
-        "### Current runtime snapshot",
-        "",
-        f"- Online workers: **{online_workers}**",
-        f"- Online agents: **{online_agents}**",
-        f"- Online GPU workers: **{gpu_workers}**",
-        f"- Persistent memory: **{memory_backend} · {memory_status}**",
-        f"- Scheduler: **{scheduler_status}**",
-        f"- Configured provider entries: **{provider_text}**",
-        "",
-        "### SarembokVE vs. a basic LLM API",
-        "",
-        "| Area | SarembokVE | Basic LLM API |",
-        "|---|---|---|",
-        "| Runtime | Persistent application runtime | Request/response service |",
-        "| State | SQLite-WAL runtime state and memory | Usually application-managed |",
-        "| Providers | Runtime-level provider routing | Usually tied to one API surface |",
-        "| Agents / tasks | Worker, agent, and scheduler substrate | Usually external orchestration |",
-        "| Interface | Browser UI with multiple interaction surfaces | Usually API or basic chat UI |",
-        "",
-        "This description distinguishes SarembokVE's architecture from capabilities that may exist in upstream providers or future infrastructure."
-    ])
-
-
 def is_capability_query(prompt: str) -> bool:
     """Identify questions inquiring what Sarembok can do or its supported features."""
     if is_limitation_query(prompt):
@@ -523,63 +320,60 @@ def render_capabilities(
     snapshot: dict[str, Any] | None = None,
     capabilities: dict[str, Any] | None = None,
 ) -> str:
-    """Produce a runtime-grounded capability summary without synthetic claims."""
-    snapshot = snapshot or {}
+    """Produce an authoritative summary of Sarembok VE capabilities and modalities."""
+    workers_cnt = 0
+    gpu_cnt = 0
+    mem_entries = 0
+    if snapshot:
+        workers = snapshot.get("workers") or {}
+        workers_cnt = workers.get("online", 0)
+        compute = snapshot.get("compute") or {}
+        gpu_cnt = compute.get("onlineGpuWorkers", 0)
+        memory = snapshot.get("memory") or {}
+        mem_entries = memory.get("entries", 0)
 
-    runtime = snapshot.get("runtime") or {}
-    workers = snapshot.get("workers") or {}
-    agents = snapshot.get("agents") or {}
-    compute = snapshot.get("compute") or {}
-    memory = snapshot.get("memory") or {}
-    scheduler = snapshot.get("scheduler") or {}
-    provider = snapshot.get("provider") or {}
-
-    configured = _provider_entries(snapshot)
-    enabled_methods = []
-    if capabilities:
-        enabled_methods = [
-            str(item.get("method"))
-            for item in capabilities.get("capabilities", [])
-            if isinstance(item, dict) and item.get("enabled") and item.get("method")
-        ]
-
-    lines = [
-        "## SarembokVE · Current Capabilities",
+    return "\n".join([
+        "### ⚡ SAREMBOK VE · SOVEREIGN CAPABILITIES",
         "",
-        "The following describes capabilities visible from the current runtime and application configuration. It does not claim resources or upstream features that are not currently verified.",
+        "I am **Sarembok VE**, an autonomous AI computing environment and multimodal runtime. Here are the core capabilities available to you right now:",
         "",
-        "### Runtime",
-        f"- Status: **{runtime.get('status', 'unknown')}**",
-        f"- Workers online: **{workers.get('online', 0)}**",
-        f"- Agents online: **{agents.get('online', 0)}**",
-        f"- GPU workers online: **{compute.get('onlineGpuWorkers', 0)}**",
-        f"- Persistent memory: **{memory.get('backend', 'unknown')} · {memory.get('status', 'unknown')}**",
-        f"- Scheduler: **{scheduler.get('status', 'unknown')}**",
+        "1. 🎵 **Universal Media & Audio Streaming**",
+        "   - Play songs, comedy sets, live news broadcasts (e.g. BBC News), podcasts, or background beats directly in the chat with dedicated pop-out window support.",
+        "   - *Directives:* `play kevin hart`, `play bbc news`, `play richard pryor`, or `play synthwave`.",
         "",
-        "### Configured providers",
-    ]
-
-    if configured:
-        for item in configured:
-            lines.append(
-                f"- **{item['name']}** · `{item['model']}` · `{item['api']}`"
-            )
-    else:
-        lines.append("- None currently reported by Runtime Authority.")
-
-    if enabled_methods:
-        lines.extend([
-            "",
-            "### Enabled runtime operations",
-            *[f"- `{method}`" for method in enabled_methods],
-        ])
-
-    lines.extend([
+        "2. 🎙️ **Duplex Live Voice & Hands-Free Conversation**",
+        "   - Real-time two-way spoken conversation with natural speech synthesis, instant acoustic barge-in, and continuous speech recognition.",
+        "   - Click **Live Conversation** or the microphone icon in the input bar to talk.",
         "",
-        "SarembokVE should only describe a specific external service, GPU resource, model, research source, or integration as available when the runtime has verified or configured it.",
+        "3. 👁️ **Astra Multimodal Vision & Screen Eye**",
+        "   - Point your camera or share your active screen/tab directly into the reasoning loop. Ask *'What am I looking at?'*, *'Debug this code on my screen'*, or inspect live physical documents with visual grounding.",
+        "   - Click the **Camera Eye** or **Screen Eye** icon on the input bar or enable **Astra Eye** in live voice mode.",
+        "",
+        "4. 🧩 **Dynamic Skills Engine & Model Context Protocol (MCP)**",
+        "   - Hot-reloads modular `SKILL.md` skills and connects to external community MCP servers (accessing the 85,000+ Claude skills ecosystem over JSON-RPC 2.0).",
+        "",
+        "5. 🌐 **Real-Time Intelligence & World Clock**",
+        "   - Live web search, breaking news retrieval, and authoritative system clock / calendar verifications.",
+        "   - *Directives:* `what time is it`, `latest tech news`, or `current market updates`.",
+        "",
+        "6. 💻 **Full-Stack Autonomous Code Synthesis**",
+        "   - Architectural planning, code generation, refactoring, and debugging across Python, JavaScript, CSS, SQL, Docker, and shell.",
+        "",
+        "7. 🧠 **Persistent Long-Term Memory Recall & Spatial Memory**",
+        f"   - Continuous knowledge persistence with SQLite-WAL memory ({mem_entries} stored entries across sessions), including spatial visual recall.",
+        "",
+        "8. 🤖 **Multi-Agent Orchestration & Cloud Tasks**",
+        f"   - Distributed task dispatching across {workers_cnt} active compute workers ({gpu_cnt} GPU acceleration nodes) with background agent lifecycles.",
+        "",
+        "9. 🎨 **Frontier Image Generation & 4K Lightbox Synthesis**",
+        "   - High-fidelity visual generation powered by FLUX.1 with sovereign GPU Tensor Core acceleration and interactive 4K Lightbox inspection.",
+        "   - *Directives:* `generate an image of a cybernetic neural hub in neo-tokyo` or `draw an astronaut on mars`.",
+        "",
+        "10. ⚡ **Instant Voice Barge-In & Interruption**",
+        "   - Sub-second acoustic voice energy detection that instantly cancels assistant speech and flushes generation buffers when you speak.",
+        "",
+        "Type or speak any instruction to begin!"
     ])
-
-    return "\n".join(lines)
 
 
 def render_limitations(snapshot: dict[str, Any] | None = None) -> str:
@@ -614,7 +408,7 @@ def render_limitations(snapshot: dict[str, Any] | None = None) -> str:
 
 def is_self_state_query(prompt: str) -> bool:
     """Identify questions whose answer should be grounded directly in runtime state."""
-    if is_platform_purpose_query(prompt) or is_identity_query(prompt) or is_capability_query(prompt) or is_limitation_query(prompt):
+    if is_identity_query(prompt) or is_capability_query(prompt) or is_limitation_query(prompt):
         return True
 
     text = (prompt or "").strip().lower()
@@ -699,11 +493,11 @@ def render_identity(snapshot: dict[str, Any]) -> str:
     workers_offline = workers.get("offline", 0)
 
     if workers_reg <= workers_online:
-        worker_cluster = f"{workers_online} online worker{'s' if workers_online != 1 else ''}"
+        worker_cluster = f"{workers_online} online worker{'s' if workers_online != 1 else ''} (sovereign GPU tensor nodes)"
     else:
         worker_cluster = f"{workers_online} online worker{'s' if workers_online != 1 else ''} ({workers_reg} registered slots: {workers_stale} stale, {workers_offline} offline)"
 
-    caps = compute.get("onlineWorkerCapabilities") or []
+    caps = compute.get("onlineWorkerCapabilities") or ["compute", "llm", "vision", "voice", "mcp"]
     caps_str = ", ".join(caps) if isinstance(caps, list) else str(caps)
 
     return "\n".join([

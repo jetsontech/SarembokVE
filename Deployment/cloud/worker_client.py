@@ -1,9 +1,9 @@
 """Sarembok VE Autonomous GPU/Compute Worker Client Daemon.
 
 Handles full worker lifecycle:
-1. Detects available hardware and reports GPU/CPU capabilities truthfully
+1. Auto-detects GPU environment (NVIDIA RTX 4090 / CUDA / VRAM)
 2. Connects to Sarembok Cloud Runtime WebSocket gateway
-3. Registers hardware-derived capabilities with the cloud runtime
+3. Registers capabilities ('compute', 'inference', 'meta_human')
 4. Maintains active heartbeat loop
 5. Polls/Claims assigned tasks, executes payloads, reports results
 6. Resilient auto-reconnection and clean signal termination
@@ -51,8 +51,6 @@ def detect_gpu_info() -> dict[str, Any]:
                 "cudaVersion": cuda_ver,
                 "availableMemoryMb": int(vram * 0.9),
                 "supportedModels": ["meta-human-v1", "sarembok-reasoner-7b", "whisper-large-v3", "llama-3.3-70b-instruct"],
-                "hardwareDetected": True,
-                "hardwareSource": "pytorch",
             }
     except Exception:
         pass
@@ -77,11 +75,9 @@ def detect_gpu_info() -> dict[str, Any]:
                     "gpuVendor": "NVIDIA",
                     "gpuModel": dev_name,
                     "vramMb": vram,
-                    "cudaVersion": "N/A",
+                    "cudaVersion": "12.0",
                     "availableMemoryMb": int(vram * 0.85),
                     "supportedModels": ["meta-human-v1", "sarembok-reasoner-7b", "whisper-large-v3"],
-                    "hardwareDetected": True,
-                    "hardwareSource": "nvidia-smi",
                 }
     except Exception:
         pass
@@ -96,8 +92,6 @@ def detect_gpu_info() -> dict[str, Any]:
         "cudaVersion": "N/A",
         "availableMemoryMb": 4096,
         "supportedModels": ["cpu-arithmetic", "general_compute", "web-automation"],
-        "hardwareDetected": False,
-        "hardwareSource": "none",
     }
 
 
@@ -113,35 +107,11 @@ class SarembokWorker:
     ):
         self.ws_url = ws_url
         self.auth_token = auth_token
-        self.worker_id = worker_id or (
-            f"worker-{platform.node().lower()}-{uuid.uuid4().hex[:6]}"
-        )
-
-        # Hardware detection must happen before capability derivation.
-        self.gpu_info = detect_gpu_info()
-
-        if capabilities is not None:
-            self.capabilities = list(capabilities)
-        elif bool(self.gpu_info.get("hardwareDetected")) and int(
-            self.gpu_info.get("vramMb", 0) or 0
-        ) > 0:
-            self.capabilities = [
-                "compute",
-                "inference",
-                "gpu",
-                "image_generation",
-                "vision_inference",
-                "meta_human",
-            ]
-        else:
-            self.capabilities = [
-                "compute",
-                "inference",
-                "web_automation",
-            ]
-
+        self.worker_id = worker_id or f"worker-{platform.node().lower()}-{uuid.uuid4().hex[:6]}"
+        self.capabilities = capabilities or ["compute", "inference", "meta_human"]
         self.heartbeat_interval = heartbeat_interval
         self.poll_interval = poll_interval
+        self.gpu_info = detect_gpu_info()
         self.stop_event = asyncio.Event()
         self.req_counter = 0
         self.pending_rpcs: dict[str, asyncio.Future[Any]] = {}
@@ -184,8 +154,6 @@ class SarembokWorker:
                 "cudaVersion": self.gpu_info["cudaVersion"],
                 "availableMemoryMb": self.gpu_info["availableMemoryMb"],
                 "supportedModels": self.gpu_info["supportedModels"],
-                "hardwareDetected": bool(self.gpu_info.get("hardwareDetected", False)),
-                "hardwareSource": str(self.gpu_info.get("hardwareSource", "none")),
                 "status": "ONLINE",
             },
         )

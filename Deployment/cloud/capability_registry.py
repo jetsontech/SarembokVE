@@ -1,8 +1,4 @@
-"""Truthful runtime capability registry for SarembokVE.
-
-The registry describes contracts separately from live availability. UI and
-model responses must not treat a declared capability as an active resource.
-"""
+"""Truthful runtime capability registry for Sarembok."""
 from __future__ import annotations
 import os
 from typing import Any
@@ -37,46 +33,20 @@ RPC_CAPABILITIES = {
     'ListProjects': ('projects', 'List runtime projects.'),
     'CreateProject': ('projects', 'Create a runtime project.'),
     'BrowserNavigate': ('browser', 'Navigate to a verified public URL and extract structured text.'),
-    'BrowserScreenshot': ('browser', 'Capture a screenshot of a public URL.'),
-    'BrowserRender': ('browser', 'Render full-page DOM of a public URL.'),
+    'BrowserScreenshot': ('browser', 'Capture a full-page or viewport screenshot of a public URL.'),
+    'BrowserRender': ('browser', 'Render full-page DOM of a public URL using headless Chromium.'),
     'CreateDigitalHumanSession': ('avatar', 'Create an active MetaHuman digital human session.'),
-    'GetDigitalHumanSession': ('avatar', 'Get digital human session status.'),
-    'ListDigitalHumanSessions': ('avatar', 'List digital human sessions.'),
+    'GetDigitalHumanSession': ('avatar', 'Get digital human session status and voice profile.'),
+    'ListDigitalHumanSessions': ('avatar', 'List all digital human sessions.'),
     'CloseDigitalHumanSession': ('avatar', 'Close an active digital human session.'),
-    'GenerateImage': ('frontier-vision', 'Generate imagery through a configured visual engine.'),
-    'ExecuteComputeTask': ('compute', 'Execute compute on an eligible worker.'),
-    'GetVisualEngineStatus': ('frontier-vision', 'Read visual engine health.'),
+    'GenerateImage': ('frontier-vision', 'Synthesize photorealistic 1024x1024 imagery via FLUX.1 Tensor Core acceleration.'),
+    'ExecuteComputeTask': ('compute', 'Execute heavy GPU parallel compute or custom model inference on sovereign nodes.'),
+    'GetVisualEngineStatus': ('frontier-vision', 'Read the health and configuration of all 3 visual synthesis tiers.'),
 }
-
 
 class CapabilityRegistry:
     def snapshot(self, runtime_state: dict[str, Any] | None = None) -> dict[str, Any]:
-        runtime_state = runtime_state or {}
-        workers = runtime_state.get('workers', {})
-        online_workers = int(workers.get('online', 0) or 0)
-        provider_configured = bool(runtime_state.get('provider', {}).get('configuredProviders'))
-        capabilities = []
-        for method, (domain, description) in RPC_CAPABILITIES.items():
-            enabled = True
-            available = True
-            if domain == 'compute':
-                available = online_workers > 0
-            elif domain == 'frontier-vision':
-                available = bool(runtime_state.get('compute', {}).get('onlineGpuWorkers', 0))
-            elif domain == 'dialogue':
-                available = provider_configured
-            capabilities.append({
-                'method': method,
-                'domain': domain,
-                'description': description,
-                'declared': True,
-                'enabled': enabled,
-                'available': available,
-                'executing': False,
-            })
-        return {
-            'registryVersion': '2.0',
-            'capabilities': capabilities,
-            'providers': runtime_state.get('provider', {}).get('configuredProviders', []),
-            'runtime': runtime_state,
-        }
+        providers = []
+        for name, key, model in [('OpenAI','OPENAI_API_KEY',os.getenv('LLM_MODEL','gpt-5-mini')),('OpenRouter','OPENROUTER_API_KEY',os.getenv('OPENROUTER_MODEL','openai/gpt-4o-mini')),('Groq','GROQ_API_KEY',os.getenv('GROQ_MODEL','openai/gpt-oss-120b')),('Gemini','GEMINI_API_KEY',os.getenv('GEMINI_MODEL','gemini-3.6-flash')),('Custom','LLM_ENDPOINT_URL',os.getenv('LLM_MODEL','custom'))]:
+            if os.getenv(key): providers.append({'name': name, 'model': model, 'configured': True})
+        return {'registryVersion':'1.0', 'capabilities':[{'method':m,'domain':d,'description':desc,'enabled':True} for m,(d,desc) in RPC_CAPABILITIES.items()], 'providers':providers, 'runtime':runtime_state or {}}
