@@ -15,7 +15,7 @@ python3 Deployment/cloud/frontier_release_gate.py || FAIL=1
 git diff --quiet && git diff --cached --quiet && pass 'working tree clean' || fail 'working tree has changes'
 
 python3 -m compileall -q Deployment/cloud && pass 'python compileall' || fail 'python compileall'
-PYTHONPATH="$ROOT/Deployment/cloud:$PYTHONPATH" python3 -m unittest Deployment/cloud/test_frontier_controls.py && pass 'frontier control tests' || fail 'frontier control tests'
+PYTHONPATH="$ROOT/Deployment/cloud:${PYTHONPATH:-}" python3 -m unittest Deployment/cloud/test_frontier_controls.py && pass 'frontier control tests' || fail 'frontier control tests'
 
 if docker ps --format '{{.Names}}' | grep -Fxq sarembok-runtime; then
   cmd="$(docker inspect -f '{{join .Config.Cmd " "}}' sarembok-runtime 2>/dev/null || true)"
