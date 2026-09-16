@@ -37,7 +37,11 @@ def _purge_synthetic_workers(runtime: Any) -> None:
 
 def apply(runtime: Any) -> None:
     """Apply production-only truth and typed administrative execution controls."""
+    # Both compatibility module surfaces must be disabled. knowledge_rpc_server's
+    # authority snapshot calls cloud_server.ensure_sovereign_worker directly.
     runtime.ensure_sovereign_worker = lambda: None
+    cloud = _cloud(runtime)
+    cloud.ensure_sovereign_worker = lambda: None
     _purge_synthetic_workers(runtime)
 
     def safe_run_terminal(cls, command: str) -> dict[str, Any]:
@@ -69,7 +73,7 @@ def apply(runtime: Any) -> None:
         return {"status":"DISABLED","error":"arbitrary_python_execution_disabled_in_production"}
 
     def disabled_read(cls, path: str) -> dict[str, Any]:
-        return {"status":"DENIED","error":"arbitrary_file_read_disabled_in_production"}
+        return {"status":"DENIED","error":"arbitrary_admin_file_read_disabled_in_production"}
 
     def disabled_write(cls, path: str, content: str) -> dict[str, Any]:
         return {"status":"DENIED","error":"arbitrary_file_write_disabled_in_production","path":str(path or "")}
