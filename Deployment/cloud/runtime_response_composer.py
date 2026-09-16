@@ -7,46 +7,35 @@ static prompt or UI labels.
 from __future__ import annotations
 
 from typing import Any
+import re
 
 
 def _provider_entries(snapshot: dict[str, Any]) -> list[dict[str, str]]:
     provider = snapshot.get("provider") or {}
     configured = provider.get("configuredProviders") or []
-
     entries: list[dict[str, str]] = []
-
     for item in configured:
         if not isinstance(item, dict):
             continue
-
         entries.append({
             "name": str(item.get("name") or "unknown"),
             "model": str(item.get("model") or "unknown"),
             "api": str(item.get("api") or "unknown"),
         })
-
     return entries
 
 
 def _provider_lines(snapshot: dict[str, Any]) -> list[str]:
-    return [
-        f"- {item['name']}: model={item['model']}; api={item['api']}"
-        for item in _provider_entries(snapshot)
-    ]
+    return [f"- {item['name']}: model={item['model']}; api={item['api']}" for item in _provider_entries(snapshot)]
 
 
-def build_runtime_context(
-    snapshot: dict[str, Any],
-    capabilities: dict[str, Any] | None = None,
-) -> str:
-    """Return a compact, model-facing representation of observed runtime facts."""
+def build_runtime_context(snapshot: dict[str, Any], capabilities: dict[str, Any] | None = None) -> str:
     runtime = snapshot.get("runtime") or {}
     workers = snapshot.get("workers") or {}
     agents = snapshot.get("agents") or {}
     compute = snapshot.get("compute") or {}
     memory = snapshot.get("memory") or {}
     scheduler = snapshot.get("scheduler") or {}
-
     lines = [
         "AUTHORITATIVE SAREMBOK RUNTIME CONTEXT",
         "Use these facts as the source of truth for statements about Sarembok itself.",
@@ -59,40 +48,18 @@ def build_runtime_context(
         f"Persistent memory: backend={memory.get('backend')}; status={memory.get('status')}; entries={memory.get('entries', 0)}; integrity={memory.get('integrity')}",
         f"Scheduler: status={scheduler.get('status')}; queue_depth={scheduler.get('queueDepth', 0)}; running={scheduler.get('running', 0)}; completed={scheduler.get('completed', 0)}; failed={scheduler.get('failed', 0)}",
     ]
-
     providers = _provider_lines(snapshot)
-
-    if providers:
-        lines.append("Configured model providers and models:")
-        lines.extend(providers)
-    else:
-        lines.append("Configured model providers and models: none")
-
+    lines.append("Configured model providers and models:")
+    lines.extend(providers or ["- none"])
     if capabilities:
-        enabled = [
-            item.get("method")
-            for item in capabilities.get("capabilities", [])
-            if isinstance(item, dict) and item.get("enabled")
-        ]
-
-        lines.append(
-            f"Registered runtime capabilities: "
-            f"{', '.join(enabled) if enabled else 'none'}"
-        )
-
+        enabled = [item.get("method") for item in capabilities.get("capabilities", []) if isinstance(item, dict) and item.get("enabled")]
+        lines.append(f"Registered runtime capabilities: {', '.join(enabled) if enabled else 'none'}")
     return "\n".join(lines)
 
 
-import re
-
-
 def _normalize_prompt_intent(prompt: str) -> str:
-    """Normalize user prompt for robust intent matching: strip punctuation, lowercase, resolve typos/slang."""
-    text = (prompt or "").strip().lower()
-    # Remove apostrophes directly so "what's" -> "whats", "it's" -> "its"
-    text = text.replace("'", "")
+    text = (prompt or "").strip().lower().replace("'", "")
     text = re.sub(r"[^\w\s]", " ", text)
-    # Common speech-to-text / typing shortcuts and typos:
     text = re.sub(r"\b(wht|wat|waht|wt)\b", "what", text)
     text = re.sub(r"\bwhats\b", "what is", text)
     text = re.sub(r"\bwhois\b", "who is", text)
@@ -104,465 +71,128 @@ def _normalize_prompt_intent(prompt: str) -> str:
 
 
 def is_limitation_query(prompt: str) -> bool:
-    """Identify questions about Sarembok's operational boundaries, constraints, and limitations."""
     norm = _normalize_prompt_intent(prompt)
     if not norm:
         return False
-
-    limitation_exact = {
-        "what cant it do",
-        "what cant you do",
-        "what cant this do",
-        "what cant be done",
-        "what can it not do",
-        "what can you not do",
-        "what can this not do",
-        "what can not be done",
-        "what is it not able to do",
-        "what are you not able to do",
-        "what are you unable to do",
-        "what is it unable to do",
-        "what are the limitations",
-        "what are your limitations",
-        "what are its limitations",
-        "what limitations",
-        "limitations",
-        "system limitations",
-        "runtime limitations",
-        "what are the constraints",
-        "what are your constraints",
-        "what are its constraints",
-        "constraints",
-        "what are the boundaries",
-        "operational boundaries",
-        "what does it not support",
-        "what do you not support",
-        "what are you not capable of",
-        "what is it not capable of",
-    }
-    if norm in limitation_exact:
-        return True
-
     markers = (
-        "what cant it do",
-        "what cant you do",
-        "what cant this do",
-        "what cant be done",
-        "what can it not do",
-        "what can you not do",
-        "what can this not do",
-        "what can not be done",
-        "what is it not able to do",
-        "what are you not able to do",
-        "what are you unable to do",
-        "what is it unable to do",
-        "what are the limitations",
-        "what are your limitations",
-        "what are its limitations",
-        "system limitations",
-        "runtime limitations",
-        "what are the constraints",
-        "what are your constraints",
-        "what are its constraints",
-        "operational boundaries",
-        "what does it not support",
-        "what do you not support",
-        "what are you not capable of",
-        "what is it not capable of",
+        "what cant it do", "what cant you do", "what can it not do", "what can you not do",
+        "what are the limitations", "what are your limitations", "what limitations", "limitations",
+        "system limitations", "runtime limitations", "what are the constraints", "constraints",
+        "what are the boundaries", "operational boundaries", "what does it not support",
+        "what do you not support", "what are you not capable of", "what is it not capable of",
     )
-    return any(marker in norm for marker in markers)
+    return norm in set(markers) or any(marker in norm for marker in markers)
 
 
 def is_capability_query(prompt: str) -> bool:
-    """Identify questions inquiring what Sarembok can do or its supported features."""
     if is_limitation_query(prompt):
         return False
-
     norm = _normalize_prompt_intent(prompt)
     if not norm:
         return False
-    if norm in ("help", "commands", "features", "capabilities"):
-        return True
-
-    capability_exact = {
-        "what can you do",
-        "what can it do",
-        "what can this do",
-        "what can be done",
-        "what can sarembok do",
-        "what can the system do",
-        "what does it do",
-        "what does this do",
-        "what do you do",
-        "what are you able to do",
-        "what is it able to do",
-        "what is this able to do",
-        "what is this capable of",
-        "what are your capabilities",
-        "what are its capabilities",
-        "what capabilities",
-        "what are your features",
-        "what are its features",
-        "what features",
-        "how can you help",
-        "how can it help",
-        "how does it work",
-        "how do you work",
-        "what commands",
-        "what can i ask",
-        "show capabilities",
-        "list capabilities",
-    }
-    if norm in capability_exact:
-        return True
-
     markers = (
-        "what can you do",
-        "what can it do",
-        "what can this do",
-        "what can be done",
-        "what does it do",
-        "what does this do",
-        "what do you do",
-        "what are you able to do",
-        "what is it able to do",
-        "what is this able to do",
-        "what is this capable of",
-        "what can sarembok do",
-        "what can the system do",
-        "what are your capabilities",
-        "what capabilities",
-        "what are its capabilities",
-        "what are your features",
-        "what features",
-        "what are its features",
-        "how can you help",
-        "how can it help",
-        "how does it work",
-        "how do you work",
-        "what do you support",
-        "what does it support",
-        "what commands",
-        "what can i ask",
-        "show capabilities",
-        "list capabilities",
+        "what can you do", "what can it do", "what can this do", "what can be done", "what can sarembok do",
+        "what does it do", "what does this do", "what do you do", "what are you able to do",
+        "what is it able to do", "what is this able to do", "what is this capable of", "what are your capabilities",
+        "what are its capabilities", "what capabilities", "what are your features", "what are its features",
+        "what features", "how can you help", "how can it help", "how does it work", "how do you work",
+        "what do you support", "what does it support", "what commands", "what can i ask", "show capabilities",
+        "list capabilities", "help", "commands", "features", "capabilities",
     )
-    return any(marker in norm for marker in markers)
+    return norm in set(markers) or any(marker in norm for marker in markers)
 
 
 def is_identity_query(prompt: str) -> bool:
-    """Identify questions about Sarembok's identity or platform architecture."""
-    # Capability queries take precedence (e.g., "what can this do" is capability, not identity)
     if is_capability_query(prompt):
         return False
-
     norm = _normalize_prompt_intent(prompt)
     if not norm:
         return False
-
-    identity_exact = {
-        "what is this",
-        "what is this thing",
-        "what is this platform",
-        "what is this system",
-        "what is this app",
-        "what is this software",
-        "what is this site",
-        "what is this place",
-        "what is this environment",
-        "what system is this",
-        "what platform is this",
-        "what app is this",
-        "what software is this",
-        "what site is this",
-        "what system are you",
-        "what system am i using",
-        "what is sarembok",
-        "who is sarembok",
-        "who are you",
-        "what are you",
-        "what is your name",
-        "tell me about yourself",
-        "what is your identity",
-        "identify yourself",
-    }
-    if norm in identity_exact:
-        return True
-
     markers = (
-        "what system is this",
-        "what is this system",
-        "what system are you",
-        "what system am i using",
-        "what is this platform",
-        "what platform is this",
-        "what is this app",
-        "what app is this",
-        "what is this software",
-        "what software is this",
-        "what is this site",
-        "what site is this",
-        "what is this environment",
-        "what is sarembok",
-        "who is sarembok",
-        "who are you",
-        "what are you",
-        "what is your name",
-        "tell me about yourself",
-        "what is your identity",
-        "identify yourself",
-        "what is this",
+        "what is this", "what is this thing", "what is this platform", "what is this system", "what is this app",
+        "what is this software", "what is this site", "what is this environment", "what system is this",
+        "what platform is this", "what app is this", "what software is this", "what site is this",
+        "what system are you", "what system am i using", "what is sarembok", "who is sarembok", "who are you",
+        "what are you", "what is your name", "tell me about yourself", "what is your identity", "identify yourself",
     )
-    return any(marker in norm for marker in markers)
+    return norm in set(markers) or any(marker in norm for marker in markers)
 
 
-def render_capabilities(
-    snapshot: dict[str, Any] | None = None,
-    capabilities: dict[str, Any] | None = None,
-) -> str:
-    """Produce an authoritative summary of Sarembok VE capabilities and modalities."""
+def render_capabilities(snapshot: dict[str, Any] | None = None, capabilities: dict[str, Any] | None = None) -> str:
+    """Return a concise capability summary grounded in runtime state and avoid unsupported UI/hardware claims."""
     workers_cnt = 0
     gpu_cnt = 0
     mem_entries = 0
     if snapshot:
         workers = snapshot.get("workers") or {}
-        workers_cnt = workers.get("online", 0)
+        workers_cnt = int(workers.get("online", 0) or 0)
         compute = snapshot.get("compute") or {}
-        gpu_cnt = compute.get("onlineGpuWorkers", 0)
+        gpu_cnt = int(compute.get("onlineGpuWorkers", 0) or 0)
         memory = snapshot.get("memory") or {}
-        mem_entries = memory.get("entries", 0)
+        mem_entries = int(memory.get("entries", 0) or 0)
 
-    return "\n".join([
-        "### ⚡ SAREMBOK VE · SOVEREIGN CAPABILITIES",
+    lines = [
+        "### SAREMBOK VE · CAPABILITIES",
         "",
-        "I am **Sarembok VE**, an autonomous AI computing environment and multimodal runtime. Here are the core capabilities available to you right now:",
+        "Sarembok VE is an AI-native computing environment with a live runtime, persistent state, model/provider routing, workers, tasks, memory, research, and extensible tools.",
         "",
-        "1. 🎵 **Universal Media & Audio Streaming**",
-        "   - Play songs, comedy sets, live news broadcasts (e.g. BBC News), podcasts, or background beats directly in the chat with dedicated pop-out window support.",
-        "   - *Directives:* `play kevin hart`, `play bbc news`, `play richard pryor`, or `play synthwave`.",
+        "**Available through the runtime**",
+        "- **Dialogue & reasoning:** natural-language interaction through the configured model/provider fabric.",
+        "- **Runtime operations:** inspect runtime health, worker state, task state, projects, events, and provider metrics.",
+        f"- **Distributed compute:** {workers_cnt} online worker(s), including {gpu_cnt} currently recognized GPU worker(s) by Runtime Authority.",
+        f"- **Persistent memory:** SQLite-WAL persistence with {mem_entries} current stored entr{'y' if mem_entries == 1 else 'ies'}.",
+        "- **Agents & orchestration:** create agents, create/schedule tasks, delegate work, and track execution state.",
+        "- **Browser/research surfaces:** public-page navigation, DOM rendering, screenshots, and runtime-supported web intelligence.",
+        "- **MCP & skills:** registered runtime capabilities can be discovered through the MCP/skills surfaces; execution depends on the installed/configured handler and live service state.",
+        "- **Visual generation:** image generation is available through the runtime's configured generation path when a live provider or eligible worker is operational.",
         "",
-        "2. 🎙️ **Duplex Live Voice & Hands-Free Conversation**",
-        "   - Real-time two-way spoken conversation with natural speech synthesis, instant acoustic barge-in, and continuous speech recognition.",
-        "   - Click **Live Conversation** or the microphone icon in the input bar to talk.",
+        "**Try a directive**",
+        "- `show the current runtime status`
+- `what models are available`
+- `create an agent named Research`
+- `schedule a compute task`
+- `remember that ...`
+- `generate an image of ...`",
         "",
-        "3. 👁️ **Astra Multimodal Vision & Screen Eye**",
-        "   - Point your camera or share your active screen/tab directly into the reasoning loop. Ask *'What am I looking at?'*, *'Debug this code on my screen'*, or inspect live physical documents with visual grounding.",
-        "   - Click the **Camera Eye** or **Screen Eye** icon on the input bar or enable **Astra Eye** in live voice mode.",
-        "",
-        "4. 🧩 **Dynamic Skills Engine & Model Context Protocol (MCP)**",
-        "   - Hot-reloads modular `SKILL.md` skills and connects to external community MCP servers (accessing the 85,000+ Claude skills ecosystem over JSON-RPC 2.0).",
-        "",
-        "5. 🌐 **Real-Time Intelligence & World Clock**",
-        "   - Live web search, breaking news retrieval, and authoritative system clock / calendar verifications.",
-        "   - *Directives:* `what time is it`, `latest tech news`, or `current market updates`.",
-        "",
-        "6. 💻 **Full-Stack Autonomous Code Synthesis**",
-        "   - Architectural planning, code generation, refactoring, and debugging across Python, JavaScript, CSS, SQL, Docker, and shell.",
-        "",
-        "7. 🧠 **Persistent Long-Term Memory Recall & Spatial Memory**",
-        f"   - Continuous knowledge persistence with SQLite-WAL memory ({mem_entries} stored entries across sessions), including spatial visual recall.",
-        "",
-        "8. 🤖 **Multi-Agent Orchestration & Cloud Tasks**",
-        f"   - Distributed task dispatching across {workers_cnt} active compute workers ({gpu_cnt} GPU acceleration nodes) with background agent lifecycles.",
-        "",
-        "9. 🎨 **Frontier Image Generation & 4K Lightbox Synthesis**",
-        "   - High-fidelity visual generation powered by FLUX.1 with sovereign GPU Tensor Core acceleration and interactive 4K Lightbox inspection.",
-        "   - *Directives:* `generate an image of a cybernetic neural hub in neo-tokyo` or `draw an astronaut on mars`.",
-        "",
-        "10. ⚡ **Instant Voice Barge-In & Interruption**",
-        "   - Sub-second acoustic voice energy detection that instantly cancels assistant speech and flushes generation buffers when you speak.",
-        "",
-        "Type or speak any instruction to begin!"
-    ])
+        "Sarembok reports live operational state separately from capabilities that are implemented but not currently connected or provisioned.",
+    ]
+    return "\n".join(lines)
 
 
 def render_limitations(snapshot: dict[str, Any] | None = None) -> str:
-    """Produce an authoritative, engineering-grade statement of Sarembok VE's architectural boundaries."""
     return "\n".join([
-        "### 🛡️ SAREMBOK VE · ARCHITECTURAL BOUNDARIES & OPERATIONAL CONSTRAINTS",
+        "### SAREMBOK VE · ARCHITECTURAL BOUNDARIES",
         "",
-        "Sarembok VE operates as an enterprise-grade sovereign multimodal runtime and autonomous agent matrix. By architectural design and safety policy, several explicit boundaries are strictly enforced:",
-        "",
-        "1. **Containerized Sandbox Isolation**",
-        "   - Autonomous code synthesis, terminal execution, and worker pipelines execute strictly inside isolated containerized sandboxes.",
-        "   - Sarembok cannot access or mutate the underlying host OS kernel, unauthorized local network subnets, or host filesystems beyond provisioned volume mounts.",
-        "",
-        "2. **Cryptographic Authorization & Human Guardrails**",
-        "   - High-impact operations—including cloud infrastructure deletion, unverified payment/billing transactions, or destructive production database drops—require explicit cryptographic API tokens and human confirmation.",
-        "   - Sarembok will not execute irreversible destructive actions autonomously.",
-        "",
-        "3. **Sovereign Ground Truth vs. Speculative Hallucination**",
-        "   - Real-time telemetry, worker node state, GPU inventory, and persistent memory metrics are strictly read from live Runtime Authority, not inferred or invented.",
-        "   - Sarembok refuses to invent false worker counts or claim non-existent hardware resources.",
-        "",
-        "4. **Air-Gapped & Private Intranet Boundaries**",
-        "   - Sarembok cannot access private internal enterprise networks, firewalled intranets, or air-gapped systems without explicit VPN tunnels, WireGuard configurations, or pre-registered authentication bridges.",
-        "",
-        "5. **Physical World Actuation**",
-        "   - Sarembok does not possess direct physical actuators, robotics control, or biometric interception capabilities. Operations are bounded to compute, networking, audio/visual media, and software interfaces.",
-        "",
-        "6. **Deterministic Capacity & Quotas**",
-        "   - Multimodal generation (e.g., FLUX.1 4K visual synthesis, parallel agent clustering) is strictly governed by provisioned cluster VRAM and GPU worker nodes to guarantee deterministic system stability without resource starvation.",
+        "- Runtime state is reported from Runtime Authority rather than invented by the assistant.",
+        "- High-impact administrative operations remain subject to authentication and runtime policy controls.",
+        "- Worker/GPU capacity depends on live registered workers and fresh heartbeats.",
+        "- External providers, MCP servers, browser integrations, and generation services are only operational when configured and reachable.",
+        "- Local/private networks and host resources are not implicitly available through the public runtime.",
     ])
 
 
 def is_self_state_query(prompt: str) -> bool:
-    """Identify questions whose answer should be grounded directly in runtime state."""
     if is_identity_query(prompt) or is_capability_query(prompt) or is_limitation_query(prompt):
         return True
-
     text = (prompt or "").strip().lower()
-
     markers = (
-        "what is your status",
-        "runtime status",
-        "how many workers",
-        "how many agents",
-        "how much memory",
-        "what providers",
-        "what provider",
-
-        # Model/provider state queries must never fall through to
-        # general model knowledge.
-        "what model is this",
-        "what model are you",
-        "what model do you use",
-        "what model is running",
-        "what model is active",
-        "what model are you running",
-        "what models are available",
-        "what other models",
-        "other models",
-        "which models are available",
-        "which models can i use",
-        "what models can i use",
-        "what llms are available",
-        "what llms can i use",
-        "what language models are available",
-        "what language models can i use",
-        "what models are configured",
-        "which models are configured",
-        "model availability",
-        "available models",
-        "configured models",
-        "prune workers",
-        "cleanup workers",
-        "clean workers",
-        "clear offline workers",
-        "prune offline workers",
+        "what is your status", "runtime status", "how many workers", "how many agents", "how much memory",
+        "what providers", "what provider", "what model is this", "what model are you", "what model do you use",
+        "what model is running", "what model is active", "what models are available", "what other models",
+        "which models are available", "which models can i use", "what llms are available", "available models",
+        "configured models", "model availability",
     )
-
     return any(marker in text for marker in markers)
 
 
-def is_worker_prune_query(prompt: str) -> bool:
-    """Identify commands to prune offline or zombie compute workers."""
-    norm = _normalize_prompt_intent(prompt)
-    prune_markers = (
-        "prune workers",
-        "prune worker",
-        "cleanup workers",
-        "clean workers",
-        "clear offline workers",
-        "prune offline workers",
-        "purge offline workers",
-        "reset workers",
-        "reset worker registry",
-    )
-    return any(m in norm for m in prune_markers)
-
-
-def render_identity(snapshot: dict[str, Any]) -> str:
-    """Produce an authoritative, deterministic identity profile from observed runtime state."""
-    runtime = snapshot.get("runtime") or {}
-    workers = snapshot.get("workers") or {}
-    agents = snapshot.get("agents") or {}
-    memory = snapshot.get("memory") or {}
-    compute = snapshot.get("compute") or {}
-
-    provider_names = [
-        item["name"]
-        for item in _provider_entries(snapshot)
-    ]
-
-    provider_text = ", ".join(provider_names) if provider_names else "none"
-
-    workers_online = workers.get("online", 0)
-    workers_reg = workers.get("registered", 0)
-    workers_stale = workers.get("stale", 0)
-    workers_offline = workers.get("offline", 0)
-
-    if workers_reg <= workers_online:
-        worker_cluster = f"{workers_online} online worker{'s' if workers_online != 1 else ''} (sovereign GPU tensor nodes)"
-    else:
-        worker_cluster = f"{workers_online} online worker{'s' if workers_online != 1 else ''} ({workers_reg} registered slots: {workers_stale} stale, {workers_offline} offline)"
-
-    caps = compute.get("onlineWorkerCapabilities") or ["compute", "llm", "vision", "voice", "mcp"]
-    caps_str = ", ".join(caps) if isinstance(caps, list) else str(caps)
-
-    return "\n".join([
-        "### ⚡ SAREMBOK VE · SOVEREIGN AI COMPUTING RUNTIME",
-        "",
-        "I am **Sarembok VE**, an autonomous multimodal computing environment and sovereign AI runtime.",
-        "",
-        "**Runtime Telemetry & State:**",
-        f"- **Status & Service:** `{runtime.get('status', 'ONLINE')}` on `{runtime.get('service', 'sarembok-ve-cloud-runtime')}`",
-        f"- **Compute Fleet:** **{worker_cluster}**, and **{agents.get('registered', 0)} registered agents**.",
-        f"- **GPU Acceleration:** **{compute.get('onlineGpuWorkers', 0)}** active GPU tensor nodes.",
-        f"- **Persistent Memory:** `{memory.get('status', 'ONLINE')}` ({memory.get('backend', 'sqlite-wal')}) with **{memory.get('entries', 0)} stored entries** across sessions.",
-        f"- **Multimodal Capabilities:** Astra Vision & Screen Eye, Duplex Live Voice, Dynamic MCP Skills, `{caps_str}`.",
-        f"- **Configured Model Providers:** **{provider_text}**.",
-        "",
-        "*Ready to execute duplex voice, computer vision, code synthesis, or multi-agent pipelines.*",
-    ])
-
-
-def render_model_inventory(snapshot: dict[str, Any]) -> str:
-    """Describe only models actually configured on the current Sarembok runtime."""
-    entries = _provider_entries(snapshot)
-    provider = snapshot.get("provider") or {}
-    last_successful = provider.get("lastSuccessful") or {}
-
-    lines = [
-        "These are the language models currently configured on this Sarembok runtime:",
-    ]
-
+def render_model_inventory(snapshot: dict[str, Any] | None = None) -> str:
+    entries = _provider_entries(snapshot or {})
+    lines = ["### SAREMBOK VE · CONFIGURED MODEL PROVIDERS", ""]
     if not entries:
-        lines.append(
-            "- None. No language-model provider is currently configured."
-        )
+        lines.append("No model providers are currently exposed by Runtime Authority.")
     else:
-        seen: set[tuple[str, str]] = set()
-
         for item in entries:
-            key = (item["name"], item["model"])
-
-            if key in seen:
-                continue
-
-            seen.add(key)
-
-            lines.append(
-                f"- **{item['model']}** via **{item['name']}** "
-                f"({item['api']})"
-            )
-
-    active_provider = last_successful.get("provider")
-    active_model = last_successful.get("model")
-
-    if active_provider and active_model:
-        lines.append("")
-        lines.append(
-            f"Most recently successful model: **{active_model}** "
-            f"via **{active_provider}**."
-        )
-
-    lines.extend([
-        "",
-        "This inventory reflects Sarembok's configured runtime state. "
-        "A provider may expose many additional models in its external catalog, "
-        "but those are not claimed as Sarembok-available until Sarembok "
-        "configures and validates them.",
-    ])
-
+            lines.append(f"- **{item['name']}** — `{item['model']}`")
+    lines.append("")
+    lines.append("Configuration is not the same as provider health or model availability at this exact moment.")
     return "\n".join(lines)
