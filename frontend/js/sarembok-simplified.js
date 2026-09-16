@@ -1,4 +1,4 @@
-/* SAREMBOK_UI_RUNTIME_V3_20260915 */
+/* SAREMBOK_UI_RUNTIME_V4_20260915 */
 (function(){
 'use strict';
 
@@ -31,10 +31,38 @@ function normalizeText(value){
   }
   return String(value);
 }
+function youtubeEmbed(url){
+  try{
+    const u=new URL(url);
+    let id=u.searchParams.get('v');
+    if(!id&&u.hostname.includes('youtu.be'))id=u.pathname.replace(/^\//,'');
+    if(!id)return '';
+    id=id.replace(/[^a-zA-Z0-9_-]/g,'');
+    return '<div class="media-card"><div class="media-label">VIDEO</div><iframe class="media-frame" src="https://www.youtube.com/embed/'+id+'" title="Sarembok video" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe><a class="media-link" href="https://www.youtube.com/watch?v='+id+'" target="_blank" rel="noopener">Open on YouTube ↗</a></div>';
+  }catch{return ''}
+}
+function renderDirectiveBlocks(raw){
+  let text=String(raw??'');
+  const blocks=[];
+  text=text.replace(/:::video\s*([^\n]*)\n([\s\S]*?)\n:::/gi,(_,title,body)=>{
+    const lines=String(body).split(/\r?\n/).map(s=>s.trim()).filter(Boolean);const url=lines.find(v=>/^https?:\/\//i.test(v))||'';
+    const embed=youtubeEmbed(url);blocks.push(embed||('<div class="media-card"><div class="media-label">VIDEO</div><div class="media-title">'+escapeHtml(title||'Sarembok video')+'</div><a class="media-link" href="'+escapeHtml(url)+'" target="_blank" rel="noopener">Open media ↗</a></div>'));return '\n';
+  });
+  text=text.replace(/:::music\s*([^\n]*)\n([\s\S]*?)\n:::/gi,(_,title,body)=>{
+    const lines=String(body).split(/\r?\n/).map(s=>s.trim()).filter(Boolean);const url=lines.find(v=>/^https?:\/\//i.test(v))||'';const embed=youtubeEmbed(url);
+    blocks.push(embed?embed.replace('VIDEO','AUDIO').replace('Open on YouTube','Open media'):'<div class="media-card"><div class="media-label">AUDIO</div><div class="media-title">'+escapeHtml(title||'Sarembok audio')+'</div></div>');return '\n';
+  });
+  if(blocks.length)blocks.forEach(b=>{text+='\n\n'+b;});
+  return text;
+}
 function renderMarkdown(raw){
-  let text=String(raw??'').replace(/\\([*_`#>|])/g,'$1');
+  const withBlocks=renderDirectiveBlocks(raw);
+  const extracted=[];
+  const placeholdered=withBlocks.replace(/<div class="media-card">[\s\S]*?<\/div>/g,m=>{const token='@@MEDIA_'+extracted.length+'@@';extracted.push(m);return token;});
+  let text=placeholdered.replace(/\\([*_`#>|])/g,'$1');
   let html=escapeHtml(text);
-  html=html.replace(/```(?:[a-zA-Z0-9_-]+)?\n?([\s\S]*?)```/g,(_,code)=>'<pre><code>'+code.trim()+'</code></pre>');
+  html=html.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
+  html=html.replace(/```(?:[a-zA-Z0-9_-]+)?\n?([\s\S]*?)```/g,(_,code)=>'<pre><code>'+escapeHtml(code.trim())+'</code></pre>');
   html=html.replace(/`([^`\n]+)`/g,'<code>$1</code>');
   html=html.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
   html=html.replace(/__([^_\n]+)__/g,'<strong>$1</strong>');
@@ -42,11 +70,13 @@ function renderMarkdown(raw){
   html=html.replace(/^##\s+(.+)$/gm,'<h3>$1</h3>');
   html=html.replace(/^#\s+(.+)$/gm,'<h2>$1</h2>');
   html=html.replace(/^[-*]\s+(.+)$/gm,'<li>$1</li>');
-  html=html.replace(/(<li>.*<\/li>)(?:\s*<br>)+(?!<li>)/gs,'<ul>$1</ul>');
+  html=html.replace(/(<li>.*?<\/li>)(?:\s*<br>)+(?!<li>)/gs,'<ul>$1</ul>');
   html=html.replace(/^>\s+(.+)$/gm,'<blockquote>$1</blockquote>');
   html=html.replace(/\n{2,}/g,'</p><p>');
   html=html.replace(/\n/g,'<br>');
-  return '<p>'+html+'</p>';
+  html='<p>'+html+'</p>';
+  extracted.forEach((fragment,i)=>{html=html.replace(new RegExp('@@MEDIA_'+i+'@@','g'),fragment)});
+  return html;
 }
 function renderStructured(data){
   const sr=data&&data.structuredResponse;
@@ -121,9 +151,7 @@ function handleMessage(raw){
   const method=String(data.method||'');const params=data.params||{};
   if(method==='SarembokChat.delta'||method==='SarembokChat.stream'||method==='chat.delta'||method==='stream.delta'){
     const id=params.id||params.requestId||data.id;const delta=normalizeText(params.text??params.delta??params.content??params.response??data.result??'');
-    const q=(id&&pending.get(id));
-    if(q&&q.onDelta&&delta)q.onDelta(delta);else if(activeRequest&&activeRequest.onDelta&&delta)activeRequest.onDelta(delta);
-    return;
+    const q=(id&&pending.get(id));if(q&&q.onDelta&&delta)q.onDelta(delta);else if(activeRequest&&activeRequest.onDelta&&delta)activeRequest.onDelta(delta);return;
   }
   if(data.id!=null){
     const q=pending.get(String(data.id))||pending.get(data.id);if(!q)return;
@@ -159,8 +187,15 @@ async function submit(text){
 }
 function resize(){const p=$('prompt');if(!p)return;p.style.height='auto';p.style.height=Math.min(p.scrollHeight,150)+'px';}
 async function refreshRuntime(){
-  try{const r=await sendRPC('RuntimeInfo',{});if($('drawer-runtime'))$('drawer-runtime').textContent=r.status||'ONLINE';if($('runtime-detail'))$('runtime-detail').textContent=JSON.stringify(r,null,2);refreshInventory();}
-  catch{if($('drawer-runtime'))$('drawer-runtime').textContent='Unavailable';}
+  try{
+    const r=await sendRPC('GetRuntimeInfo',{});
+    if($('drawer-runtime'))$('drawer-runtime').textContent=r.status||'ONLINE';
+    if($('runtime-detail'))$('runtime-detail').textContent=JSON.stringify(r,null,2);
+    refreshInventory();
+  }catch(error){
+    if($('drawer-runtime'))$('drawer-runtime').textContent='Unavailable';
+    if($('runtime-detail'))$('runtime-detail').textContent=String(error&&error.message||error||'Runtime query failed');
+  }
 }
 async function refreshInventory(){
   for(const [method,id,key] of [['ListWorkers','workers-count','workers'],['ListAgents','agents-count','agents'],['ListTasks','tasks-count','tasks']]){
