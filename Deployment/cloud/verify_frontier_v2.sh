@@ -10,6 +10,10 @@ fail(){ printf 'FAIL  %s\n' "$1"; FAIL=1; }
 C=(docker compose -f Deployment/cloud/compose.yaml -f Deployment/cloud/compose.production.yaml -f Deployment/cloud/compose.frontier_final.yaml)
 
 printf '\n===== SAREMBOKVE FRONTIER PRODUCTION VERIFICATION =====\n'
+printf 'VERIFIER: frontier_v2_diagnostic_20260916\n'
+printf 'VERIFIER_COMMIT: %s\n' "$(git rev-parse HEAD)"
+printf 'VERIFIER_FILE_SHA256: %s\n' "$(sha256sum "$ROOT/Deployment/cloud/verify_frontier_v2.sh" | awk '{print $1}')"
+
 if python3 Deployment/cloud/frontier_release_gate.py >"$TMP" 2>&1; then
     cat "$TMP"
     pass 'frontier static gate'
