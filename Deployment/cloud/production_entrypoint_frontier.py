@@ -13,7 +13,6 @@ import hmac
 import json
 import os
 import secrets
-import sqlite3
 import threading
 import time
 from typing import Any
@@ -136,8 +135,17 @@ def _level(role: str) -> int:
 
 
 def _validate(request: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    method, raw_params = ORIGINAL_VALIDATE(request)
-    params = dict(raw_params or {})
+    if not isinstance(request, dict):
+        raise ValueError("request must be a JSON object")
+    if request.get("jsonrpc") != "2.0":
+        raise ValueError("jsonrpc must be 2.0")
+    method = request.get("method")
+    if not isinstance(method, str) or not method or len(method) > 128:
+        raise ValueError("invalid method")
+    raw_params = request.get("params") or {}
+    if not isinstance(raw_params, dict):
+        raise ValueError("params must be an object")
+    params = dict(raw_params)
     role, subject = _identity(method, params)
 
     if method == "VerifyAdminPasscode":
