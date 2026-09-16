@@ -1,0 +1,20 @@
+/* SAREMBOK_UI_SIMPLIFIED_V1_20260915 */
+:root{--srbk-cyan:#00f0ff;--srbk-bg:#020408;--srbk-panel:rgba(6,12,26,.94)}
+body.srbk-simple-mode .cyber-left-dock{width:0!important;padding:0!important;border:0!important;overflow:hidden!important;opacity:0!important;pointer-events:none!important}
+body.srbk-simple-mode #app{padding-left:0!important}
+body.srbk-simple-mode .header-hud-group{display:none!important}
+body.srbk-simple-mode .cyber-header{padding:10px 18px!important;min-height:54px!important}
+body.srbk-simple-mode .header-brand-wrap{gap:10px!important}
+body.srbk-simple-mode .header-brand-title{font-size:17px!important}
+body.srbk-simple-mode .header-brand-sub{font-size:8px!important;letter-spacing:.16em!important}
+body.srbk-simple-mode .srbk-reactor{width:26px!important;height:26px!important}
+body.srbk-simple-mode .srbk-reactor-core{width:8px!important;height:8px!important}
+body.srbk-simple-mode .hud-bracket{display:none!important}
+body.srbk-simple-mode #global-input-bar{left:0!important;padding:8px 14px calc(10px + env(safe-area-inset-bottom,0px))!important}
+body.srbk-simple-mode #global-input-bar-inner{max-width:900px!important;border-radius:22px!important;padding:6px 9px!important}
+body.srbk-simple-mode #global-mic-btn,body.srbk-simple-mode #global-send-btn{width:36px!important;height:36px!important}
+body.srbk-simple-mode #global-input-field{font-size:14px!important}
+body.srbk-simple-mode .dock-version{display:none!important}
+/* Keep advanced controls available, but visually subordinate. */
+body.srbk-simple-mode [class*="telemetry"],body.srbk-simple-mode [class*="matrix"],body.srbk-simple-mode [class*="cockpit"]{max-height:18vh}
+@media(max-width:700px){body.srbk-simple-mode .header-brand-sub{display:none!important}body.srbk-simple-mode .cyber-header{padding:8px 12px!important}}
