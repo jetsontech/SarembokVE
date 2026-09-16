@@ -44,6 +44,14 @@ set +a
 "${C[@]}" up -d --force-recreate
 sleep 12
 
+printf '\n===== VERIFIER SOURCE PROOF =====\n'
+printf 'DEPLOY_HEAD: %s\n' "$(git rev-parse HEAD)"
+printf 'VERIFY_V2_SHA256: %s\n' "$(sha256sum Deployment/cloud/verify_frontier_v2.sh | awk '{print $1}')"
+printf 'VERIFY_V2_MARKER: %s\n' "$(grep -F 'VERIFIER: frontier_v2_diagnostic_' Deployment/cloud/verify_frontier_v2.sh || true)"
+printf 'RUNNING STATIC GATE DIRECTLY:\n'
+python3 Deployment/cloud/frontier_release_gate.py
+
+printf '\n===== FRONTIER V2 LIVE VERIFIER =====\n'
 bash Deployment/cloud/verify_frontier_v2.sh
 bash Deployment/cloud/verify_frontier_e2e.sh
 bash Deployment/cloud/backup_database.sh
