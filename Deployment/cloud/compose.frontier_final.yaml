@@ -10,4 +10,60 @@ services:
       SAREMBOK_RATE_LIMIT_PER_SUBJECT: ${SAREMBOK_RATE_LIMIT_PER_SUBJECT:-180}
       SAREMBOK_RATE_LIMIT_SUBJECT_WINDOW_SECONDS: ${SAREMBOK_RATE_LIMIT_SUBJECT_WINDOW_SECONDS:-60}
       SAREMBOK_IDEMPOTENCY_TTL_SECONDS: ${SAREMBOK_IDEMPOTENCY_TTL_SECONDS:-300}
+      SAREMBOK_AUTH_TOKEN: ${SAREMBOK_AUTH_TOKEN:-}
+      SAREMBOK_ADMIN_TOKEN: ${SAREMBOK_ADMIN_TOKEN:-}
+      SAREMBOK_MASTER_TOKEN: ${SAREMBOK_MASTER_TOKEN:-}
+      SAREMBOK_ADMIN_PASSCODE: ${SAREMBOK_ADMIN_PASSCODE:-}
+      SAREMBOK_WORKER_ENROLLMENT_TOKEN: ${SAREMBOK_WORKER_ENROLLMENT_TOKEN:-}
       SAREMBOK_WORKER_TOKEN_HASH_SALT: ${SAREMBOK_WORKER_TOKEN_HASH_SALT:-}
+      SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS: ${SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS:-25}
+      SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS: ${SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS:-35}
+    volumes:
+      - sarembok-data:/data
+      - ./server.py:/app/server.py:ro
+      - ./knowledge_rpc_server.py:/app/knowledge_rpc_server.py:ro
+      - ./runtime_response_composer.py:/app/runtime_response_composer.py:ro
+      - ./runtime_authority.py:/app/runtime_authority.py:ro
+      - ./capability_registry.py:/app/capability_registry.py:ro
+      - ./provider_router.py:/app/provider_router.py:ro
+      - ./skills_engine.py:/app/skills_engine.py:ro
+      - ./mcp_client.py:/app/mcp_client.py:ro
+      - ./mcp_servers.json:/app/mcp_servers.json:ro
+      - ./mcp_gateway.py:/app/mcp_gateway.py:ro
+      - ./skills:/app/skills:ro
+      - ../../frontend:/app/frontend:ro
+
+  sarembok-browser:
+    image: sarembok-browser:production
+
+  sarembok-edge:
+    build:
+      context: ./edge
+      dockerfile: Dockerfile
+    image: sarembok-edge:production
+    container_name: sarembok-edge
+    restart: unless-stopped
+    depends_on:
+      sarembok-runtime:
+        condition: service_healthy
+    environment:
+      SAREMBOK_SITE_ADDRESS: ${SAREMBOK_PUBLIC_HOST:-${SAREMBOK_SITE_ADDRESS:-sarembok.com}}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - sarembok-caddy-data:/data
+      - sarembok-caddy-config:/config
+      - ../../frontend:/srv:ro
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+
+volumes:
+  sarembok-caddy-data:
+  sarembok-caddy-config:
