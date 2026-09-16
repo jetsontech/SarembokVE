@@ -201,6 +201,7 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
     clean_params={k:v for k,v in params.items() if not k.startswith("_sarembok") and k not in {"enrollmentToken","workerToken","authToken","sessionToken"}}
     if method=="AdminExecuteDirective" and role in {"ADMIN","MASTER","SYSTEM"}:
         clean_params["adminToken"] = os.getenv("SAREMBOK_ADMIN_TOKEN", "") or os.getenv("SAREMBOK_MASTER_TOKEN", "")
+        clean_params["adminPasscode"] = os.getenv("SAREMBOK_ADMIN_PASSCODE", "")
     if method=="SarembokChat" or method=="Chat" or method=="SarembokDialogue":
         if role=="USER": clean_params["sessionId"] = scoped_session_id(subject, str(params.get("sessionId") or "default"))
     started=time.perf_counter()
