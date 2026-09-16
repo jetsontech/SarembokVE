@@ -49,11 +49,10 @@ services:
     environment:
       SAREMBOK_SITE_ADDRESS: ${SAREMBOK_PUBLIC_HOST:-${SAREMBOK_SITE_ADDRESS:-sarembok.com}}
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
-
     ports:
       - "80:80"
       - "443:443"
-    security_opt:
+    security_opt: !override
       - no-new-privileges:true
     cap_drop:
       - ALL
