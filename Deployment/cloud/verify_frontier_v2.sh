@@ -15,7 +15,7 @@ python3 Deployment/cloud/frontier_release_gate.py || FAIL=1
 git diff --quiet && git diff --cached --quiet && pass 'working tree clean' || fail 'working tree has changes'
 
 python3 -m compileall -q Deployment/cloud && pass 'python compileall' || fail 'python compileall'
-python3 -m unittest Deployment/cloud/test_frontier_controls.py && pass 'frontier control tests' || fail 'frontier control tests'
+PYTHONPATH="$ROOT/Deployment/cloud:$PYTHONPATH" python3 -m unittest Deployment/cloud/test_frontier_controls.py && pass 'frontier control tests' || fail 'frontier control tests'
 
 if docker ps --format '{{.Names}}' | grep -Fxq sarembok-runtime; then
   cmd="$(docker inspect -f '{{join .Config.Cmd " "}}' sarembok-runtime 2>/dev/null || true)"
@@ -26,12 +26,18 @@ if docker ps --format '{{.Names}}' | grep -Fxq sarembok-runtime; then
     [ "$value" = yes ] && pass "runtime secret configured: $key" || fail "runtime secret missing: $key"
   done
 
-  integrity="$(docker exec sarembok-runtime python - <<'PY'
+  integrity=""
+  for attempt in 1 2 3 4 5; do
+    integrity="$(docker exec sarembok-runtime python - <<'PY' 2>/dev/null || true
 import sqlite3
-with sqlite3.connect('/data/sarembok_cloud.db') as db: print(db.execute('PRAGMA integrity_check').fetchone()[0])
+with sqlite3.connect('/data/sarembok_cloud.db', timeout=5) as db:
+    print(db.execute('PRAGMA integrity_check').fetchone()[0])
 PY
 )"
-  [ "$integrity" = ok ] && pass 'SQLite integrity' || fail "SQLite integrity: $integrity"
+    [ "$integrity" = ok ] && break
+    sleep 1
+  done
+  [ "$integrity" = ok ] && pass 'SQLite integrity' || fail "SQLite integrity: ${integrity:-unavailable}"
 
   worker_rows="$(docker exec sarembok-runtime python - <<'PY'
 import sqlite3
