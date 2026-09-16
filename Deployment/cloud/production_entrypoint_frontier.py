@@ -16,6 +16,7 @@ import knowledge_rpc_server as runtime
 from production_guard_v2 import CANCELLATION_METHODS, METHOD_REQUIREMENTS, ProductionGuard, scrub
 from provider_router import reset_stream_callback, set_stream_callback
 from frontier_runtime_policy import apply as apply_frontier_policy
+from frontier_tenant_guard import handle_user_rpc, scoped_session_id
 
 cloud = runtime.cloud_server
 GUARD = ProductionGuard()
@@ -27,10 +28,7 @@ IDEMPOTENCY_TABLE = "rpc_idempotency"
 WORKER_TOKEN_TABLE = "worker_credentials"
 _MUTATING_EXCLUSIONS = {"SarembokChat", "Chat", "SarembokDialogue", "GetRuntimeInfo"}
 
-# Apply production policy before capturing the HTTP handler so the restricted
-# handler cannot be overwritten by the compatibility runtime.
 apply_frontier_policy(runtime)
-
 ORIGINAL_VALIDATE = cloud.validate_request
 ORIGINAL_DISPATCH = cloud.dispatch
 ORIGINAL_HANDLER = cloud.handler
@@ -56,8 +54,7 @@ def _worker_token_hash(token: str) -> str:
 
 
 def _browser_session_valid(token: str) -> bool:
-    if not token:
-        return False
+    if not token: return False
     sessions = getattr(cloud, "BROWSER_SESSIONS", {})
     expiry = sessions.get(token)
     if not expiry or float(expiry) <= time.time():
@@ -67,11 +64,9 @@ def _browser_session_valid(token: str) -> bool:
 
 
 def _worker_token_valid(worker_id: str, token: str) -> bool:
-    if not worker_id or not token:
-        return False
+    if not worker_id or not token: return False
     row = cloud.store.db.execute(f"SELECT token_hash,revoked_at FROM {WORKER_TOKEN_TABLE} WHERE worker_id=?", (worker_id,)).fetchone()
-    if not row or row[1]:
-        return False
+    if not row or row[1]: return False
     ok = hmac.compare_digest(str(row[0]), _worker_token_hash(token))
     if ok:
         cloud.store.db.execute(f"UPDATE {WORKER_TOKEN_TABLE} SET last_used_at=? WHERE worker_id=?", (cloud.now(), worker_id))
@@ -112,8 +107,6 @@ def _level(role: str) -> int:
 
 
 def _validate(request: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    # Do not call legacy validate_request: it requires the legacy bearer token
-    # before the frontier worker-token path can authenticate server-to-server nodes.
     if not isinstance(request, dict): raise ValueError("request must be a JSON object")
     if request.get("jsonrpc") != "2.0": raise ValueError("jsonrpc must be 2.0")
     method = request.get("method")
@@ -122,7 +115,6 @@ def _validate(request: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     if not isinstance(raw_params, dict): raise ValueError("params must be an object")
     params = dict(raw_params)
     role, subject = _identity(method, params)
-
     if method == "VerifyAdminPasscode":
         configured = os.getenv("SAREMBOK_ADMIN_PASSCODE", "").strip()
         supplied = str(params.get("passcode") or "").strip()
@@ -132,15 +124,13 @@ def _validate(request: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         required = _required_role(method)
         if required is not None and _level(role) < _level(required):
             raise PermissionError("authenticated_session_required" if role == "PUBLIC" else "insufficient_privilege")
-
     if method == "RegisterWorker":
         configured = os.getenv("SAREMBOK_WORKER_ENROLLMENT_TOKEN", "").strip()
         supplied = str(params.get("enrollmentToken") or "").strip()
-        if not configured or not supplied or not hmac.compare_digest(supplied, configured): raise PermissionError("worker_enrollment_required")
+        if not configured or not supplied or not hmac.compare_digest(configured, supplied): raise PermissionError("worker_enrollment_required")
     if role == "WORKER" and method in {"Heartbeat","ClaimTask","CompleteTask","FailTask"}:
         requested_worker = str(params.get("workerId") or "").strip()
         if not requested_worker or requested_worker != subject: raise PermissionError("worker_identity_mismatch")
-
     execution_id = str(request.get("id") or f"rpc-{time.time_ns()}")
     if len(execution_id) > 128: raise ValueError("execution_id_too_long")
     idem = str(params.get("idempotencyKey") or "").strip()
@@ -150,9 +140,8 @@ def _validate(request: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     params["_sarembokSubject"] = subject
     CURRENT_EXECUTION_ID.set(execution_id)
     CURRENT_SUBJECT.set(subject)
-    now_stamp = cloud.now()
     with DB_GUARD:
-        cloud.store.db.execute(f"INSERT OR REPLACE INTO {EXECUTION_TABLE}(execution_id,subject,role,status,created_at,updated_at) VALUES(?,?,?,?,?,?)", (execution_id,subject,role,"ACCEPTED",now_stamp,now_stamp))
+        cloud.store.db.execute(f"INSERT OR REPLACE INTO {EXECUTION_TABLE}(execution_id,subject,role,status,created_at,updated_at) VALUES(?,?,?,?,?,?)", (execution_id,subject,role,"ACCEPTED",cloud.now(),cloud.now()))
         cloud.store.db.commit()
     GUARD.allow_subject(GUARD.identify(params, browser_session_valid=(role == "USER")))
     return method, params
@@ -166,9 +155,7 @@ def _get_idempotent(subject: str, method: str, key: str) -> dict[str, Any] | Non
         cloud.store.db.execute(f"DELETE FROM {IDEMPOTENCY_TABLE} WHERE subject=? AND method=? AND idempotency_key=?", (subject,method,key)); cloud.store.db.commit(); return None
     try:
         value=json.loads(row[0])
-        if isinstance(value,dict):
-            value.setdefault("metadata",{})["idempotentReplay"]=True
-            return value
+        if isinstance(value,dict): value.setdefault("metadata",{})["idempotentReplay"]=True; return value
     except (TypeError,ValueError,json.JSONDecodeError): pass
     return None
 
@@ -185,6 +172,18 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
     subject=str(params.get("_sarembokSubject") or CURRENT_SUBJECT.get() or "anonymous")
     role=str(params.get("_sarembokRole") or "PUBLIC")
     idem=str(params.get("idempotencyKey") or "").strip()
+
+    if role == "USER":
+        scoped = dict(params)
+        if method in {"SarembokChat","Chat","SarembokDialogue","GetConversationHistory"}:
+            scoped["sessionId"] = scoped_session_id(subject, str(params.get("sessionId") or "default"))
+        handled, scoped_result = handle_user_rpc(runtime, method, scoped, subject)
+        if handled:
+            result = scrub(dict(scoped_result or {}))
+            result.setdefault("metadata", {}).update({"executionId":execution_id,"role":role,"subject":subject,"tenantIsolated":True})
+            cloud.store.db.execute(f"UPDATE {EXECUTION_TABLE} SET status='SUCCEEDED',updated_at=? WHERE execution_id=?",(cloud.now(),execution_id)); cloud.store.db.commit()
+            return result
+
     if method in CANCELLATION_METHODS:
         target=str(params.get("requestId") or params.get("executionId") or "").strip()
         owner_row=cloud.store.db.execute(f"SELECT subject,status FROM {EXECUTION_TABLE} WHERE execution_id=?",(target,)).fetchone()
@@ -195,10 +194,15 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         try: legacy=ORIGINAL_DISPATCH("CancelActiveStream",{"requestId":target})
         except Exception: legacy={"cancelled":True}
         return {"cancelled":True,"executionId":target,"status":"CANCEL_REQUESTED","legacy":scrub(legacy),"previousStatus":status}
+
     cached=_get_idempotent(subject,method,idem)
     if cached is not None: return cached
     if role=="WORKER" and method=="ExecuteComputeTask": raise PermissionError("direct_compute_execution_disabled_use_worker_task_protocol")
     clean_params={k:v for k,v in params.items() if not k.startswith("_sarembok") and k not in {"enrollmentToken","workerToken","authToken","sessionToken"}}
+    if method=="AdminExecuteDirective" and role in {"ADMIN","MASTER","SYSTEM"}:
+        clean_params["adminToken"] = os.getenv("SAREMBOK_ADMIN_TOKEN", "") or os.getenv("SAREMBOK_MASTER_TOKEN", "")
+    if method=="SarembokChat" or method=="Chat" or method=="SarembokDialogue":
+        if role=="USER": clean_params["sessionId"] = scoped_session_id(subject, str(params.get("sessionId") or "default"))
     started=time.perf_counter()
     try:
         result=ORIGINAL_DISPATCH(method,clean_params)
@@ -266,5 +270,4 @@ cloud.handler=_handler
 runtime.set_stream_callback=_stream_callback
 runtime.reset_stream_callback=reset_stream_callback
 runtime.cloud_server.handler=_handler
-# Keep the restricted process_http_request installed by frontier_runtime_policy.
 if __name__ == "__main__": asyncio.run(cloud.main())
