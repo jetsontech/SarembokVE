@@ -4,6 +4,7 @@ import hashlib, hmac, json, os, re, threading, time
 from collections import deque
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 ROLE_LEVEL = {"PUBLIC":0,"USER":1,"WORKER":2,"OPERATOR":3,"ADMIN":4,"MASTER":5,"SYSTEM":6}
 USER_METHODS = {
@@ -86,10 +87,20 @@ class ProductionGuard:
         if not ok: raise PermissionError(f"rate_limited_retry_after={retry}")
     def origin_allowed(self,ws):
         if not self.require_origin:return True
-        h=getattr(ws,"request_headers",{}) or {}; origin=str(h.get("Origin","")).strip().rstrip("/").lower()
-        if not origin:
-            host=str(h.get("Host","")).lower(); return self.allow_originless_local and (host.startswith("127.0.0.1") or host.startswith("localhost"))
-        return origin in {f"https://{self.public_host}",f"https://www.{self.public_host}","http://127.0.0.1:9000","http://localhost:9000","http://127.0.0.1","http://localhost"}
+        h=getattr(ws,"request_headers",{}) or {}; raw_origin=str(h.get("Origin","")).strip()
+        if not raw_origin:
+            host=str(h.get("Host","")).strip().lower().rstrip("/")
+            if ":" in host and host.rsplit(":",1)[-1].isdigit(): host=host.rsplit(":",1)[0]
+            return self.allow_originless_local and host in {"127.0.0.1","localhost"}
+        try:
+            parsed=urlsplit(raw_origin)
+            scheme=parsed.scheme.lower(); hostname=(parsed.hostname or "").lower()
+            port=parsed.port
+        except ValueError:
+            return False
+        allowed_hosts={self.public_host, f"www.{self.public_host}"}
+        if hostname in allowed_hosts and scheme=="https" and port in {None,443}: return True
+        return raw_origin.rstrip("/").lower() in {"http://127.0.0.1:9000","http://localhost:9000","http://127.0.0.1","http://localhost"}
     def identify(self,params,browser_session_valid=False):
         token=str(params.get("sessionToken") or params.get("authToken") or "").strip()
         if browser_session_valid:return Identity("USER","browser-session",token_fingerprint(token))
