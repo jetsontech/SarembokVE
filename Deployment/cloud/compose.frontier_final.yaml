@@ -53,11 +53,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    volumes:
-      - sarembok-caddy-data:/data
-      - sarembok-caddy-config:/config
-      - ../../frontend:/srv:ro
-    security_opt: !reset []
     security_opt:
       - no-new-privileges:true
     cap_drop:
