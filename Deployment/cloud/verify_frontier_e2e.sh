@@ -2,10 +2,9 @@
 set -Eeuo pipefail
 HOST="${SAREMBOK_PUBLIC_HOST:-sarembok.com}"
 BASE="https://${HOST}"
-ENV_FILE="Deployment/cloud/.env"
 
 python3 - <<'PY'
-import asyncio, json, os, urllib.request
+import asyncio, json, os, urllib.error, urllib.request
 try:
     import websockets
 except Exception as exc:
@@ -55,7 +54,7 @@ async def main():
         if not admin_token: raise SystemExit('FAIL: admin token is absent from release environment')
         admin_ok=await rpc('e2e-admin-ok','AdminExecuteDirective', {'directive':'noop'}, auth=admin_token)
         if 'error' in admin_ok: raise SystemExit(f'FAIL: generated admin token cannot authorize admin directive: {admin_ok}')
-        print('PASS  generated admin token authorizes admin directive')
+        print('PASS  generated admin token authorizes typed admin directive')
 
         key='e2e-idempotency-fixed-key'
         first=await rpc('e2e-idem-1','CreateProject', {'name':'frontier-e2e','idempotencyKey':key}, auth=admin_token)
