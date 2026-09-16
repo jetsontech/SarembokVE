@@ -52,17 +52,29 @@ def apply(runtime: Any) -> None:
 
     _purge_synthetic_workers(runtime)
 
-    # The legacy server has its own administrative gate. Frontier production
-    # authentication is authoritative, so bind that gate to the same
-    # configured credentials and provide a typed-admin execution bridge.
+    # Bind every legacy dispatch layer to the same configured credentials.
+    # knowledge_rpc_server.dispatch delegates into the separately loaded
+    # server.dispatch function, whose function globals must also be updated.
     legacy_dispatch = getattr(cloud, "dispatch", None)
     if callable(legacy_dispatch):
         admin_token = os.getenv("SAREMBOK_ADMIN_TOKEN", "").strip()
         admin_passcode = os.getenv("SAREMBOK_ADMIN_PASSCODE", "").strip()
-        legacy_globals = getattr(legacy_dispatch, "__globals__", None)
-        if isinstance(legacy_globals, dict):
-            legacy_globals["ADMIN_TOKENS"] = {admin_token} if admin_token else set()
-            legacy_globals["ADMIN_ALLOWED_PASSCODES"] = {admin_passcode} if admin_passcode else set()
+
+        def bind_admin_globals(func: Any) -> None:
+            func_globals = getattr(func, "__globals__", None)
+            if not isinstance(func_globals, dict):
+                return
+            if "ADMIN_TOKENS" in func_globals:
+                func_globals["ADMIN_TOKENS"] = {admin_token} if admin_token else set()
+            if "ADMIN_ALLOWED_PASSCODES" in func_globals:
+                func_globals["ADMIN_ALLOWED_PASSCODES"] = {admin_passcode} if admin_passcode else set()
+            if "ADMIN_PASSCODE" in func_globals:
+                func_globals["ADMIN_PASSCODE"] = admin_passcode
+            nested = func_globals.get("_original_dispatch")
+            if callable(nested) and nested is not func:
+                bind_admin_globals(nested)
+
+        bind_admin_globals(legacy_dispatch)
 
         def guarded_admin_dispatch(method: str, params: dict[str, Any]) -> Any:
             if method != "AdminExecuteDirective":
