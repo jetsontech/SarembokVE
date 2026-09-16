@@ -353,12 +353,133 @@
         }
 
         /* ==================== PANELS & VIEWS ==================== */
+        /* ==================== GLOBAL FIXED CHAT INPUT BAR ==================== */
+        #global-input-bar {
+            position: fixed;
+            bottom: 0;
+            left: 72px; /* clear the left dock */
+            right: 0;
+            z-index: 110;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 28px calc(14px + env(safe-area-inset-bottom, 0px));
+            background: linear-gradient(to top, rgba(2,4,8,1) 0%, rgba(2,4,8,0.92) 60%, rgba(2,4,8,0) 100%);
+            pointer-events: none; /* let clicks fall through to the gradient fade */
+        }
+        #global-input-bar-inner {
+            width: 100%;
+            max-width: 920px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(6, 12, 26, 0.96);
+            border: 1px solid rgba(0, 240, 255, 0.28);
+            border-radius: 28px;
+            padding: 8px 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8), 0 0 20px rgba(0,240,255,0.12);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            pointer-events: all;
+        }
+        #global-input-bar-inner:focus-within {
+            border-color: rgba(0, 240, 255, 0.55);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.85), 0 0 28px rgba(0,240,255,0.25);
+        }
+        #global-mic-btn {
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            background: rgba(0,240,255,0.1);
+            border: 1px solid rgba(0,240,255,0.3);
+            color: var(--cyan);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #global-mic-btn:hover { background: rgba(0,240,255,0.2); box-shadow: 0 0 14px rgba(0,240,255,0.3); }
+        #global-mic-btn.recording { background: rgba(239,68,68,0.18); border-color: #ef4444; color: #ef4444; animation: pulse-red 1s infinite; }
+        @keyframes pulse-red { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)} 50%{box-shadow:0 0 0 6px rgba(239,68,68,0)} }
+        #global-input-field {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-family: var(--font-sans);
+            font-size: 15px;
+            outline: none;
+            padding: 6px 8px;
+            min-width: 0;
+        }
+        #global-input-field::placeholder { color: var(--text-muted); }
+        #global-send-btn {
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            background: var(--cyan);
+            border: none;
+            color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #global-send-btn:hover { box-shadow: 0 0 20px rgba(0,240,255,0.5); transform: scale(1.05); }
+        #global-bg-btn {
+            height: 40px;
+            padding: 0 14px;
+            flex-shrink: 0;
+            border-radius: 20px;
+            background: rgba(0,240,255,0.1);
+            border: 1px solid rgba(0,240,255,0.4);
+            color: var(--cyan);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        #global-bg-btn:hover { background: rgba(0,240,255,0.2); box-shadow: 0 0 14px rgba(0,240,255,0.3); }
+        #global-vision-btn {
+            width: 36px;
+            height: 36px;
+            flex-shrink: 0;
+            border-radius: 8px;
+            background: transparent;
+            border: 1px solid rgba(0,240,255,0.25);
+            color: var(--cyan);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #global-vision-btn:hover { background: rgba(0,240,255,0.1); }
+
+        /* Hide the per-view input bars — replaced by global fixed bar */
+        #view-dialogue .dialogue-input-bar,
+        #view-dialogue .vision-frame-preview-bar,
+        #view-workspace .workspace-input-wrap,
+        #view-workspace .workspace-chips-wrap {
+            display: none !important;
+        }
+
         .view-panel {
             display: none;
             flex: 1;
             min-height: 0;
             overflow-y: auto;
-            padding: 24px 28px 60px;
+            padding: 24px 28px 100px; /* extra bottom padding clears fixed input bar */
             position: relative;
             box-sizing: border-box;
         }
@@ -8614,6 +8735,23 @@ button,
 
             const btn = document.getElementById(`dock-btn-${tabId}`);
             if (btn) btn.classList.add("active");
+
+            // Update global input bar context
+            window._activeTab = tabId;
+            const field = document.getElementById('global-input-field');
+            const bgBtn = document.getElementById('global-bg-btn');
+            if (field) {
+                const placeholders = {
+                    dialogue: 'Message Sarembok V E or tap mic…',
+                    workspace: 'Ask Sarembok VE anything or dispatch an autonomous directive…',
+                    deck: 'Send a command to the deck…',
+                    memory: 'Query persistent memory…',
+                    research: 'Ask Sarembok to research anything…',
+                };
+                field.placeholder = placeholders[tabId] || 'Message Sarembok V E…';
+            }
+            // Show BG button only on dialogue-capable tabs
+            if (bgBtn) bgBtn.style.display = ['dialogue','workspace','deck'].includes(tabId) ? 'flex' : 'none';
         }
 
         /* ============================================================
@@ -13570,6 +13708,118 @@ button,
 
   window.sarembokRefreshBrowserSession = refreshBrowserSession;
 })();
+</script>
+
+<!-- ==================== GLOBAL FIXED CHAT INPUT BAR ==================== -->
+<div id="global-input-bar">
+    <div id="global-input-bar-inner">
+        <button id="global-mic-btn" onclick="globalMicToggle()" title="Voice Dictation">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <button id="global-vision-btn" onclick="globalCameraToggle()" title="Camera Vision">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </button>
+        <input type="text" id="global-input-field"
+            placeholder="Message Sarembok V E or tap mic…"
+            autocomplete="off" spellcheck="false"
+            onfocus="if(window.speechSynthesis&&window.speechSynthesis.speaking)interruptSpeech()"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();globalSendMessage(false);}">
+        <button id="global-send-btn" onclick="globalSendMessage(false)" title="Send">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+        <button id="global-bg-btn" onclick="globalSendMessage(true)" title="Run as background task">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            BG
+        </button>
+    </div>
+</div>
+
+<script>
+// ==================== GLOBAL INPUT BAR ROUTING ====================
+function globalSendMessage(isBackground) {
+    const field = document.getElementById('global-input-field');
+    if (!field) return;
+    const text = field.value.trim();
+    if (!text) return;
+
+    const tab = window._activeTab || 'dialogue';
+
+    if (tab === 'workspace') {
+        // Route to workspace prompt handler
+        field.value = '';
+        submitWorkspacePrompt(text);
+    } else {
+        // Route to dialogue handler — mirror text into the real directive-input and fire
+        const realInput = document.getElementById('directive-input');
+        if (realInput) {
+            realInput.value = text;
+            field.value = '';
+            // Make sure dialogue view is active so sendDirective renders output there
+            if (tab !== 'dialogue') switchTab('dialogue');
+            sendDirective(isBackground);
+        } else {
+            // Fallback: just clear
+            field.value = '';
+        }
+    }
+}
+
+function globalMicToggle() {
+    // Reuse existing mic toggle — mirror focus to directive-input first
+    const real = document.getElementById('directive-input');
+    if (real) real.focus();
+    if (typeof toggleSpeechRecognition === 'function') toggleSpeechRecognition();
+    // Sync recording state visual to global mic btn
+    const btn = document.getElementById('global-mic-btn');
+    if (btn) {
+        const realBtn = document.getElementById('dialogue-mic-btn');
+        if (realBtn) {
+            setTimeout(() => {
+                btn.classList.toggle('recording', realBtn.classList.contains('recording'));
+            }, 100);
+        }
+    }
+}
+
+function globalCameraToggle() {
+    if (typeof captureVisionCameraFrame === 'function') captureVisionCameraFrame();
+}
+
+// Sync speech recognition text back to global field
+(function patchSpeechSync() {
+    const orig = window.onSpeechResult;
+    const globalField = document.getElementById('global-input-field');
+    const realField = document.getElementById('directive-input');
+    if (realField && globalField) {
+        // Mirror directive-input value changes to global field in real-time
+        const observer = new MutationObserver(() => {
+            if (document.activeElement !== globalField) {
+                globalField.value = realField.value;
+            }
+        });
+        realField.addEventListener('input', () => { globalField.value = realField.value; });
+    }
+})();
+
+// Also mirror global field typing into directive-input for compatibility
+document.getElementById('global-input-field').addEventListener('input', function() {
+    const real = document.getElementById('directive-input');
+    if (real) real.value = this.value;
+});
+
+// Mobile: adjust global bar bottom for the 52px dock
+(function applyMobileGlobalBarOffset() {
+    if (window.matchMedia('(max-width: 768px)').matches) {
+        const bar = document.getElementById('global-input-bar');
+        if (bar) {
+            bar.style.left = '0';
+            bar.style.paddingBottom = 'calc(58px + env(safe-area-inset-bottom, 0px))';
+            bar.style.paddingLeft = '10px';
+            bar.style.paddingRight = '10px';
+        }
+    }
+    window.addEventListener('resize', applyMobileGlobalBarOffset);
+})()
 </script>
 
 </body>
