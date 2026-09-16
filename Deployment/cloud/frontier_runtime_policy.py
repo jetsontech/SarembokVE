@@ -1,10 +1,4 @@
-"""Frontier production policy applied at the cloud runtime boundary.
-
-This module makes the production posture explicit without rewriting the large
-compatibility dispatcher. Development-only synthetic hardware is disabled,
-arbitrary host execution is replaced with a small read-only diagnostic surface,
-and known synthetic worker records are removed from the live registry.
-"""
+"""Frontier production policy applied at the cloud runtime boundary."""
 from __future__ import annotations
 
 import os
@@ -12,58 +6,52 @@ import shlex
 import subprocess
 from typing import Any
 
-
 SAFE_COMMANDS = {
-    "date",
-    "df",
-    "free",
-    "git",
-    "hostname",
-    "id",
-    "ls",
-    "python",
-    "python3",
-    "pwd",
-    "uname",
-    "uptime",
+    "date", "df", "free", "git", "hostname", "id", "ls", "python", "python3", "pwd", "uname", "uptime",
 }
-
-SYNTHETIC_WORKER_IDS = {
-    "sarembok-edge-frontier-01",
-}
-SYNTHETIC_WORKER_PREFIXES = (
-    "worker-gpu-",
-    "worker-edge-",
-    "worker-scale-",
-)
+SYNTHETIC_WORKER_IDS = {"sarembok-edge-frontier-01"}
+SYNTHETIC_WORKER_PREFIXES = ("worker-gpu-", "worker-edge-", "worker-scale-")
+PUBLIC_HTTP_PATHS = {"/", "/index.html", "/health", "/healthz", "/session"}
 
 
 def _purge_synthetic_workers(runtime: Any) -> None:
-    """Remove only known development/synthetic worker identities.
+    rows = runtime.store.db.execute("SELECT worker_id FROM workers").fetchall()
+    doomed = []
+    for row in rows:
+        worker_id = str(row[0])
+        if worker_id in SYNTHETIC_WORKER_IDS or worker_id.startswith(SYNTHETIC_WORKER_PREFIXES):
+            doomed.append(worker_id)
+    if doomed:
+        runtime.store.db.executemany("DELETE FROM workers WHERE worker_id=?", [(wid,) for wid in doomed])
+        runtime.store.db.commit()
 
-    Legitimate externally enrolled workers are never touched here.
-    """
-    try:
-        rows = runtime.store.db.execute("SELECT worker_id FROM workers").fetchall()
-        doomed = []
-        for row in rows:
-            worker_id = str(row[0])
-            if worker_id in SYNTHETIC_WORKER_IDS or worker_id.startswith(SYNTHETIC_WORKER_PREFIXES):
-                doomed.append(worker_id)
-        if doomed:
-            runtime.store.db.executemany("DELETE FROM workers WHERE worker_id=?", [(wid,) for wid in doomed])
-            runtime.store.db.commit()
-    except Exception as exc:
-        # A failed cleanup must not silently become a false truth claim. The
-        # frontier verification gate will still inspect the registry live.
-        runtime.LOG.error("synthetic worker cleanup failed: %s", type(exc).__name__)
-        raise
+
+def _not_found(connection: Any) -> Any:
+    body = b"Not Found\n"
+    if hasattr(connection, "respond"):
+        return connection.respond(404, "Not Found\n")
+    return (404, [("Content-Type", "text/plain; charset=utf-8"), ("Content-Length", str(len(body)))], body)
 
 
 def apply(runtime: Any) -> None:
-    """Apply production-only truth and tool controls to the compatibility runtime."""
+    """Apply production-only truth, execution and HTTP controls."""
     runtime.ensure_sovereign_worker = lambda: None
     _purge_synthetic_workers(runtime)
+
+    original_http = runtime.cloud_server.process_http_request
+
+    async def secure_http_request(connection: Any, request: Any) -> Any:
+        headers = getattr(request, "headers", {}) or {}
+        upgrade = headers.get("Upgrade", "") if hasattr(headers, "get") else ""
+        if str(upgrade).lower() == "websocket":
+            return None
+        path = getattr(request, "path", None) or getattr(connection, "path", "/")
+        path_only = str(path).split("?", 1)[0]
+        if path_only not in PUBLIC_HTTP_PATHS:
+            return _not_found(connection)
+        return await original_http(connection, request)
+
+    runtime.cloud_server.process_http_request = secure_http_request
 
     def safe_run_terminal(cls, command: str) -> dict[str, Any]:
         command = str(command or "").strip()
@@ -83,15 +71,8 @@ def apply(runtime: Any) -> None:
             return {"error": "python_execution_disabled_in_production"}
         try:
             proc = subprocess.run(argv, shell=False, capture_output=True, text=True, timeout=8, check=False)
-            stdout = proc.stdout.strip()
-            stderr = proc.stderr.strip()
-            return {
-                "command": command,
-                "exitCode": proc.returncode,
-                "stdout": stdout[:2500],
-                "stderr": stderr[:1000],
-                "truncated": len(stdout) > 2500,
-            }
+            stdout, stderr = proc.stdout.strip(), proc.stderr.strip()
+            return {"command": command, "exitCode": proc.returncode, "stdout": stdout[:2500], "stderr": stderr[:1000], "truncated": len(stdout) > 2500}
         except subprocess.TimeoutExpired:
             return {"command": command, "error": "diagnostic_command_timeout"}
         except Exception as exc:
