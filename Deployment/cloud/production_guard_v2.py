@@ -78,6 +78,11 @@ class ProductionGuard:
     @staticmethod
     def level(role): return ROLE_LEVEL.get(role,0)
     def client_key(self,ws):
+        headers=self._request_headers(ws)
+        cf_ip=str(headers.get("CF-Connecting-IP") or "").strip()
+        if cf_ip:return f"cf:{cf_ip}"
+        forwarded=str(headers.get("X-Forwarded-For") or "").strip()
+        if forwarded:return f"xff:{forwarded.split(',',1)[0].strip()}"
         p=getattr(ws,"remote_address",None); return str(p[0] if isinstance(p,(tuple,list)) and p else p or "unknown")
     def allow_ip(self,ws):
         ok,retry=self.per_ip.allow(self.client_key(ws))
