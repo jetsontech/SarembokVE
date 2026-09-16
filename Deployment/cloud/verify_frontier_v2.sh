@@ -27,17 +27,17 @@ if docker ps --format '{{.Names}}' | grep -Fxq sarembok-runtime; then
   done
 
   integrity=""
+  integrity_error=""
   for attempt in 1 2 3 4 5; do
-    integrity="$(docker exec sarembok-runtime python - <<'PY' 2>/dev/null || true
-import sqlite3
-with sqlite3.connect('/data/sarembok_cloud.db', timeout=5) as db:
-    print(db.execute('PRAGMA integrity_check').fetchone()[0])
-PY
-)"
-    [ "$integrity" = ok ] && break
+    result="$(docker exec sarembok-runtime python -c 'import sqlite3; db=sqlite3.connect("file:/data/sarembok_cloud.db?mode=ro", uri=True, timeout=30); db.execute("PRAGMA busy_timeout=30000"); print(db.execute("PRAGMA integrity_check").fetchone()[0]); db.close()' 2>&1 || true)"
+    if [ "$result" = ok ]; then
+      integrity=ok
+      break
+    fi
+    integrity_error="$result"
     sleep 1
   done
-  [ "$integrity" = ok ] && pass 'SQLite integrity' || fail "SQLite integrity: ${integrity:-unavailable}"
+  [ "$integrity" = ok ] && pass 'SQLite integrity' || fail "SQLite integrity: ${integrity_error:-unavailable}"
 
   worker_rows="$(docker exec sarembok-runtime python - <<'PY'
 import sqlite3
