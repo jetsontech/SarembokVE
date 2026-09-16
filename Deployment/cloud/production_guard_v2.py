@@ -111,7 +111,9 @@ class ProductionGuard:
         return raw_origin.rstrip("/").lower() in {"http://127.0.0.1:9000","http://localhost:9000","http://127.0.0.1","http://localhost"}
     def identify(self,params,browser_session_valid=False):
         token=str(params.get("sessionToken") or params.get("authToken") or "").strip()
-        if browser_session_valid:return Identity("USER","browser-session",token_fingerprint(token))
+        if browser_session_valid:
+            fingerprint=token_fingerprint(token)
+            return Identity("USER",f"browser-session:{fingerprint}" if fingerprint else "browser-session",fingerprint)
         if self.master_token and token and hmac.compare_digest(token,self.master_token):return Identity("MASTER","master",token_fingerprint(token))
         if self.admin_token and token and hmac.compare_digest(token,self.admin_token):return Identity("ADMIN","admin",token_fingerprint(token))
         if self.auth_token and token and hmac.compare_digest(token,self.auth_token):return Identity("OPERATOR","operator",token_fingerprint(token))
