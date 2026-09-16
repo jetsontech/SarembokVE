@@ -34,7 +34,11 @@ require("ORIGINAL_VALIDATE(request)" not in entrypoint, "frontier validation sti
 require("ORIGINAL_PROCESS_HTTP_REQUEST" in entrypoint and "process_http_request" in entrypoint, "frontier HTTP boundary hook is missing")
 require('handle /api/*' in caddy and 'respond "Not Found" 404' in caddy, "legacy HTTP API is not blocked at the edge")
 require('handle /live/*' in caddy and 'respond "Not Found" 404' in caddy, "legacy live HTTP API is not blocked at the edge")
-require("runtime.ensure_sovereign_worker = lambda: None" in policy and "cloud.ensure_sovereign_worker = lambda: None" in policy, "synthetic worker bootstrap is not disabled on all compatibility surfaces")
+require(
+    re.search(r"runtime\.ensure_sovereign_worker\s*=\s*lambda:\s*None", policy) is not None
+    and re.search(r"cloud\.ensure_sovereign_worker\s*=\s*lambda:\s*None", policy) is not None,
+    "synthetic worker bootstrap is not disabled on all compatibility surfaces",
+)
 require("_purge_synthetic_workers" in policy, "known synthetic worker records are not purged")
 require('"hardwareAttestation":"NOT_ATTESTED"' in entrypoint, "hardware attestation state is not explicit")
 require("CATALOG_ONLY_NO_COMPUTE_CAPACITY_ASSERTION" in entrypoint, "GPU catalog truth boundary is missing")
