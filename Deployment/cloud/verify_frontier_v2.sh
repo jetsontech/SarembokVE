@@ -3,16 +3,29 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 FAIL=0
+TMP="$(mktemp)"
+trap 'rm -f "$TMP"' EXIT
 pass(){ printf 'PASS  %s\n' "$1"; }
 fail(){ printf 'FAIL  %s\n' "$1"; FAIL=1; }
 C=(docker compose -f Deployment/cloud/compose.yaml -f Deployment/cloud/compose.production.yaml -f Deployment/cloud/compose.frontier_final.yaml)
 
 printf '\n===== SAREMBOKVE FRONTIER PRODUCTION VERIFICATION =====\n'
-python3 Deployment/cloud/frontier_release_gate.py || FAIL=1
+if python3 Deployment/cloud/frontier_release_gate.py >"$TMP" 2>&1; then
+    cat "$TMP"
+    pass 'frontier static gate'
+else
+    cat "$TMP"
+    fail 'frontier static gate'
+fi
 "${C[@]}" config >/dev/null && pass 'frontier compose configuration valid' || fail 'frontier compose configuration invalid'
 
 [ "$(git branch --show-current)" = "main" ] && pass 'branch main' || fail 'not on main'
-git diff --quiet && git diff --cached --quiet && pass 'working tree clean' || fail 'working tree has changes'
+if git diff --quiet && git diff --cached --quiet; then
+    pass 'working tree clean'
+else
+    fail 'working tree has changes'
+    git status --short || true
+fi
 
 python3 -m compileall -q Deployment/cloud && pass 'python compileall' || fail 'python compileall'
 PYTHONPATH="$ROOT/Deployment/cloud:${PYTHONPATH:-}" python3 -m unittest Deployment/cloud/test_frontier_controls.py && pass 'frontier control tests' || fail 'frontier control tests'
@@ -55,7 +68,16 @@ else
   fail 'sarembok-runtime container missing'
 fi
 
-bash Deployment/cloud/verify_production.sh || fail 'base production verification'
+if bash Deployment/cloud/verify_production.sh; then
+    :
+else
+    fail 'base production verification'
+fi
 
 printf '\n===== RESULT =====\n'
-[ "$FAIL" -eq 0 ] && printf 'FRONTIER PRODUCTION GATE: PASS\n' || { printf 'FRONTIER PRODUCTION GATE: FAIL\n'; exit 1; }
+if [ "$FAIL" -eq 0 ]; then
+    printf 'FRONTIER PRODUCTION GATE: PASS\n'
+else
+    printf 'FRONTIER PRODUCTION GATE: FAIL\n'
+    exit 1
+fi
