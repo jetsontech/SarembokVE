@@ -15,11 +15,6 @@ printf '\n===== SAREMBOK PRODUCTION VERIFICATION =====\n'
 printf 'ROOT: %s\nHOST: %s\n\n' "$ROOT" "$HOST"
 
 printf '%s\n' '===== SOURCE ====='
-# Verify tracked file content against HEAD without treating executable-bit changes as
-# source changes. The verifier is commonly invoked with `chmod +x`, which changes
-# mode metadata but must not make an otherwise clean production checkout fail.
-# The verification runs from Deployment/cloud for compose commands, so resolve each
-# repository-relative path through ROOT before checking its working-tree blob.
 SOURCE_CONTENT_DIRTY=0
 while IFS= read -r path; do
   [ -n "$path" ] || continue
@@ -36,7 +31,6 @@ while IFS= read -r path; do
     fail "tracked source content changed: $path"
   fi
 done < <(git diff --name-only; git diff --cached --name-only | sort -u)
-
 [ "$SOURCE_CONTENT_DIRTY" -eq 0 ] && pass 'tracked source content clean'
 BRANCH="$(git branch --show-current)"
 [ "$BRANCH" = "main" ] && pass 'branch main' || fail "unexpected branch: $BRANCH"
@@ -115,34 +109,57 @@ HTML="$(curl -fsS --max-time 15 "$BASE/" || true)"
 [ -n "$HTML" ] && pass 'public homepage reachable' || fail 'public homepage unreachable'
 
 printf '\n%s\n' '===== FRONTEND ASSET INTEGRITY ====='
-HTML="$HTML" python3 - <<'PY'
-import os, re, sys
+HTML_FILE="$(mktemp)"
+trap 'rm -f "$HTML_FILE"' EXIT
+printf '%s' "$HTML" > "$HTML_FILE"
+if python3 - "$HTML_FILE" <<'PY'
+import re, sys
 from html.parser import HTMLParser
 
-html=os.environ.get('HTML','')
+with open(sys.argv[1], encoding='utf-8') as fh:
+    html = fh.read()
+
 class P(HTMLParser):
-    def __init__(self): super().__init__(); self.in_code=0; self.text=[]; self.assets=[]
+    def __init__(self):
+        super().__init__()
+        self.in_code = 0
+        self.text = []
+        self.assets = []
     def handle_starttag(self, tag, attrs):
-        a=dict(attrs)
-        if tag in {'script','style'}: self.in_code += 1
-        if tag == 'link' and a.get('rel') == 'stylesheet': self.assets.append(('css',a.get('href','')))
-        if tag == 'script' and a.get('src'): self.assets.append(('js',a.get('src','')))
+        a = dict(attrs)
+        if tag in {'script','style'}:
+            self.in_code += 1
+        if tag == 'link' and a.get('rel') == 'stylesheet':
+            self.assets.append(('css', a.get('href','')))
+        if tag == 'script' and a.get('src'):
+            self.assets.append(('js', a.get('src','')))
     def handle_endtag(self, tag):
-        if tag in {'script','style'}: self.in_code=max(0,self.in_code-1)
+        if tag in {'script','style'}:
+            self.in_code = max(0, self.in_code - 1)
     def handle_data(self, data):
-        if not self.in_code: self.text.append(data)
-p=P(); p.feed(html)
-css=[u for k,u in p.assets if k=='css' and 'sarembok-simplified.css' in u]
-js=[u for k,u in p.assets if k=='js' and 'sarembok-simplified.js' in u]
+        if not self.in_code:
+            self.text.append(data)
+
+p = P()
+p.feed(html)
+css = [u for k,u in p.assets if k == 'css' and 'sarembok-simplified.css' in u]
+js = [u for k,u in p.assets if k == 'js' and 'sarembok-simplified.js' in u]
 print('simplified CSS references:', css)
 print('simplified JS references:', js)
-if len(css) != 1: sys.exit('ERROR: expected exactly one simplified CSS reference')
-if len(js) != 1: sys.exit('ERROR: expected exactly one simplified JS reference')
-visible=' '.join(p.text)
-if re.search(r'\baria\b', visible, re.I): sys.exit('ERROR: prohibited product word found in visible UI text')
+if len(css) != 1:
+    raise SystemExit('ERROR: expected exactly one simplified CSS reference')
+if len(js) != 1:
+    raise SystemExit('ERROR: expected exactly one simplified JS reference')
+visible = ' '.join(p.text)
+if re.search(r'\baria\b', visible, re.I):
+    raise SystemExit('ERROR: prohibited product word found in visible UI text')
 print('visible UI text check: PASS')
 PY
-[ "$?" -eq 0 ] && pass 'frontend asset and visible-text integrity' || FAIL=1
+then
+  pass 'frontend asset and visible-text integrity'
+else
+  fail 'frontend asset and visible-text integrity'
+fi
 
 for path in /css/sarembok-simplified.css /js/sarembok-simplified.js /session; do
   code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "$BASE$path" || true)"
