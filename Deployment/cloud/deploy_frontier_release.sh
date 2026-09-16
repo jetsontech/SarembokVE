@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+umask 077
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 ENV_FILE="Deployment/cloud/.env"
@@ -20,10 +21,11 @@ set_if_missing SAREMBOK_AUTH_TOKEN "$(secret)"
 set_if_missing SAREMBOK_ADMIN_TOKEN "$(secret)"
 set_if_missing SAREMBOK_MASTER_TOKEN "$(secret)"
 set_if_missing SAREMBOK_WORKER_ENROLLMENT_TOKEN "$(secret)"
+set_if_missing SAREMBOK_WORKER_TOKEN_HASH_SALT "$(secret)"
 set_if_missing SAREMBOK_ADMIN_PASSCODE "$(passcode)"
 set_if_missing SAREMBOK_PUBLIC_HOST "sarembok.com"
 set_if_missing SAREMBOK_REQUIRE_ORIGIN "true"
-set_if_missing SAREMBOK_ALLOW_ORIGINLESS_LOCAL "true"
+set_if_missing SAREMBOK_ALLOW_ORIGINLESS_LOCAL "false"
 set_if_missing SAREMBOK_RATE_LIMIT_PER_IP "120"
 set_if_missing SAREMBOK_RATE_LIMIT_WINDOW_SECONDS "60"
 set_if_missing SAREMBOK_RATE_LIMIT_PER_SUBJECT "180"
@@ -47,7 +49,7 @@ printf 'PUBLIC: https://%s\n' "${SAREMBOK_PUBLIC_HOST:-sarembok.com}"
 printf 'Cockpit UI: preserved\n'
 printf 'Admin fallback: disabled at production boundary\n'
 printf 'Worker enrollment: authenticated and token-backed\n'
-printf 'Execution IDs: enabled\n'
-printf 'Idempotency: enabled for mutating RPCs\n'
+printf 'Execution ledger: durable\n'
+printf 'Idempotency ledger: durable\n'
 printf 'Origin/rate controls: enabled\n'
 printf 'SQLite backup: verified\n'
