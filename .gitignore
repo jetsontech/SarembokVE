@@ -43,7 +43,6 @@ secrets/
 credentials/
 Tools/*.txt
 
-
 # Large Unreal Engine Assets
 Content/
 *.uasset
@@ -56,3 +55,8 @@ scratch/
 frontend/test_*.mp3
 frontend/vega_jenny_sample.mp3
 frontend/.audio_cache/
+
+# Local development / browser-test artifacts
+node_modules/
+.sarembok-fix-backups/
+sarembok-*.png
