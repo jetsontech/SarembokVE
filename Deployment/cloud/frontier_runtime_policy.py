@@ -1,4 +1,4 @@
-"""Frontier production policy applied at the cloud runtime boundary."""
+"""Frontier production policy applied to the compatibility runtime."""
 from __future__ import annotations
 
 import os
@@ -11,7 +11,6 @@ SAFE_COMMANDS = {
 }
 SYNTHETIC_WORKER_IDS = {"sarembok-edge-frontier-01"}
 SYNTHETIC_WORKER_PREFIXES = ("worker-gpu-", "worker-edge-", "worker-scale-")
-PUBLIC_HTTP_PATHS = {"/", "/index.html", "/health", "/healthz", "/session"}
 
 
 def _purge_synthetic_workers(runtime: Any) -> None:
@@ -26,32 +25,10 @@ def _purge_synthetic_workers(runtime: Any) -> None:
         runtime.store.db.commit()
 
 
-def _not_found(connection: Any) -> Any:
-    body = b"Not Found\n"
-    if hasattr(connection, "respond"):
-        return connection.respond(404, "Not Found\n")
-    return (404, [("Content-Type", "text/plain; charset=utf-8"), ("Content-Length", str(len(body)))], body)
-
-
 def apply(runtime: Any) -> None:
-    """Apply production-only truth, execution and HTTP controls."""
+    """Apply production-only truth and administrative execution controls."""
     runtime.ensure_sovereign_worker = lambda: None
     _purge_synthetic_workers(runtime)
-
-    original_http = runtime.cloud_server.process_http_request
-
-    async def secure_http_request(connection: Any, request: Any) -> Any:
-        headers = getattr(request, "headers", {}) or {}
-        upgrade = headers.get("Upgrade", "") if hasattr(headers, "get") else ""
-        if str(upgrade).lower() == "websocket":
-            return None
-        path = getattr(request, "path", None) or getattr(connection, "path", "/")
-        path_only = str(path).split("?", 1)[0]
-        if path_only not in PUBLIC_HTTP_PATHS:
-            return _not_found(connection)
-        return await original_http(connection, request)
-
-    runtime.cloud_server.process_http_request = secure_http_request
 
     def safe_run_terminal(cls, command: str) -> dict[str, Any]:
         command = str(command or "").strip()
