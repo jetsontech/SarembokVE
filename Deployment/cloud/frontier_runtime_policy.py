@@ -1,9 +1,9 @@
 """Frontier production policy applied at the cloud runtime boundary.
 
-This module exists to make the production posture explicit without rewriting the
-large compatibility dispatcher in one release. It disables development-only
-synthetic hardware and replaces arbitrary host command execution with a small,
-read-only diagnostic allowlist.
+This module makes the production posture explicit without rewriting the large
+compatibility dispatcher. Development-only synthetic hardware is disabled,
+arbitrary host execution is replaced with a small read-only diagnostic surface,
+and known synthetic worker records are removed from the live registry.
 """
 from __future__ import annotations
 
@@ -28,12 +28,42 @@ SAFE_COMMANDS = {
     "uptime",
 }
 
+SYNTHETIC_WORKER_IDS = {
+    "sarembok-edge-frontier-01",
+}
+SYNTHETIC_WORKER_PREFIXES = (
+    "worker-gpu-",
+    "worker-edge-",
+    "worker-scale-",
+)
+
+
+def _purge_synthetic_workers(runtime: Any) -> None:
+    """Remove only known development/synthetic worker identities.
+
+    Legitimate externally enrolled workers are never touched here.
+    """
+    try:
+        rows = runtime.store.db.execute("SELECT worker_id FROM workers").fetchall()
+        doomed = []
+        for row in rows:
+            worker_id = str(row[0])
+            if worker_id in SYNTHETIC_WORKER_IDS or worker_id.startswith(SYNTHETIC_WORKER_PREFIXES):
+                doomed.append(worker_id)
+        if doomed:
+            runtime.store.db.executemany("DELETE FROM workers WHERE worker_id=?", [(wid,) for wid in doomed])
+            runtime.store.db.commit()
+    except Exception as exc:
+        # A failed cleanup must not silently become a false truth claim. The
+        # frontier verification gate will still inspect the registry live.
+        runtime.LOG.error("synthetic worker cleanup failed: %s", type(exc).__name__)
+        raise
+
 
 def apply(runtime: Any) -> None:
     """Apply production-only truth and tool controls to the compatibility runtime."""
-    # The historical dispatcher contains a development-era self-registration
-    # routine for a fictional sovereign GPU node. Production must never invoke it.
     runtime.ensure_sovereign_worker = lambda: None
+    _purge_synthetic_workers(runtime)
 
     def safe_run_terminal(cls, command: str) -> dict[str, Any]:
         command = str(command or "").strip()
@@ -47,21 +77,12 @@ def apply(runtime: Any) -> None:
             return {"error": "command_not_allowlisted"}
         if any(token in command for token in (";", "&&", "||", "|", ">", "<", "`", "$(", "${")):
             return {"error": "shell_syntax_not_permitted"}
-        # Only non-destructive diagnostics are allowed. Git is restricted to
-        # read-only inspection operations.
         if argv[0] == "git" and (len(argv) < 2 or argv[1] not in {"status", "log", "diff", "show", "rev-parse"}):
             return {"error": "git_operation_not_allowlisted"}
         if argv[0] in {"python", "python3"} and len(argv) > 1 and argv[1] not in {"--version", "-V"}:
             return {"error": "python_execution_disabled_in_production"}
         try:
-            proc = subprocess.run(
-                argv,
-                shell=False,
-                capture_output=True,
-                text=True,
-                timeout=8,
-                check=False,
-            )
+            proc = subprocess.run(argv, shell=False, capture_output=True, text=True, timeout=8, check=False)
             stdout = proc.stdout.strip()
             stderr = proc.stderr.strip()
             return {
@@ -77,17 +98,10 @@ def apply(runtime: Any) -> None:
             return {"command": command, "error": type(exc).__name__}
 
     def disabled_python(cls, code_snippet: str) -> dict[str, Any]:
-        return {
-            "status": "DISABLED",
-            "error": "arbitrary_python_execution_disabled_in_production",
-        }
+        return {"status": "DISABLED", "error": "arbitrary_python_execution_disabled_in_production"}
 
     def disabled_write(cls, path: str, content: str) -> dict[str, Any]:
-        return {
-            "status": "DENIED",
-            "error": "arbitrary_file_write_disabled_in_production",
-            "path": str(path or ""),
-        }
+        return {"status": "DENIED", "error": "arbitrary_file_write_disabled_in_production", "path": str(path or "")}
 
     registry = getattr(runtime, "AdminToolRegistry", None)
     if registry is not None:
@@ -95,9 +109,6 @@ def apply(runtime: Any) -> None:
         registry.execute_python = classmethod(disabled_python)
         registry.write_file = classmethod(disabled_write)
 
-    # Production must not expose a fabricated sovereign worker identifier as an
-    # executable target. Leave legacy constants intact for compatibility, but
-    # the release boundary treats them as non-authoritative metadata.
     runtime.PRODUCTION_TRUTH_BOUNDARY = True
     runtime.SYNTHETIC_WORKER_REGISTRATION_DISABLED = True
     runtime.SYNTHETIC_WORKER_ID = os.getenv("SAREMBOK_SYNTHETIC_WORKER_ID", "").strip()
