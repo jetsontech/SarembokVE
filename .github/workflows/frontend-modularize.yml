@@ -1,0 +1,38 @@
+name: Sarembok Frontend Modularization
+on:
+  push:
+    branches: [ui/simplify-and-modularize]
+    paths:
+      - 'scripts/modularize_frontend.py'
+      - 'frontend/css/sarembok-simplified.css'
+      - 'frontend/js/sarembok-simplified.js'
+      - 'frontend/index.html'
+permissions:
+  contents: write
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/modularize_frontend.py
+      - name: Validate frontend hooks
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('frontend/index.html').read_text(encoding='utf-8')
+          assert '/frontend/css/sarembok-simplified.css' in s
+          assert '/frontend/js/sarembok-simplified.js' in s
+          assert '</head>' in s and '</body>' in s
+          print('Frontend hook validation passed')
+          PY
+      - name: Commit migration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add frontend/index.html frontend/css/sarembok-simplified.css frontend/js/sarembok-simplified.js scripts/modularize_frontend.py
+          git diff --cached --quiet || git commit -m 'Refactor frontend presentation into modular assets'
+          git push
