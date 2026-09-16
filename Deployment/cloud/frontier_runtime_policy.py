@@ -1,6 +1,7 @@
 """Frontier production policy applied to the compatibility runtime."""
 from __future__ import annotations
 
+import hmac
 import os
 import shlex
 import subprocess
@@ -50,6 +51,39 @@ def apply(runtime: Any) -> None:
         cloud.evaluate_worker_liveness = guarded_worker_liveness
 
     _purge_synthetic_workers(runtime)
+
+    # The legacy server has its own administrative gate. Frontier production
+    # authentication is authoritative, so bind that gate to the same
+    # configured credentials and provide a typed-admin execution bridge.
+    legacy_dispatch = getattr(cloud, "dispatch", None)
+    if callable(legacy_dispatch):
+        admin_token = os.getenv("SAREMBOK_ADMIN_TOKEN", "").strip()
+        admin_passcode = os.getenv("SAREMBOK_ADMIN_PASSCODE", "").strip()
+        legacy_globals = getattr(legacy_dispatch, "__globals__", None)
+        if isinstance(legacy_globals, dict):
+            legacy_globals["ADMIN_TOKENS"] = {admin_token} if admin_token else set()
+            legacy_globals["ADMIN_ALLOWED_PASSCODES"] = {admin_passcode} if admin_passcode else set()
+
+        def guarded_admin_dispatch(method: str, params: dict[str, Any]) -> Any:
+            if method != "AdminExecuteDirective":
+                return legacy_dispatch(method, params)
+            supplied_token = str(params.get("adminToken") or params.get("adminSessionToken") or "").strip()
+            supplied_passcode = str(params.get("adminPasscode") or params.get("passcode") or "").strip()
+            token_ok = bool(admin_token and supplied_token and hmac.compare_digest(supplied_token, admin_token))
+            passcode_ok = bool(admin_passcode and supplied_passcode and hmac.compare_digest(supplied_passcode, admin_passcode))
+            if not (token_ok or passcode_ok):
+                raise ValueError("admin_authentication_required: configured frontier administrative credential required")
+            directive = str(params.get("directive") or params.get("prompt") or "").strip()
+            if not directive:
+                raise ValueError("directive is required")
+            session_id = str(params.get("sessionId") or "admin-session").strip() or "admin-session"
+            model = str(params.get("model") or "").strip() or None
+            dialogue = getattr(cloud, "sarembok_process_dialogue", None)
+            if not callable(dialogue):
+                return legacy_dispatch(method, {**params, "adminPasscode": admin_passcode, "passcode": admin_passcode})
+            return dialogue(directive, session_id=session_id, model=model, admin=True)
+
+        cloud.dispatch = guarded_admin_dispatch
 
     def safe_run_terminal(cls, command: str) -> dict[str, Any]:
         command = str(command or "").strip()
