@@ -18,15 +18,18 @@ printf '%s\n' '===== SOURCE ====='
 # Verify tracked file content against HEAD without treating executable-bit changes as
 # source changes. The verifier is commonly invoked with `chmod +x`, which changes
 # mode metadata but must not make an otherwise clean production checkout fail.
+# The verification runs from Deployment/cloud for compose commands, so resolve each
+# repository-relative path through ROOT before checking its working-tree blob.
 SOURCE_CONTENT_DIRTY=0
 while IFS= read -r path; do
   [ -n "$path" ] || continue
-  if [ ! -f "$path" ]; then
+  ABS_PATH="$ROOT/$path"
+  if [ ! -f "$ABS_PATH" ]; then
     SOURCE_CONTENT_DIRTY=1
     fail "tracked source file missing: $path"
     continue
   fi
-  WORKTREE_BLOB="$(git hash-object -- "$path")"
+  WORKTREE_BLOB="$(git hash-object -- "$ABS_PATH")"
   HEAD_BLOB="$(git rev-parse "HEAD:$path" 2>/dev/null || true)"
   if [ -z "$HEAD_BLOB" ] || [ "$WORKTREE_BLOB" != "$HEAD_BLOB" ]; then
     SOURCE_CONTENT_DIRTY=1
