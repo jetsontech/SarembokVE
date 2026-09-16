@@ -8,31 +8,31 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/sarembok-simplified.css">
+<link rel="stylesheet" href="/css/sarembok-simplified.css?v=20260915-r3">
 </head>
 <body>
 <div class="srbk-app">
   <header class="srbk-header">
     <div class="srbk-brand"><span class="srbk-reactor"><span></span></span><div><div class="srbk-title">SAREMBOK<span>VE</span></div><div class="srbk-subtitle">AI-NATIVE COMPUTING ENVIRONMENT</div></div></div>
-    <div class="srbk-status"><span id="runtime-dot" class="dot offline"></span><span id="runtime-status">CONNECTING</span><span id="runtime-latency"></span><button id="system-btn" class="icon-btn" aria-label="Open system controls">⚙</button></div>
+    <div class="srbk-status"><span id="runtime-dot" class="dot offline"></span><span id="runtime-status">CONNECTING</span><span id="runtime-latency"></span><button id="system-btn" class="icon-btn" type="button" aria-label="Open system controls">⚙</button></div>
   </header>
   <main class="srbk-main">
     <section id="conversation" class="conversation" aria-label="Sarembok conversation">
-      <div id="empty-state" class="empty-state"><div class="empty-mark">S</div><h1>What would you like Sarembok to do?</h1><p>Ask a question, request research, plan work, or dispatch a computing task.</p><div class="suggestions"><button data-prompt="What can Sarembok do?">What can Sarembok do?</button><button data-prompt="Show the current runtime status.">Runtime status</button><button data-prompt="Explain the Sarembok architecture.">Architecture</button></div></div>
+      <div id="empty-state" class="empty-state"><div class="empty-mark">S</div><h1>What would you like Sarembok to do?</h1><p>Ask a question, request research, plan work, or dispatch a computing task.</p><div class="suggestions"><button type="button" data-prompt="What can Sarembok do?">What can Sarembok do?</button><button type="button" data-prompt="Show the current runtime status.">Runtime status</button><button type="button" data-prompt="Explain the Sarembok architecture.">Architecture</button></div></div>
     </section>
     <div id="typing" class="typing" hidden><span></span><span></span><span></span><b>Sarembok is working…</b></div>
   </main>
   <footer class="srbk-input-wrap">
     <form id="chat-form" class="chat-input">
       <textarea id="prompt" rows="1" autocomplete="off" placeholder="Ask Sarembok anything…" aria-label="Ask Sarembok anything"></textarea>
-      <button id="stop-btn" class="stop-btn" type="button" hidden>■</button>
+      <button id="stop-btn" class="stop-btn" type="button" hidden aria-label="Stop current request">■</button>
       <button id="send-btn" class="send-btn" type="submit" aria-label="Send">↑</button>
     </form>
     <div class="input-meta"><span>ENTER to send · SHIFT+ENTER for new line</span><span id="connection-meta">SECURE RUNTIME SESSION</span></div>
   </footer>
 </div>
 <aside id="system-drawer" class="drawer" aria-hidden="true">
-  <div class="drawer-head"><div><b>SYSTEM</b><span>Runtime authority</span></div><button id="close-system" class="icon-btn">×</button></div>
+  <div class="drawer-head"><div><b>SYSTEM</b><span>Runtime authority</span></div><button id="close-system" class="icon-btn" type="button" aria-label="Close system controls">×</button></div>
   <div class="drawer-body">
     <div class="drawer-card"><label>Runtime</label><strong id="drawer-runtime">Checking…</strong><pre id="runtime-detail"></pre></div>
     <div class="drawer-card"><label>Workers</label><strong id="workers-count">Checking…</strong></div>
@@ -43,6 +43,6 @@
   </div>
 </aside>
 <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
-<script src="/js/sarembok-simplified.js" defer></script>
+<script src="/js/sarembok-simplified.js?v=20260915-r3" defer></script>
 </body>
 </html>
