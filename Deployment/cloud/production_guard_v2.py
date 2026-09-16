@@ -85,13 +85,17 @@ class ProductionGuard:
     def allow_subject(self,identity):
         ok,retry=self.per_subject.allow(identity.subject)
         if not ok: raise PermissionError(f"rate_limited_retry_after={retry}")
+    @staticmethod
+    def _request_headers(ws):
+        headers=getattr(ws,"request_headers",None)
+        if headers is not None: return headers
+        request=getattr(ws,"request",None)
+        headers=getattr(request,"headers",None)
+        if headers is not None: return headers
+        return {}
     def origin_allowed(self,ws):
         if not self.require_origin:return True
-        headers=getattr(ws,"request_headers",None)
-        if headers is None:
-            request=getattr(ws,"request",None)
-            headers=getattr(request,"headers",None) if request is not None else None
-        if headers is None: return False
+        headers=self._request_headers(ws)
         raw_origin=str(headers.get("Origin","")).strip()
         if not raw_origin:
             host=str(headers.get("Host","")).strip().lower().rstrip("/")
