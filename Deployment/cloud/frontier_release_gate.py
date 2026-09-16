@@ -6,6 +6,7 @@ import re
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CLOUD = ROOT / "Deployment" / "cloud"
+EDGE = CLOUD / "edge" / "Caddyfile"
 FAILURES: list[str] = []
 
 
@@ -23,13 +24,16 @@ entrypoint = read(CLOUD / "production_entrypoint_frontier.py")
 policy = read(CLOUD / "frontier_runtime_policy.py")
 tenant = read(CLOUD / "frontier_tenant_guard.py")
 deploy = read(CLOUD / "deploy_frontier_release.sh")
+caddy = read(EDGE)
 
 require("production_entrypoint_frontier.py" in compose, "frontier compose does not select v5 boundary")
 require("SAREMBOK_WORKER_TOKEN_HASH_SALT" in compose and "SAREMBOK_WORKER_TOKEN_HASH_SALT" in deploy, "worker token salt is not wired")
 require("SAREMBOK_ALLOW_ORIGINLESS_LOCAL:-false" in compose, "production originless-local default is not fail-closed")
 require("verify_frontier_v2.sh" in deploy and "verify_frontier_e2e.sh" in deploy, "release script missing live verification")
 require("ORIGINAL_VALIDATE(request)" not in entrypoint, "frontier validation still depends on legacy authentication")
-require("Keep the restricted process_http_request" in entrypoint, "frontier HTTP lockdown is not preserved")
+require("Keep the restricted process_http_request" in entrypoint, "frontier HTTP lockdown marker is missing")
+require('handle /api/*' in caddy and 'respond "Not Found" 404' in caddy, "legacy HTTP API is not blocked at the edge")
+require('handle /live/*' in caddy and 'respond "Not Found" 404' in caddy, "legacy live HTTP API is not blocked at the edge")
 require("runtime.ensure_sovereign_worker = lambda: None" in policy, "synthetic worker bootstrap is not disabled")
 require("_purge_synthetic_workers" in policy, "known synthetic worker records are not purged")
 require('"hardwareAttestation":"NOT_ATTESTED"' in entrypoint, "hardware attestation state is not explicit")
@@ -64,6 +68,7 @@ print("FRONTIER STATIC GATE: PASS")
 print("PASS  frontier compose selects production boundary v5")
 print("PASS  worker token salt wired")
 print("PASS  originless local access disabled by production default")
+print("PASS  edge legacy /api and /live surfaces blocked")
 print("PASS  synthetic worker bootstrap disabled and legacy records purged")
 print("PASS  hardware attestation truth explicitly reported")
 print("PASS  GPU marketplace capacity claims bounded")
