@@ -36,8 +36,10 @@ ORIGINAL_PROCESS_HTTP_REQUEST = cloud.process_http_request
 ORIGINAL_SET_STREAM_CALLBACK = set_stream_callback
 
 _admin_passcode = os.getenv("SAREMBOK_ADMIN_PASSCODE", "").strip()
+_admin_token = os.getenv("SAREMBOK_ADMIN_TOKEN", "").strip()
 cloud.ADMIN_PASSCODE = _admin_passcode
 cloud.ADMIN_ALLOWED_PASSCODES = {_admin_passcode} if _admin_passcode else set()
+cloud.ADMIN_TOKENS = {_admin_token} if _admin_token else set()
 
 
 def _init_security_schema() -> None:
@@ -200,8 +202,9 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
     if role=="WORKER" and method=="ExecuteComputeTask": raise PermissionError("direct_compute_execution_disabled_use_worker_task_protocol")
     clean_params={k:v for k,v in params.items() if not k.startswith("_sarembok") and k not in {"enrollmentToken","workerToken","authToken","sessionToken"}}
     if method=="AdminExecuteDirective" and role in {"ADMIN","MASTER","SYSTEM"}:
-        clean_params["adminToken"] = os.getenv("SAREMBOK_ADMIN_TOKEN", "") or os.getenv("SAREMBOK_MASTER_TOKEN", "")
-        clean_params["adminPasscode"] = os.getenv("SAREMBOK_ADMIN_PASSCODE", "")
+        clean_params["adminToken"] = _admin_token
+        clean_params["adminPasscode"] = _admin_passcode
+        clean_params["passcode"] = _admin_passcode
     if method=="SarembokChat" or method=="Chat" or method=="SarembokDialogue":
         if role=="USER": clean_params["sessionId"] = scoped_session_id(subject, str(params.get("sessionId") or "default"))
     started=time.perf_counter()
