@@ -2,12 +2,14 @@
 
 Discovers, parses, and executes modular skills structured according to the
 SKILL.md frontier standard (YAML frontmatter + Markdown instructions).
+
+Important: discovery is not execution. A skill without a registered handler
+must never be reported as successfully executed.
 """
 from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,68 +30,39 @@ class SkillDefinition:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_openai_tool(self) -> dict[str, Any]:
-        """Format as an OpenAI / Gemini / Anthropic compatible function tool."""
-        return {
-            "type": "function",
-            "function": {
-                "name": self.name,
-                "description": self.description,
-                "parameters": self.parameters if self.parameters else {
-                    "type": "object",
-                    "properties": {},
-                },
-            },
-        }
+        return {"type": "function", "function": {"name": self.name, "description": self.description, "parameters": self.parameters if self.parameters else {"type": "object", "properties": {}}}}
 
     def to_mcp_tool(self) -> dict[str, Any]:
-        """Format as a standard Model Context Protocol (MCP) tool schema."""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "inputSchema": self.parameters if self.parameters else {
-                "type": "object",
-                "properties": {},
-            },
-        }
+        return {"name": self.name, "description": self.description, "inputSchema": self.parameters if self.parameters else {"type": "object", "properties": {}}}
 
 
 class SkillsEngine:
     def __init__(self, skills_dir: str | Path | None = None) -> None:
-        if skills_dir is None:
-            base = Path(__file__).resolve().parent
-            skills_dir = base / "skills"
-        self.skills_dir = Path(skills_dir)
+        base = Path(__file__).resolve().parent
+        self.skills_dir = Path(skills_dir or base / "skills")
         self._skills: dict[str, SkillDefinition] = {}
         self._handlers: dict[str, Callable[[dict[str, Any], dict[str, Any]], Any]] = {}
         self._load_skills()
 
     def register_handler(self, skill_name: str, handler: Callable[[dict[str, Any], dict[str, Any]], Any]) -> None:
-        """Register a native Python execution handler for a skill."""
         self._handlers[skill_name] = handler
 
     def _parse_frontmatter(self, text: str) -> tuple[dict[str, Any], str]:
-        """Parse YAML/JSON style frontmatter delimited by ---."""
-        pattern = r"^---\s*\n(.*?)\n---\s*\n(.*)$"
-        match = re.match(pattern, text, re.DOTALL)
+        match = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)$", text, re.DOTALL)
         if not match:
             return {}, text
-
         raw_fm, body = match.group(1), match.group(2)
         meta: dict[str, Any] = {}
-
         try:
             in_params = False
-            param_lines = []
-
+            param_lines: list[str] = []
             for line in raw_fm.splitlines():
                 stripped = line.strip()
                 if not stripped or stripped.startswith("#"):
                     continue
-
                 if ":" in line and not in_params:
-                    parts = line.split(":", 1)
-                    k = parts[0].strip()
-                    v = parts[1].strip()
+                    k, v = line.split(":", 1)
+                    k, v = k.strip(), v.strip()
                     if k == "parameters":
                         in_params = True
                         if v:
@@ -100,53 +73,35 @@ class SkillsEngine:
                         meta[k] = v
                 elif in_params:
                     param_lines.append(line)
-
             if in_params and param_lines:
-                param_text = "\n".join(param_lines).strip()
                 try:
-                    meta["parameters"] = json.loads(param_text)
+                    meta["parameters"] = json.loads("\n".join(param_lines).strip())
                 except Exception:
                     meta["parameters"] = {"type": "object", "properties": {}}
-
         except Exception as exc:
             logger.warning("Error parsing SKILL.md frontmatter: %s", exc)
-
         return meta, body.strip()
 
     def _load_skills(self) -> None:
-        """Scan skills_dir and load all valid SKILL.md files."""
         self._skills.clear()
         if not self.skills_dir.exists():
             return
-
         for entry in self.skills_dir.iterdir():
-            if entry.is_dir():
-                skill_file = entry / "SKILL.md"
-                if skill_file.exists():
-                    try:
-                        content = skill_file.read_text(encoding="utf-8")
-                        meta, body = self._parse_frontmatter(content)
-                        name = meta.get("name", entry.name)
-                        desc = meta.get("description", f"Autonomous skill for {name}")
-                        domain = meta.get("domain", "general")
-                        params = meta.get("parameters", {"type": "object", "properties": {}})
-
-                        skill = SkillDefinition(
-                            name=name,
-                            description=desc,
-                            domain=domain,
-                            parameters=params,
-                            instructions=body,
-                            skill_dir=str(entry),
-                            metadata=meta,
-                        )
-                        self._skills[name] = skill
-                        logger.info("Loaded skill: %s (domain=%s)", name, domain)
-                    except Exception as exc:
-                        logger.error("Failed to load skill from %s: %s", skill_file, exc)
+            if not entry.is_dir():
+                continue
+            skill_file = entry / "SKILL.md"
+            if not skill_file.exists():
+                continue
+            try:
+                content = skill_file.read_text(encoding="utf-8")
+                meta, body = self._parse_frontmatter(content)
+                name = meta.get("name", entry.name)
+                self._skills[name] = SkillDefinition(name=name, description=meta.get("description", f"Autonomous skill for {name}"), domain=meta.get("domain", "general"), parameters=meta.get("parameters", {"type": "object", "properties": {}}), instructions=body, skill_dir=str(entry), metadata=meta)
+                logger.info("Loaded skill: %s", name)
+            except Exception as exc:
+                logger.error("Failed to load skill from %s: %s", skill_file, exc)
 
     def reload(self) -> int:
-        """Hot-reload all skills from disk."""
         self._load_skills()
         return len(self._skills)
 
@@ -157,7 +112,6 @@ class SkillsEngine:
         return self._skills.get(name)
 
     def get_openai_tools(self) -> list[dict[str, Any]]:
-        """Return function calling schema list for OpenAI / Gemini / Groq / Anthropic, including external MCP tools."""
         tools = [skill.to_openai_tool() for skill in self._skills.values() if skill.enabled]
         try:
             try:
@@ -167,35 +121,28 @@ class SkillsEngine:
                     from Deployment.cloud.mcp_client import get_mcp_client_manager
                 except ImportError:
                     from .mcp_client import get_mcp_client_manager
-            ext_tools = get_mcp_client_manager().get_all_external_tools()
-            for et in ext_tools:
-                tools.append({
-                    "type": "function",
-                    "function": {
-                        "name": et["name"],
-                        "description": et.get("description", f"External MCP tool from {et.get('mcp_server')}"),
-                        "parameters": et.get("inputSchema", {"type": "object", "properties": {}}),
-                    }
-                })
+            for et in get_mcp_client_manager().get_all_external_tools():
+                tools.append({"type": "function", "function": {"name": et["name"], "description": et.get("description", f"External MCP tool from {et.get('mcp_server')}"), "parameters": et.get("inputSchema", {"type": "object", "properties": {}})}})
         except Exception as exc:
             logger.debug("External MCP tools unavailable: %s", exc)
         return tools
 
     def get_mcp_tools(self) -> list[dict[str, Any]]:
-        """Return MCP tools list conforming to Model Context Protocol specification."""
         return [skill.to_mcp_tool() for skill in self._skills.values() if skill.enabled]
 
-    def execute_skill(
-        self,
-        name: str,
-        arguments: dict[str, Any] | None = None,
-        context: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Execute a skill by name with arguments and context (supporting both native skills and external MCP tools)."""
+    def skill_status(self, name: str) -> dict[str, Any]:
+        skill = self._skills.get(name)
+        if not skill:
+            return {"name": name, "status": "NOT_FOUND"}
+        if not skill.enabled:
+            return {"name": name, "status": "DISABLED"}
+        if name in self._handlers:
+            return {"name": name, "status": "EXECUTABLE", "domain": skill.domain}
+        return {"name": name, "status": "DISCOVERED", "domain": skill.domain}
+
+    def execute_skill(self, name: str, arguments: dict[str, Any] | None = None, context: dict[str, Any] | None = None) -> dict[str, Any]:
         args = arguments or {}
         ctx = context or {}
-
-        # 0. External MCP Client dispatch
         if name.startswith("mcp_"):
             try:
                 try:
@@ -208,52 +155,26 @@ class SkillsEngine:
                 mgr = get_mcp_client_manager()
                 for et in mgr.get_all_external_tools():
                     if et["name"] == name:
-                        srv = et["mcp_server"]
-                        orig_tool = et["mcp_original_name"]
-                        out = mgr.call_external_tool(srv, orig_tool, args)
-                        return {"success": True, "skill": name, "output": out}
+                        out = mgr.call_external_tool(et["mcp_server"], et["mcp_original_name"], args)
+                        return {"success": True, "skill": name, "status": "EXECUTED", "output": out}
                 return {"success": False, "skill": name, "error": f"External MCP tool '{name}' not found."}
             except Exception as exc:
                 return {"success": False, "skill": name, "error": f"External MCP call failed: {exc}"}
-
         skill = self._skills.get(name)
         if not skill:
-            return {
-                "success": False,
-                "error": f"Skill '{name}' not found in registered skills.",
-                "availableSkills": list(self._skills.keys()),
-            }
-
-        args = arguments or {}
-        ctx = context or {}
-
-        # 1. Custom native execution handler
+            return {"success": False, "error": f"Skill '{name}' not found in registered skills.", "availableSkills": list(self._skills.keys())}
+        if not skill.enabled:
+            return {"success": False, "skill": name, "status": "DISABLED", "error": f"Skill '{name}' is disabled."}
         handler = self._handlers.get(name)
-        if handler:
-            try:
-                result = handler(args, ctx)
-                return {
-                    "success": True,
-                    "skill": name,
-                    "output": result,
-                }
-            except Exception as exc:
-                logger.error("Error executing handler for skill %s: %s", name, exc)
-                return {
-                    "success": False,
-                    "skill": name,
-                    "error": str(exc),
-                }
-
-        # 2. Default execution dispatch
-        return {
-            "success": True,
-            "skill": name,
-            "output": f"Executed skill '{name}' with arguments: {args}",
-        }
+        if not handler:
+            return {"success": False, "skill": name, "status": "DISCOVERED", "error": f"Skill '{name}' is discovered but has no executable handler."}
+        try:
+            return {"success": True, "skill": name, "status": "EXECUTED", "output": handler(args, ctx)}
+        except Exception as exc:
+            logger.error("Error executing handler for skill %s: %s", name, exc)
+            return {"success": False, "skill": name, "status": "FAILED", "error": str(exc)}
 
 
-# Global singleton instance
 _GLOBAL_SKILLS_ENGINE: SkillsEngine | None = None
 
 
