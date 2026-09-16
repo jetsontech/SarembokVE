@@ -129,7 +129,7 @@ def _validate(request: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     if method == "RegisterWorker":
         configured = os.getenv("SAREMBOK_WORKER_ENROLLMENT_TOKEN", "").strip()
         supplied = str(params.get("enrollmentToken") or "").strip()
-        if not configured or not supplied or not hmac.compare_digest(configured, supplied): raise PermissionError("worker_enrollment_required")
+        if not configured or not supplied or not hmac.compare_digest(supplied, configured): raise PermissionError("worker_enrollment_required")
     if role == "WORKER" and method in {"Heartbeat","ClaimTask","CompleteTask","FailTask"}:
         requested_worker = str(params.get("workerId") or "").strip()
         if not requested_worker or requested_worker != subject: raise PermissionError("worker_identity_mismatch")
@@ -179,7 +179,7 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         scoped = dict(params)
         if method in {"SarembokChat","Chat","SarembokDialogue","GetConversationHistory"}:
             scoped["sessionId"] = scoped_session_id(subject, str(params.get("sessionId") or "default"))
-        handled, scoped_result = handle_user_rpc(runtime, method, scoped, subject)
+        handled, scoped_result = handle_user_rpc(cloud, method, scoped, subject)
         if handled:
             result = scrub(dict(scoped_result or {}))
             result.setdefault("metadata", {}).update({"executionId":execution_id,"role":role,"subject":subject,"tenantIsolated":True})
