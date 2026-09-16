@@ -15,11 +15,26 @@ printf '\n===== SAREMBOK PRODUCTION VERIFICATION =====\n'
 printf 'ROOT: %s\nHOST: %s\n\n' "$ROOT" "$HOST"
 
 printf '%s\n' '===== SOURCE ====='
-if git diff --numstat | grep -q . || git diff --cached --numstat | grep -q .; then
-  fail 'working tree has content changes'
-else
-  pass 'tracked source content clean'
-fi
+# Verify tracked file content against HEAD without treating executable-bit changes as
+# source changes. The verifier is commonly invoked with `chmod +x`, which changes
+# mode metadata but must not make an otherwise clean production checkout fail.
+SOURCE_CONTENT_DIRTY=0
+while IFS= read -r path; do
+  [ -n "$path" ] || continue
+  if [ ! -f "$path" ]; then
+    SOURCE_CONTENT_DIRTY=1
+    fail "tracked source file missing: $path"
+    continue
+  fi
+  WORKTREE_BLOB="$(git hash-object -- "$path")"
+  HEAD_BLOB="$(git rev-parse "HEAD:$path" 2>/dev/null || true)"
+  if [ -z "$HEAD_BLOB" ] || [ "$WORKTREE_BLOB" != "$HEAD_BLOB" ]; then
+    SOURCE_CONTENT_DIRTY=1
+    fail "tracked source content changed: $path"
+  fi
+done < <(git diff --name-only; git diff --cached --name-only | sort -u)
+
+[ "$SOURCE_CONTENT_DIRTY" -eq 0 ] && pass 'tracked source content clean'
 BRANCH="$(git branch --show-current)"
 [ "$BRANCH" = "main" ] && pass 'branch main' || fail "unexpected branch: $BRANCH"
 
