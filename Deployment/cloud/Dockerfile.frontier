@@ -1,0 +1,2 @@
+# Production command reference: the canonical Dockerfile remains Deployment/cloud/Dockerfile.
+# This file exists only as a checked-in build reference and is not used by compose.
