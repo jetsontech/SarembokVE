@@ -11,14 +11,24 @@ except Exception as exc:
     raise SystemExit(f'websockets package unavailable: {exc}')
 
 base='https://' + os.getenv('SAREMBOK_PUBLIC_HOST','sarembok.com')
-with urllib.request.urlopen(base + '/session', timeout=15) as response:
+HTTP_HEADERS={
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36 SarembokVE-Frontier-E2E',
+    'Accept': 'application/json, text/plain, */*',
+    'Cache-Control': 'no-cache',
+}
+
+def http_get(path, timeout=15):
+    request=urllib.request.Request(base + path, headers=HTTP_HEADERS, method='GET')
+    return urllib.request.urlopen(request, timeout=timeout)
+
+with http_get('/session', timeout=15) as response:
     data=json.loads(response.read().decode())
 token=data.get('sessionToken')
 if not token: raise SystemExit('FAIL: /session returned no sessionToken')
 print('PASS  browser session issued')
 
 try:
-    urllib.request.urlopen(base + '/api/chat-sessions', timeout=10)
+    http_get('/api/chat-sessions', timeout=10)
     raise SystemExit('FAIL: legacy unauthenticated /api endpoint is reachable')
 except urllib.error.HTTPError as exc:
     if exc.code != 404: raise SystemExit(f'FAIL: /api/chat-sessions returned HTTP {exc.code}')
@@ -26,7 +36,7 @@ print('PASS  legacy /api surface blocked at edge')
 
 async def main():
     uri='wss://' + os.getenv('SAREMBOK_PUBLIC_HOST','sarembok.com') + '/ws'
-    async with websockets.connect(uri, origin=base, max_size=2*1024*1024, open_timeout=10) as ws:
+    async with websockets.connect(uri, origin=base, max_size=2*1024*1024, open_timeout=10, user_agent_header=HTTP_HEADERS['User-Agent']) as ws:
         async def rpc(rid, method, params=None, auth=token):
             payload={'jsonrpc':'2.0','id':rid,'method':method,'params':dict(params or {}, sessionToken=auth) if auth is not None else dict(params or {})}
             await ws.send(json.dumps(payload))
