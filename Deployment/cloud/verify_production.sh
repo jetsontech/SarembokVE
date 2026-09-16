@@ -15,7 +15,11 @@ printf '\n===== SAREMBOK PRODUCTION VERIFICATION =====\n'
 printf 'ROOT: %s\nHOST: %s\n\n' "$ROOT" "$HOST"
 
 printf '%s\n' '===== SOURCE ====='
-if git diff --quiet && git diff --cached --quiet; then pass 'working tree clean'; else fail 'working tree has uncommitted changes'; fi
+if git diff --numstat | grep -q . || git diff --cached --numstat | grep -q .; then
+  fail 'working tree has content changes'
+else
+  pass 'tracked source content clean'
+fi
 BRANCH="$(git branch --show-current)"
 [ "$BRANCH" = "main" ] && pass 'branch main' || fail "unexpected branch: $BRANCH"
 
@@ -40,36 +44,34 @@ RUNTIME_STATUS="$(docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.St
 printf '%s\n' "$RUNTIME_STATUS" | grep -q 'running healthy' && pass 'runtime running and healthy' || fail "runtime health: ${RUNTIME_STATUS:-missing}"
 
 printf '\n%s\n' '===== RUNTIME WORKER INVENTORY ====='
-WORKER_JSON="$(docker exec sarembok-runtime python - <<'PY'
+WORKER_JSON="$(docker exec sarembok-runtime python -c '
 import json, sqlite3, sys
-p='/data/sarembok_cloud.db'
+p="/data/sarembok_cloud.db"
 try:
     con=sqlite3.connect(p)
     con.row_factory=sqlite3.Row
-    rows=con.execute('SELECT worker_id,status,last_heartbeat,gpu_vendor,gpu_model FROM workers ORDER BY worker_id').fetchall()
+    rows=con.execute("SELECT worker_id,status,last_heartbeat,gpu_vendor,gpu_model FROM workers ORDER BY worker_id").fetchall()
     print(json.dumps([dict(r) for r in rows]))
 except Exception as exc:
-    print(json.dumps({'error': str(exc)}))
+    print(json.dumps({"error": str(exc)}))
     sys.exit(0)
-PY
-)"
-python3 - "$WORKER_JSON" <<'PY'
+' 2>&1)" || {
+  fail "worker inventory command failed: ${WORKER_JSON:-no output}"
+  WORKER_JSON=''
+}
+if [ -n "$WORKER_JSON" ]; then
+  if python3 - "$WORKER_JSON" <<'PY'
 import json, sys
 raw=sys.argv[1].strip()
-if not raw:
-    print('workers recorded: 0')
-    print('workers online/ready/active/available: 0')
-    print('WARNING: worker inventory query returned no data.')
-    sys.exit(0)
 try:
     data=json.loads(raw)
 except json.JSONDecodeError as exc:
-    print(f'WARNING: worker inventory response was not valid JSON: {exc}')
+    print(f'FAIL: worker inventory response was not valid JSON: {exc}')
     print(f'raw response: {raw[:500]!r}')
-    sys.exit(0)
+    sys.exit(1)
 if isinstance(data,dict) and 'error' in data:
-    print(f"WARNING: worker inventory unavailable: {data['error']}")
-    sys.exit(0)
+    print(f"FAIL: worker inventory unavailable: {data['error']}")
+    sys.exit(1)
 rows=data if isinstance(data,list) else []
 online=[r for r in rows if str(r.get('status','')).upper() in {'ONLINE','READY','ACTIVE','AVAILABLE'}]
 print(f'workers recorded: {len(rows)}')
@@ -79,6 +81,14 @@ for r in rows:
 if not online:
     print('WARNING: no active worker is currently registered in the runtime database.')
 PY
+  then
+    pass 'runtime worker inventory query'
+  else
+    fail 'runtime worker inventory query failed'
+  fi
+else
+  fail 'runtime worker inventory returned no output'
+fi
 
 printf '\n%s\n' '===== PUBLIC HTTP ====='
 HEALTH="$(curl -fsS --max-time 15 "$BASE/health" || true)"
