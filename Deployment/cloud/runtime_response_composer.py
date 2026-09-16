@@ -1,32 +1,25 @@
-"""Compose dialogue context from authoritative Sarembok runtime state.
-
-The language model remains responsible for conversational wording, but live
-platform facts are supplied by Runtime Authority rather than inferred from a
-static prompt or UI labels.
-"""
+"""Authoritative response helpers for the Sarembok VE cloud runtime."""
 from __future__ import annotations
 
-from typing import Any
 import re
+from typing import Any
 
 
 def _provider_entries(snapshot: dict[str, Any]) -> list[dict[str, str]]:
-    provider = snapshot.get("provider") or {}
-    configured = provider.get("configuredProviders") or []
+    configured = (snapshot.get("provider") or {}).get("configuredProviders") or []
     entries: list[dict[str, str]] = []
     for item in configured:
-        if not isinstance(item, dict):
-            continue
-        entries.append({
-            "name": str(item.get("name") or "unknown"),
-            "model": str(item.get("model") or "unknown"),
-            "api": str(item.get("api") or "unknown"),
-        })
+        if isinstance(item, dict):
+            entries.append({
+                "name": str(item.get("name") or "unknown"),
+                "model": str(item.get("model") or "unknown"),
+                "api": str(item.get("api") or "unknown"),
+            })
     return entries
 
 
 def _provider_lines(snapshot: dict[str, Any]) -> list[str]:
-    return [f"- {item['name']}: model={item['model']}; api={item['api']}" for item in _provider_entries(snapshot)]
+    return [f"- {p['name']}: model={p['model']}; api={p['api']}" for p in _provider_entries(snapshot)]
 
 
 def build_runtime_context(snapshot: dict[str, Any], capabilities: dict[str, Any] | None = None) -> str:
@@ -40,20 +33,18 @@ def build_runtime_context(snapshot: dict[str, Any], capabilities: dict[str, Any]
         "AUTHORITATIVE SAREMBOK RUNTIME CONTEXT",
         "Use these facts as the source of truth for statements about Sarembok itself.",
         "Never invent workers, agents, memory entries, tools, integrations, GPU capacity, model availability, or provider state.",
-        "Distinguish models configured on this Sarembok runtime from models merely offered by an upstream provider catalog.",
-        f"Runtime: status={runtime.get('status')}; service={runtime.get('service')}; domain={runtime.get('domain')}; port={runtime.get('port')}",
-        f"Workers: registered={workers.get('registered', 0)}; online={workers.get('online', 0)}; stale={workers.get('stale', 0)}; offline={workers.get('offline', 0)}",
-        f"Agents: registered={agents.get('registered', 0)}; online={agents.get('online', 0)}",
-        f"Compute: online_gpu_workers={compute.get('onlineGpuWorkers', 0)}; capabilities={','.join(compute.get('onlineWorkerCapabilities') or []) or 'none'}",
-        f"Persistent memory: backend={memory.get('backend')}; status={memory.get('status')}; entries={memory.get('entries', 0)}; integrity={memory.get('integrity')}",
-        f"Scheduler: status={scheduler.get('status')}; queue_depth={scheduler.get('queueDepth', 0)}; running={scheduler.get('running', 0)}; completed={scheduler.get('completed', 0)}; failed={scheduler.get('failed', 0)}",
+        "Runtime: status=%s; service=%s; domain=%s; port=%s" % (runtime.get("status"), runtime.get("service"), runtime.get("domain"), runtime.get("port")),
+        "Workers: registered=%s; online=%s; stale=%s; offline=%s" % (workers.get("registered", 0), workers.get("online", 0), workers.get("stale", 0), workers.get("offline", 0)),
+        "Agents: registered=%s; online=%s" % (agents.get("registered", 0), agents.get("online", 0)),
+        "Compute: online_gpu_workers=%s; capabilities=%s" % (compute.get("onlineGpuWorkers", 0), ",".join(compute.get("onlineWorkerCapabilities") or []) or "none"),
+        "Persistent memory: backend=%s; status=%s; entries=%s; integrity=%s" % (memory.get("backend"), memory.get("status"), memory.get("entries", 0), memory.get("integrity")),
+        "Scheduler: status=%s; queue_depth=%s; running=%s; completed=%s; failed=%s" % (scheduler.get("status"), scheduler.get("queueDepth", 0), scheduler.get("running", 0), scheduler.get("completed", 0), scheduler.get("failed", 0)),
+        "Configured model providers and models:",
     ]
-    providers = _provider_lines(snapshot)
-    lines.append("Configured model providers and models:")
-    lines.extend(providers or ["- none"])
+    lines.extend(_provider_lines(snapshot) or ["- none"])
     if capabilities:
-        enabled = [item.get("method") for item in capabilities.get("capabilities", []) if isinstance(item, dict) and item.get("enabled")]
-        lines.append(f"Registered runtime capabilities: {', '.join(enabled) if enabled else 'none'}")
+        enabled = [c.get("method") for c in capabilities.get("capabilities", []) if isinstance(c, dict) and c.get("enabled")]
+        lines.append("Registered runtime capabilities: " + (", ".join(enabled) if enabled else "none"))
     return "\n".join(lines)
 
 
@@ -65,15 +56,11 @@ def _normalize_prompt_intent(prompt: str) -> str:
     text = re.sub(r"\bwhois\b", "who is", text)
     text = re.sub(r"\bu\b", "you", text)
     text = re.sub(r"\bur\b", "your", text)
-    text = re.sub(r"\br\b", "are", text)
-    text = re.sub(r"\bsys\b", "system", text)
     return " ".join(text.split())
 
 
 def is_limitation_query(prompt: str) -> bool:
     norm = _normalize_prompt_intent(prompt)
-    if not norm:
-        return False
     markers = (
         "what cant it do", "what cant you do", "what can it not do", "what can you not do",
         "what are the limitations", "what are your limitations", "what limitations", "limitations",
@@ -81,94 +68,37 @@ def is_limitation_query(prompt: str) -> bool:
         "what are the boundaries", "operational boundaries", "what does it not support",
         "what do you not support", "what are you not capable of", "what is it not capable of",
     )
-    return norm in set(markers) or any(marker in norm for marker in markers)
+    return any(m in norm for m in markers)
 
 
 def is_capability_query(prompt: str) -> bool:
     if is_limitation_query(prompt):
         return False
     norm = _normalize_prompt_intent(prompt)
-    if not norm:
-        return False
     markers = (
-        "what can you do", "what can it do", "what can this do", "what can be done", "what can sarembok do",
-        "what does it do", "what does this do", "what do you do", "what are you able to do",
-        "what is it able to do", "what is this able to do", "what is this capable of", "what are your capabilities",
-        "what are its capabilities", "what capabilities", "what are your features", "what are its features",
-        "what features", "how can you help", "how can it help", "how does it work", "how do you work",
-        "what do you support", "what does it support", "what commands", "what can i ask", "show capabilities",
-        "list capabilities", "help", "commands", "features", "capabilities",
+        "help", "commands", "features", "capabilities", "what can you do", "what can it do", "what can this do",
+        "what can be done", "what can sarembok do", "what can the system do", "what does it do", "what does this do",
+        "what do you do", "what are you able to do", "what is it able to do", "what is this able to do",
+        "what is this capable of", "what are your capabilities", "what are its capabilities", "what capabilities",
+        "what are your features", "what are its features", "what features", "how can you help", "how can it help",
+        "how does it work", "how do you work", "what do you support", "what does it support", "what commands",
+        "what can i ask", "show capabilities", "list capabilities",
     )
-    return norm in set(markers) or any(marker in norm for marker in markers)
+    return any(m == norm or norm.startswith(m) for m in markers)
 
 
 def is_identity_query(prompt: str) -> bool:
     if is_capability_query(prompt):
         return False
     norm = _normalize_prompt_intent(prompt)
-    if not norm:
-        return False
     markers = (
-        "what is this", "what is this thing", "what is this platform", "what is this system", "what is this app",
-        "what is this software", "what is this site", "what is this environment", "what system is this",
-        "what platform is this", "what app is this", "what software is this", "what site is this",
-        "what system are you", "what system am i using", "what is sarembok", "who is sarembok", "who are you",
-        "what are you", "what is your name", "tell me about yourself", "what is your identity", "identify yourself",
+        "what is this", "what is this platform", "what is this system", "what is this app", "what is this software",
+        "what is this site", "what is this environment", "what system is this", "what platform is this",
+        "what app is this", "what system are you", "what system am i using", "what is sarembok", "who is sarembok",
+        "who are you", "what are you", "what is your name", "tell me about yourself", "what is your identity",
+        "identify yourself",
     )
-    return norm in set(markers) or any(marker in norm for marker in markers)
-
-
-def render_capabilities(snapshot: dict[str, Any] | None = None, capabilities: dict[str, Any] | None = None) -> str:
-    """Return a concise capability summary grounded in runtime state and avoid unsupported UI/hardware claims."""
-    workers_cnt = 0
-    gpu_cnt = 0
-    mem_entries = 0
-    if snapshot:
-        workers = snapshot.get("workers") or {}
-        workers_cnt = int(workers.get("online", 0) or 0)
-        compute = snapshot.get("compute") or {}
-        gpu_cnt = int(compute.get("onlineGpuWorkers", 0) or 0)
-        memory = snapshot.get("memory") or {}
-        mem_entries = int(memory.get("entries", 0) or 0)
-
-    lines = [
-        "### SAREMBOK VE · CAPABILITIES",
-        "",
-        "Sarembok VE is an AI-native computing environment with a live runtime, persistent state, model/provider routing, workers, tasks, memory, research, and extensible tools.",
-        "",
-        "**Available through the runtime**",
-        "- **Dialogue & reasoning:** natural-language interaction through the configured model/provider fabric.",
-        "- **Runtime operations:** inspect runtime health, worker state, task state, projects, events, and provider metrics.",
-        f"- **Distributed compute:** {workers_cnt} online worker(s), including {gpu_cnt} currently recognized GPU worker(s) by Runtime Authority.",
-        f"- **Persistent memory:** SQLite-WAL persistence with {mem_entries} current stored entr{'y' if mem_entries == 1 else 'ies'}.",
-        "- **Agents & orchestration:** create agents, create/schedule tasks, delegate work, and track execution state.",
-        "- **Browser/research surfaces:** public-page navigation, DOM rendering, screenshots, and runtime-supported web intelligence.",
-        "- **MCP & skills:** registered runtime capabilities can be discovered through the MCP/skills surfaces; execution depends on the installed/configured handler and live service state.",
-        "- **Visual generation:** image generation is available through the runtime's configured generation path when a live provider or eligible worker is operational.",
-        "",
-        "**Try a directive**",
-        "- `show the current runtime status`
-- `what models are available`
-- `create an agent named Research`
-- `schedule a compute task`
-- `remember that ...`
-- `generate an image of ...`",
-        "",
-        "Sarembok reports live operational state separately from capabilities that are implemented but not currently connected or provisioned.",
-    ]
-    return "\n".join(lines)
-
-
-def render_limitations(snapshot: dict[str, Any] | None = None) -> str:
-    return "\n".join([
-        "### SAREMBOK VE · ARCHITECTURAL BOUNDARIES",
-        "",
-        "- Runtime state is reported from Runtime Authority rather than invented by the assistant.",
-        "- High-impact administrative operations remain subject to authentication and runtime policy controls.",
-        "- Worker/GPU capacity depends on live registered workers and fresh heartbeats.",
-        "- External providers, MCP servers, browser integrations, and generation services are only operational when configured and reachable.",
-        "- Local/private networks and host resources are not implicitly available through the public runtime.",
-    ])
+    return any(m == norm or norm.startswith(m) for m in markers)
 
 
 def is_self_state_query(prompt: str) -> bool:
@@ -179,20 +109,88 @@ def is_self_state_query(prompt: str) -> bool:
         "what is your status", "runtime status", "how many workers", "how many agents", "how much memory",
         "what providers", "what provider", "what model is this", "what model are you", "what model do you use",
         "what model is running", "what model is active", "what models are available", "what other models",
-        "which models are available", "which models can i use", "what llms are available", "available models",
-        "configured models", "model availability",
+        "other models", "which models are available", "which models can i use", "what models can i use",
+        "what llms are available", "what llms can i use", "what models are configured", "which models are configured",
+        "model availability", "available models", "configured models",
     )
-    return any(marker in text for marker in markers)
+    return any(m in text for m in markers)
 
 
-def render_model_inventory(snapshot: dict[str, Any] | None = None) -> str:
-    entries = _provider_entries(snapshot or {})
+def is_worker_prune_query(prompt: str) -> bool:
+    norm = _normalize_prompt_intent(prompt)
+    return any(m in norm for m in (
+        "prune workers", "prune worker", "cleanup workers", "clean workers", "clear offline workers",
+        "prune offline workers", "purge offline workers", "reset workers", "reset worker registry",
+    ))
+
+
+def render_capabilities(snapshot: dict[str, Any] | None = None, capabilities: dict[str, Any] | None = None) -> str:
+    workers = (snapshot or {}).get("workers") or {}
+    compute = (snapshot or {}).get("compute") or {}
+    memory = (snapshot or {}).get("memory") or {}
+    workers_online = int(workers.get("online", 0) or 0)
+    gpu_online = int(compute.get("onlineGpuWorkers", 0) or 0)
+    memory_entries = int(memory.get("entries", 0) or 0)
+    return "\n".join([
+        "### SAREMBOK VE · CAPABILITIES",
+        "",
+        "Sarembok VE is an AI-native computing environment with a live runtime, persistent state, model/provider routing, workers, tasks, memory, research, and extensible tools.",
+        "",
+        "**Available through the runtime**",
+        "- **Dialogue & reasoning:** interact through the configured model/provider fabric.",
+        "- **Runtime operations:** inspect health, workers, tasks, projects, events, and provider metrics.",
+        f"- **Distributed compute:** {workers_online} online worker(s); {gpu_online} currently recognized GPU worker(s) in Runtime Authority.",
+        f"- **Persistent memory:** SQLite-WAL persistence with {memory_entries} current stored {('entry' if memory_entries == 1 else 'entries')}.",
+        "- **Agents & orchestration:** create agents, create/schedule tasks, delegate work, and track execution state.",
+        "- **Browser/research:** runtime-supported public-page navigation, DOM rendering, screenshots, and web intelligence.",
+        "- **MCP & skills:** discover registered capabilities; execution depends on installed/configured handlers and live service state.",
+        "- **Visual generation:** available when a live configured generation provider or eligible worker is operational.",
+        "",
+        "**Try:** `show the current runtime status`, `what models are available`, `create an agent named Research`, `schedule a compute task`, `remember that ...`, or `generate an image of ...`.",
+    ])
+
+
+def render_limitations(snapshot: dict[str, Any] | None = None) -> str:
+    return "\n".join([
+        "### SAREMBOK VE · ARCHITECTURAL BOUNDARIES",
+        "",
+        "- Runtime state is reported from Runtime Authority rather than invented.",
+        "- High-impact administrative operations remain subject to authentication and runtime policy controls.",
+        "- Worker/GPU capacity depends on live registered workers and fresh heartbeats.",
+        "- External providers, MCP servers, browser integrations, and generation services are operational only when configured and reachable.",
+        "- Local/private networks and host resources are not implicitly available through the public runtime.",
+    ])
+
+
+def render_identity(snapshot: dict[str, Any]) -> str:
+    runtime = snapshot.get("runtime") or {}
+    workers = snapshot.get("workers") or {}
+    agents = snapshot.get("agents") or {}
+    memory = snapshot.get("memory") or {}
+    compute = snapshot.get("compute") or {}
+    providers = ", ".join(p["name"] for p in _provider_entries(snapshot)) or "none"
+    return "\n".join([
+        "### SAREMBOK VE · AI-NATIVE COMPUTING RUNTIME",
+        "",
+        "I am **Sarembok VE**, an AI-native computing environment and sovereign runtime.",
+        "",
+        "**Live runtime state**",
+        f"- **Status:** `{runtime.get('status', 'UNKNOWN')}`",
+        f"- **Service:** `{runtime.get('service', 'sarembok-ve-cloud-runtime')}`",
+        f"- **Workers:** {workers.get('online', 0)} online / {workers.get('registered', 0)} registered",
+        f"- **Agents:** {agents.get('online', 0)} online / {agents.get('registered', 0)} registered",
+        f"- **GPU workers:** {compute.get('onlineGpuWorkers', 0)} recognized online",
+        f"- **Persistent memory:** {memory.get('entries', 0)} stored entries via `{memory.get('backend', 'sqlite-wal')}`",
+        f"- **Configured providers:** {providers}",
+    ])
+
+
+def render_model_inventory(snapshot: dict[str, Any]) -> str:
+    entries = _provider_entries(snapshot)
     lines = ["### SAREMBOK VE · CONFIGURED MODEL PROVIDERS", ""]
-    if not entries:
-        lines.append("No model providers are currently exposed by Runtime Authority.")
+    if entries:
+        lines.extend(f"- **{p['name']}** — `{p['model']}`" for p in entries)
     else:
-        for item in entries:
-            lines.append(f"- **{item['name']}** — `{item['model']}`")
-    lines.append("")
-    lines.append("Configuration is not the same as provider health or model availability at this exact moment.")
+        lines.append("No model providers are currently exposed by Runtime Authority.")
+    lines.extend(["", "Configured does not necessarily mean healthy or available at this exact moment."])
     return "\n".join(lines)
