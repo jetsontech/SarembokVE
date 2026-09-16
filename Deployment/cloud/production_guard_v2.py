@@ -20,8 +20,9 @@ WORKER_METHODS = {"RegisterWorker","Heartbeat","ClaimTask","CompleteTask","FailT
 OPERATOR_METHODS = {"CreateAgent","CreateProject","CreateTask","ScheduleCompute","InjectPerception","EvaluateDecision","CreateDelegation","SendMessage","RestoreState","PruneWorkers","ScaleWorkers","RegisterMcpServer"}
 ADMIN_METHODS = {"AdminExecuteDirective","RentGpuNode"}
 LOGIN_METHODS = {"AuthenticateMaster","AuthenticateSocialUser","VerifyAdminPasscode"}
+CANCELLATION_METHODS = {"CancelActiveStream"}
 METHOD_REQUIREMENTS = {**{m:"USER" for m in USER_METHODS}, **{m:"WORKER" for m in WORKER_METHODS}, **{m:"OPERATOR" for m in OPERATOR_METHODS}, **{m:"ADMIN" for m in ADMIN_METHODS}}
-METHOD_REQUIREMENTS["CancelActiveStream"] = "USER"
+METHOD_REQUIREMENTS.update({m:"USER" for m in CANCELLATION_METHODS})
 SECRET_KEYS = re.compile(r"(?i)(api[_-]?key|authorization|session[_-]?token|access[_-]?token|refresh[_-]?token|password|passcode|secret|worker[_-]?token|enrollment[_-]?token)")
 SECRET_VALUES = re.compile(r"(?i)\b(?:sk-or-|sk-|gsk_|AIza)[A-Za-z0-9_.-]{12,}\b")
 
