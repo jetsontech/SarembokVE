@@ -87,15 +87,19 @@ class ProductionGuard:
         if not ok: raise PermissionError(f"rate_limited_retry_after={retry}")
     def origin_allowed(self,ws):
         if not self.require_origin:return True
-        h=getattr(ws,"request_headers",{}) or {}; raw_origin=str(h.get("Origin","")).strip()
+        headers=getattr(ws,"request_headers",None)
+        if headers is None:
+            request=getattr(ws,"request",None)
+            headers=getattr(request,"headers",None) if request is not None else None
+        if headers is None: return False
+        raw_origin=str(headers.get("Origin","")).strip()
         if not raw_origin:
-            host=str(h.get("Host","")).strip().lower().rstrip("/")
-            if ":" in host and host.rsplit(":",1)[-1].isdigit(): host=host.rsplit(":",1)[0]
+            host=str(headers.get("Host","")).strip().lower().rstrip("/")
+            if host.count(":") == 1 and host.rsplit(":",1)[-1].isdigit(): host=host.rsplit(":",1)[0]
             return self.allow_originless_local and host in {"127.0.0.1","localhost"}
         try:
             parsed=urlsplit(raw_origin)
-            scheme=parsed.scheme.lower(); hostname=(parsed.hostname or "").lower()
-            port=parsed.port
+            scheme=parsed.scheme.lower(); hostname=(parsed.hostname or "").lower(); port=parsed.port
         except ValueError:
             return False
         allowed_hosts={self.public_host, f"www.{self.public_host}"}
