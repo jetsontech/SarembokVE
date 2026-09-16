@@ -734,7 +734,7 @@
             min-height: 0;
             height: 100%;
             max-height: 100%;
-            padding: 6px 20px 10px;
+            padding: 8px 24px 84px; /* clearance for fixed global-input-bar */
             overflow: hidden;
             display: none;
             box-sizing: border-box;
@@ -782,7 +782,7 @@
         .dialogue-history {
             flex: 1;
             min-height: 0;
-            padding: 14px 18px;
+            padding: 16px 20px 28px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
@@ -2226,11 +2226,11 @@
 
             /* 4. Panel viewports */
             .view-panel {
-                padding: 12px 10px 20px;
+                padding: 12px 10px 130px;
             }
 
             #view-dialogue {
-                padding: 0 !important;
+                padding: 6px 8px 130px !important; /* clears mobile bottom dock + input bar */
                 margin: 0 !important;
                 flex: 1 !important;
                 min-height: 0 !important;
@@ -2240,6 +2240,25 @@
                 box-sizing: border-box !important;
                 width: 100vw !important;
                 max-width: 100vw !important;
+            }
+
+            .workspace-chat-pane {
+                padding-bottom: 130px !important;
+            }
+
+            #global-input-bar {
+                left: 0 !important;
+                bottom: 58px !important;
+                padding: 6px 12px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+            }
+            #global-input-bar-inner {
+                padding: 6px 10px !important;
+                border-radius: 24px !important;
+            }
+
+            .srbk-interrupt-pill {
+                bottom: 128px !important;
+                left: 50% !important;
             }
 
             /* 5. Cyber Deck cards */
@@ -3374,18 +3393,18 @@
         /* FLOATING INTERRUPT / BARGE-IN PILL */
         .srbk-interrupt-pill {
             position: fixed;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%) translateY(90px);
-            background: rgba(15, 23, 42, 0.94);
+            bottom: 84px; /* sits comfortably above fixed global chat bar */
+            left: calc(50% + 36px); /* centered over main canvas accounting for 72px left dock */
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(15, 23, 42, 0.96);
             border: 1px solid var(--amber);
-            box-shadow: 0 0 25px rgba(245, 158, 11, 0.45), inset 0 0 15px rgba(245, 158, 11, 0.12);
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.5), inset 0 0 15px rgba(245, 158, 11, 0.15);
             border-radius: 30px;
-            padding: 9px 20px;
+            padding: 8px 18px;
             display: flex;
             align-items: center;
-            gap: 12px;
-            z-index: 99999;
+            gap: 10px;
+            z-index: 120;
             cursor: pointer;
             backdrop-filter: blur(14px);
             transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
@@ -3584,7 +3603,7 @@
         /* CHAT STREAM PANE */
         .workspace-chat-pane {
             flex: 1;
-            padding: 24px 28px;
+            padding: 24px 28px 90px; /* clears fixed global chat bar */
             overflow-y: auto;
             display: flex;
             flex-direction: column;
@@ -8499,18 +8518,37 @@ button,
                     rows.slice(1).join("\n");
             });
 
-            // 10. Markdown Tables
-            s = s.replace(/(?:^|\n)(\|.+?\|\n\|[-:\s|]+\|\n(?:\|.+?\|\n?)+)/g, match => {
-                const lines = match.trim().split("\n");
-                if (lines.length < 3) return match;
-                const headerCols = lines[0].split("|").slice(1, -1).map(c => c.trim());
-                const bodyRows = lines.slice(2).map(r => r.split("|").slice(1, -1).map(c => c.trim()));
-                let html = '<div class="srbk-table-wrap"><table class="srbk-table"><thead><tr>';
-                headerCols.forEach(h => { html += `<th>${escapeHtml(h)}</th>`; });
-                html += '</tr></thead><tbody>';
-                bodyRows.forEach(row => {
-                    html += '<tr>';
-                    row.forEach(cell => { html += `<td>${escapeHtml(cell)}</td>`; });
+            // 10. Markdown Tables & Pipe-Delimited Key-Value Blocks
+            s = s.replace(/(?:^|\n)((?:\|[^\n]+\|\n?)+)/g, match => {
+                const rawLines = match.trim().split("\n").map(l => l.trim()).filter(Boolean);
+                if (rawLines.length < 2) return match;
+                const sepIdx = rawLines.findIndex(l => /^\|(?:\s*[:-]+[-:]+\s*\|)+$/.test(l));
+                let headerCols = [];
+                let bodyRows = [];
+                if (sepIdx > 0) {
+                    headerCols = rawLines[sepIdx - 1].split("|").slice(1, -1).map(c => c.trim());
+                    bodyRows = rawLines.filter((_, idx) => idx !== sepIdx && idx !== sepIdx - 1)
+                                       .map(r => r.split("|").slice(1, -1).map(c => c.trim()));
+                } else {
+                    bodyRows = rawLines.map(r => r.split("|").slice(1, -1).map(c => c.trim()));
+                }
+                let html = '<div class="srbk-table-wrap" style="overflow-x:auto; margin:12px 0;"><table class="srbk-table" style="width:100%; border-collapse:collapse; background:rgba(4,9,20,0.7); border:1px solid rgba(0,240,255,0.18); border-radius:8px; overflow:hidden;">';
+                if (headerCols.length > 0) {
+                    html += '<thead><tr style="background:rgba(0,240,255,0.08); border-bottom:1px solid rgba(0,240,255,0.2);">';
+                    headerCols.forEach(h => { html += `<th style="padding:8px 12px; text-align:left; color:var(--cyan); font-family:var(--font-mono); font-size:11px; letter-spacing:0.05em;">${escapeHtml(h)}</th>`; });
+                    html += '</tr></thead>';
+                }
+                html += '<tbody>';
+                bodyRows.forEach((row, i) => {
+                    const bg = i % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'rgba(0,240,255,0.035)';
+                    html += `<tr style="background:${bg}; border-bottom:1px solid rgba(255,255,255,0.04);">`;
+                    row.forEach((cell, ci) => {
+                        const isKey = ci === 0 && row.length === 2;
+                        const cellStyle = isKey 
+                            ? "padding:8px 12px; color:var(--cyan); font-weight:700; font-family:var(--font-mono); font-size:11.5px; width:26%; white-space:nowrap; vertical-align:top; border-right:1px solid rgba(0,240,255,0.1);" 
+                            : "padding:8px 12px; color:#e2e8f0; font-size:13px; line-height:1.5; vertical-align:top;";
+                        html += `<td style="${cellStyle}">${cell}</td>`;
+                    });
                     html += '</tr>';
                 });
                 html += '</tbody></table></div>';
@@ -8554,13 +8592,16 @@ button,
             s = s.replace(/\*\*([^\*]+)\*\*/g, "<strong>$1</strong>");
             s = s.replace(/\*([^\*]+)\*/g, "<em>$1</em>");
 
-            // 15. Headings
-            s = s.replace(/^### (.*$)/gim, "<h4 style='color:var(--cyan); margin:12px 0 6px;'>$1</h4>");
-            s = s.replace(/^## (.*$)/gim, "<h3 style='color:#fff; margin:14px 0 8px;'>$1</h3>");
-            s = s.replace(/^# (.*$)/gim, "<h2 style='color:#fff; margin:16px 0 10px;'>$1</h2>");
+            // 15. Headings (H6 to H1)
+            s = s.replace(/^###### (.*$)/gim, "<h6 style='color:var(--text-secondary); margin:8px 0 4px; font-size:11px; text-transform:uppercase;'>$1</h6>");
+            s = s.replace(/^##### (.*$)/gim, "<h5 style='color:var(--cyan); margin:10px 0 4px; font-size:12px; text-transform:uppercase;'>$1</h5>");
+            s = s.replace(/^#### (.*$)/gim, "<h4 style='color:var(--cyan); margin:12px 0 6px; font-size:13.5px; font-weight:700;'>$1</h4>");
+            s = s.replace(/^### (.*$)/gim, "<h3 style='color:var(--cyan); margin:14px 0 6px; font-size:14.5px; font-weight:700;'>$1</h3>");
+            s = s.replace(/^## (.*$)/gim, "<h2 style='color:#fff; margin:16px 0 8px; font-size:15.5px; font-weight:700;'>$1</h2>");
+            s = s.replace(/^# (.*$)/gim, "<h1 style='color:#fff; margin:18px 0 10px; font-size:17px; font-weight:700;'>$1</h1>");
 
             // 16. Lists
-            s = s.replace(/^[\*\-]\s+(.*$)/gim, "<li style='margin-left:18px;'>$1</li>");
+            s = s.replace(/^[\*\-•]\s+(.*$)/gim, "<li style='margin-left:18px;'>$1</li>");
             s = s.replace(/^\d+\.\s+(.*$)/gim, "<li style='margin-left:18px; list-style-type:decimal;'>$1</li>");
 
             // 17. Line breaks into paragraphs

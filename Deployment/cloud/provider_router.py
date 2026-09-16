@@ -62,7 +62,7 @@ class ProviderRouter:
         self.openrouter_reasoning = os.getenv('SAREMBOK_OPENROUTER_REASONING_EFFORT', 'low').strip().lower()
         if self.openrouter_reasoning not in {'minimal', 'low', 'medium', 'high', 'xhigh'}:
             self.openrouter_reasoning = 'low'
-        self.max_output_tokens = max(64, int(os.getenv('SAREMBOK_LLM_MAX_OUTPUT_TOKENS', '350')))
+        self.max_output_tokens = max(64, int(os.getenv('SAREMBOK_LLM_MAX_OUTPUT_TOKENS', '2048')))
         self._history: deque[dict[str, Any]] = deque(maxlen=200)
 
     @staticmethod
@@ -302,7 +302,7 @@ class ProviderRouter:
             elif not normalized_messages:
                 normalized_messages.append({'role': 'user', 'content': 'Hello'})
 
-        max_tok = min(self.max_output_tokens, 200) if spec.name.startswith('OpenRouter') else self.max_output_tokens
+        max_tok = self.max_output_tokens
         data: dict[str, Any] = {
             'model': spec.model,
             'messages': normalized_messages,
