@@ -8,41 +8,77 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/sarembok-simplified.css?v=20260915-r4">
+<link rel="stylesheet" href="/css/sarembok-simplified.css?v=20260916-ui1">
 </head>
 <body>
 <div class="srbk-app">
-  <header class="srbk-header">
-    <div class="srbk-brand"><span class="srbk-reactor"><span></span></span><div><div class="srbk-title">SAREMBOK<span>VE</span></div><div class="srbk-subtitle">AI-NATIVE COMPUTING ENVIRONMENT</div></div></div>
-    <div class="srbk-status"><span id="runtime-dot" class="dot offline"></span><span id="runtime-status">CONNECTING</span><span id="runtime-latency"></span><button id="system-btn" class="icon-btn" type="button" aria-label="Open system controls">⚙</button></div>
-  </header>
+<header class="srbk-header">
+  <div class="srbk-brand"><span class="srbk-reactor"><span></span></span><div><div class="srbk-title">SAREMBOK<span>VE</span></div><div class="srbk-subtitle">AI-NATIVE COMPUTING ENVIRONMENT</div></div></div>
+  <div class="srbk-top-status"><span class="sys-pill"><span id="runtime-dot" class="dot offline"></span><span id="runtime-status">CONNECTING</span></span><span id="header-workers">— WORKERS</span><span id="header-agents">— AGENTS</span><button id="system-btn" class="icon-btn" type="button" aria-label="Open system controls">⚙</button></div>
+</header>
+<div class="srbk-body">
+  <nav class="srbk-nav" aria-label="Sarembok workspace">
+    <div class="nav-eyebrow">WORKSPACE</div>
+    <button class="nav-item active" data-panel="overview" type="button"><span>◈</span>Overview</button>
+    <button class="nav-item" data-panel="agents" type="button"><span>◆</span>Agents</button>
+    <button class="nav-item" data-panel="workers" type="button"><span>⬡</span>Workers</button>
+    <button class="nav-item" data-panel="tasks" type="button"><span>▣</span>Tasks</button>
+    <button class="nav-item" data-panel="memory" type="button"><span>◉</span>Memory</button>
+    <button class="nav-item" data-panel="research" type="button"><span>⌁</span>Research</button>
+    <button class="nav-item" data-panel="tools" type="button"><span>✦</span>Tools</button>
+    <div class="nav-divider"></div>
+    <div class="nav-eyebrow">QUICK ACTIONS</div>
+    <button class="quick-action" type="button" data-prompt="Show the current runtime status.">Runtime status</button>
+    <button class="quick-action" type="button" data-prompt="What models are available?">Model inventory</button>
+    <button class="quick-action" type="button" data-prompt="Explain the Sarembok architecture.">Architecture</button>
+    <div class="nav-footer"><span id="connection-meta">SECURE RUNTIME SESSION</span></div>
+  </nav>
   <main class="srbk-main">
-    <section id="conversation" class="conversation" aria-label="Sarembok conversation">
-      <div id="empty-state" class="empty-state"><div class="empty-mark">S</div><h1>What would you like Sarembok to do?</h1><p>Ask a question, request research, plan work, or dispatch a computing task.</p><div class="suggestions"><button type="button" data-prompt="What can Sarembok do?">What can Sarembok do?</button><button type="button" data-prompt="Show the current runtime status.">Runtime status</button><button type="button" data-prompt="Explain the Sarembok architecture.">Architecture</button></div></div>
+    <div class="workspace-head">
+      <div><div class="workspace-kicker">SAREMBOK CONTROL PLANE</div><h1 id="workspace-title">Runtime Overview</h1><p id="workspace-subtitle">Live platform state and the active intelligence surface.</p></div>
+      <button id="refresh-btn" class="outline-btn" type="button">↻ Refresh</button>
+    </div>
+    <section id="panel-overview" class="workspace-panel active-panel">
+      <div class="stat-grid">
+        <div class="stat-card"><span>RUNTIME</span><strong id="stat-runtime">—</strong><small id="stat-service">Loading live state</small></div>
+        <div class="stat-card"><span>WORKERS</span><strong id="stat-workers">—</strong><small id="stat-workers-detail">—</small></div>
+        <div class="stat-card"><span>AGENTS</span><strong id="stat-agents">—</strong><small>registered / online</small></div>
+        <div class="stat-card"><span>TASK QUEUE</span><strong id="stat-queue">—</strong><small id="stat-task-detail">—</small></div>
+        <div class="stat-card"><span>MEMORY</span><strong id="stat-memory">—</strong><small>SQLite-WAL</small></div>
+        <div class="stat-card"><span>GPU NODES</span><strong id="stat-gpu">—</strong><small id="stat-gpu-detail">live worker telemetry</small></div>
+      </div>
+      <div class="overview-grid">
+        <article class="surface-card hero-surface">
+          <div class="surface-head"><div><span class="surface-label">INTELLIGENCE</span><h2>Ask Sarembok</h2></div><span class="live-badge">LIVE</span></div>
+          <p>Use the runtime directly. Ask questions, request research, create agents, schedule work, store memory, inspect the fleet, or generate visuals.</p>
+          <div class="command-grid">
+            <button type="button" data-prompt="What can Sarembok do?">Capabilities</button>
+            <button type="button" data-prompt="Show the current runtime status.">Runtime status</button>
+            <button type="button" data-prompt="What models are available?">Models</button>
+            <button type="button" data-prompt="What are the current worker and task states?">Fleet state</button>
+          </div>
+        </article>
+        <article class="surface-card">
+          <div class="surface-head"><div><span class="surface-label">COMPUTE</span><h2>Active capacity</h2></div></div>
+          <div id="compute-summary" class="detail-list"><div><span>Workers</span><b>—</b></div><div><span>GPU workers</span><b>—</b></div><div><span>Capabilities</span><b>—</b></div><div><span>Latency</span><b>—</b></div></div>
+        </article>
+      </div>
     </section>
+    <section id="panel-agents" class="workspace-panel"><div class="surface-card"><div class="surface-head"><div><span class="surface-label">AGENT FABRIC</span><h2>Registered agents</h2></div></div><div id="agents-list" class="entity-list"></div></div></section>
+    <section id="panel-workers" class="workspace-panel"><div class="surface-card"><div class="surface-head"><div><span class="surface-label">DISTRIBUTED COMPUTE</span><h2>Worker fleet</h2></div></div><div id="workers-list" class="entity-list"></div></div></section>
+    <section id="panel-tasks" class="workspace-panel"><div class="surface-card"><div class="surface-head"><div><span class="surface-label">SCHEDULER</span><h2>Task state</h2></div><button class="mini-action" type="button" data-prompt="Schedule a compute task for general compute.">+ Schedule</button></div><div id="tasks-list" class="entity-list"></div></div></section>
+    <section id="panel-memory" class="workspace-panel"><div class="memory-layout"><article class="surface-card"><div class="surface-head"><div><span class="surface-label">PERSISTENCE</span><h2>Memory surface</h2></div></div><div id="memory-summary" class="memory-summary"></div></article><article class="surface-card"><div class="surface-head"><div><span class="surface-label">ACTION</span><h2>Store a memory</h2></div></div><form id="memory-form" class="inline-form"><input id="memory-key" required placeholder="Memory key"><textarea id="memory-value" required placeholder="What should Sarembok remember?"></textarea><button class="primary-btn" type="submit">Store memory</button></form></article></div></section>
+    <section id="panel-research" class="workspace-panel"><div class="surface-card research-surface"><span class="surface-label">RESEARCH</span><h2>Research & world intelligence</h2><p>Use the live runtime research path for current topics, technical investigation, public-page retrieval, and evidence synthesis.</p><button class="primary-btn" type="button" data-prompt="Research the latest developments in AI infrastructure and summarize the evidence.">Start live research</button></div></section>
+    <section id="panel-tools" class="workspace-panel"><div class="tools-grid"><article class="surface-card"><span class="surface-label">MCP</span><h2>Model Context Protocol</h2><p>Inspect and work with registered MCP servers through the runtime.</p><button class="outline-btn" type="button" data-prompt="List the registered MCP servers and their status.">Inspect MCP</button></article><article class="surface-card"><span class="surface-label">SKILLS</span><h2>Skills Engine</h2><p>Discover installed skills and verify whether handlers are executable.</p><button class="outline-btn" type="button" data-prompt="Show the available runtime skills and their execution status.">Inspect skills</button></article><article class="surface-card"><span class="surface-label">VISION</span><h2>Visual generation</h2><p>Use live configured generation providers or eligible compute workers.</p><button class="outline-btn" type="button" data-prompt="Generate an image of a cybernetic neural hub in neo-tokyo.">Generate image</button></article></div></section>
+    <section id="conversation" class="conversation" aria-label="Sarembok conversation"></section>
     <div id="typing" class="typing" hidden><span></span><span></span><span></span><b>Sarembok is working…</b></div>
+    <footer class="srbk-input-wrap"><form id="chat-form" class="chat-input"><textarea id="prompt" rows="1" autocomplete="off" placeholder="Ask Sarembok to reason, research, plan, remember, create, or execute…" aria-label="Ask Sarembok anything"></textarea><button id="stop-btn" class="stop-btn" type="button" hidden aria-label="Stop current request">■</button><button id="send-btn" class="send-btn" type="submit" aria-label="Send">↑</button></form><div class="input-meta"><span>ENTER to send · SHIFT+ENTER for new line</span><span>CONNECTED TO SAREMBOK RUNTIME</span></div></footer>
   </main>
-  <footer class="srbk-input-wrap">
-    <form id="chat-form" class="chat-input">
-      <textarea id="prompt" rows="1" autocomplete="off" placeholder="Ask Sarembok anything…" aria-label="Ask Sarembok anything"></textarea>
-      <button id="stop-btn" class="stop-btn" type="button" hidden aria-label="Stop current request">■</button>
-      <button id="send-btn" class="send-btn" type="submit" aria-label="Send">↑</button>
-    </form>
-    <div class="input-meta"><span>ENTER to send · SHIFT+ENTER for new line</span><span id="connection-meta">SECURE RUNTIME SESSION</span></div>
-  </footer>
+  <aside class="srbk-inspector"><div class="inspector-head"><div><span class="surface-label">LIVE STATE</span><h2>Runtime</h2></div><span id="inspector-status" class="live-badge">CONNECTING</span></div><div class="telemetry-card"><span>Service</span><strong id="inspector-service">—</strong></div><div class="telemetry-card"><span>Provider</span><strong id="inspector-provider">—</strong></div><div class="telemetry-card"><span>Scheduler</span><strong id="inspector-scheduler">—</strong></div><div class="telemetry-card"><span>Memory</span><strong id="inspector-memory">—</strong></div><div class="telemetry-card"><span>GPU</span><strong id="inspector-gpu">—</strong></div><div class="inspector-note">Telemetry is read from Runtime Authority.</div></aside>
 </div>
-<aside id="system-drawer" class="drawer" aria-hidden="true">
-  <div class="drawer-head"><div><b>SYSTEM</b><span>Runtime authority</span></div><button id="close-system" class="icon-btn" type="button" aria-label="Close system controls">×</button></div>
-  <div class="drawer-body">
-    <div class="drawer-card"><label>Runtime</label><strong id="drawer-runtime">Checking…</strong><pre id="runtime-detail"></pre></div>
-    <div class="drawer-card"><label>Workers</label><strong id="workers-count">Checking…</strong></div>
-    <div class="drawer-card"><label>Agents</label><strong id="agents-count">Checking…</strong></div>
-    <div class="drawer-card"><label>Tasks</label><strong id="tasks-count">Checking…</strong></div>
-    <div class="drawer-card"><label>MCP</label><strong id="mcp-status">Enabled · live state only</strong></div>
-    <div class="drawer-card"><label>Skills</label><strong id="skills-status">Authoritative runtime registry</strong></div>
-  </div>
-</aside>
+</div>
+<aside id="system-drawer" class="drawer" aria-hidden="true"><div class="drawer-head"><div><b>SYSTEM</b><span>Runtime authority</span></div><button id="close-system" class="icon-btn" type="button" aria-label="Close system controls">×</button></div><div class="drawer-body"><pre id="runtime-detail"></pre></div></aside>
 <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
-<script src="/js/sarembok-simplified.js?v=20260915-r7" defer></script>
+<script src="/js/sarembok-simplified.js?v=20260916-ui1" defer></script>
 </body>
 </html>
