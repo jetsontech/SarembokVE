@@ -33,6 +33,12 @@ set_if_missing SAREMBOK_RATE_LIMIT_SUBJECT_WINDOW_SECONDS "60"
 set_if_missing SAREMBOK_IDEMPOTENCY_TTL_SECONDS "300"
 chmod 600 "$ENV_FILE"
 
+# Export only for this process tree so the live acceptance scripts can verify
+# the same generated credentials that Compose injects into the runtime.
+set -a
+. "$ENV_FILE"
+set +a
+
 "${C[@]}" config >/dev/null
 "${C[@]}" build --pull sarembok-runtime sarembok-browser sarembok-edge
 "${C[@]}" up -d --force-recreate
