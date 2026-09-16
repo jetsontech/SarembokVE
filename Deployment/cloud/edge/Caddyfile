@@ -12,6 +12,13 @@ sarembok.com, www.sarembok.com {
         -Server
     }
 
+    handle /api/* {
+        respond "Not Found" 404
+    }
+    handle /live/* {
+        respond "Not Found" 404
+    }
+
     handle /ws {
         reverse_proxy sarembok-runtime:9000
     }
@@ -21,16 +28,10 @@ sarembok.com, www.sarembok.com {
     handle /session {
         reverse_proxy sarembok-runtime:9000
     }
-    handle /api/* {
-        reverse_proxy sarembok-runtime:9000
-    }
     handle /health {
         reverse_proxy sarembok-runtime:9000
     }
     handle /healthz {
-        reverse_proxy sarembok-runtime:9000
-    }
-    handle /live/* {
         reverse_proxy sarembok-runtime:9000
     }
 
