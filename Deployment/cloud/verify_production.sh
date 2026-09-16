@@ -41,17 +41,36 @@ printf '%s\n' "$RUNTIME_STATUS" | grep -q 'running healthy' && pass 'runtime run
 
 printf '\n%s\n' '===== RUNTIME WORKER INVENTORY ====='
 WORKER_JSON="$(docker exec sarembok-runtime python - <<'PY'
-import json, sqlite3
+import json, sqlite3, sys
 p='/data/sarembok_cloud.db'
-con=sqlite3.connect(p)
-con.row_factory=sqlite3.Row
-rows=con.execute('SELECT worker_id,status,last_heartbeat,gpu_vendor,gpu_model FROM workers ORDER BY worker_id').fetchall()
-print(json.dumps([dict(r) for r in rows]))
+try:
+    con=sqlite3.connect(p)
+    con.row_factory=sqlite3.Row
+    rows=con.execute('SELECT worker_id,status,last_heartbeat,gpu_vendor,gpu_model FROM workers ORDER BY worker_id').fetchall()
+    print(json.dumps([dict(r) for r in rows]))
+except Exception as exc:
+    print(json.dumps({'error': str(exc)}))
+    sys.exit(0)
 PY
 )"
 python3 - "$WORKER_JSON" <<'PY'
 import json, sys
-rows=json.loads(sys.argv[1])
+raw=sys.argv[1].strip()
+if not raw:
+    print('workers recorded: 0')
+    print('workers online/ready/active/available: 0')
+    print('WARNING: worker inventory query returned no data.')
+    sys.exit(0)
+try:
+    data=json.loads(raw)
+except json.JSONDecodeError as exc:
+    print(f'WARNING: worker inventory response was not valid JSON: {exc}')
+    print(f'raw response: {raw[:500]!r}')
+    sys.exit(0)
+if isinstance(data,dict) and 'error' in data:
+    print(f"WARNING: worker inventory unavailable: {data['error']}")
+    sys.exit(0)
+rows=data if isinstance(data,list) else []
 online=[r for r in rows if str(r.get('status','')).upper() in {'ONLINE','READY','ACTIVE','AVAILABLE'}]
 print(f'workers recorded: {len(rows)}')
 print(f'workers online/ready/active/available: {len(online)}')
