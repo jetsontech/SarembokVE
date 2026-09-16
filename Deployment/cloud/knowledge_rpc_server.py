@@ -258,7 +258,7 @@ async def handler(websocket) -> None:
                         future.result(timeout=10)
                     token_ctx = set_stream_callback(emit_delta)
                 async with cloud_server.get_db_lock():
-                    result = await asyncio.to_thread(dispatch, method, params)
+                    result = await asyncio.to_thread(cloud_server.dispatch, method, params)
                 if token_ctx is not None:
                     reset_stream_callback(token_ctx)
                     token_ctx = None
