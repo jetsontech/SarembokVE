@@ -37,11 +37,18 @@ def _purge_synthetic_workers(runtime: Any) -> None:
 
 def apply(runtime: Any) -> None:
     """Apply production-only truth and typed administrative execution controls."""
-    # Both compatibility module surfaces must be disabled. knowledge_rpc_server's
-    # authority snapshot calls cloud_server.ensure_sovereign_worker directly.
-    runtime.ensure_sovereign_worker = lambda: None
+    runtime.ensure_sovereign_worker=lambda: None
     cloud = _cloud(runtime)
-    cloud.ensure_sovereign_worker = lambda: None
+    cloud.ensure_sovereign_worker=lambda: None
+
+    original_liveness = getattr(cloud, "evaluate_worker_liveness", None)
+    if callable(original_liveness):
+        def guarded_worker_liveness(*args: Any, **kwargs: Any):
+            result = original_liveness(*args, **kwargs)
+            _purge_synthetic_workers(runtime)
+            return result
+        cloud.evaluate_worker_liveness = guarded_worker_liveness
+
     _purge_synthetic_workers(runtime)
 
     def safe_run_terminal(cls, command: str) -> dict[str, Any]:
@@ -83,12 +90,12 @@ def apply(runtime: Any) -> None:
 
     registry = getattr(runtime, "AdminToolRegistry", None)
     if registry is not None:
-        registry.run_terminal = classmethod(safe_run_terminal)
-        registry.execute_python = classmethod(disabled_python)
-        registry.read_file = classmethod(disabled_read)
-        registry.write_file = classmethod(disabled_write)
+        registry.run_terminal=classmethod(safe_run_terminal)
+        registry.execute_python=classmethod(disabled_python)
+        registry.read_file=classmethod(disabled_read)
+        registry.write_file=classmethod(disabled_write)
 
-    runtime.run_admin_agent_loop = disabled_admin_agent
-    runtime.PRODUCTION_TRUTH_BOUNDARY = True
-    runtime.SYNTHETIC_WORKER_REGISTRATION_DISABLED = True
-    runtime.SYNTHETIC_WORKER_ID = os.getenv("SAREMBOK_SYNTHETIC_WORKER_ID", "").strip()
+    runtime.run_admin_agent_loop=disabled_admin_agent
+    runtime.PRODUCTION_TRUTH_BOUNDARY=True
+    runtime.SYNTHETIC_WORKER_REGISTRATION_DISABLED=True
+    runtime.SYNTHETIC_WORKER_ID=os.getenv("SAREMBOK_SYNTHETIC_WORKER_ID","").strip()
