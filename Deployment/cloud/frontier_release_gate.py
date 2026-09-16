@@ -21,6 +21,7 @@ def read(path: pathlib.Path) -> str:
 compose = read(CLOUD / "compose.frontier_final.yaml")
 entrypoint = read(CLOUD / "production_entrypoint_frontier.py")
 policy = read(CLOUD / "frontier_runtime_policy.py")
+tenant = read(CLOUD / "frontier_tenant_guard.py")
 deploy = read(CLOUD / "deploy_frontier_release.sh")
 
 require("production_entrypoint_frontier.py" in compose, "frontier compose does not select v5 boundary")
@@ -33,13 +34,16 @@ require("runtime.ensure_sovereign_worker = lambda: None" in policy, "synthetic w
 require("_purge_synthetic_workers" in policy, "known synthetic worker records are not purged")
 require('"hardwareAttestation":"NOT_ATTESTED"' in entrypoint, "hardware attestation state is not explicit")
 require("CATALOG_ONLY_NO_COMPUTE_CAPACITY_ASSERTION" in entrypoint, "GPU catalog truth boundary is missing")
+require("scoped_session_id" in tenant, "user conversation session isolation helper is missing")
+require("agent_id=?" in tenant, "memory operations are not scoped to principal")
+require("session_owner_mismatch" in tenant, "saved chat sessions do not enforce ownership")
 
-for label, source in (("frontier entrypoint", entrypoint), ("frontier policy", policy)):
+for label, source in (("frontier entrypoint", entrypoint), ("frontier policy", policy), ("tenant guard", tenant)):
     require("shell=True" not in source, f"{label} contains shell=True")
     require("eval(" not in source, f"{label} contains eval()")
     require("exec(" not in source, f"{label} contains exec()")
 
-for path in (CLOUD / "production_entrypoint_frontier.py", CLOUD / "frontier_runtime_policy.py", CLOUD / "frontier_release_gate.py"):
+for path in (CLOUD / "production_entrypoint_frontier.py", CLOUD / "frontier_runtime_policy.py", CLOUD / "frontier_tenant_guard.py", CLOUD / "frontier_release_gate.py"):
     try:
         ast.parse(read(path), filename=str(path))
     except SyntaxError as exc:
@@ -63,6 +67,7 @@ print("PASS  originless local access disabled by production default")
 print("PASS  synthetic worker bootstrap disabled and legacy records purged")
 print("PASS  hardware attestation truth explicitly reported")
 print("PASS  GPU marketplace capacity claims bounded")
+print("PASS  user conversation and memory isolation controls present")
 print("PASS  active frontier boundary contains no shell=True/eval/exec")
 print("PASS  frontier Python modules parse")
 print("PASS  deployment generates fresh secrets")
