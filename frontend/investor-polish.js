@@ -4,12 +4,7 @@
 
   function normalizeMarkdown(s) {
     return String(s || "")
-      .replace(/\\\\\*\\\\\*/g, "**")
-      .replace(/\\\\\|/g, "|")
-      .replace(/\\\\\[/g, "[")
-      .replace(/\\\\\]/g, "]")
-      .replace(/\\\\\(/g, "(")
-      .replace(/\\\\\)/g, ")")
+      .replace(/\\([*|\[\]()])/g, "$1")
       .replace(/(^|\n)\s*(\d+)\)\s+/g, "$1$2. ")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
@@ -26,22 +21,20 @@
     nodes.forEach(function (el) {
       if (!likelyAssistant(el)) return;
       const text = el.textContent || "";
-      if (!/[\\][*|\[\]()]/.test(text) && !/\n\s*\d+\)\s+/.test(text)) return;
-      // Prefer the application's renderer when it is available.
+      if (!/\\[*|\[\]()]/.test(text) && !/\n\s*\d+\)\s+/.test(text)) return;
       if (typeof window.renderInlineMarkdown === "function" && el.children.length === 0) {
         const normalized = normalizeMarkdown(text);
         try { el.innerHTML = window.renderInlineMarkdown(normalized); return; } catch (_) {}
       }
-      // Safe fallback: normalize text only; do not create executable HTML.
       if (el.children.length === 0) el.textContent = normalizeMarkdown(text);
     });
   }
 
   function compactUi() {
+    if (document.getElementById("sarembok-investor-polish-v1")) return;
     const style = document.createElement("style");
     style.id = "sarembok-investor-polish-v1";
     style.textContent = `
-      /* Reduce chrome; preserve Sarembok identity and telemetry. */
       .cyber-header { padding: 7px 18px 6px !important; min-height: 52px !important; }
       .header-hud-group { gap: 12px !important; font-size: 9px !important; }
       .header-brand-wrap { gap: 10px !important; }
@@ -57,7 +50,6 @@
       #global-input-field { font-size: 14px !important; }
       .assistant-message, .message.assistant, .response-content, .chat-message.assistant { max-width: 900px !important; }
       .chat-container, .messages-container, #chat-container { padding-top: 8px !important; }
-      /* Keep advanced controls available but visually secondary. */
       .model-selector, .language-selector, .voice-controls { transform: scale(.92); transform-origin: right center; }
     `;
     document.head.appendChild(style);
@@ -67,9 +59,7 @@
     const bad = /Sora-v2|GPT-4o-MoE|WorldBank-DiverseText|IBM Q-AI 2026|Scheduler 2\.0|Sarembok Flux Generator|Community Hub|Compliance Center|instant access to a GPU-backed LLM|15 concurrent tasks/i;
     document.querySelectorAll("body *").forEach(function (el) {
       if (el.children.length) return;
-      if (bad.test(el.textContent || "")) {
-        el.textContent = "Live capability not verified by Runtime Authority.";
-      }
+      if (bad.test(el.textContent || "")) el.textContent = "Live capability not verified by Runtime Authority.";
     });
   }
 
