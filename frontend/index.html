@@ -3874,10 +3874,54 @@
         }
 
         /* Mode Simple Overrides */
+        /* ============================================================
+           SIMPLE CHAT — WARM LIGHT PALETTE
+           Strategy: override the dark :root CSS variables directly on
+           body.mode-simple so every element that references those vars
+           automatically picks up the light equivalent. This avoids the
+           CSS-can't-select-parent problem with html/body.
+           ============================================================ */
+        body.mode-simple {
+            /* Override the dark root vars so they cascade everywhere */
+            --bg-void:    #f5f3ef;   /* warm ivory — was #020408 */
+            --bg-surface: #faf9f7;   /* soft warm white — was #060913 */
+            --bg-card:    rgba(250,249,247,0.96);
+            --border-glass: rgba(0,0,0,0.08);
+            --border-subtle: rgba(0,0,0,0.07);
+            --text-main:      #2d2926;
+            --text-secondary: #6b6460;
+            --text-muted:     #b5aea8;
+            --cyan:           #0d7a7a;   /* deep teal replaces electric cyan */
+            --cyan-glow:      rgba(13,122,122,0.35);
+            --cyan-dim:       rgba(13,122,122,0.12);
+            --amber:          #b45309;
+            --amber-glow:     rgba(180,83,9,0.3);
+            --emerald:        #047857;
+            --indigo:         #4338ca;
+            --danger:         #b91c1c;
+
+            /* Light-specific tokens */
+            --sl-bg:          #f5f3ef;
+            --sl-surface:     #faf9f7;
+            --sl-border:      #e4ddd4;
+            --sl-text:        #2d2926;
+            --sl-sub:         #6b6460;
+            --sl-muted:       #b5aea8;
+            --sl-accent:      #0d7a7a;
+            --sl-accent-bg:   rgba(13,122,122,0.10);
+            --sl-user-bg:     linear-gradient(135deg,rgba(13,122,122,0.11),rgba(99,102,241,0.10));
+            --sl-user-border: rgba(13,122,122,0.32);
+
+            background: #f5f3ef !important;
+            color: #2d2926 !important;
+        }
         body.mode-simple #app,
         #app.mode-simple {
             padding-left: 0 !important;
+            background: #f5f3ef !important;
         }
+
+        /* Hide cockpit chrome */
         body.mode-simple .cyber-left-dock,
         body.mode-simple .hud-bracket,
         body.mode-simple .header-hud-group .hud-badge,
@@ -3886,13 +3930,38 @@
         body.mode-simple #hud-telemetry-toggle-btn {
             display: none !important;
         }
+
+        /* Header */
         body.mode-simple .cyber-header {
             padding: 10px 24px !important;
-            background: rgba(2, 6, 14, 0.95) !important;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+            background: rgba(245, 243, 239, 0.97) !important;
+            border-bottom: 1px solid var(--sl-border) !important;
+            backdrop-filter: blur(12px) !important;
+            box-shadow: 0 1px 8px rgba(0,0,0,0.06) !important;
         }
+        body.mode-simple .cyber-header * {
+            color: var(--sl-text) !important;
+        }
+        body.mode-simple .cyber-header .hud-mode-btn {
+            border-color: var(--sl-border) !important;
+            color: var(--sl-sub) !important;
+            background: var(--sl-surface) !important;
+        }
+        body.mode-simple .cyber-header .hud-mode-btn.active {
+            border-color: var(--sl-accent) !important;
+            color: var(--sl-accent) !important;
+            background: var(--sl-accent-bg) !important;
+        }
+        body.mode-simple .cyber-header .hud-voice-btn {
+            border-color: var(--sl-border) !important;
+            color: var(--sl-sub) !important;
+            background: transparent !important;
+        }
+
+        /* Dialogue view */
         body.mode-simple #view-dialogue {
             padding: 0 !important;
+            background: var(--sl-bg) !important;
         }
         body.mode-simple .dialogue-wrap {
             max-width: 860px !important;
@@ -3902,9 +3971,12 @@
             box-shadow: none !important;
         }
         body.mode-simple .dialogue-head {
-            background: transparent !important;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+            background: rgba(245,243,239,0.92) !important;
+            border-bottom: 1px solid var(--sl-border) !important;
             padding: 10px 8px !important;
+        }
+        body.mode-simple .dialogue-head * {
+            color: var(--sl-sub) !important;
         }
         body.mode-simple #admin-exec-btn,
         body.mode-simple #active-language-select,
@@ -3913,46 +3985,125 @@
         body.mode-simple #dialogue-status-tag {
             display: none !important;
         }
+
+        /* Chat history */
         body.mode-simple .dialogue-history {
             padding: 20px 8px !important;
             gap: 18px !important;
+            background: var(--sl-bg) !important;
         }
+
+        /* Bubbles */
         body.mode-simple .srbk-bubble.assistant {
-            border: 1px solid rgba(255, 255, 255, 0.08) !important;
-            background: rgba(10, 18, 36, 0.6) !important;
+            border: 1px solid var(--sl-border) !important;
+            background: var(--sl-surface) !important;
             border-radius: 16px !important;
             padding: 18px 22px !important;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07) !important;
+            color: var(--sl-text) !important;
+        }
+        body.mode-simple .srbk-bubble.assistant * {
+            color: var(--sl-text) !important;
+        }
+        body.mode-simple .srbk-bubble.assistant code,
+        body.mode-simple .srbk-bubble.assistant pre {
+            background: #ede9e3 !important;
+            color: var(--sl-text) !important;
+            border: 1px solid var(--sl-border) !important;
         }
         body.mode-simple .srbk-bubble.user {
             align-self: flex-end !important;
             max-width: 85% !important;
-            border: 1px solid rgba(0, 240, 255, 0.35) !important;
-            background: linear-gradient(135deg, rgba(0, 240, 255, 0.12), rgba(99, 102, 241, 0.16)) !important;
+            border: 1px solid var(--sl-user-border) !important;
+            background: var(--sl-user-bg) !important;
             border-radius: 18px 18px 4px 18px !important;
             padding: 14px 20px !important;
+            color: var(--sl-text) !important;
         }
+        body.mode-simple .srbk-bubble.user * {
+            color: var(--sl-text) !important;
+        }
+
+        /* Input bar */
         body.mode-simple .dialogue-input-bar {
             max-width: 840px !important;
             margin: 0 auto 12px !important;
             width: calc(100% - 16px) !important;
-            background: rgba(10, 18, 34, 0.94) !important;
-            border: 1px solid rgba(0, 240, 255, 0.3) !important;
+            background: var(--sl-surface) !important;
+            border: 1px solid var(--sl-border) !important;
             border-radius: 28px !important;
             padding: 6px 12px !important;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
-            backdrop-filter: blur(20px) !important;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08), 0 1px 0 rgba(255,255,255,0.9) inset !important;
+            backdrop-filter: blur(12px) !important;
         }
         body.mode-simple .dialogue-input {
             padding: 10px 16px !important;
             font-size: 16px !important;
-            color: #ffffff !important;
+            color: var(--sl-text) !important;
             font-family: var(--font-sans) !important;
+            background: transparent !important;
+        }
+        body.mode-simple .dialogue-input::placeholder {
+            color: var(--sl-muted) !important;
         }
         body.mode-simple .dialogue-exec-btn {
             border-radius: 20px !important;
             padding: 8px 22px !important;
             font-weight: 700 !important;
+            background: var(--sl-accent) !important;
+            border-color: var(--sl-accent) !important;
+            color: #ffffff !important;
+        }
+
+        /* Input bar — override the hardcoded dark base styles */
+        body.mode-simple .dialogue-input-bar {
+            background: #faf9f7 !important;
+            border: 1px solid #e4ddd4 !important;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.07), 0 1px 0 rgba(255,255,255,0.9) inset !important;
+        }
+        body.mode-simple .dialogue-input {
+            background: transparent !important;
+            border: 1px solid #e4ddd4 !important;
+            color: #2d2926 !important;
+        }
+        body.mode-simple .dialogue-input::placeholder {
+            color: #b5aea8 !important;
+        }
+        body.mode-simple .dialogue-mic-btn {
+            color: #0d7a7a !important;
+            border-color: rgba(13,122,122,0.3) !important;
+            background: transparent !important;
+        }
+        body.mode-simple #execute-bg-button {
+            background: rgba(13,122,122,0.10) !important;
+            border-color: #0d7a7a !important;
+            color: #0d7a7a !important;
+        }
+
+        /* Hero title — hardcoded #ffffff needs override */
+        body.mode-simple .simple-hero-title {
+            color: #2d2926 !important;
+        }
+        body.mode-simple .simple-hero-sub {
+            color: #6b6460 !important;
+        }
+
+        /* Starter cards — hardcoded dark background + white title */
+        body.mode-simple .simple-starter-card {
+            background: #faf9f7 !important;
+            border: 1px solid #e4ddd4 !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
+        }
+        body.mode-simple .simple-starter-card:hover {
+            border-color: #0d7a7a !important;
+            background: rgba(13,122,122,0.06) !important;
+            box-shadow: 0 6px 20px rgba(13,122,122,0.10) !important;
+        }
+        body.mode-simple .simple-starter-title {
+            color: #2d2926 !important;
+        }
+        body.mode-simple .simple-starter-desc {
+            color: #6b6460 !important;
         }
 
         /* Simple Chat Hero */
@@ -4834,10 +4985,7 @@ html[data-theme="dark"] .srbk-theme-switch {
 }
 
     </style>
-    <link rel="stylesheet" href="/ui-refinement-20260914.css">
-    <link rel="stylesheet" href="/ui-final-fix-20260914.css">
-    <link rel="stylesheet" href="/ui-product-final-20260914.css">
-
+</style>
 <style id="SAREMBOK_MOBILE_UX_V5_20260915">
 
 /* ============================================================
@@ -9879,8 +10027,17 @@ button,
         // SAREMBOK_PRODUCT_PRONUNCIATION_20260914
         function normalizeSarembokSpeech(text) {
             return String(text || "")
+                // Brand pronunciation
                 .replace(/\bSarembok\s*VE\b/gi, "Sarembok V E")
-                .replace(/\bSarembokVE\b/gi, "Sarembok V E");
+                .replace(/\bSarembokVE\b/gi, "Sarembok V E")
+                // Strip emoji (Unicode ranges: emoticons, misc symbols, supplemental symbols, dingbats, etc.)
+                .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{2B50}\u{2B55}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F004}\u{1F0CF}\u{1F200}-\u{1F251}]/gu, "")
+                // Strip standalone punctuation/math/arrow symbols that TTS reads aloud
+                .replace(/[·•◇◆▸▹►▻→←↑↓↔↕⇒⇐⇔★☆✓✗✘✦✧✩✪✫✬✭✮✯✰♠♣♥♦♤♧♡♢§¶†‡©®™°±×÷≠≤≥≈∞∑∏√∂∫∈∉∋∌⊂⊃⊄⊅⊆⊇⊕⊗⊥∩∪∀∃∄∧∨¬⊤⊢⊨]/g, " ")
+                // Strip remaining non-ASCII non-letter junk that TTS may read as letter names
+                .replace(/[^\x00-\x7F]/g, " ")
+                .replace(/\s+/g, " ")
+                .trim();
         }
 
         function speakText(btnOrText) {
@@ -12499,6 +12656,8 @@ button,
 
             if (mode === 'simple') {
                 document.body.classList.add('mode-simple');
+                document.documentElement.style.background = '#f5f3ef';  // override html bg
+                document.documentElement.style.color = '#2d2926';
                 if (app) app.classList.add('mode-simple');
                 if (simpleBtn) simpleBtn.classList.add('active');
                 if (cockpitBtn) cockpitBtn.classList.remove('active');
@@ -12513,6 +12672,8 @@ button,
                 showToast("SIMPLE CHAT VIEW ACTIVE");
             } else {
                 document.body.classList.remove('mode-simple');
+                document.documentElement.style.background = '';  // restore html bg
+                document.documentElement.style.color = '';
                 if (app) app.classList.remove('mode-simple');
                 if (cockpitBtn) cockpitBtn.classList.add('active');
                 if (simpleBtn) simpleBtn.classList.remove('active');
