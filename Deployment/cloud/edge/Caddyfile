@@ -49,19 +49,20 @@ sarembok.com, www.sarembok.com {
         reverse_proxy sarembok-runtime:9000
     }
 
-    # Stable production frontend. The legacy index.html remains in the repo
-    # for rollback/reference but is no longer the public root application.
+    # Production application surface. Keep the full authoritative frontend
+    # as the public root. stable.html remains available for controlled
+    # rollback/testing but is never silently substituted for the application.
     handle / {
         root * /srv
         header Cache-Control "no-cache, no-store, must-revalidate"
         header Pragma "no-cache"
         header Expires "0"
         file_server {
-            index stable.html
+            index index.html
         }
     }
 
-    # Preserve direct access to static assets and the legacy surface.
+    # Preserve direct access to static assets and SPA-style fallback paths.
     handle {
         root * /srv
         header Cache-Control "no-cache, no-store, must-revalidate"
