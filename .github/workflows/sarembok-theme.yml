@@ -10,104 +10,206 @@ permissions:
   contents: write
 
 jobs:
-  refine-theme:
+  install-theme:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Refine Sarembok light theme
+      - name: Install active theme layer
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p = Path("frontend/index.html")
           s = p.read_text(encoding="utf-8")
-          marker = "SAREMBOK_LIGHT_THEME_V2_20260916"
+          marker = "SAREMBOK_LIGHT_THEME_V3_ACTIVE_20260916"
           if marker in s:
-              print("Light theme refinement already installed")
+              print("Theme V3 already installed")
               raise SystemExit(0)
 
           css = r"""
-          /* SAREMBOK_LIGHT_THEME_V2_20260916 */
+          /* SAREMBOK_LIGHT_THEME_V3_ACTIVE_20260916 */
           html[data-theme="light"] {
-              --bg-void: #e9edf2;
-              --bg-surface: #f3f5f7;
-              --bg-card: rgba(248,250,252,.88);
-              --border-glass: rgba(15,61,84,.16);
-              --border-subtle: rgba(15,23,42,.10);
-              --cyan: #087f9b;
-              --cyan-glow: rgba(8,127,155,.18);
-              --cyan-dim: rgba(8,127,155,.08);
-              --amber: #a16207;
-              --amber-glow: rgba(161,98,7,.16);
-              --emerald: #047857;
-              --indigo: #4f46a5;
-              --danger: #b91c1c;
-              --text-main: #17212b;
-              --text-secondary: #526170;
-              --text-muted: #73808e;
+              color-scheme: light;
+              --bg-void: #e8edf2 !important;
+              --bg-surface: #f3f6f8 !important;
+              --bg-card: #ffffff !important;
+              --border-glass: rgba(15,61,84,.14) !important;
+              --border-subtle: rgba(15,23,42,.10) !important;
+              --cyan: #087f9b !important;
+              --cyan-glow: rgba(8,127,155,.18) !important;
+              --cyan-dim: rgba(8,127,155,.08) !important;
+              --amber: #9a6700 !important;
+              --amber-glow: rgba(154,103,0,.14) !important;
+              --emerald: #047857 !important;
+              --indigo: #4f46a5 !important;
+              --danger: #b91c1c !important;
+              --text-main: #17212b !important;
+              --text-secondary: #526170 !important;
+              --text-muted: #73808e !important;
           }
           html[data-theme="light"] body {
-              background: var(--bg-void);
-              color: var(--text-main);
+              background: #e8edf2 !important;
+              color: #17212b !important;
+          }
+          html[data-theme="light"] .cyber-header,
+          html[data-theme="light"] .cyber-left-dock,
+          html[data-theme="light"] .cyber-main,
+          html[data-theme="light"] .main-content,
+          html[data-theme="light"] .workspace,
+          html[data-theme="light"] .content-area {
+              background: #e8edf2 !important;
+              color: #17212b !important;
           }
           html[data-theme="light"] .cyber-header {
-              background: rgba(233,237,242,.92);
-              border-bottom-color: rgba(15,61,84,.12);
-              box-shadow: 0 1px 0 rgba(255,255,255,.75);
+              background: rgba(243,246,248,.96) !important;
+              border-bottom: 1px solid rgba(15,61,84,.12) !important;
+              box-shadow: 0 1px 0 rgba(255,255,255,.9) !important;
           }
           html[data-theme="light"] .cyber-left-dock {
-              background: rgba(225,230,236,.82);
-              border-right-color: rgba(15,61,84,.12);
+              background: #eef2f5 !important;
+              border-right: 1px solid rgba(15,61,84,.11) !important;
+          }
+          html[data-theme="light"] .panel,
+          html[data-theme="light"] .card,
+          html[data-theme="light"] .glass-panel,
+          html[data-theme="light"] .cockpit-panel,
+          html[data-theme="light"] .agent-panel,
+          html[data-theme="light"] .task-panel,
+          html[data-theme="light"] .response-panel,
+          html[data-theme="light"] .chat-panel,
+          html[data-theme="light"] .message,
+          html[data-theme="light"] .output-panel,
+          html[data-theme="light"] .content-panel {
+              background: #f8fafb !important;
+              color: #17212b !important;
+              border-color: rgba(15,61,84,.12) !important;
+              box-shadow: 0 1px 2px rgba(15,23,42,.04) !important;
+          }
+          html[data-theme="light"] input,
+          html[data-theme="light"] textarea,
+          html[data-theme="light"] select,
+          html[data-theme="light"] button {
+              color: #17212b;
+          }
+          html[data-theme="light"] input,
+          html[data-theme="light"] textarea,
+          html[data-theme="light"] select {
+              background: #ffffff !important;
+              border-color: rgba(15,61,84,.16) !important;
           }
           html[data-theme="light"] .header-brand-title,
-          html[data-theme="light"] .header-brand-subtitle {
-              color: var(--text-main);
-          }
           html[data-theme="light"] .header-brand-subtitle,
+          html[data-theme="light"] h1,
+          html[data-theme="light"] h2,
+          html[data-theme="light"] h3,
+          html[data-theme="light"] h4,
+          html[data-theme="light"] strong,
+          html[data-theme="light"] b {
+              color: #17212b !important;
+          }
+          html[data-theme="light"] p,
+          html[data-theme="light"] span,
+          html[data-theme="light"] label,
           html[data-theme="light"] .status-label,
           html[data-theme="light"] .telemetry-label {
-              color: var(--text-secondary);
+              color: #526170;
           }
           html[data-theme="light"] #global-input-bar {
-              background: linear-gradient(to top, rgba(233,237,242,1) 0%, rgba(233,237,242,.94) 68%, rgba(233,237,242,0) 100%);
+              background: linear-gradient(to top, rgba(232,237,242,1), rgba(232,237,242,.96) 72%, rgba(232,237,242,0) 100%) !important;
           }
           html[data-theme="light"] #global-input-bar-inner {
-              background: rgba(248,250,252,.94);
-              border-color: rgba(8,127,155,.20);
-              box-shadow: 0 8px 24px rgba(15,23,42,.09), 0 1px 2px rgba(15,23,42,.06);
+              background: #ffffff !important;
+              border: 1px solid rgba(8,127,155,.20) !important;
+              box-shadow: 0 8px 24px rgba(15,23,42,.08) !important;
           }
           html[data-theme="light"] #global-input-field {
-              color: var(--text-main);
+              color: #17212b !important;
           }
           html[data-theme="light"] #global-input-field::placeholder {
-              color: #7a8794;
+              color: #7a8794 !important;
           }
           html[data-theme="light"] .dock-btn:hover,
           html[data-theme="light"] .dock-btn.active {
-              background: rgba(8,127,155,.07);
-              color: var(--cyan);
+              background: rgba(8,127,155,.08) !important;
+              color: #087f9b !important;
           }
           html[data-theme="light"] .hud-bracket {
-              opacity: .28;
-          }
-          html[data-theme="light"] .srbk-theme-toggle {
-              background: rgba(248,250,252,.76);
+              opacity: .10 !important;
           }
           html[data-theme="light"] ::selection {
-              background: rgba(8,127,155,.20);
-              color: #17212b;
+              background: rgba(8,127,155,.20) !important;
+              color: #17212b !important;
+          }
+          .srbk-theme-switch {
+              position: fixed;
+              top: 10px;
+              right: 14px;
+              z-index: 2147483000;
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+              height: 30px;
+              padding: 0 10px;
+              border: 1px solid rgba(8,127,155,.24);
+              border-radius: 8px;
+              background: rgba(255,255,255,.92);
+              color: #526170;
+              font: 600 11px/1 'JetBrains Mono', monospace;
+              letter-spacing: .05em;
+              cursor: pointer;
+              box-shadow: 0 2px 8px rgba(15,23,42,.08);
+              backdrop-filter: blur(8px);
+          }
+          .srbk-theme-switch:hover { color: #087f9b; border-color: rgba(8,127,155,.45); }
+          html[data-theme="dark"] .srbk-theme-switch {
+              background: rgba(6,9,19,.88);
+              color: #94a3b8;
+              border-color: rgba(0,240,255,.20);
+          }
+          @media (max-width: 720px) {
+              .srbk-theme-switch { top: 8px; right: 8px; height: 28px; padding: 0 8px; }
           }
           """
 
-          # Keep the existing control and append only a new, higher-priority theme layer.
+          js = r"""
+          /* SAREMBOK_THEME_RUNTIME_V3_20260916 */
+          (function () {
+              function applyTheme(theme) {
+                  document.documentElement.setAttribute('data-theme', theme);
+                  try { localStorage.setItem('sarembok-theme', theme); } catch (_) {}
+                  var b = document.getElementById('srbk-theme-switch');
+                  if (b) b.textContent = theme === 'light' ? 'DARK' : 'LIGHT';
+              }
+              var saved = null;
+              try { saved = localStorage.getItem('sarembok-theme'); } catch (_) {}
+              applyTheme(saved === 'dark' ? 'dark' : 'light');
+              function mount() {
+                  if (document.getElementById('srbk-theme-switch')) return;
+                  var b = document.createElement('button');
+                  b.id = 'srbk-theme-switch';
+                  b.className = 'srbk-theme-switch';
+                  b.type = 'button';
+                  b.setAttribute('aria-label', 'Toggle light and dark theme');
+                  b.addEventListener('click', function () {
+                      applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+                  });
+                  document.body.appendChild(b);
+                  applyTheme(document.documentElement.getAttribute('data-theme') || 'light');
+              }
+              if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, {once:true});
+              else mount();
+          })();
+          """
+
           s = s.replace("</style>", css + "\n    </style>", 1)
-          s = s.replace('<meta name="sarembok-theme" content="SAREMBOK_THEME_CONTROL_V1_20260916">', '<meta name="sarembok-theme" content="SAREMBOK_THEME_CONTROL_V1_20260916">\n    <meta name="sarembok-light-theme" content="SAREMBOK_LIGHT_THEME_V2_20260916">', 1)
+          s = s.replace("</head>", "<script>" + js + "</script>\n</head>", 1)
+          s = s.replace('SAREMBOK_LIGHT_THEME_V2_20260916', marker, 1)
           p.write_text(s, encoding="utf-8")
           PY
 
-      - name: Commit refinement
+      - name: Commit theme activation
         shell: bash
         run: |
           if git diff --quiet -- frontend/index.html; then
@@ -116,6 +218,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add frontend/index.html
-          git commit -m "feat(ui): refine Sarembok light theme"
+          git add frontend/index.html .github/workflows/sarembok-theme.yml
+          git commit -m "fix(ui): make light theme actually active"
           git push
