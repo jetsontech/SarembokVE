@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
     <meta name="sarembok-theme" content="SAREMBOK_THEME_CONTROL_V1_20260916">
+    <meta name="sarembok-light-theme" content="SAREMBOK_LIGHT_THEME_V2_20260916">
     <title>SAREMBOKVE · AI-NATIVE COMPUTING ENVIRONMENT</title>
     <meta name="description" content="SarembokVE is an AI-native computing environment and sovereign control plane for agents, persistent memory, tool execution, research, orchestration, and distributed compute.">
 
@@ -4615,6 +4616,78 @@ html[data-theme="light"] .dock-btn.active { background: rgba(8,145,178,.08); }
 .srbk-theme-toggle svg { width:14px; height:14px; flex:none; }
 .srbk-theme-label { white-space:nowrap; }
 @media (max-width: 720px) { .srbk-theme-label { display:none; } .srbk-theme-toggle { width:30px; justify-content:center; padding:0; } }
+
+    
+/* SAREMBOK_LIGHT_THEME_V2_20260916 */
+html[data-theme="light"] {
+    --bg-void: #e9edf2;
+    --bg-surface: #f3f5f7;
+    --bg-card: rgba(248,250,252,.88);
+    --border-glass: rgba(15,61,84,.16);
+    --border-subtle: rgba(15,23,42,.10);
+    --cyan: #087f9b;
+    --cyan-glow: rgba(8,127,155,.18);
+    --cyan-dim: rgba(8,127,155,.08);
+    --amber: #a16207;
+    --amber-glow: rgba(161,98,7,.16);
+    --emerald: #047857;
+    --indigo: #4f46a5;
+    --danger: #b91c1c;
+    --text-main: #17212b;
+    --text-secondary: #526170;
+    --text-muted: #73808e;
+}
+html[data-theme="light"] body {
+    background: var(--bg-void);
+    color: var(--text-main);
+}
+html[data-theme="light"] .cyber-header {
+    background: rgba(233,237,242,.92);
+    border-bottom-color: rgba(15,61,84,.12);
+    box-shadow: 0 1px 0 rgba(255,255,255,.75);
+}
+html[data-theme="light"] .cyber-left-dock {
+    background: rgba(225,230,236,.82);
+    border-right-color: rgba(15,61,84,.12);
+}
+html[data-theme="light"] .header-brand-title,
+html[data-theme="light"] .header-brand-subtitle {
+    color: var(--text-main);
+}
+html[data-theme="light"] .header-brand-subtitle,
+html[data-theme="light"] .status-label,
+html[data-theme="light"] .telemetry-label {
+    color: var(--text-secondary);
+}
+html[data-theme="light"] #global-input-bar {
+    background: linear-gradient(to top, rgba(233,237,242,1) 0%, rgba(233,237,242,.94) 68%, rgba(233,237,242,0) 100%);
+}
+html[data-theme="light"] #global-input-bar-inner {
+    background: rgba(248,250,252,.94);
+    border-color: rgba(8,127,155,.20);
+    box-shadow: 0 8px 24px rgba(15,23,42,.09), 0 1px 2px rgba(15,23,42,.06);
+}
+html[data-theme="light"] #global-input-field {
+    color: var(--text-main);
+}
+html[data-theme="light"] #global-input-field::placeholder {
+    color: #7a8794;
+}
+html[data-theme="light"] .dock-btn:hover,
+html[data-theme="light"] .dock-btn.active {
+    background: rgba(8,127,155,.07);
+    color: var(--cyan);
+}
+html[data-theme="light"] .hud-bracket {
+    opacity: .28;
+}
+html[data-theme="light"] .srbk-theme-toggle {
+    background: rgba(248,250,252,.76);
+}
+html[data-theme="light"] ::selection {
+    background: rgba(8,127,155,.20);
+    color: #17212b;
+}
 
     </style>
     <link rel="stylesheet" href="/ui-refinement-20260914.css">
