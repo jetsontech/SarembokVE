@@ -1,6 +1,7 @@
 services:
   sarembok-runtime:
     ports: !reset []
+    command: ["python", "/app/investor_boot.py"]
     env_file:
       - path: ../../.env
         required: false
@@ -10,7 +11,6 @@ services:
         required: false
     environment:
       SAREMBOK_AUTH_TOKEN: ${SAREMBOK_AUTH_TOKEN:-}
-      # Intelligence Provider Interface
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
@@ -30,6 +30,7 @@ services:
     volumes:
       - sarembok-data:/data
       - ./server.py:/app/server.py:ro
+      - ./investor_boot.py:/app/investor_boot.py:ro
       - ./knowledge_rpc_server.py:/app/knowledge_rpc_server.py:ro
       - ./runtime_response_composer.py:/app/runtime_response_composer.py:ro
       - ./runtime_authority.py:/app/runtime_authority.py:ro
@@ -58,7 +59,6 @@ services:
     environment:
       SAREMBOK_SITE_ADDRESS: ${SAREMBOK_PUBLIC_HOST:-${SAREMBOK_SITE_ADDRESS:-sarembok.com}}
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
-
     ports:
       - "80:80"
       - "443:443"
