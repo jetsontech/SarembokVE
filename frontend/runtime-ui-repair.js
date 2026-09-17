@@ -343,7 +343,7 @@
         if (mdRenderer) {
             try {
                 const rendered = window.md("\\*\\*SAREMBOK\\*\\*\n\n- one\n- two");
-                markdownTest = /<strong>SAREMBOK<\\/strong>/.test(rendered) && /<li/.test(rendered);
+                markdownTest = /<strong>SAREMBOK<\/strong>/.test(rendered) && /<li/.test(rendered);
             } catch (_) {}
         }
         window.__srbkRuntimeUiHealth = {
