@@ -10,125 +10,104 @@ permissions:
   contents: write
 
 jobs:
-  install-theme-control:
+  refine-theme:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install compact Light/Dark control
+      - name: Refine Sarembok light theme
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p = Path("frontend/index.html")
           s = p.read_text(encoding="utf-8")
-          marker = "SAREMBOK_THEME_CONTROL_V1_20260916"
+          marker = "SAREMBOK_LIGHT_THEME_V2_20260916"
           if marker in s:
-              print("Theme control already installed")
+              print("Light theme refinement already installed")
               raise SystemExit(0)
 
           css = r"""
-          /* SAREMBOK_THEME_CONTROL_V1_20260916 */
+          /* SAREMBOK_LIGHT_THEME_V2_20260916 */
           html[data-theme="light"] {
-              --bg-void: #f5f7fa;
-              --bg-surface: #ffffff;
-              --bg-card: rgba(255,255,255,.94);
-              --border-glass: rgba(8,145,178,.20);
-              --border-subtle: rgba(15,23,42,.12);
-              --cyan: #0891b2;
-              --cyan-glow: rgba(8,145,178,.25);
-              --cyan-dim: rgba(8,145,178,.10);
-              --amber: #b45309;
-              --amber-glow: rgba(180,83,9,.20);
-              --text-main: #0f172a;
-              --text-secondary: #475569;
-              --text-muted: #64748b;
+              --bg-void: #e9edf2;
+              --bg-surface: #f3f5f7;
+              --bg-card: rgba(248,250,252,.88);
+              --border-glass: rgba(15,61,84,.16);
+              --border-subtle: rgba(15,23,42,.10);
+              --cyan: #087f9b;
+              --cyan-glow: rgba(8,127,155,.18);
+              --cyan-dim: rgba(8,127,155,.08);
+              --amber: #a16207;
+              --amber-glow: rgba(161,98,7,.16);
+              --emerald: #047857;
+              --indigo: #4f46a5;
+              --danger: #b91c1c;
+              --text-main: #17212b;
+              --text-secondary: #526170;
+              --text-muted: #73808e;
           }
-          html[data-theme="light"] body { background: var(--bg-void); color: var(--text-main); }
-          html[data-theme="light"] .cyber-header { background: linear-gradient(180deg, rgba(245,247,250,.96), rgba(245,247,250,0)); border-bottom-color: rgba(8,145,178,.12); }
-          html[data-theme="light"] .cyber-left-dock { background: rgba(248,250,252,.92); border-right-color: rgba(8,145,178,.14); }
-          html[data-theme="light"] .header-brand-title { color: #0f172a; }
-          html[data-theme="light"] #global-input-bar { background: linear-gradient(to top, rgba(245,247,250,1) 0%, rgba(245,247,250,.94) 60%, rgba(245,247,250,0) 100%); }
-          html[data-theme="light"] #global-input-bar-inner { background: rgba(255,255,255,.96); border-color: rgba(8,145,178,.25); box-shadow: 0 10px 30px rgba(15,23,42,.12), 0 0 16px rgba(8,145,178,.08); }
-          html[data-theme="light"] #global-input-field { color: #0f172a; }
+          html[data-theme="light"] body {
+              background: var(--bg-void);
+              color: var(--text-main);
+          }
+          html[data-theme="light"] .cyber-header {
+              background: rgba(233,237,242,.92);
+              border-bottom-color: rgba(15,61,84,.12);
+              box-shadow: 0 1px 0 rgba(255,255,255,.75);
+          }
+          html[data-theme="light"] .cyber-left-dock {
+              background: rgba(225,230,236,.82);
+              border-right-color: rgba(15,61,84,.12);
+          }
+          html[data-theme="light"] .header-brand-title,
+          html[data-theme="light"] .header-brand-subtitle {
+              color: var(--text-main);
+          }
+          html[data-theme="light"] .header-brand-subtitle,
+          html[data-theme="light"] .status-label,
+          html[data-theme="light"] .telemetry-label {
+              color: var(--text-secondary);
+          }
+          html[data-theme="light"] #global-input-bar {
+              background: linear-gradient(to top, rgba(233,237,242,1) 0%, rgba(233,237,242,.94) 68%, rgba(233,237,242,0) 100%);
+          }
+          html[data-theme="light"] #global-input-bar-inner {
+              background: rgba(248,250,252,.94);
+              border-color: rgba(8,127,155,.20);
+              box-shadow: 0 8px 24px rgba(15,23,42,.09), 0 1px 2px rgba(15,23,42,.06);
+          }
+          html[data-theme="light"] #global-input-field {
+              color: var(--text-main);
+          }
+          html[data-theme="light"] #global-input-field::placeholder {
+              color: #7a8794;
+          }
           html[data-theme="light"] .dock-btn:hover,
-          html[data-theme="light"] .dock-btn.active { background: rgba(8,145,178,.08); }
-
-          .srbk-theme-toggle {
-              display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 9px;
-              border:1px solid var(--border-subtle); border-radius:15px; background:var(--bg-card);
-              color:var(--text-secondary); font:500 10px/1 var(--font-mono); letter-spacing:.06em;
-              cursor:pointer; transition:background .18s,border-color .18s,color .18s;
+          html[data-theme="light"] .dock-btn.active {
+              background: rgba(8,127,155,.07);
+              color: var(--cyan);
           }
-          .srbk-theme-toggle:hover { border-color:var(--border-glass); color:var(--cyan); }
-          .srbk-theme-toggle svg { width:14px; height:14px; flex:none; }
-          .srbk-theme-label { white-space:nowrap; }
-          @media (max-width: 720px) { .srbk-theme-label { display:none; } .srbk-theme-toggle { width:30px; justify-content:center; padding:0; } }
+          html[data-theme="light"] .hud-bracket {
+              opacity: .28;
+          }
+          html[data-theme="light"] .srbk-theme-toggle {
+              background: rgba(248,250,252,.76);
+          }
+          html[data-theme="light"] ::selection {
+              background: rgba(8,127,155,.20);
+              color: #17212b;
+          }
           """
 
-          html_marker = '<meta name="sarembok-theme" content="SAREMBOK_THEME_CONTROL_V1_20260916">'
-          s = s.replace("<title>SAREMBOKVE", html_marker + "\n    <title>SAREMBOKVE", 1)
+          # Keep the existing control and append only a new, higher-priority theme layer.
           s = s.replace("</style>", css + "\n    </style>", 1)
-
-          button = r"""
-          <!-- SAREMBOK_THEME_CONTROL_V1_20260916 -->
-          <button id="srbk-theme-toggle" class="srbk-theme-toggle" type="button" aria-label="Switch color theme" title="Switch color theme">
-            <svg id="srbk-theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>
-            <span id="srbk-theme-label" class="srbk-theme-label">LIGHT</span>
-          </button>
-          """
-          if 'id="srbk-theme-toggle"' not in s:
-              anchor = '</div>\n\n        </header>'
-              if anchor in s:
-                  s = s.replace(anchor, button + '\n        </div>\n\n        </header>', 1)
-              else:
-                  idx = s.find('<div class="header-hud-group"')
-                  if idx >= 0:
-                      end = s.find('</div>', idx)
-                      if end >= 0:
-                          s = s[:end+6] + button + s[end+6:]
-                  else:
-                      s = s.replace('</body>', button + '</body>', 1)
-
-          js = r"""
-          /* SAREMBOK_THEME_CONTROL_V1_20260916 */
-          (function installSarembokThemeControl(){
-              const key = 'sarembok-theme';
-              const root = document.documentElement;
-              const saved = localStorage.getItem(key);
-              const initial = saved === 'light' || saved === 'dark' ? saved : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-              root.dataset.theme = initial;
-
-              function sync(){
-                  const light = root.dataset.theme === 'light';
-                  const label = document.getElementById('srbk-theme-label');
-                  const icon = document.getElementById('srbk-theme-icon');
-                  const btn = document.getElementById('srbk-theme-toggle');
-                  if(label) label.textContent = light ? 'DARK' : 'LIGHT';
-                  if(btn) btn.setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
-                  if(btn) btn.title = light ? 'Switch to dark theme' : 'Switch to light theme';
-                  if(icon) icon.innerHTML = light ? '<path d="M21 12.8A8.5 8.5 0 0 1 11.2 3a6.8 6.8 0 1 0 9.8 9.8Z"></path>' : '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path>';
-              }
-              function bind(){
-                  const btn = document.getElementById('srbk-theme-toggle');
-                  if(!btn || btn.dataset.bound) return;
-                  btn.dataset.bound = '1';
-                  btn.addEventListener('click', function(){
-                      root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
-                      localStorage.setItem(key, root.dataset.theme);
-                      sync();
-                  });
-                  sync();
-              }
-              if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, {once:true}); else bind();
-          })();
-          """
-          s = s.replace('</body>', '<script>\n' + js + '\n</script>\n</body>', 1)
+          s = s.replace('<meta name="sarembok-theme" content="SAREMBOK_THEME_CONTROL_V1_20260916">', '<meta name="sarembok-theme" content="SAREMBOK_THEME_CONTROL_V1_20260916">\n    <meta name="sarembok-light-theme" content="SAREMBOK_LIGHT_THEME_V2_20260916">', 1)
           p.write_text(s, encoding="utf-8")
           PY
 
-      - name: Commit theme control
+      - name: Commit refinement
         shell: bash
         run: |
           if git diff --quiet -- frontend/index.html; then
@@ -138,5 +117,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add frontend/index.html
-          git commit -m "feat(ui): add persistent light dark theme control"
+          git commit -m "feat(ui): refine Sarembok light theme"
           git push
