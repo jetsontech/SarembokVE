@@ -51,6 +51,116 @@
       .assistant-message, .message.assistant, .response-content, .chat-message.assistant { max-width: 900px !important; }
       .chat-container, .messages-container, #chat-container { padding-top: 8px !important; }
       .model-selector, .language-selector, .voice-controls { transform: scale(.92); transform-origin: right center; }
+
+      /* SAREMBOK LIGHT THEME: a deliberate visual system, not an inversion.
+         Warm ivory canvas, soft neutral surfaces, graphite typography,
+         muted blue-gray secondary text, restrained cyan accents, subtle depth. */
+      html[data-theme="light"] {
+        color-scheme: light !important;
+        --bg-void: #f4f1eb !important;
+        --bg-surface: #faf8f4 !important;
+        --bg-card: #fffdf9 !important;
+        --border-glass: rgba(45,55,65,.12) !important;
+        --border-subtle: rgba(45,55,65,.10) !important;
+        --cyan: #147d92 !important;
+        --cyan-glow: rgba(20,125,146,.12) !important;
+        --cyan-dim: rgba(20,125,146,.07) !important;
+        --amber: #9a6414 !important;
+        --amber-glow: rgba(154,100,20,.10) !important;
+        --emerald: #17745b !important;
+        --indigo: #565b88 !important;
+        --danger: #a63d3d !important;
+        --text-main: #2f3438 !important;
+        --text-secondary: #68727a !important;
+        --text-muted: #8b949a !important;
+      }
+      html[data-theme="light"] body,
+      html[data-theme="light"] #app,
+      html[data-theme="light"] .cyber-main,
+      html[data-theme="light"] .main-content,
+      html[data-theme="light"] .workspace,
+      html[data-theme="light"] .content-area {
+        background: #f4f1eb !important;
+        color: #2f3438 !important;
+      }
+      html[data-theme="light"] .cyber-header {
+        background: rgba(250,248,244,.97) !important;
+        border-bottom: 1px solid rgba(45,55,65,.10) !important;
+        box-shadow: 0 1px 6px rgba(45,55,65,.05) !important;
+      }
+      html[data-theme="light"] .cyber-left-dock {
+        background: #eeeae3 !important;
+        border-right: 1px solid rgba(45,55,65,.09) !important;
+      }
+      html[data-theme="light"] .panel,
+      html[data-theme="light"] .card,
+      html[data-theme="light"] .glass-panel,
+      html[data-theme="light"] .cockpit-panel,
+      html[data-theme="light"] .agent-panel,
+      html[data-theme="light"] .task-panel,
+      html[data-theme="light"] .response-panel,
+      html[data-theme="light"] .chat-panel,
+      html[data-theme="light"] .message,
+      html[data-theme="light"] .output-panel,
+      html[data-theme="light"] .content-panel {
+        background: #fbf9f5 !important;
+        color: #2f3438 !important;
+        border-color: rgba(45,55,65,.10) !important;
+        box-shadow: 0 2px 10px rgba(45,55,65,.045) !important;
+      }
+      html[data-theme="light"] h1,
+      html[data-theme="light"] h2,
+      html[data-theme="light"] h3,
+      html[data-theme="light"] h4,
+      html[data-theme="light"] strong,
+      html[data-theme="light"] b,
+      html[data-theme="light"] .header-brand-title {
+        color: #2f3438 !important;
+      }
+      html[data-theme="light"] p,
+      html[data-theme="light"] span,
+      html[data-theme="light"] label,
+      html[data-theme="light"] .header-brand-subtitle,
+      html[data-theme="light"] .status-label,
+      html[data-theme="light"] .telemetry-label {
+        color: #68727a;
+      }
+      html[data-theme="light"] input,
+      html[data-theme="light"] textarea,
+      html[data-theme="light"] select {
+        background: #fffdf9 !important;
+        color: #2f3438 !important;
+        border-color: rgba(45,55,65,.14) !important;
+        box-shadow: none !important;
+      }
+      html[data-theme="light"] button { box-shadow: none !important; }
+      html[data-theme="light"] #global-input-bar {
+        background: linear-gradient(to top, rgba(244,241,235,1), rgba(244,241,235,.96) 72%, rgba(244,241,235,0) 100%) !important;
+      }
+      html[data-theme="light"] #global-input-bar-inner {
+        background: #fffdf9 !important;
+        border: 1px solid rgba(45,55,65,.12) !important;
+        box-shadow: 0 5px 18px rgba(45,55,65,.07) !important;
+      }
+      html[data-theme="light"] #global-input-field { color: #2f3438 !important; }
+      html[data-theme="light"] #global-input-field::placeholder { color: #969da1 !important; }
+      html[data-theme="light"] .dock-btn:hover,
+      html[data-theme="light"] .dock-btn.active {
+        background: rgba(20,125,146,.07) !important;
+        color: #147d92 !important;
+      }
+      html[data-theme="light"] .hud-bracket { opacity: .035 !important; }
+      html[data-theme="light"] .srbk-theme-switch,
+      html[data-theme="light"] .srbk-theme-toggle {
+        background: #fffdf9 !important;
+        color: #68727a !important;
+        border-color: rgba(45,55,65,.12) !important;
+        box-shadow: 0 2px 7px rgba(45,55,65,.05) !important;
+      }
+      html[data-theme="light"] ::selection {
+        background: rgba(20,125,146,.16) !important;
+        color: #2f3438 !important;
+      }
     `;
     document.head.appendChild(style);
   }
