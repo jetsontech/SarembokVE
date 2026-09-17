@@ -50,8 +50,8 @@ echo "===== PUBLIC SESSION ====="
 curl -fsS https://sarembok.com/session
 
 echo
-echo "===== END-TO-END UI SMOKE V2 ====="
-python3 Deployment/cloud/production_ui_smoke_v2.py
+echo "===== END-TO-END UI SMOKE V3 ====="
+python3 Deployment/cloud/production_ui_smoke_v3.py
 
 echo
 echo "===== UI RECOVERY DEPLOYMENT COMPLETE ====="
