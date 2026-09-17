@@ -60,13 +60,22 @@ class MCPClientManager:
             mcp_servers = data.get("mcpServers", {})
             for name, cfg in mcp_servers.items():
                 transport = cfg.get("transport", "stdio" if "command" in cfg else "http")
+                raw_env = cfg.get("env", {})
+                # Resolve environment variables like ${VAR_NAME} or $VAR_NAME
+                resolved_env = {}
+                for k, v in raw_env.items():
+                    if isinstance(v, str):
+                        resolved_env[k] = os.path.expandvars(v)
+                    else:
+                        resolved_env[k] = str(v)
+
                 server = ExternalMcpServer(
                     name=name,
                     transport=transport,
                     command=cfg.get("command", ""),
                     args=cfg.get("args", []),
-                    env=cfg.get("env", {}),
-                    url=cfg.get("url", ""),
+                    env=resolved_env,
+                    url=os.path.expandvars(cfg.get("url", "")),
                     headers=cfg.get("headers", {}),
                     timeout_seconds=float(cfg.get("timeout", 15.0)),
                 )
@@ -79,16 +88,16 @@ class MCPClientManager:
         """Create a standard template for external MCP integrations."""
         default_config = {
             "mcpServers": {
+                "brave-search": {
+                    "transport": "http",
+                    "url": "https://api.search.brave.com/res/v1/web/search",
+                    "description": "Frontier real-time web search MCP connector"
+                },
                 "sqlite": {
                     "transport": "stdio",
                     "command": "python",
                     "args": ["-m", "sqlite3"],
                     "description": "Local SQLite database querying and inspection MCP server"
-                },
-                "brave-search": {
-                    "transport": "http",
-                    "url": "https://api.search.brave.com/res/v1/web/search",
-                    "description": "Frontier web search MCP connector"
                 }
             }
         }
@@ -338,4 +347,3 @@ def set_mcp_client_manager(manager: MCPClientManager | None) -> None:
     """Setter for global MCPClientManager singleton (useful for testing and injection)."""
     global _MCP_CLIENT_MANAGER
     _MCP_CLIENT_MANAGER = manager
-
