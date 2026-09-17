@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="sarembok-theme" content="SAREMBOK_THEME_CONTROL_V1_20260916">
     <title>SAREMBOKVE · AI-NATIVE COMPUTING ENVIRONMENT</title>
     <meta name="description" content="SarembokVE is an AI-native computing environment and sovereign control plane for agents, persistent memory, tool execution, research, orchestration, and distributed compute.">
 
@@ -4577,7 +4578,45 @@
             }
         }
 
-</style>
+
+/* SAREMBOK_THEME_CONTROL_V1_20260916 */
+html[data-theme="light"] {
+    --bg-void: #f5f7fa;
+    --bg-surface: #ffffff;
+    --bg-card: rgba(255,255,255,.94);
+    --border-glass: rgba(8,145,178,.20);
+    --border-subtle: rgba(15,23,42,.12);
+    --cyan: #0891b2;
+    --cyan-glow: rgba(8,145,178,.25);
+    --cyan-dim: rgba(8,145,178,.10);
+    --amber: #b45309;
+    --amber-glow: rgba(180,83,9,.20);
+    --text-main: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+}
+html[data-theme="light"] body { background: var(--bg-void); color: var(--text-main); }
+html[data-theme="light"] .cyber-header { background: linear-gradient(180deg, rgba(245,247,250,.96), rgba(245,247,250,0)); border-bottom-color: rgba(8,145,178,.12); }
+html[data-theme="light"] .cyber-left-dock { background: rgba(248,250,252,.92); border-right-color: rgba(8,145,178,.14); }
+html[data-theme="light"] .header-brand-title { color: #0f172a; }
+html[data-theme="light"] #global-input-bar { background: linear-gradient(to top, rgba(245,247,250,1) 0%, rgba(245,247,250,.94) 60%, rgba(245,247,250,0) 100%); }
+html[data-theme="light"] #global-input-bar-inner { background: rgba(255,255,255,.96); border-color: rgba(8,145,178,.25); box-shadow: 0 10px 30px rgba(15,23,42,.12), 0 0 16px rgba(8,145,178,.08); }
+html[data-theme="light"] #global-input-field { color: #0f172a; }
+html[data-theme="light"] .dock-btn:hover,
+html[data-theme="light"] .dock-btn.active { background: rgba(8,145,178,.08); }
+
+.srbk-theme-toggle {
+    display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 9px;
+    border:1px solid var(--border-subtle); border-radius:15px; background:var(--bg-card);
+    color:var(--text-secondary); font:500 10px/1 var(--font-mono); letter-spacing:.06em;
+    cursor:pointer; transition:background .18s,border-color .18s,color .18s;
+}
+.srbk-theme-toggle:hover { border-color:var(--border-glass); color:var(--cyan); }
+.srbk-theme-toggle svg { width:14px; height:14px; flex:none; }
+.srbk-theme-label { white-space:nowrap; }
+@media (max-width: 720px) { .srbk-theme-label { display:none; } .srbk-theme-toggle { width:30px; justify-content:center; padding:0; } }
+
+    </style>
     <link rel="stylesheet" href="/ui-refinement-20260914.css">
     <link rel="stylesheet" href="/ui-final-fix-20260914.css">
     <link rel="stylesheet" href="/ui-product-final-20260914.css">
@@ -5819,6 +5858,12 @@ button,
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                     <div>
                         <div class="hud-badge-kicker">SYSTEM</div>
+<!-- SAREMBOK_THEME_CONTROL_V1_20260916 -->
+<button id="srbk-theme-toggle" class="srbk-theme-toggle" type="button" aria-label="Switch color theme" title="Switch color theme">
+  <svg id="srbk-theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>
+  <span id="srbk-theme-label" class="srbk-theme-label">LIGHT</span>
+</button>
+
                         <div class="hud-badge-val" id="hud-system-status">NOMINAL</div>
                     </div>
                 </div>
@@ -13703,5 +13748,40 @@ document.getElementById('global-input-field').addEventListener('input', function
 })()
 </script>
 
+<script>
+
+/* SAREMBOK_THEME_CONTROL_V1_20260916 */
+(function installSarembokThemeControl(){
+    const key = 'sarembok-theme';
+    const root = document.documentElement;
+    const saved = localStorage.getItem(key);
+    const initial = saved === 'light' || saved === 'dark' ? saved : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    root.dataset.theme = initial;
+
+    function sync(){
+        const light = root.dataset.theme === 'light';
+        const label = document.getElementById('srbk-theme-label');
+        const icon = document.getElementById('srbk-theme-icon');
+        const btn = document.getElementById('srbk-theme-toggle');
+        if(label) label.textContent = light ? 'DARK' : 'LIGHT';
+        if(btn) btn.setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
+        if(btn) btn.title = light ? 'Switch to dark theme' : 'Switch to light theme';
+        if(icon) icon.innerHTML = light ? '<path d="M21 12.8A8.5 8.5 0 0 1 11.2 3a6.8 6.8 0 1 0 9.8 9.8Z"></path>' : '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path>';
+    }
+    function bind(){
+        const btn = document.getElementById('srbk-theme-toggle');
+        if(!btn || btn.dataset.bound) return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', function(){
+            root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
+            localStorage.setItem(key, root.dataset.theme);
+            sync();
+        });
+        sync();
+    }
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, {once:true}); else bind();
+})();
+
+</script>
 </body>
 </html>
