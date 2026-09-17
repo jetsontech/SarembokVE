@@ -12,12 +12,11 @@ sarembok.com, www.sarembok.com {
         -Server
     }
 
-    handle /api/* {
-        respond "Not Found" 404
-    }
-    handle /live/* {
-        respond "Not Found" 404
-    }
+    @legacy_api path /api /api/*
+    respond @legacy_api "Not Found" 404
+
+    @legacy_live path /live /live/*
+    respond @legacy_live "Not Found" 404
 
     handle /ws {
         reverse_proxy sarembok-runtime:9000
