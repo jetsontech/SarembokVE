@@ -49,26 +49,39 @@ sarembok.com, www.sarembok.com {
         reverse_proxy sarembok-runtime:9000
     }
 
-    # Production application surface. Keep the full authoritative frontend
-    # as the public root. stable.html remains available for controlled
-    # rollback/testing but is never silently substituted for the application.
+    # Production application surface. The complete authoritative index.html
+    # stays intact. A trusted Caddy template shell loads one small runtime
+    # compatibility layer before the existing frontend executes.
+    handle /index.html {
+        root * /srv
+        rewrite * /runtime-shell.html
+        templates
+        header Cache-Control "no-cache, no-store, must-revalidate"
+        header Pragma "no-cache"
+        header Expires "0"
+        file_server
+    }
+
     handle / {
         root * /srv
+        templates
         header Cache-Control "no-cache, no-store, must-revalidate"
         header Pragma "no-cache"
         header Expires "0"
         file_server {
-            index index.html
+            index runtime-shell.html
         }
     }
 
-    # Preserve direct access to static assets and SPA-style fallback paths.
+    # Preserve direct access to static assets and route unknown application
+    # paths back through the same trusted production shell.
     handle {
         root * /srv
+        try_files {path} /runtime-shell.html
+        templates
         header Cache-Control "no-cache, no-store, must-revalidate"
         header Pragma "no-cache"
         header Expires "0"
-        try_files {path} /index.html
         file_server
     }
 }
