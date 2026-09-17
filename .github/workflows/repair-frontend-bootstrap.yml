@@ -1,0 +1,39 @@
+name: Repair frontend bootstrap
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repair-frontend-bootstrap.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove unstable presentation bootstrap from index
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('frontend/index.html')
+          s = p.read_text(encoding='utf-8')
+          before = s
+          s = s.replace('<!-- SAREMBOK_INVESTOR_POLISH_BUNDLE_V1 -->\n<script src="/investor-polish.js" defer></script>\n', '')
+          s = s.replace('<!-- SAREMBOK_INVESTOR_POLISH_BUNDLE_V1 -->\n<script src="/investor-polish.js" defer></script>', '')
+          if s == before:
+              print('Investor polish bootstrap not present; no change needed.')
+          else:
+              p.write_text(s, encoding='utf-8')
+              print('Removed investor polish bootstrap from index.html')
+      - name: Commit repaired index and remove one-time workflow
+        shell: bash
+        run: |
+          git config user.name 'SarembokVE Automation'
+          git config user.email 'actions@sarembok.com'
+          git rm .github/workflows/repair-frontend-bootstrap.yml
+          git add frontend/index.html
+          git commit -m 'fix(ui): restore stable frontend bootstrap [skip ci]'
+          git push
