@@ -201,7 +201,7 @@ def dispatch(method: str, params: dict) -> dict:
                 "action": None,
                 "structuredResponse": cloud_server.build_structured_response(
                     response,
-                    provider="runtime_authority",
+                    provider="runtime-authority",
                     model="runtime-authority",
                 ),
                 "agentId": "sarembok-prime",
@@ -300,6 +300,164 @@ def _is_model_identity_query(prompt: str) -> bool:
 cloud_server.handler = handler
 
 
+THEME_UI = r'''
+<style id="sarembok-theme-toggle-style">
+html[data-sarembok-theme="light"] {
+    color-scheme: light;
+    --bg-void: #f4f7fb;
+    --bg-surface: #ffffff;
+    --bg-card: rgba(255,255,255,0.92);
+    --border-glass: rgba(15,23,42,0.14);
+    --border-subtle: rgba(15,23,42,0.10);
+    --text-main: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+}
+html[data-sarembok-theme="light"] body {
+    background: #f4f7fb !important;
+    color: #0f172a !important;
+}
+html[data-sarembok-theme="light"] #app {
+    background: #f4f7fb !important;
+}
+html[data-sarembok-theme="light"] .cyber-header {
+    background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.72)) !important;
+    border-bottom-color: rgba(15,23,42,0.10) !important;
+}
+html[data-sarembok-theme="light"] .cyber-left-dock {
+    background: rgba(255,255,255,0.92) !important;
+    border-right-color: rgba(15,23,42,0.10) !important;
+}
+html[data-sarembok-theme="light"] [class*="panel"],
+html[data-sarembok-theme="light"] [class*="card"],
+html[data-sarembok-theme="light"] [class*="surface"],
+html[data-sarembok-theme="light"] [class*="workspace"],
+html[data-sarembok-theme="light"] [class*="view"] {
+    color: #0f172a !important;
+}
+html[data-sarembok-theme="light"] [class*="panel"]:not([class*="gradient"]),
+html[data-sarembok-theme="light"] [class*="card"]:not([class*="gradient"]),
+html[data-sarembok-theme="light"] [class*="surface"]:not([class*="gradient"]),
+html[data-sarembok-theme="light"] [class*="workspace"]:not([class*="gradient"]),
+html[data-sarembok-theme="light"] [class*="view"]:not([class*="gradient"]) {
+    background-color: rgba(255,255,255,0.88) !important;
+    border-color: rgba(15,23,42,0.10) !important;
+}
+html[data-sarembok-theme="light"] .header-brand-title,
+html[data-sarembok-theme="light"] .dock-version,
+html[data-sarembok-theme="light"] #global-input-field,
+html[data-sarembok-theme="light"] input,
+html[data-sarembok-theme="light"] textarea,
+html[data-sarembok-theme="light"] select {
+    color: #0f172a !important;
+}
+html[data-sarembok-theme="light"] input::placeholder,
+html[data-sarembok-theme="light"] textarea::placeholder,
+html[data-sarembok-theme="light"] #global-input-field::placeholder {
+    color: #64748b !important;
+}
+html[data-sarembok-theme="light"] #global-input-bar {
+    background: linear-gradient(to top, rgba(244,247,251,1) 0%, rgba(244,247,251,0.94) 60%, rgba(244,247,251,0) 100%) !important;
+}
+html[data-sarembok-theme="light"] #global-input-bar-inner {
+    background: rgba(255,255,255,0.96) !important;
+    border-color: rgba(15,23,42,0.14) !important;
+    box-shadow: 0 10px 32px rgba(15,23,42,0.12), 0 0 18px rgba(0,160,180,0.08) !important;
+}
+html[data-sarembok-theme="light"] .dock-btn {
+    color: #475569 !important;
+}
+html[data-sarembok-theme="light"] .dock-btn:hover,
+html[data-sarembok-theme="light"] .dock-btn.active {
+    color: #008ea3 !important;
+    background: rgba(0,160,180,0.10) !important;
+    border-color: rgba(0,160,180,0.28) !important;
+    box-shadow: none !important;
+}
+html[data-sarembok-theme="light"] .dock-btn.active::before {
+    background: #008ea3 !important;
+    box-shadow: none !important;
+}
+#sarembok-theme-toggle {
+    position: fixed;
+    top: 14px;
+    right: 18px;
+    z-index: 1000;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 108px;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid rgba(0,240,255,0.28);
+    border-radius: 999px;
+    background: rgba(6,12,26,0.88);
+    color: #ffffff;
+    font: 600 10px/1 'JetBrains Mono', monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.22), 0 0 16px rgba(0,240,255,0.10);
+    cursor: pointer;
+    transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+}
+#sarembok-theme-toggle:hover { transform: translateY(-1px); border-color: rgba(0,240,255,0.5); }
+#sarembok-theme-toggle:focus-visible { outline: 2px solid var(--cyan, #00f0ff); outline-offset: 2px; }
+#sarembok-theme-toggle .theme-icon { font-size: 15px; line-height: 1; }
+html[data-sarembok-theme="light"] #sarembok-theme-toggle {
+    background: rgba(255,255,255,0.94);
+    border-color: rgba(15,23,42,0.14);
+    color: #0f172a;
+    box-shadow: 0 8px 22px rgba(15,23,42,0.12);
+}
+@media (max-width: 768px) {
+    #sarembok-theme-toggle {
+        top: 10px;
+        right: 10px;
+        min-width: 92px;
+        height: 34px;
+        padding: 0 10px;
+    }
+}
+</style>
+<button id="sarembok-theme-toggle" type="button" aria-label="Switch to light mode" aria-pressed="false" title="Switch to light mode">
+    <span class="theme-icon" aria-hidden="true">☀</span>
+    <span class="theme-label">LIGHT</span>
+</button>
+<script>
+(function () {
+    const KEY = 'sarembok-theme';
+    const root = document.documentElement;
+    const button = document.getElementById('sarembok-theme-toggle');
+    if (!button) return;
+
+    function applyTheme(theme) {
+        const light = theme === 'light';
+        root.dataset.sarembokTheme = light ? 'light' : 'dark';
+        button.setAttribute('aria-pressed', light ? 'true' : 'false');
+        button.setAttribute('aria-label', light ? 'Switch to dark mode' : 'Switch to light mode');
+        button.title = light ? 'Switch to dark mode' : 'Switch to light mode';
+        const icon = button.querySelector('.theme-icon');
+        const label = button.querySelector('.theme-label');
+        if (icon) icon.textContent = light ? '☾' : '☀';
+        if (label) label.textContent = light ? 'DARK' : 'LIGHT';
+    }
+
+    let saved = null;
+    try { saved = localStorage.getItem(KEY); } catch (_) {}
+    applyTheme(saved === 'light' ? 'light' : 'dark');
+
+    button.addEventListener('click', function () {
+        const next = root.dataset.sarembokTheme === 'light' ? 'dark' : 'light';
+        applyTheme(next);
+        try { localStorage.setItem(KEY, next); } catch (_) {}
+    });
+})();
+</script>
+'''
+
+
 async def process_http_request(connection, request):
     path = getattr(request, "path", None) or getattr(connection, "path", "/")
     if path not in ("/", "/index.html"):
@@ -322,6 +480,13 @@ async def process_http_request(connection, request):
             except Exception as exc: cloud_server.LOG.error("Failed to read frontend index.html: %s", exc)
     if not html_str:
         html_str = "<!DOCTYPE html><html><body><h1>Sarembok VE Cloud Runtime</h1><p>Status: ONLINE</p></body></html>\n"
+
+    # Inject the theme control at the HTTP presentation boundary so the
+    # restored cockpit source remains untouched and the preference persists
+    # entirely in the browser.
+    if "id=\"sarembok-theme-toggle\"" not in html_str and "</body>" in html_str:
+        html_str = html_str.replace("</body>", THEME_UI + "\n</body>", 1)
+
     # The authoritative browser UI lives in frontend/index.html.
     # Do not inject a second sendDirective implementation here.
     # The frontend's WebSocket dispatcher consumes SarembokChat.delta.
