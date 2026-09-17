@@ -23,7 +23,6 @@ echo
 echo "===== COMPOSE VALIDATION ====="
 docker compose -f Deployment/cloud/compose.yaml -f Deployment/cloud/compose.production.yaml config >/tmp/sarembok-compose.rendered.yaml
 echo "compose config: OK"
-
 echo
 echo "===== EDGE BUILD / RECREATE ====="
 docker compose -f Deployment/cloud/compose.yaml -f Deployment/cloud/compose.production.yaml build --pull sarembok-edge
@@ -51,8 +50,8 @@ echo "===== PUBLIC SESSION ====="
 curl -fsS https://sarembok.com/session
 
 echo
-echo "===== END-TO-END UI SMOKE ====="
-python3 Deployment/cloud/production_ui_smoke.py
+echo "===== END-TO-END UI SMOKE V2 ====="
+python3 Deployment/cloud/production_ui_smoke_v2.py
 
 echo
 echo "===== UI RECOVERY DEPLOYMENT COMPLETE ====="
