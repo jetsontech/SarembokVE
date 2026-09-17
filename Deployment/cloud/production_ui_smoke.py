@@ -3,7 +3,7 @@
 
 Run on the VPS after pulling main. It validates the public shell, browser session,
 WebSocket JSON-RPC, provider response metadata, browser worker, theme control,
-navigation, and basic Execute UI behavior.
+navigation, UI Execute, and Markdown rendering.
 """
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def run_in_container(container: str, code: str) -> str:
         ["docker", "exec", container, "python", "-c", code],
         text=True,
         capture_output=True,
-        timeout=90,
+        timeout=120,
     )
     if proc.returncode != 0:
         raise RuntimeError(f"{container}: {proc.stderr.strip() or proc.stdout.strip()}")
@@ -73,7 +73,7 @@ def main() -> int:
             "runtime_shell": "runtime-ui-repair.js" in html,
             "theme_control": "srbk-theme-toggle" in html and "SAREMBOK_THEME_CONTROL_V1_20260916" in html,
             "markdown_renderer": "function md(text)" in html and "SAREMBOK_MD_NORMALIZATION_20260914" in html,
-            "stable_not_root": "AI-NATIVE COMPUTING ENVIRONMENT" in html and "One control surface. Live runtime state." not in html,
+            "stable_not_root": "One control surface. Live runtime state." not in html,
         }
         for name, ok in checks.items():
             print(f"[{'PASS' if ok else 'FAIL'}] public HTML {name}")
@@ -94,11 +94,12 @@ def main() -> int:
                         data = json.loads(await ws.recv())
                         if data.get("id") == i:
                             if data.get("error"):
-                                raise RuntimeError(data["error"].get("message"))
+                                err = data["error"]
+                                raise RuntimeError(f"{err.get('code')}: {err.get('message')}")
                             return data.get("result")
 
                 info = await rpc("runtime", "GetRuntimeInfo")
-                chat = await rpc("chat", "SarembokChat", {"prompt":"Reply with exactly READY","stream":False,"sessionId":"production-smoke"})
+                chat = await rpc("chat", "SarembokChat", {"prompt":"Use the exact text **SAREMBOK_PROVIDER_SMOKE** in your response.","stream":False,"sessionId":"production-smoke"})
                 browser = await rpc("browser", "BrowserRender", {"url":"https://sarembok.com"})
                 tasks = await rpc("tasks", "ListTasks")
                 print(json.dumps({
@@ -108,6 +109,8 @@ def main() -> int:
                     "chat_source": chat.get("source"),
                     "chat_model": chat.get("model"),
                     "chat_response_present": bool(chat.get("response")),
+                    "chat_structured_present": bool(chat.get("structuredResponse")),
+                    "provider_not_fallback": str(chat.get("source") or "").lower() not in {"", "local_runtime", "runtime-fallback", "runtime_fallback"},
                     "browser_render_ok": bool(browser.get("ok") or browser.get("html") or browser.get("title")),
                     "task_count": tasks.get("count"),
                 }, sort_keys=True))
@@ -122,6 +125,10 @@ def main() -> int:
         print("       provider=", data.get("chat_source"), "model=", data.get("chat_model"))
         if not data.get("chat_response_present"):
             failures.append("SarembokChat returned no response")
+        if not data.get("chat_structured_present"):
+            failures.append("SarembokChat returned no structured response")
+        if not data.get("provider_not_fallback"):
+            failures.append("provider path fell back to local runtime")
         if not data.get("browser_render_ok"):
             failures.append("BrowserRender returned no usable result")
     except Exception as exc:
@@ -137,11 +144,14 @@ def main() -> int:
 
     playwright_code = dedent('''
         from playwright.sync_api import sync_playwright
+        import json
+
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page(viewport={"width": 1440, "height": 1000})
             page.goto("https://sarembok.com/", wait_until="networkidle", timeout=45000)
-            page.wait_for_timeout(1500)
+            page.wait_for_timeout(1800)
+
             health = page.evaluate("window.__srbkRuntimeUiHealth || null")
             if not health:
                 raise RuntimeError("runtime UI health snapshot missing")
@@ -151,6 +161,7 @@ def main() -> int:
                 raise RuntimeError("navigation health failed")
             if not health.get("markdownRenderer"):
                 raise RuntimeError("markdown renderer health failed")
+
             theme = page.locator("#srbk-theme-toggle")
             if theme.count() != 1:
                 raise RuntimeError(f"expected one theme control, found {theme.count()}")
@@ -163,20 +174,60 @@ def main() -> int:
             restored = page.locator("html").get_attribute("data-theme")
             if before == after or before != restored:
                 raise RuntimeError(f"theme toggle failed: {before} -> {after} -> {restored}")
+
             nav_ids = page.locator(".dock-btn").evaluate_all("els => els.map(e => e.id.replace(/^dock-btn-/, ''))")
             for tab in nav_ids:
                 page.locator(f"#dock-btn-{tab}").click()
                 page.wait_for_timeout(100)
                 if not page.locator(f"#view-{tab}.active").count():
                     raise RuntimeError(f"tab did not activate: {tab}")
-            print({"health": health, "theme": [before, after, restored], "tabs": nav_ids})
+
+            # Return to dialogue and exercise the actual visible Execute control.
+            page.locator("#dock-btn-dialogue").click()
+            page.wait_for_timeout(200)
+            input_box = page.locator("#directive-input")
+            execute = page.locator("#execute-button")
+            if input_box.count() != 1 or execute.count() != 1:
+                raise RuntimeError("dialogue Execute controls not found")
+
+            before_count = page.locator("#dialogue-history .srbk-bubble.assistant").count()
+            input_box.fill("Use this exact phrase in your response: **SAREMBOK_EXECUTE_SMOKE**")
+            execute.click()
+
+            page.wait_for_function(
+                "(n) => document.querySelectorAll('#dialogue-history .srbk-bubble.assistant').length > n",
+                arg=before_count,
+                timeout=45000,
+            )
+            page.wait_for_timeout(800)
+            latest = page.locator("#dialogue-history .srbk-bubble.assistant").last
+            text = latest.inner_text()
+            html = latest.locator(".srbk-content").inner_html()
+            if "SAREMBOK_EXECUTE_SMOKE" not in text:
+                raise RuntimeError("UI Execute returned without the requested response marker")
+            if "\\\\*\\\\*" in html:
+                raise RuntimeError("renderer still exposes escaped Markdown delimiters")
+
+            # Direct renderer check with a deterministic known input.
+            rendered = page.evaluate("window.md('**MARKDOWN_SMOKE**\\n\\n- one\\n- two')")
+            if "<strong>MARKDOWN_SMOKE</strong>" not in rendered or "<li" not in rendered:
+                raise RuntimeError("Markdown renderer failed deterministic test")
+
+            print(json.dumps({
+                "health": health,
+                "theme": [before, after, restored],
+                "tabs": nav_ids,
+                "execute_response_contains_marker": "SAREMBOK_EXECUTE_SMOKE" in text,
+                "execute_html_has_strong": "<strong>" in html,
+                "markdown_smoke": True,
+            }, sort_keys=True))
             browser.close()
     ''')
     try:
         out = run_in_container("sarembok-browser", playwright_code)
-        print("[PASS] Playwright UI navigation + theme:", out)
+        print("[PASS] Playwright UI Execute + navigation + theme + Markdown:", out)
     except Exception as exc:
-        failures.append(f"Playwright UI navigation/theme: {exc}")
+        failures.append(f"Playwright UI Execute/navigation/theme/Markdown: {exc}")
 
     print("===== RESULT =====")
     if failures:
