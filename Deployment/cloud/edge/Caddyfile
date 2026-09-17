@@ -27,8 +27,14 @@ sarembok.com, www.sarembok.com {
         respond "Not Found" 404
     }
 
+    # Explicit long-lived WebSocket lifecycle. Caddy supports WebSocket
+    # upgrades natively; keep the tunnel alive and allow graceful config
+    # transitions without forcing an immediate reconnect storm.
     handle /ws {
-        reverse_proxy sarembok-runtime:9000
+        reverse_proxy sarembok-runtime:9000 {
+            stream_timeout 24h
+            stream_close_delay 5m
+        }
     }
     handle /rpc {
         reverse_proxy sarembok-runtime:9000
