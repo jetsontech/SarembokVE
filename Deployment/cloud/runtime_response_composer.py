@@ -32,7 +32,10 @@ def build_runtime_context(snapshot: dict[str, Any], capabilities: dict[str, Any]
     lines = [
         "AUTHORITATIVE SAREMBOK RUNTIME CONTEXT",
         "Use these facts as the source of truth for statements about Sarembok itself.",
-        "Never invent workers, agents, memory entries, tools, integrations, GPU capacity, model availability, or provider state.",
+        "CRITICAL: Never invent, infer, promise, or imply a capability that is not explicitly present in the supplied runtime facts or registered capability inventory.",
+        "CRITICAL: Configured is not the same as operational. Registered/recognized is not the same as usable. Describe those states exactly.",
+        "CRITICAL: Do not claim that Sarembok has image/video/audio generation, multimodal inference, public APIs/SDKs, pricing tiers, compliance tooling, community features, specific external products/models, arbitrary website contents, or media playback unless the live runtime evidence explicitly confirms that exact capability.",
+        "CRITICAL: Do not fabricate research papers, benchmarks, dates, product features, links, downloads, citations, YouTube IDs, or external-service results. If retrieval evidence is absent, say that live evidence was not retrieved.",
         "Runtime: status=%s; service=%s; domain=%s; port=%s" % (runtime.get("status"), runtime.get("service"), runtime.get("domain"), runtime.get("port")),
         "Workers: registered=%s; online=%s; stale=%s; offline=%s" % (workers.get("registered", 0), workers.get("online", 0), workers.get("stale", 0), workers.get("offline", 0)),
         "Agents: registered=%s; online=%s" % (agents.get("registered", 0), agents.get("online", 0)),
@@ -44,7 +47,7 @@ def build_runtime_context(snapshot: dict[str, Any], capabilities: dict[str, Any]
     lines.extend(_provider_lines(snapshot) or ["- none"])
     if capabilities:
         enabled = [c.get("method") for c in capabilities.get("capabilities", []) if isinstance(c, dict) and c.get("enabled")]
-        lines.append("Registered runtime capabilities: " + (", ".join(enabled) if enabled else "none"))
+        lines.append("REGISTERED RUNTIME CAPABILITIES (authoritative allow-list): " + (", ".join(enabled) if enabled else "none"))
     return "\n".join(lines)
 
 
@@ -131,23 +134,31 @@ def render_capabilities(snapshot: dict[str, Any] | None = None, capabilities: di
     workers_online = int(workers.get("online", 0) or 0)
     gpu_online = int(compute.get("onlineGpuWorkers", 0) or 0)
     memory_entries = int(memory.get("entries", 0) or 0)
-    return "\n".join([
-        "### SAREMBOK VE · CAPABILITIES",
+    registered: list[str] = []
+    if capabilities:
+        registered = [str(c.get("method")) for c in capabilities.get("capabilities", []) if isinstance(c, dict) and c.get("enabled") and c.get("method")]
+    lines = [
+        "### SAREMBOK VE · LIVE CAPABILITIES",
         "",
-        "Sarembok VE is an AI-native computing environment with a live runtime, persistent state, model/provider routing, workers, tasks, memory, research, and extensible tools.",
+        "The list below describes runtime capabilities that are supported by current architecture and live runtime state. It does not imply that every external integration is configured or healthy.",
         "",
-        "**Available through the runtime**",
-        "- **Dialogue & reasoning:** interact through the configured model/provider fabric.",
-        "- **Runtime operations:** inspect health, workers, tasks, projects, events, and provider metrics.",
-        f"- **Distributed compute:** {workers_online} online worker(s); {gpu_online} currently recognized GPU worker(s) in Runtime Authority.",
+        "**Verified runtime surface**",
+        "- **Dialogue & reasoning:** requests can be routed through the model/provider fabric when a provider is configured and reachable.",
+        "- **Runtime operations:** inspect health, workers, tasks, projects, events, and provider/runtime state exposed by Runtime Authority.",
+        f"- **Distributed workers:** {workers_online} worker(s) currently online.",
+        f"- **GPU capacity:** {gpu_online} GPU worker(s) currently recognized by Runtime Authority; recognition is not a guarantee of task eligibility.",
         f"- **Persistent memory:** SQLite-WAL persistence with {memory_entries} current stored {('entry' if memory_entries == 1 else 'entries')}.",
-        "- **Agents & orchestration:** create agents, create/schedule tasks, delegate work, and track execution state.",
-        "- **Browser/research:** runtime-supported public-page navigation, DOM rendering, screenshots, and web intelligence.",
-        "- **MCP & skills:** discover registered capabilities; execution depends on installed/configured handlers and live service state.",
-        "- **Visual generation:** available when a live configured generation provider or eligible worker is operational.",
+        "- **Agents & orchestration:** agent/task lifecycle operations exposed by the runtime can be used when authorized.",
+        "- **Browser/research:** only use browser or web-intelligence results when the corresponding live service returns evidence.",
+        "- **MCP/skills:** execution is limited to registered, enabled handlers and their live service state.",
+    ]
+    if registered:
+        lines.extend(["", "**Registered enabled methods**", *[f"- `{name}`" for name in registered]])
+    lines.extend([
         "",
-        "**Try:** `show the current runtime status`, `what models are available`, `create an agent named Research`, `schedule a compute task`, `remember that ...`, or `generate an image of ...`.",
+        "**Important:** if a capability is not present in Runtime Authority, Sarembok should say it is not currently verified rather than presenting it as a product feature.",
     ])
+    return "\n".join(lines)
 
 
 def render_limitations(snapshot: dict[str, Any] | None = None) -> str:
@@ -159,6 +170,7 @@ def render_limitations(snapshot: dict[str, Any] | None = None) -> str:
         "- Worker/GPU capacity depends on live registered workers and fresh heartbeats.",
         "- External providers, MCP servers, browser integrations, and generation services are operational only when configured and reachable.",
         "- Local/private networks and host resources are not implicitly available through the public runtime.",
+        "- External websites and research claims require retrieval evidence; the assistant must not fill missing evidence with guesses.",
     ])
 
 
@@ -179,9 +191,11 @@ def render_identity(snapshot: dict[str, Any]) -> str:
         f"- **Service:** `{runtime.get('service', 'sarembok-ve-cloud-runtime')}`",
         f"- **Workers:** {workers.get('online', 0)} online / {workers.get('registered', 0)} registered",
         f"- **Agents:** {agents.get('online', 0)} online / {agents.get('registered', 0)} registered",
-        f"- **GPU workers:** {compute.get('onlineGpuWorkers', 0)} recognized online",
+        f"- **GPU workers:** {compute.get('onlineGpuWorkers', 0)} recognized by Runtime Authority",
         f"- **Persistent memory:** {memory.get('entries', 0)} stored entries via `{memory.get('backend', 'sqlite-wal')}`",
         f"- **Configured providers:** {providers}",
+        "",
+        "These are live runtime facts, not a claim that every possible platform feature is currently enabled.",
     ])
 
 
