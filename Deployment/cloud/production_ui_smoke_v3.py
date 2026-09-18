@@ -158,9 +158,6 @@ def main() -> int:
             page.goto("https://sarembok.com/", wait_until="domcontentloaded", timeout=45000)
             page.wait_for_timeout(2500)
 
-            page.on("pageerror", lambda exc: errors.append("pageerror: " + str(exc)))
-            page.on("console", lambda msg: errors.append("console: " + msg.text) if msg.type == "error" else None)
-
             health = page.evaluate("window.__srbkRuntimeUiHealth || null")
             if not page.locator("#global-input-field").is_visible():
                 raise RuntimeError("canonical global composer is not visible")
@@ -234,6 +231,9 @@ def main() -> int:
             rendered = page.evaluate("window.md(" + json.dumps("**MARKDOWN_SMOKE**\\n\\n- one\\n- two") + ")")
             if "<strong>MARKDOWN_SMOKE</strong>" not in rendered or "<li" not in rendered:
                 raise RuntimeError("Markdown renderer deterministic test failed")
+
+            if errors:
+                raise RuntimeError("browser page errors: " + json.dumps(errors[-10:]))
 
             print(json.dumps({
                 "health": health,
