@@ -14076,7 +14076,7 @@ function globalSendMessage(isBackground) {
     const text = field.value.trim();
     if (!text) return;
 
-    const tab = window._activeTab || 'dialogue';
+    const tab = window._activeTab || document.querySelector('.dock-btn.active')?.id.replace(/^dock-btn-/, '') || 'dialogue';
 
     if (tab === 'workspace') {
         // Route to workspace prompt handler
@@ -14190,6 +14190,22 @@ document.getElementById('global-input-field').addEventListener('input', function
     if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, {once:true}); else bind();
 })();
 
+</script>
+<!-- SAREMBOK_RUNTIME_UI_BRIDGES_V2 -->
+<script src="/runtime-ui-repair.js" defer></script>
+<script>
+(function initializeSarembokActiveTab() {
+    function syncActiveTab() {
+        if (window._activeTab) return;
+        const active = document.querySelector('.dock-btn.active');
+        const tab = active && active.id ? active.id.replace(/^dock-btn-/, '') : 'workspace';
+        window._activeTab = tab || 'workspace';
+        const bg = document.getElementById('global-bg-btn');
+        if (bg) bg.style.display = ['dialogue','workspace','deck'].includes(window._activeTab) ? 'flex' : 'none';
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncActiveTab, { once: true });
+    else syncActiveTab();
+})();
 </script>
 </body>
 </html>
