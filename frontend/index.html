@@ -8867,6 +8867,72 @@ button,
         }
 
         /* Full Markdown & Interactive Cyber Content Parser */
+        /* SAREMBOK_STRUCTURED_RESPONSE_RENDERER_V1 */
+        function renderStructuredResponse(structured) {
+            if (!structured || typeof structured !== "object") return "";
+            const data = structured.content && typeof structured.content === "object"
+                ? structured.content
+                : structured;
+            const text = typeof data.text === "string" ? data.text.trim() : "";
+            const summary = typeof data.summary === "string" ? data.summary.trim() : "";
+            const sections = Array.isArray(data.sections) ? data.sections : [];
+            const code = Array.isArray(data.code) ? data.code : [];
+            const tables = Array.isArray(data.tables) ? data.tables : [];
+            const sources = Array.isArray(data.sources) ? data.sources : [];
+            let body = "";
+
+            if (text) {
+                body = md(text);
+            } else if (summary) {
+                body = md(summary);
+            }
+
+            if (!text && sections.length) {
+                body += sections.map(section => {
+                    const heading = escapeHtml(String(section?.heading || section?.title || "").trim());
+                    const sectionText = String(section?.text || section?.content || section?.body || "").trim();
+                    if (!heading && !sectionText) return "";
+                    return `<section class="srbk-structured-section">${heading ? `<h3>${heading}</h3>` : ""}${sectionText ? md(sectionText) : ""}</section>`;
+                }).join("");
+            }
+
+            if (!text && code.length) {
+                body += code.map(item => {
+                    const lang = escapeHtml(String(item?.language || "code"));
+                    const content = escapeHtml(String(item?.content || ""));
+                    return `<div class="srbk-code-block"><div class="srbk-code-head"><span>${lang}</span></div><pre><code>${content}</code></pre></div>`;
+                }).join("");
+            }
+
+            if (!text && tables.length) {
+                body += tables.map(table => {
+                    const headers = Array.isArray(table?.headers) ? table.headers : [];
+                    const rows = Array.isArray(table?.rows) ? table.rows : [];
+                    if (!headers.length) return "";
+                    return `<div class="srbk-table-wrap"><table><thead><tr>${headers.map(h => `<th>${escapeHtml(String(h))}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${(Array.isArray(row) ? row : []).map(v => `<td>${escapeHtml(String(v))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+                }).join("");
+            }
+
+            if (!text && sources.length) {
+                const links = sources.map(source => {
+                    const title = escapeHtml(String(source?.title || source?.name || source?.url || "Source"));
+                    const url = String(source?.url || "").trim();
+                    return url ? `<li><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${title}</a></li>` : `<li>${title}</li>`;
+                }).join("");
+                if (links) body += `<div class="srbk-structured-sources"><strong>Sources</strong><ul>${links}</ul></div>`;
+            }
+
+            const meta = structured.metadata && typeof structured.metadata === "object"
+                ? structured.metadata
+                : {};
+            const provider = String(meta.provider || "").trim();
+            const model = String(meta.model || "").trim();
+            if (provider || model) {
+                body += `<div class="srbk-structured-meta">${provider ? `<span>PROVIDER: ${escapeHtml(provider)}</span>` : ""}${model ? `<span>MODEL: ${escapeHtml(model)}</span>` : ""}</div>`;
+            }
+            return body || (text ? md(text) : "");
+        }
+
         function md(text) {
             if (!text) return "";
             let s = String(text);
@@ -9553,7 +9619,11 @@ button,
 
                 let finalText = result?.response || result?.audioText || streamedText || "Directive executed.";
                 finalText = enrichResponseOnClient(text, finalText);
-                content.innerHTML = md(finalText);
+                if (result?.structuredResponse && typeof window.renderStructuredResponse === "function") {
+                    content.innerHTML = renderStructuredResponse(result.structuredResponse) || md(finalText);
+                } else {
+                    content.innerHTML = md(finalText);
+                }
 
                 // Async-resolve any unresolved media cards via backend SearchYouTube RPC
                 const hasUnresolvedCards = content.querySelectorAll('iframe[src="about:blank"], a[href*="results?search_query"]').length > 0;
@@ -14154,6 +14224,10 @@ document.getElementById('global-input-field').addEventListener('input', function
     }
     window.addEventListener('resize', applyMobileGlobalBarOffset);
 })()
+</script>
+
+<script>
+/* SAREMBOK_GLOBAL_COMPOSER_V2 */
 </script>
 
 <script>
