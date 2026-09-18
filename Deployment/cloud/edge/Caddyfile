@@ -47,7 +47,7 @@ sarembok.com, www.sarembok.com {
     # Serve the authoritative full frontend directly. No template wrapper.
     handle {
         root * /srv
-        try_files {path} {path}/ /index.html
+        try_files {path} {path}.html {path}/ /index.html
         header Cache-Control "no-cache, no-store, must-revalidate"
         header Pragma "no-cache"
         header Expires "0"

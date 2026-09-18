@@ -2122,6 +2122,7 @@ def sarembok_process_dialogue(
     ]
 
     # Advanced Memory Personalization (Enhancement 5): Retrieve contextual facts from SQLite
+    recalled_memories_payload: list[dict] = []
     keywords = [
         w for w in re.findall(r"\b[a-zA-Z]{4,}\b", prompt_lower)
         if w not in ("what", "when", "where", "which", "could", "would", "should", "there", "about", "please", "sarembok")
@@ -2132,12 +2133,13 @@ def sarembok_process_dialogue(
         for kw in keywords:
             query_args.extend([f"%{kw}%", f"%{kw}%"])
         recalled_rows = store.db.execute(
-            f"SELECT key, value, tier FROM memories WHERE {where_clauses} ORDER BY created_at DESC LIMIT 5",
+            f"SELECT key, value, tier, created_at FROM memories WHERE {where_clauses} ORDER BY created_at DESC LIMIT 5",
             query_args
         ).fetchall()
         if recalled_rows:
             mem_summary = "\n".join([f"- [{r[2]}] {r[0]}: {r[1]}" for r in recalled_rows])
             system_context_parts.append(f"\nPersistent Recalled Memories & Context:\n{mem_summary}\n")
+            recalled_memories_payload = [{"key": r[0], "value": r[1], "tier": r[2], "recalledFrom": r[3]} for r in recalled_rows]
 
     # Real-Time Data Integration: Live search for news, current events, live topics
     realtime_triggers = (
@@ -2301,7 +2303,7 @@ def sarembok_process_dialogue(
         reply = reply.strip()
         _save_conversation(session_id, prompt_clean, reply)
         store.event("sarembok-prime", "CHAT_RESPONSE", {"prompt": prompt_clean[:200], "model": active_model, "provider": source})
-        return {
+        result = {
             "response": reply,
             "audioText": _spoken_clean(reply),
             "source": source,
@@ -2310,6 +2312,9 @@ def sarembok_process_dialogue(
             "structuredResponse": build_structured_response(reply, provider=source, model=active_model, latency_ms=provider_latency_ms),
             "metadata": {"provider": source, "model": active_model, "latency_ms": provider_latency_ms, "provider_api": provider_api, "usage": provider_usage}
         }
+        if recalled_memories_payload:
+            result["recalledMemories"] = recalled_memories_payload
+        return result
 
     if live_data:
         reply = f"Here is the verified live real-time news and intelligence as of **{current_time_str}**:\n\n{live_data}"
