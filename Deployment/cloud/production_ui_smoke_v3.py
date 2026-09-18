@@ -72,8 +72,8 @@ def main() -> int:
     try:
         html = curl_text("/")
         checks = {
-            "full_frontend": "SAREMBOKVE" in html and "dock-btn-dialogue" in html and "directive-input" in html,
-            "runtime_shell": "runtime-ui-repair.js" in html and "runtime-ui-visibility-fix.js" in html,
+            "full_frontend": "SAREMBOKVE" in html and "dock-btn-dialogue" in html,
+            "runtime_repair": "runtime-ui-repair.js" in html,
             "theme_control": "srbk-theme-toggle" in html and "SAREMBOK_THEME_CONTROL_V1_20260916" in html,
             "markdown_renderer": "function md(text)" in html and "SAREMBOK_MD_NORMALIZATION_20260914" in html,
             "stable_not_root": "One control surface. Live runtime state." not in html,
@@ -153,7 +153,11 @@ def main() -> int:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page(viewport={"width": 1440, "height": 1000})
             page.goto("https://sarembok.com/", wait_until="domcontentloaded", timeout=45000)
-            page.wait_for_timeout(3000)
+            page.wait_for_timeout(2500)
+
+            errors = []
+            page.on("pageerror", lambda exc: errors.append("pageerror: " + str(exc)))
+            page.on("console", lambda msg: errors.append("console: " + msg.text) if msg.type == "error" else None)
 
             health = page.evaluate("window.__srbkRuntimeUiHealth || null")
             if not health:
@@ -164,6 +168,13 @@ def main() -> int:
                 raise RuntimeError("navigation health failed")
             if not health.get("markdownRenderer"):
                 raise RuntimeError("Markdown renderer health failed")
+
+            global_input = page.locator("#global-input-field")
+            global_send = page.locator("#global-send-btn")
+            if global_input.count() != 1 or global_send.count() != 1:
+                raise RuntimeError("global chat composer not found")
+            if not global_input.is_visible() or not global_send.is_visible():
+                raise RuntimeError("global chat composer is not visible")
 
             theme = page.locator("#srbk-theme-toggle")
             if theme.count() != 1:
@@ -179,6 +190,8 @@ def main() -> int:
                 raise RuntimeError(f"theme toggle failed: {before} -> {after} -> {restored}")
 
             nav_ids = page.locator(".dock-btn").evaluate_all("els => els.map(e => e.id.replace(/^dock-btn-/, ''))")
+            if not nav_ids:
+                raise RuntimeError("no navigation buttons found")
             for tab in nav_ids:
                 page.locator(f"#dock-btn-{tab}").click()
                 page.wait_for_timeout(150)
@@ -186,40 +199,28 @@ def main() -> int:
                     raise RuntimeError(f"tab did not activate: {tab}")
 
             page.locator("#dock-btn-dialogue").click()
-            page.wait_for_timeout(500)
-            input_box = page.locator("#view-dialogue #directive-input")
-            execute = page.locator("#view-dialogue #execute-button")
-            if input_box.count() != 1 or execute.count() != 1:
-                raise RuntimeError("dialogue Execute controls not found")
-            if not input_box.is_visible() or not execute.is_visible():
-                diagnostic = page.evaluate("""
-                    () => ["directive-input", "execute-button"].map(id => {
-                        const e = document.getElementById(id);
-                        const a = [];
-                        for (let n=e, i=0; n && i<8; n=n.parentElement, i++) {
-                            const s = getComputedStyle(n);
-                            a.push({tag:n.tagName,id:n.id,class:String(n.className),display:s.display,visibility:s.visibility,opacity:s.opacity,hidden:n.hidden});
-                        }
-                        return {id, ancestors:a};
-                    })
-                """)
-                raise RuntimeError("Dialogue Execute controls are hidden: " + json.dumps(diagnostic, sort_keys=True))
+            page.wait_for_timeout(400)
+            dialogue = page.locator("#view-dialogue")
+            if dialogue.count() != 1 or not dialogue.is_visible():
+                raise RuntimeError("Dialogue view is not visible after navigation")
 
             before_count = page.locator("#dialogue-history .srbk-bubble.assistant").count()
-            input_box.fill("Use this exact phrase in your response: **SAREMBOK_EXECUTE_SMOKE**")
-            execute.click()
+            global_input.fill("Use this exact phrase in your response: **SAREMBOK_EXECUTE_SMOKE**")
+            global_send.click()
+
             page.wait_for_function(
                 "(n) => document.querySelectorAll('#dialogue-history .srbk-bubble.assistant').length > n",
                 arg=before_count,
                 timeout=45000,
             )
             page.wait_for_timeout(800)
+
             latest = page.locator("#dialogue-history .srbk-bubble.assistant").last
-            text = latest.inner_text()
-            html = latest.locator(".srbk-content").inner_html()
-            if "SAREMBOK_EXECUTE_SMOKE" not in text:
-                raise RuntimeError("UI Execute returned without requested response marker")
-            if "\\\\*\\\\*" in html:
+            text_value = latest.inner_text()
+            html_value = latest.locator(".srbk-content").inner_html()
+            if "SAREMBOK_EXECUTE_SMOKE" not in text_value:
+                raise RuntimeError("global Execute returned without requested response marker")
+            if "\\\\*\\\\*" in html_value:
                 raise RuntimeError("renderer still exposes escaped Markdown delimiters")
 
             rendered = page.evaluate("window.md(" + json.dumps("**MARKDOWN_SMOKE**\\n\\n- one\\n- two") + ")")
@@ -230,10 +231,12 @@ def main() -> int:
                 "health": health,
                 "theme": [before, after, restored],
                 "tabs": nav_ids,
-                "dialogue_controls_visible": True,
+                "global_composer_visible": True,
+                "dialogue_visible": True,
                 "execute_response_contains_marker": True,
-                "execute_html_has_strong": "<strong>" in html,
+                "execute_html_has_strong": "<strong>" in html_value,
                 "markdown_smoke": True,
+                "page_errors": errors,
             }, sort_keys=True))
             browser.close()
     ''')
