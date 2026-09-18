@@ -2,8 +2,8 @@ from __future__ import annotations
 import os
 import unittest
 
-from production_guard_v2 import ProductionGuard, scrub, Identity, METHOD_REQUIREMENTS
-from orchestration_contract import ExecutionGraph, GraphNode, validate_graph, ready_nodes
+from Deployment.cloud.production_guard_v2 import ProductionGuard, scrub, Identity, METHOD_REQUIREMENTS
+from Deployment.cloud.orchestration_contract import ExecutionGraph, GraphNode, validate_graph, ready_nodes
 
 class DummyWS:
     def __init__(self, origin='https://sarembok.com', peer=('127.0.0.1', 1234)):
