@@ -2,7 +2,7 @@
 
 An AI runtime with persistent memory, multi-agent orchestration, and provider-independent model routing.
 
-**[Try the Console →](https://sarembok.com)** · **[Watch Demo (90s)](https://sarembok.com/demo)**
+**[Try the Console →](https://sarembok.com/console)**
 
 ---
 
@@ -13,6 +13,8 @@ SarembokVE is a cloud-hosted AI agent platform. You connect via WebSocket, send 
 Say `"remember that my project deadline is March 15"` and it stores that fact in SQLite-WAL persistent memory. Ask about your project next week, next month, or next session — the agent recalls it, tags the recall in the response, and you can see exactly which memories were used.
 
 ### Persistent Agent Console
+
+![Persistent Agent Console](Docs/console.png)
 
 The console is a three-panel interface that makes the system's state visible:
 
