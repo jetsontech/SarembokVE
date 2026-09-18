@@ -121,6 +121,10 @@
 
         function repairedTelemetry(info) {
             const data = info && typeof info === "object" ? info : {};
+            if (typeof original === "function") {
+                try { original.call(this, info); } catch (err) { console.debug("[sarembok] native telemetry updater notice:", err); }
+            }
+
             const runtime = data.runtime || {};
             const memory = data.memory || {};
             const agents = data.agents || {};
@@ -140,7 +144,6 @@
             if (queueEl) queueEl.textContent = `${queueDepth} QUEUED`;
             if (sysEl) sysEl.textContent = status;
         }
-
         repairedTelemetry.__srbkRuntimeUiRepairV1 = true;
         repairedTelemetry.__srbkOriginal = original;
         window.updateTelemetryUI = repairedTelemetry;
