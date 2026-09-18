@@ -152,14 +152,22 @@ def main() -> int:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            errors = []
+            page.on("pageerror", lambda exc: errors.append("pageerror: " + str(exc)))
+            page.on("console", lambda msg: errors.append("console: " + msg.text) if msg.type == "error" else None)
             page.goto("https://sarembok.com/", wait_until="domcontentloaded", timeout=45000)
             page.wait_for_timeout(2500)
 
-            errors = []
             page.on("pageerror", lambda exc: errors.append("pageerror: " + str(exc)))
             page.on("console", lambda msg: errors.append("console: " + msg.text) if msg.type == "error" else None)
 
             health = page.evaluate("window.__srbkRuntimeUiHealth || null")
+            if not page.locator("#global-input-field").is_visible():
+                raise RuntimeError("canonical global composer is not visible")
+            if not page.locator("#global-send-btn").is_visible():
+                raise RuntimeError("canonical global send button is not visible")
+            if not page.evaluate("typeof window.renderStructuredResponse === 'function'"):
+                raise RuntimeError("structured response renderer is not installed")
             if not health:
                 raise RuntimeError("runtime UI health snapshot missing")
             if not health.get("rpcRecovery"):
