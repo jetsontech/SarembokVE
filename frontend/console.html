@@ -623,10 +623,29 @@
         let rpcCounter = 1;
         const pending = new Map();
         const sessionId = 'session-' + Date.now().toString(36);
+        let sessionToken = null;
         let memories = [];
 
+        // ====== SESSION INITIALIZATION ======
+        async function initSession() {
+            if (sessionToken) return sessionToken;
+            try {
+                const r = await fetch('/session', { cache: 'no-store', headers: { 'Accept': 'application/json' } });
+                if (r.ok) {
+                    const data = await r.json();
+                    sessionToken = data.token || data.sessionToken || data.browserSessionToken;
+                    return sessionToken;
+                }
+            } catch(err) {
+                console.warn('[sarembok] session fetch failed:', err);
+            }
+            return null;
+        }
+
         // ====== WEBSOCKET ======
-        function connect() {
+        async function connect() {
+            await initSession();
+
             const loc = window.location;
             const proto = loc.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = (loc.hostname === 'localhost' || loc.hostname === '127.0.0.1')
@@ -635,8 +654,9 @@
 
             ws = new WebSocket(wsUrl);
 
-            ws.onopen = () => {
+            ws.onopen = async () => {
                 updateConnectionUI(true);
+                if (!sessionToken) await initSession();
                 fetchRuntimeInfo();
                 fetchMemories();
             };
@@ -661,15 +681,25 @@
             ws.onerror = () => updateConnectionUI(false);
         }
 
-        function sendRPC(method, params = {}) {
+        async function sendRPC(method, params = {}) {
+            if (!sessionToken) {
+                await initSession();
+            }
             return new Promise((res, rej) => {
-                if (!ws || ws.readyState !== WebSocket.OPEN) return rej(new Error('Not connected'));
+                if (!ws || ws.readyState !== WebSocket.OPEN) return rej(new Error('Not connected to runtime'));
                 const id = 'rpc-' + (rpcCounter++);
+                const payload = { ...params };
+                if (sessionToken && !payload.sessionToken) {
+                    payload.sessionToken = sessionToken;
+                }
                 pending.set(id, { res, rej });
-                ws.send(JSON.stringify({ jsonrpc: '2.0', id, method, params }));
+                ws.send(JSON.stringify({ jsonrpc: '2.0', id, method, params: payload }));
                 setTimeout(() => {
-                    if (pending.has(id)) { pending.delete(id); rej(new Error('Timeout')); }
-                }, 30000);
+                    if (pending.has(id)) {
+                        pending.delete(id);
+                        rej(new Error('RPC request timed out waiting for server response'));
+                    }
+                }, 45000);
             });
         }
 
@@ -798,7 +828,9 @@
 
             } catch(e) {
                 thinkingEl.remove();
-                appendMessage('agent', 'Sarembok', 'Connection error — retrying…', 'system');
+                const errMsg = (e && (e.message || (typeof e === 'object' ? (e.message || JSON.stringify(e)) : String(e)))) || 'Request failed';
+                console.error('[sarembok] RPC Error:', e);
+                appendMessage('agent', 'Sarembok', `Error: ${errMsg}`, 'system');
             }
         }
 

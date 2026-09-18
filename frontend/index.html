@@ -6312,6 +6312,12 @@ button,
                     <span>TASKS &amp; HISTORY</span>
                 </button>
 
+                <!-- Persistent Agent Console Link -->
+                <a href="/console" class="hud-voice-btn" id="hud-agent-console-btn" title="Open Persistent Agent Console" style="border-color:rgba(0,240,255,0.6); color:var(--cyan); background:rgba(0,240,255,0.12); text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-weight:700;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    <span>AGENT CONSOLE</span>
+                </a>
+
                 <!-- Quick Export Button -->
                 <button class="hud-voice-btn" id="hud-export-btn" onclick="exportCurrentChatMarkdown()" title="Export Active Chat to Markdown" style="border-color:rgba(255,255,255,0.25); color:#ffffff;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -6373,6 +6379,10 @@ button,
 
         <!-- Left Vertical Icon Dock -->
         <nav class="cyber-left-dock">
+            <a href="/console" class="dock-btn" id="dock-btn-console" title="Persistent Agent Console" style="display:flex; align-items:center; justify-content:center; text-decoration:none; color:var(--cyan); border-bottom:1px solid rgba(0,240,255,0.25); margin-bottom:4px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </a>
+
             <button class="dock-btn active" id="dock-btn-workspace" onclick="switchTab('workspace')" title="Autonomous AI Workspace & Consumer Canvas">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
             </button>
