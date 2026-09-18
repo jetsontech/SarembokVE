@@ -12,8 +12,6 @@ sarembok.com, www.sarembok.com {
         -Server
     }
 
-    # Legacy HTTP surfaces are terminal 404s. Keep both the exact path and
-    # wildcard form so neither route can fall through to the application.
     handle /api {
         respond "Not Found" 404
     }
@@ -27,9 +25,6 @@ sarembok.com, www.sarembok.com {
         respond "Not Found" 404
     }
 
-    # Explicit long-lived WebSocket lifecycle. Caddy supports WebSocket
-    # upgrades natively; keep the tunnel alive and allow graceful config
-    # transitions without forcing an immediate reconnect storm.
     handle /ws {
         reverse_proxy sarembok-runtime:9000 {
             stream_timeout 24h
@@ -49,36 +44,10 @@ sarembok.com, www.sarembok.com {
         reverse_proxy sarembok-runtime:9000
     }
 
-    # Production application surface. The complete authoritative index.html
-    # stays intact. A trusted Caddy template shell loads one small runtime
-    # compatibility layer before the existing frontend executes.
-    handle /index.html {
-        root * /srv
-        rewrite * /runtime-shell.html
-        templates
-        header Cache-Control "no-cache, no-store, must-revalidate"
-        header Pragma "no-cache"
-        header Expires "0"
-        file_server
-    }
-
-    handle / {
-        root * /srv
-        templates
-        header Cache-Control "no-cache, no-store, must-revalidate"
-        header Pragma "no-cache"
-        header Expires "0"
-        file_server {
-            index runtime-shell.html
-        }
-    }
-
-    # Preserve direct access to static assets and route unknown application
-    # paths back through the same trusted production shell.
+    # Serve the authoritative full frontend directly. No template wrapper.
     handle {
         root * /srv
-        try_files {path} /runtime-shell.html
-        templates
+        try_files {path} {path}/ /index.html
         header Cache-Control "no-cache, no-store, must-revalidate"
         header Pragma "no-cache"
         header Expires "0"
