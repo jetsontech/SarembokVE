@@ -1,0 +1,3 @@
+add_library(sarembok_memory_arena STATIC memory_arena.c)
+target_include_directories(sarembok_memory_arena PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(sarembok_memory_arena PUBLIC sarembok_agent_process)

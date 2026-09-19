@@ -1,0 +1,331 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Sarembok Console</title>
+  <style>
+    :root {
+      --bg:#0b0d10;
+      --panel:#14171c;
+      --fg:#e8ecef;
+      --dim:#7a8590;
+      --accent:#5eead4;
+      --border:#232830;
+      --warn:#fbbf24;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin:0;
+      background:var(--bg);
+      color:var(--fg);
+      font: 13px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+    }
+    header {
+      padding:10px 16px;
+      border-bottom:1px solid var(--border);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+    header h1 {
+      margin:0;
+      font-size:14px;
+      font-weight:600;
+      letter-spacing:.05em;
+    }
+    header .status {
+      color:var(--dim);
+      font-size:12px;
+    }
+    .status .dot {
+      display:inline-block;
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:#ef4444;
+      margin-right:6px;
+      vertical-align:middle;
+    }
+    .status .dot.ok {
+      background:var(--accent);
+    }
+    main {
+      display:grid;
+      grid-template-columns: 1fr 2fr 1fr;
+      height:calc(100vh - 42px);
+    }
+    section {
+      border-right:1px solid var(--border);
+      padding:12px;
+      overflow:auto;
+    }
+    section:last-child {
+      border-right:none;
+    }
+    h2 {
+      font-size:11px;
+      text-transform:uppercase;
+      color:var(--dim);
+      letter-spacing:.1em;
+      margin:0 0 10px 0;
+    }
+    .memory {
+      border-left:2px solid var(--accent);
+      padding:6px 8px;
+      margin-bottom:6px;
+      background:#101318;
+      border-radius:0 4px 4px 0;
+      font-size:12px;
+    }
+    .memory .tier {
+      font-size:10px;
+      color:var(--dim);
+      text-transform:uppercase;
+    }
+    .memory .key {
+      color:var(--accent);
+    }
+    .memory .time {
+      color:var(--dim);
+      font-size:10px;
+      float:right;
+    }
+    #conv {
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .msg {
+      padding:8px 10px;
+      border-radius:6px;
+      max-width:90%;
+      font-size:13px;
+    }
+    .msg.user {
+      background:#1c2733;
+      align-self:flex-end;
+    }
+    .msg.agent {
+      background:#141b23;
+      align-self:flex-start;
+    }
+    .msg .recall {
+      display:block;
+      margin-top:6px;
+      font-size:11px;
+      color:var(--dim);
+      border-top:1px dotted var(--border);
+      padding-top:4px;
+    }
+    .input-row {
+      display:flex;
+      gap:8px;
+      margin-top:auto;
+    }
+    .input-row input {
+      flex:1;
+      background:#0e1216;
+      color:var(--fg);
+      border:1px solid var(--border);
+      border-radius:6px;
+      padding:8px 10px;
+      font:inherit;
+    }
+    .input-row button {
+      background:var(--accent);
+      color:#06251f;
+      border:0;
+      border-radius:6px;
+      padding:8px 14px;
+      font:inherit;
+      font-weight:600;
+      cursor:pointer;
+    }
+    .kv {
+      display:flex;
+      justify-content:space-between;
+      padding:3px 0;
+      border-bottom:1px solid #1a1e24;
+      font-size:12px;
+    }
+    .kv .k {
+      color:var(--dim);
+    }
+    .kv .v {
+      color:var(--fg);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SAREMBOK CONSOLE</h1>
+    <div class="status"><span class="dot" id="dot"></span><span id="statusText">connecting…</span></div>
+  </header>
+  <main>
+    <section>
+      <h2>Memory Timeline</h2>
+      <div id="memories"></div>
+    </section>
+    <section style="display:flex;flex-direction:column">
+      <h2>Conversation</h2>
+      <div id="conv" style="flex:1;overflow:auto"></div>
+      <div class="input-row">
+        <input id="prompt" placeholder="say 'remember that my project is Sarembok'…" autofocus>
+        <button id="send">Send</button>
+      </div>
+    </section>
+    <section>
+      <h2>System State</h2>
+      <div id="sys"></div>
+    </section>
+  </main>
+  <script>
+    const urlParams = new URLSearchParams(location.search);
+    const customWs = urlParams.get('ws');
+    const wsProto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const wsHost = location.hostname || '127.0.0.1';
+    const WS_URL = customWs || (wsProto + wsHost + ':9001');
+
+    let ws, agentId = 1, nextId = 1;
+
+    function send(method, params) {
+      return new Promise((resolve) => {
+        const id = nextId++;
+        const handler = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.id === id) {
+              ws.removeEventListener('message', handler);
+              resolve(msg);
+            }
+          } catch(e) {}
+        };
+        ws.addEventListener('message', handler);
+        ws.send(JSON.stringify({ jsonrpc: '2.0', id, method, params }));
+      });
+    }
+
+    function setStatus(ok, text) {
+      document.getElementById('dot').className = 'dot' + (ok ? ' ok' : '');
+      document.getElementById('statusText').textContent = text;
+    }
+
+    function renderMemory(m) {
+      const el = document.createElement('div');
+      el.className = 'memory';
+      const t = new Date(m.created_ns / 1e6).toLocaleTimeString();
+      el.innerHTML = `<span class="tier">${m.tier}</span> <span class="time">${t}</span><br>
+                      <span class="key">${m.key}</span> = ${JSON.stringify(m.value)}`;
+      return el;
+    }
+
+    async function refresh() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      const info = await send('GetRuntimeInfo', {});
+      const mem = await send('ListMemories', {});
+      const ag = await send('ListAgents', {});
+      if (!info.result) return;
+      const sys = document.getElementById('sys');
+      sys.innerHTML = '';
+      const rows = [
+        ['kernel', info.result.kernel],
+        ['version', info.result.version],
+        ['uptime', (info.result.uptime_ms / 1000).toFixed(1) + 's'],
+        ['agents live', info.result.agents_live],
+        ['agents total', info.result.agents_total],
+        ['memories', info.result.memories_total],
+        ['store', info.result.wal_path || 'sarembok.db'],
+      ];
+      for (const [k, v] of rows) {
+        const d = document.createElement('div');
+        d.className = 'kv';
+        d.innerHTML = `<span class="k">${k}</span><span class="v">${v}</span>`;
+        sys.appendChild(d);
+      }
+      const memEl = document.getElementById('memories');
+      memEl.innerHTML = '';
+      (mem.result?.memories || []).slice().reverse().forEach(m => {
+        memEl.appendChild(renderMemory(m));
+      });
+    }
+
+    function addMsg(who, text, recall) {
+      const el = document.createElement('div');
+      el.className = 'msg ' + who;
+      el.textContent = text;
+      if (recall && recall.length) {
+        const r = document.createElement('span');
+        r.className = 'recall';
+        r.textContent = '↳ recalled: ' + recall.map(x => x.key + '=' + JSON.stringify(x.value)).join(', ');
+        el.appendChild(r);
+      }
+      const conv = document.getElementById('conv');
+      conv.appendChild(el);
+      conv.scrollTop = conv.scrollHeight;
+    }
+
+    async function onSend() {
+      const input = document.getElementById('prompt');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      addMsg('user', text);
+
+      // Simple intent: "remember that X is Y" -> StoreMemory; else echo recall
+      const m = text.match(/remember (?:that )?(.+?) (?:is|=) (.+)/i);
+      if (m) {
+        const r = await send('AgentRemember', { agentId, key: m[1].trim(), value: m[2].trim(), tier: 'SEMANTIC' });
+        addMsg('agent', `Stored. mem_id=${r.result?.mem_id}`);
+      } else {
+        const qM = text.match(/(?:what is|where is|tell me about|show me|who is) (.+)/i);
+        const query = qM ? qM[1].trim() : text;
+        const r = await send('AgentRecall', { agentId, query });
+        const refs = r.result?.refs || [];
+        if (refs.length) {
+          addMsg('agent', `I recall: ${refs.map(x => x.key + ' = ' + x.value).join('; ')}`, refs);
+        } else {
+          addMsg('agent', `I don't have anything on "${text}" yet.`);
+        }
+      }
+      refresh();
+    }
+
+    function connect() {
+      setStatus(false, 'connecting to ' + WS_URL + '…');
+      try {
+        ws = new WebSocket(WS_URL);
+      } catch(e) {
+        setStatus(false, 'connection error');
+        setTimeout(connect, 2500);
+        return;
+      }
+      ws.onopen = async () => {
+        setStatus(true, 'connected');
+        // ensure an agent exists
+        const ag = await send('ListAgents', {});
+        if (!ag.result || !ag.result.agents || ag.result.agents.length === 0) {
+          const r = await send('SpawnAgent', { name: 'alice', capabilities: ['recall','remember','embody'] });
+          agentId = r.result?.agent_id || 1;
+        } else {
+          agentId = ag.result.agents[0].id;
+        }
+        refresh();
+        setInterval(refresh, 3000);
+      };
+      ws.onclose = () => {
+        setStatus(false, 'disconnected — retrying');
+        setTimeout(connect, 2000);
+      };
+      ws.onerror = () => setStatus(false, 'error');
+    }
+
+    document.getElementById('send').onclick = onSend;
+    document.getElementById('prompt').addEventListener('keydown', e => {
+      if (e.key === 'Enter') onSend();
+    });
+    connect();
+  </script>
+</body>
+</html>

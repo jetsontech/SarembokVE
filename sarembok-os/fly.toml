@@ -1,0 +1,29 @@
+app = "sarembok-live"
+primary_region = "iad"
+
+[build]
+dockerfile = "Dockerfile"
+
+[mounts]
+source = "sarembok_data"
+destination = "/data"
+
+[[services]]
+internal_port = 8080
+protocol = "tcp"
+
+[[services.ports]]
+port = 80
+handlers = ["http"]
+
+[[services.ports]]
+port = 443
+handlers = ["tls", "http"]
+
+[[services]]
+internal_port = 9001
+protocol = "tcp"
+
+[[services.ports]]
+port = 9001
+handlers = ["tls"]

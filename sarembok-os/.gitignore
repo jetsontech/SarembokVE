@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.wal
+*.db
+sarembok-os.zip
+kernel/build/
