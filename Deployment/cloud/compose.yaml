@@ -41,9 +41,9 @@ services:
       SAREMBOK_VOICE_LANG: ${SAREMBOK_VOICE_LANG:-en-us}
       SAREMBOK_VOICE_MAX_CHARS: ${SAREMBOK_VOICE_MAX_CHARS:-4000}
       SAREMBOK_VOICE_LOG_LEVEL: ${SAREMBOK_VOICE_LOG_LEVEL:-INFO}
-      HF_HOME: /home/sarembokvoice/.cache/huggingface
+      HF_HOME: /opt/huggingface
     volumes:
-      - sarembok-voice-cache:/home/sarembokvoice/.cache
+      - sarembok-voice-cache:/opt/huggingface
     security_opt:
       - no-new-privileges:true
     cap_drop:
