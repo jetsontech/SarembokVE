@@ -9872,43 +9872,56 @@ button,
         let audioContextUnlocked = false;
         let globalAudioCtx = null;
 
-        function unlockAudioEngine() {
+        async function unlockAudioEngine() {
             try {
                 const AudioCtx = window.AudioContext || window.webkitAudioContext;
                 if (AudioCtx) {
                     if (!globalAudioCtx || globalAudioCtx.state === "closed") {
                         globalAudioCtx = new AudioCtx();
                     }
-                    // Always re-check the real context state; the cached flag may be stale
-                    // after the browser suspends audio while the tab is idle/backgrounded.
+
+                    // Resume the real context and WAIT for it to become running.
+                    // Calling resume() without awaiting it can leave a race where the
+                    // subsequent TTS fetch completes before the output device is active.
                     if (globalAudioCtx.state === "suspended") {
-                        const resumePromise = globalAudioCtx.resume();
-                        if (resumePromise && typeof resumePromise.catch === "function") {
-                            resumePromise.catch(err => console.warn("[audio] context resume notice:", err));
-                        }
+                        await globalAudioCtx.resume();
                     }
+
+                    if (globalAudioCtx.state !== "running") {
+                        throw new Error("AudioContext is " + globalAudioCtx.state);
+                    }
+
+                    // Prime the output chain with a silent sample while the browser still
+                    // has the originating user gesture. A zero-gain node avoids audible clicks.
                     const buffer = globalAudioCtx.createBuffer(1, 1, 22050);
                     const src = globalAudioCtx.createBufferSource();
+                    const gain = globalAudioCtx.createGain();
+                    gain.gain.value = 0;
                     src.buffer = buffer;
-                    src.connect(globalAudioCtx.destination);
+                    src.connect(gain);
+                    gain.connect(globalAudioCtx.destination);
                     src.start(0);
+
                     audioContextUnlocked = true;
-                    console.log("[audio] Hardware audio channel primed:", globalAudioCtx.state);
+                    console.log("[audio] Hardware audio channel ready:", globalAudioCtx.state);
                 }
+
                 if (window.speechSynthesis) {
                     try { window.speechSynthesis.resume(); } catch (_) {}
                 }
+                return true;
             } catch (e) {
                 audioContextUnlocked = false;
-                console.warn("[audio] Gesture unlock error:", e);
+                console.warn("[audio] Audio engine unlock failed:", e);
+                return false;
             }
         }
-        window.addEventListener("touchstart", unlockAudioEngine, { passive: true });
-        window.addEventListener("touchend", unlockAudioEngine, { passive: true });
-        window.addEventListener("pointerdown", unlockAudioEngine, { passive: true });
-        window.addEventListener("click", unlockAudioEngine, { passive: true });
+        window.addEventListener("touchstart", () => { void unlockAudioEngine(); }, { passive: true });
+        window.addEventListener("touchend", () => { void unlockAudioEngine(); }, { passive: true });
+        window.addEventListener("pointerdown", () => { void unlockAudioEngine(); }, { passive: true });
+        window.addEventListener("click", () => { void unlockAudioEngine(); }, { passive: true });
         window.addEventListener("keydown", function (e) {
-            if (e.key === "Enter" || e.key === " ") unlockAudioEngine();
+            if (e.key === "Enter" || e.key === " ") void unlockAudioEngine();
         }, { passive: true });
 
         function showInterruptPill() {
@@ -10344,8 +10357,24 @@ button,
                         });
                     }
 
-                    if (!response.ok) throw new Error("neural TTS HTTP " + response.status);
-                    await playKokoroBlob(await response.blob());
+                    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+                    if (!response.ok) {
+                        let detail = "";
+                        try {
+                            detail = (await response.text()).slice(0, 300);
+                        } catch (_) {}
+                        throw new Error("neural TTS HTTP " + response.status + (detail ? " · " + detail : ""));
+                    }
+                    if (!contentType.includes("audio/")) {
+                        let detail = "";
+                        try {
+                            detail = (await response.text()).slice(0, 300);
+                        } catch (_) {}
+                        throw new Error("neural TTS returned non-audio data" + (detail ? " · " + detail : ""));
+                    }
+                    const audioBlob = await response.blob();
+                    if (audioBlob.size < 128) throw new Error("neural TTS returned only " + audioBlob.size + " bytes");
+                    await playKokoroBlob(audioBlob);
                 } catch (err) {
                     console.warn("[tts] Kokoro playback failed for " + kokoroVoice + ":", err);
                     if (typeof window.setKokoroStatus === "function") {
@@ -14315,15 +14344,27 @@ document.getElementById('global-input-field').addEventListener('input', function
   const profiles=[{value:"gemini-vega",label:"Vega · af_heart · American Female"},{value:"ada-sovereign",label:"Ada · bf_emma · British Female"},{value:"gemini-aoede",label:"Aoede · af_bella · American Female"},{value:"gemini-kore",label:"Kore · af_nicole · American Female"},{value:"en-US",label:"Onyx · am_michael · American Male"},{value:"synth",label:"Sovereign Synth · am_adam · American Male"}];
   window.setKokoroStatus=function(message,active){const s=document.getElementById("srbk-kokoro-status"),st=document.getElementById("srbk-kokoro-state"),d=document.getElementById("srbk-kokoro-dot");if(s)s.textContent=message;if(st)st.textContent=active?"ACTIVE":"READY";if(d)d.style.background=active?"#10b981":"#f59e0b";};
   window.toggleKokoroPanel=function(ev){if(ev)ev.stopPropagation();const p=document.getElementById("srbk-kokoro-panel");if(!p)return;p.classList.toggle("open");if(p.classList.contains("open"))sync();};
-  window.testKokoroVoice=function(){
+  window.testKokoroVoice=async function(){
     const sel=document.getElementById("srbk-kokoro-select");
     const selected=(sel&&sel.value)||selectedVoiceLang||"gemini-vega";
     if(typeof changeVoiceProfile==="function" && selected!==selectedVoiceLang) changeVoiceProfile(selected);
     const profile=(typeof KOKORO_VOICE_MAP!=="undefined"&&KOKORO_VOICE_MAP[selected])?KOKORO_VOICE_MAP[selected]:null;
+    setKokoroStatus("Opening audio channel · "+(profile?profile.label:selected)+"…",true);
+
+    // Explicitly unlock the browser audio device from this user gesture before any
+    // network request. This prevents a later async fetch from losing activation.
+    const unlocked = await unlockAudioEngine();
+    if (!unlocked) {
+      setKokoroStatus("Audio device could not be unlocked. Click TEST again after interacting with the page.",false);
+      return;
+    }
+
     setKokoroStatus("Generating neural audio · "+(profile?profile.label:selected)+"…",true);
-    // Call speakText directly from the button click. Do not defer this call;
-    // preserving the user gesture is required for reliable audio.play().
-    if(typeof speakText==="function") speakText("Sarembok neural voice is online. The selected Kokoro voice is speaking through the production runtime.");
+    if(typeof speakText==="function") {
+      speakText("Sarembok neural voice is online. The selected Kokoro voice is speaking through the production runtime.");
+    } else {
+      setKokoroStatus("Voice client is not initialized.",false);
+    }
   };
   function sync(){
     const sel=document.getElementById("srbk-kokoro-select");
