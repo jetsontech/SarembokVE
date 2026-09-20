@@ -27,6 +27,37 @@ services:
       retries: 6
       start_period: 20s
 
+  sarembok-voice:
+    build:
+      context: ./voice
+      dockerfile: Dockerfile
+    container_name: sarembok-voice
+    restart: unless-stopped
+    expose:
+      - "9200"
+    environment:
+      SAREMBOK_VOICE_PORT: "9200"
+      SAREMBOK_VOICE_DEFAULT: ${SAREMBOK_VOICE_DEFAULT:-af_heart}
+      SAREMBOK_VOICE_LANG: ${SAREMBOK_VOICE_LANG:-en-us}
+      SAREMBOK_VOICE_MAX_CHARS: ${SAREMBOK_VOICE_MAX_CHARS:-4000}
+      SAREMBOK_VOICE_LOG_LEVEL: ${SAREMBOK_VOICE_LOG_LEVEL:-INFO}
+      HF_HOME: /home/sarembokvoice/.cache/huggingface
+    volumes:
+      - sarembok-voice-cache:/home/sarembokvoice/.cache
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 2g
+    cpus: 2.0
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9200/health', timeout=5).read()"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 180s
+
   sarembok-runtime:
     build:
       context: ../..
@@ -64,9 +95,13 @@ services:
       SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS: ${SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS:-25}
       SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS: ${SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS:-35}
       SAREMBOK_LLM_MAX_OUTPUT_TOKENS: ${SAREMBOK_LLM_MAX_OUTPUT_TOKENS:-1200}
+      SAREMBOK_VOICE_URL: ${SAREMBOK_VOICE_URL:-http://sarembok-voice:9200}
 
     ports:
       - "127.0.0.1:9000:9000"
+    depends_on:
+      sarembok-voice:
+        condition: service_healthy
     volumes:
       - sarembok-data:/data
     security_opt:
@@ -87,3 +122,4 @@ services:
 
 volumes:
   sarembok-data:
+  sarembok-voice-cache:
