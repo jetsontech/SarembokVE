@@ -9849,6 +9849,7 @@ button,
         let speechRecognition = null;
         let isRecordingSpeech = false;
         let selectedVoiceLang = "gemini-vega";
+        try { selectedVoiceLang = localStorage.getItem("sarembok-kokoro-voice") || selectedVoiceLang; } catch (_) {}
 
         // Live interactive 2-way duplex conversation state
         let liveConversationActive = false;
@@ -10799,59 +10800,35 @@ button,
         }
 
         let activeVoiceModel = "Vega";
+        const KOKORO_VOICE_MAP = {
+            "gemini-vega": { model: "Vega", voice: "af_heart", language: "en-us", label: "Vega" },
+            "ada-sovereign": { model: "Ada", voice: "bf_emma", language: "en-gb", label: "Ada" },
+            "gemini-aoede": { model: "Aoede", voice: "af_bella", language: "en-us", label: "Aoede" },
+            "gemini-kore": { model: "Kore", voice: "af_nicole", language: "en-us", label: "Kore" },
+            "en-US": { model: "Onyx", voice: "am_michael", language: "en-us", label: "Onyx" },
+            "synth": { model: "Sovereign Synth", voice: "am_adam", language: "en-us", label: "Sovereign Synth" }
+        };
         function changeVoiceProfile(val) {
-            selectedVoiceLang = val;
-            let previewText = "Voice profile updated.";
-            if (val === "gemini-vega" || val.includes("vega")) {
-                activeVoiceModel = "Vega";
-                previewText = "Vega online. Google Gemini neural voice synthesis active.";
-                addTerminalLine("[voice] activated profile: Gemini Vega (Google Neural Female)", "cyan");
-            } else if (val === "ada-sovereign" || val.includes("ada")) {
-                activeVoiceModel = "Ada";
-                previewText = "Ada v1 online. Sovereign British neural matrix active.";
-                addTerminalLine("[voice] activated profile: Ada v1 (Sovereign British Female)", "cyan");
-            } else if (val === "gemini-aoede" || val.includes("aoede")) {
-                activeVoiceModel = "Aoede";
-                previewText = "Gemini Aoede online. Warm studio profile active.";
-                addTerminalLine("[voice] activated profile: Gemini Aoede (Warm Studio Female)", "cyan");
-            } else if (val === "gemini-kore" || val.includes("kore")) {
-                activeVoiceModel = "Kore";
-                previewText = "Gemini Kore online. Soft intimate profile active.";
-                addTerminalLine("[voice] activated profile: Gemini Kore (Soft Intimate Female)", "cyan");
-            } else if (val === "en-GB" || val.includes("echo")) {
-                activeVoiceModel = "Echo";
-                previewText = "Neural British female profile active.";
-                addTerminalLine("[voice] activated profile: Neural British Female (Echo)", "cyan");
-            } else if (val === "en-US" || val.includes("onyx")) {
-                activeVoiceModel = "Onyx";
-                previewText = "Neural American male profile active. Operating as Onyx.";
-                addTerminalLine("[voice] activated profile: Onyx — Kokoro Michael · American Male", "amber");
-            } else if (val === "synth") {
-                activeVoiceModel = "Synth";
-                previewText = "Cybernetic synthesizer matrix engaged.";
-                addTerminalLine("[voice] activated profile: Sovereign Synth — Kokoro Adam · American Male", "amber");
-            } else {
-                activeVoiceModel = val;
-                previewText = `Voice profile set to ${val}.`;
-                addTerminalLine(`[voice] updated voice profile: ${val}`, "amber");
-            }
-
+            const key = Object.prototype.hasOwnProperty.call(KOKORO_VOICE_MAP, val) ? val : "gemini-vega";
+            const profile = KOKORO_VOICE_MAP[key];
+            selectedVoiceLang = key;
+            activeVoiceModel = profile.model;
+            try { localStorage.setItem("sarembok-kokoro-voice", key); } catch (_) {}
+            const mainSelect = document.getElementById("mh-voice-select");
+            if (mainSelect && mainSelect.value !== key) mainSelect.value = key;
+            const kokoroSelect = document.getElementById("srbk-kokoro-select");
+            if (kokoroSelect && kokoroSelect.value !== key) kokoroSelect.value = key;
+            addTerminalLine("[voice] activated Kokoro profile: " + profile.model + " · " + profile.voice, "cyan");
             try {
                 if (window.sarembokSocket && window.sarembokSocket.readyState === WebSocket.OPEN) {
                     window.sarembokSocket.send(JSON.stringify({ type: "SET_VOICE_PROFILE", voice: activeVoiceModel }));
                 }
             } catch (_) {}
-
-            // Immediate audible voice preview
-            if (window.speechSynthesis) {
+            if (typeof speakText === "function") {
                 try {
-                    window.speechSynthesis.cancel();
-                    setTimeout(() => {
-                        speakText(previewText);
-                    }, 50);
-                } catch (e) {
-                    console.warn("Voice preview notice:", e);
-                }
+                    if (window.speechSynthesis) window.speechSynthesis.cancel();
+                    setTimeout(() => speakText(profile.label + " Kokoro voice selected."), 50);
+                } catch (e) { console.warn("[voice] preview notice:", e); }
             }
         }
 
@@ -10882,8 +10859,10 @@ button,
             setTimeout(initMetaHumanHologram, 400);
 
             const voiceEl = document.getElementById("mh-voice-select");
-            if (voiceEl && voiceEl.value) {
-                selectedVoiceLang = voiceEl.value;
+            const savedVoice = (() => { try { return localStorage.getItem("sarembok-kokoro-voice"); } catch (_) { return null; } })();
+            if (voiceEl) {
+                if (savedVoice && KOKORO_VOICE_MAP[savedVoice]) voiceEl.value = savedVoice;
+                selectedVoiceLang = voiceEl.value || "gemini-vega";
             }
 
             // Auto transition from boot screen
