@@ -4427,17 +4427,6 @@ async def process_http_request(connection: Any, request: Any) -> Any:
             if not audio:
                 return make_api_response(502, {"error": "voice_service_returned_no_audio"})
 
-            if hasattr(connection, "respond"):
-                response = connection.respond(200, audio)
-                try:
-                    del response.headers["Content-Type"]
-                except Exception:
-                    pass
-                response.headers["Content-Type"] = "audio/wav"
-                response.headers["Cache-Control"] = "no-store"
-                response.headers["Content-Length"] = str(len(audio))
-                return response
-
             return (
                 200,
                 [
