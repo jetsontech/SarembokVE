@@ -10218,19 +10218,15 @@ button,
 
             unlockAudioEngine();
 
-            const profile = (selectedVoiceLang || "gemini-vega").toLowerCase();
-            const kokoroVoice =
-                profile.includes("ada") || profile.includes("gb") ? "bf_emma" :
-                profile.includes("aoede") ? "af_bella" :
-                profile.includes("kore") ? "af_nicole" :
-                profile.includes("us") || profile.includes("onyx") || profile.includes("male") ? "am_michael" :
-                profile.includes("synth") ? "am_adam" :
-                "af_heart";
-
+            const profileKey = Object.prototype.hasOwnProperty.call(KOKORO_VOICE_MAP, selectedVoiceLang)
+                ? selectedVoiceLang : "gemini-vega";
+            const kokoroProfile = KOKORO_VOICE_MAP[profileKey];
+            const kokoroVoice = kokoroProfile.voice;
+            const kokoroLanguage = kokoroProfile.language;
             const kokoroSpeed =
-                profile.includes("ada") ? 0.98 :
-                profile.includes("kore") ? 0.95 :
-                profile.includes("synth") ? 1.02 :
+                profileKey === "ada-sovereign" ? 0.98 :
+                profileKey === "gemini-kore" ? 0.95 :
+                profileKey === "synth" ? 1.02 :
                 0.95;
 
             // Sarembok neural path: local Kokoro first, browser SpeechSynthesis only
@@ -10243,7 +10239,7 @@ button,
                     const qs = new URLSearchParams({
                         text: clean.slice(0, 4000),
                         voice: kokoroVoice,
-                        language: profile.includes("ada") ? "en-gb" : "en-us",
+                        language: kokoroLanguage,
                         speed: String(kokoroSpeed)
                     });
                     const response = await fetch("/api/tts?" + qs.toString(), {
@@ -10290,8 +10286,8 @@ button,
                         activeNeuralAudio = null;
                     }
                 } catch (err) {
-                    console.warn("[tts] Kokoro unavailable; using browser fallback:", err);
-                    if (typeof window.setKokoroStatus === "function") window.setKokoroStatus("Kokoro unavailable · browser speech fallback", false);
+                    console.warn("[tts] Kokoro unavailable for " + kokoroVoice + "; using browser fallback:", err);
+                    if (typeof window.setKokoroStatus === "function") window.setKokoroStatus("Kokoro failed · browser fallback · " + kokoroVoice, false);
                 }
 
                 fallbackToBrowserSpeech();
