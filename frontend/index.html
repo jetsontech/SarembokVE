@@ -6787,12 +6787,12 @@ button,
                     <div style="margin-bottom:18px;">
                         <label style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em;">Voice Synthesis Profile</label>
                         <select class="metahuman-select" id="mh-voice-select" onchange="changeVoiceProfile(this.value)">
-                            <option value="gemini-vega" selected>Gemini Vega — American Studio Narrator (Shimmer Calibrated)</option>
-                            <option value="ada-sovereign">Ada v1 — Sovereign British Female (Ada Core)</option>
-                            <option value="gemini-aoede">Gemini Aoede — Warm Studio Female</option>
-                            <option value="gemini-kore">Gemini Kore — Soft Intimate Female</option>
-                            <option value="en-US">Neural American Male (Onyx)</option>
-                            <option value="synth">Cybernetic Synthesizer (Sovereign)</option>
+                            <option value="gemini-vega" selected>Vega — Kokoro Heart · American Female</option>
+                            <option value="ada-sovereign">Ada v1 — Kokoro Emma · British Female</option>
+                            <option value="gemini-aoede">Aoede — Kokoro Bella · Warm American Female</option>
+                            <option value="gemini-kore">Kore — Kokoro Nicole · Soft American Female</option>
+                            <option value="en-US">Onyx — Kokoro Michael · American Male</option>
+                            <option value="synth">Sovereign Synth — Kokoro Adam · American Male</option>
                         </select>
                     </div>
 
@@ -10133,21 +10133,23 @@ button,
 
             interruptSpeech();
 
-            // Strip code blocks, media/card tags, math delimiters, and links for speech
-            const clean = text
-                .replace(/:::(?:card|video|youtube|audio|doc|pdf|paper|music|tasks)[^\n]*\n?/gi, "")
-                .replace(/:::reveal[^\n]*\n?/gi, " Solution: ")
-                .replace(/:::/g, "")
-                .replace(/```[\s\S]*?```/g, "Code block omitted.")
-                .replace(/\\\[([\s\S]*?)\\\]/g, " $1 ")
-                .replace(/\\\(([\s\S]*?)\\\)/g, " $1 ")
-                .replace(/\$\$([\s\S]*?)\$\$/g, " $1 ")
-                .replace(/\$([^\$]+)\$/g, " $1 ")
-                .replace(/https?:\/\/\S+/g, "")
-                .replace(/`([^`]+)`/g, "$1")
-                .replace(/[*#_~|]/g, "")
-                .replace(/\s+/g, " ")
-                .trim();
+            // Strip code blocks, media/card tags, math delimiters, and links for speech.
+            const clean = normalizeSarembokSpeech(
+                text
+                    .replace(/:::(?:card|video|youtube|audio|doc|pdf|paper|music|tasks)[^\n]*\n?/gi, "")
+                    .replace(/:::reveal[^\n]*\n?/gi, " Solution: ")
+                    .replace(/:::/g, "")
+                    .replace(/\`\`\`[\s\S]*?\`\`\`/g, "Code block omitted.")
+                    .replace(/\\\[([\s\S]*?)\\\]/g, " $1 ")
+                    .replace(/\\\(([\s\S]*?)\\\)/g, " $1 ")
+                    .replace(/\$\$([\s\S]*?)\$\$/g, " $1 ")
+                    .replace(/\$([^\$]+)\$/g, " $1 ")
+                    .replace(/https?:\/\/\S+/g, "")
+                    .replace(/\`([^\`]+)\`/g, "$1")
+                    .replace(/[*#_~|]/g, "")
+                    .replace(/\s+/g, " ")
+                    .trim()
+            );
 
             if (!clean) return;
 
@@ -10173,57 +10175,121 @@ button,
                 hideInterruptPill();
                 window._activeSpeechUtterance = null;
                 activeNeuralAudio = null;
-
-                if (liveConversationActive) {
-                    resumeRecognitionAfterSpeech(600);
-                }
+                if (liveConversationActive) resumeRecognitionAfterSpeech(600);
             };
 
             unlockAudioEngine();
 
-            if (!window.speechSynthesis) {
-                console.warn("[tts] window.speechSynthesis not supported on this platform.");
-                finishSpeaking();
-                return;
-            }
+            const profile = (selectedVoiceLang || "gemini-vega").toLowerCase();
+            const kokoroVoice =
+                profile.includes("ada") || profile.includes("gb") ? "bf_emma" :
+                profile.includes("aoede") ? "af_bella" :
+                profile.includes("kore") ? "af_nicole" :
+                profile.includes("us") || profile.includes("onyx") || profile.includes("male") ? "am_michael" :
+                profile.includes("synth") ? "am_adam" :
+                "af_heart";
 
-            const utterance = new SpeechSynthesisUtterance(normalizeSarembokSpeech(clean));
-            const resolved = getResolvedVoiceProfile();
-            if (resolved && resolved.voice) {
-                utterance.voice = resolved.voice;
-            }
-            utterance.volume = 1.0;
-            utterance.pitch = (resolved && resolved.pitch !== undefined) ? resolved.pitch : 1.0;
-            utterance.rate = (resolved && resolved.rate !== undefined) ? resolved.rate : 0.95;
+            const kokoroSpeed =
+                profile.includes("ada") ? 0.98 :
+                profile.includes("kore") ? 0.95 :
+                profile.includes("synth") ? 1.02 :
+                0.95;
 
-            utterance.onboundary = () => {
-                triggerSpeechViseme();
-            };
-            utterance.onend = finishSpeaking;
-            utterance.onerror = (e) => {
-                console.warn("[tts] Speech error:", e);
-                finishSpeaking();
-            };
-            window._activeSpeechUtterance = utterance;
-
-            if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
-                window.speechSynthesis.cancel();
-            }
-
-            setTimeout(() => {
+            // Sarembok neural path: local Kokoro first, browser SpeechSynthesis only
+            // as a compatibility fallback if the private voice service is unavailable.
+            (async () => {
                 try {
-                    window.speechSynthesis.resume();
-                    window.speechSynthesis.speak(utterance);
-                    setTimeout(() => {
-                        if (window.speechSynthesis && window.speechSynthesis.paused) {
-                            window.speechSynthesis.resume();
-                        }
-                    }, 80);
+                    const sessionToken = window.browserSessionToken;
+                    if (!sessionToken) throw new Error("browser session unavailable");
+
+                    const qs = new URLSearchParams({
+                        text: clean.slice(0, 4000),
+                        voice: kokoroVoice,
+                        language: profile.includes("ada") ? "en-gb" : "en-us",
+                        speed: String(kokoroSpeed)
+                    });
+                    const response = await fetch("/api/tts?" + qs.toString(), {
+                        method: "GET",
+                        cache: "no-store",
+                        headers: { "Authorization": "Bearer " + sessionToken }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error("neural TTS HTTP " + response.status);
+                    }
+
+                    const blob = await response.blob();
+                    if (!blob.size) throw new Error("neural TTS returned empty audio");
+
+                    const url = URL.createObjectURL(blob);
+                    const audio = new Audio(url);
+                    activeNeuralAudio = audio;
+                    window._activeSpeechAudio = audio;
+                    audio.volume = 1.0;
+                    audio.onended = () => {
+                        URL.revokeObjectURL(url);
+                        window._activeSpeechAudio = null;
+                        finishSpeaking();
+                    };
+                    audio.onerror = () => {
+                        URL.revokeObjectURL(url);
+                        window._activeSpeechAudio = null;
+                        activeNeuralAudio = null;
+                        fallbackToBrowserSpeech();
+                    };
+
+                    try {
+                        await audio.play();
+                        console.info("[tts] Sarembok neural voice active:", kokoroVoice);
+                        return;
+                    } catch (playErr) {
+                        console.warn("[tts] neural audio playback blocked; falling back:", playErr);
+                        try { audio.pause(); audio.currentTime = 0; } catch (_) {}
+                        URL.revokeObjectURL(url);
+                        window._activeSpeechAudio = null;
+                        activeNeuralAudio = null;
+                    }
                 } catch (err) {
-                    console.warn("[tts] Speech invocation failed:", err);
-                    finishSpeaking();
+                    console.warn("[tts] Kokoro unavailable; using browser fallback:", err);
                 }
-            }, 30);
+
+                fallbackToBrowserSpeech();
+            })();
+
+            function fallbackToBrowserSpeech() {
+                if (!window.speechSynthesis) {
+                    console.warn("[tts] no browser SpeechSynthesis fallback available");
+                    finishSpeaking();
+                    return;
+                }
+
+                const utterance = new SpeechSynthesisUtterance(clean);
+                const resolved = getResolvedVoiceProfile();
+                if (resolved && resolved.voice) utterance.voice = resolved.voice;
+                utterance.volume = 1.0;
+                utterance.pitch = (resolved && resolved.pitch !== undefined) ? resolved.pitch : 1.0;
+                utterance.rate = (resolved && resolved.rate !== undefined) ? resolved.rate : 0.95;
+                utterance.onboundary = () => triggerSpeechViseme();
+                utterance.onend = finishSpeaking;
+                utterance.onerror = (e) => {
+                    console.warn("[tts] browser SpeechSynthesis error:", e);
+                    finishSpeaking();
+                };
+                window._activeSpeechUtterance = utterance;
+
+                if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+                    window.speechSynthesis.cancel();
+                }
+                setTimeout(() => {
+                    try {
+                        window.speechSynthesis.resume();
+                        window.speechSynthesis.speak(utterance);
+                    } catch (err) {
+                        console.warn("[tts] browser speech invocation failed:", err);
+                        finishSpeaking();
+                    }
+                }, 30);
+            }
         }
 
         function toggleSpeechRecognition() {
@@ -10719,11 +10785,11 @@ button,
             } else if (val === "en-US" || val.includes("onyx")) {
                 activeVoiceModel = "Onyx";
                 previewText = "Neural American male profile active. Operating as Onyx.";
-                addTerminalLine("[voice] activated profile: Neural American Male (Onyx)", "amber");
+                addTerminalLine("[voice] activated profile: Onyx — Kokoro Michael · American Male", "amber");
             } else if (val === "synth") {
                 activeVoiceModel = "Synth";
                 previewText = "Cybernetic synthesizer matrix engaged.";
-                addTerminalLine("[voice] activated profile: Cybernetic Synthesizer (Sovereign)", "amber");
+                addTerminalLine("[voice] activated profile: Sovereign Synth — Kokoro Adam · American Male", "amber");
             } else {
                 activeVoiceModel = val;
                 previewText = `Voice profile set to ${val}.`;
