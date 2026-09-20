@@ -104,6 +104,22 @@
             box-sizing: border-box;
         }
 
+        /* SAREMBOK_KOKORO_VOICE_UI_V1 */
+        #srbk-kokoro-wrap { position:relative; display:inline-flex; align-items:center; }
+        #srbk-kokoro-btn { height:30px; padding:0 9px; border:1px solid rgba(16,185,129,.42); border-radius:8px; background:rgba(16,185,129,.08); color:#6ee7b7; display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:.06em; }
+        #srbk-kokoro-dot { width:6px; height:6px; border-radius:50%; background:#10b981; box-shadow:0 0 8px rgba(16,185,129,.8); }
+        #srbk-kokoro-panel { display:none; position:absolute; top:calc(100% + 8px); right:0; width:270px; padding:13px; border:1px solid rgba(16,185,129,.35); border-radius:12px; background:rgba(5,11,18,.98); box-shadow:0 16px 42px rgba(0,0,0,.72),0 0 24px rgba(16,185,129,.1); z-index:10020; }
+        #srbk-kokoro-panel.open { display:block; }
+        .srbk-kokoro-kicker { font-family:var(--font-mono); font-size:8px; letter-spacing:.14em; color:var(--text-muted); text-transform:uppercase; }
+        .srbk-kokoro-title { margin:2px 0 10px; font-family:var(--font-display); font-size:13px; font-weight:700; letter-spacing:.08em; color:#fff; }
+        .srbk-kokoro-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-bottom:10px; }
+        .srbk-kokoro-stat { padding:7px 8px; border:1px solid rgba(255,255,255,.08); border-radius:7px; background:rgba(255,255,255,.025); }
+        .srbk-kokoro-value { margin-top:2px; color:#6ee7b7; font-family:var(--font-mono); font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        #srbk-kokoro-select { width:100%; height:34px; padding:0 8px; border:1px solid rgba(16,185,129,.3); border-radius:7px; background:#071018; color:#fff; font-family:var(--font-mono); font-size:10px; margin-bottom:8px; }
+        #srbk-kokoro-test { width:100%; height:34px; border:1px solid rgba(16,185,129,.45); border-radius:7px; background:rgba(16,185,129,.1); color:#6ee7b7; font-family:var(--font-mono); font-size:10px; font-weight:700; letter-spacing:.05em; }
+        #srbk-kokoro-status { margin-top:8px; min-height:13px; color:var(--text-muted); font-family:var(--font-mono); font-size:8.5px; line-height:1.4; }
+        @media (max-width:768px) { #srbk-kokoro-btn { width:34px; padding:0; justify-content:center; } #srbk-kokoro-btn span:not(#srbk-kokoro-dot) { display:none; } #srbk-kokoro-panel { position:fixed; top:52px; right:10px; width:calc(100vw - 20px); max-width:310px; } }
+
         /* ==================== TOP HEADER ==================== */
         .cyber-header {
             display: flex;
@@ -6328,6 +6344,22 @@ button,
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
                     <span id="hud-voice-label">VOICE: ON</span>
                 </button>
+                <div id="srbk-kokoro-wrap">
+                    <button id="srbk-kokoro-btn" onclick="toggleKokoroPanel(event)" title="Kokoro Neural Voice"><span id="srbk-kokoro-dot"></span><span>KOKORO NEURAL</span></button>
+                    <div id="srbk-kokoro-panel" role="dialog" aria-label="Kokoro Neural Voice">
+                        <div class="srbk-kokoro-kicker">SAREMBOK VOICE ENGINE</div>
+                        <div class="srbk-kokoro-title">KOKORO NEURAL</div>
+                        <div class="srbk-kokoro-grid">
+                            <div class="srbk-kokoro-stat"><div class="srbk-kokoro-kicker">ENGINE</div><div class="srbk-kokoro-value">Kokoro</div></div>
+                            <div class="srbk-kokoro-stat"><div class="srbk-kokoro-kicker">MODEL</div><div class="srbk-kokoro-value">Kokoro-82M</div></div>
+                            <div class="srbk-kokoro-stat"><div class="srbk-kokoro-kicker">AUDIO</div><div class="srbk-kokoro-value">24 kHz PCM</div></div>
+                            <div class="srbk-kokoro-stat"><div class="srbk-kokoro-kicker">STATUS</div><div id="srbk-kokoro-state" class="srbk-kokoro-value">READY</div></div>
+                        </div>
+                        <select id="srbk-kokoro-select" aria-label="Kokoro voice"></select>
+                        <button id="srbk-kokoro-test" onclick="testKokoroVoice()">▶ TEST KOKORO VOICE</button>
+                        <div id="srbk-kokoro-status">Neural speech is the primary voice path. Browser speech is fallback only.</div>
+                    </div>
+                </div>
 
                 <button class="hud-voice-btn" id="hud-live-2way-btn" onclick="switchTab('dialogue'); if(!liveConversationActive) toggleLiveConversation();" title="Activate Live 2-Way Duplex Conversation" style="border-color:rgba(0,240,255,0.4); color:var(--cyan);">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -10246,9 +10278,11 @@ button,
                     try {
                         await audio.play();
                         console.info("[tts] Sarembok neural voice active:", kokoroVoice);
+                        if (typeof window.setKokoroStatus === "function") window.setKokoroStatus("Active · " + kokoroVoice + " · 24 kHz neural audio", true);
                         return;
                     } catch (playErr) {
                         console.warn("[tts] neural audio playback blocked; falling back:", playErr);
+                        if (typeof window.setKokoroStatus === "function") window.setKokoroStatus("Browser blocked audio · fallback active", false);
                         try { audio.pause(); audio.currentTime = 0; } catch (_) {}
                         URL.revokeObjectURL(url);
                         window._activeSpeechAudio = null;
@@ -10256,6 +10290,7 @@ button,
                     }
                 } catch (err) {
                     console.warn("[tts] Kokoro unavailable; using browser fallback:", err);
+                    if (typeof window.setKokoroStatus === "function") window.setKokoroStatus("Kokoro unavailable · browser speech fallback", false);
                 }
 
                 fallbackToBrowserSpeech();
@@ -14356,6 +14391,18 @@ document.getElementById('global-input-field').addEventListener('input', function
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncActiveTab, { once: true });
     else syncActiveTab();
+})();
+</script>
+<script>
+/* SAREMBOK_KOKORO_VOICE_UI_V1_RUNTIME */
+(function(){
+  const profiles=[{value:"gemini-vega",label:"Vega · af_heart · American Female"},{value:"ada-sovereign",label:"Ada · bf_emma · British Female"},{value:"gemini-aoede",label:"Aoede · af_bella · American Female"},{value:"gemini-kore",label:"Kore · af_nicole · American Female"},{value:"en-US",label:"Onyx · am_michael · American Male"},{value:"synth",label:"Sovereign Synth · am_adam · American Male"}];
+  window.setKokoroStatus=function(message,active){const s=document.getElementById("srbk-kokoro-status"),st=document.getElementById("srbk-kokoro-state"),d=document.getElementById("srbk-kokoro-dot");if(s)s.textContent=message;if(st)st.textContent=active?"ACTIVE":"FALLBACK";if(d)d.style.background=active?"#10b981":"#f59e0b";};
+  window.toggleKokoroPanel=function(ev){if(ev)ev.stopPropagation();const p=document.getElementById("srbk-kokoro-panel");if(!p)return;p.classList.toggle("open");if(p.classList.contains("open"))sync();};
+  window.testKokoroVoice=function(){const sel=document.getElementById("srbk-kokoro-select");if(sel&&sel.value!==window.__srbkKokoroLastProfile&&typeof changeVoiceProfile==="function"){changeVoiceProfile(sel.value);window.__srbkKokoroLastProfile=sel.value;return;}setKokoroStatus("Generating neural audio…",true);if(typeof speakText==="function")speakText("Sarembok neural voice is online. Kokoro is speaking through the production runtime.");};
+  function sync(){const sel=document.getElementById("srbk-kokoro-select");if(!sel)return;if(!sel.options.length)profiles.forEach(p=>{const o=document.createElement("option");o.value=p.value;o.textContent=p.label;sel.appendChild(o);});const existing=document.getElementById("mh-voice-select");const current=(existing&&existing.value)||"gemini-vega";const match=profiles.find(p=>p.value===current);if(match)sel.value=match.value;window.__srbkKokoroLastProfile=sel.value;sel.onchange=function(){if(typeof changeVoiceProfile==="function")changeVoiceProfile(this.value);window.__srbkKokoroLastProfile=this.value;};}
+  document.addEventListener("click",function(e){const w=document.getElementById("srbk-kokoro-wrap");if(w&&!w.contains(e.target)){const p=document.getElementById("srbk-kokoro-panel");if(p)p.classList.remove("open");}});
+  document.addEventListener("DOMContentLoaded",sync);
 })();
 </script>
 </body>
