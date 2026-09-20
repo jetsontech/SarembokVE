@@ -16,7 +16,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends espeak-ng libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir "kokoro>=0.9.4,<1.0" "soundfile>=0.12,<1.0"
+RUN pip install --no-cache-dir \
+    "kokoro>=0.9.4,<1.0" \
+    "soundfile>=0.12,<1.0" \
+    "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
 
 COPY server.py /app/server.py
 
