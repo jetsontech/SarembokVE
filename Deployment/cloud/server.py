@@ -4328,6 +4328,7 @@ async def handler(websocket) -> None:
 
 def process_http_response(connection: Any, request: Any, response: Any) -> Any:
     path = getattr(request, "path", "") or ""
+    path_only = urllib.parse.urlsplit(path).path
     if path_only == "/session":
         response.headers["Content-Type"] = "application/json; charset=utf-8"
         response.headers["Cache-Control"] = "no-store"
