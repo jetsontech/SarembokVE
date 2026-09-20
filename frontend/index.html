@@ -10233,7 +10233,13 @@ button,
             // as a compatibility fallback if the private voice service is unavailable.
             (async () => {
                 try {
-                    const sessionToken = window.browserSessionToken;
+                    // The browser session can expire independently of the page. Refresh it
+                    // before treating Kokoro as unavailable so a stale/missing token never
+                    // silently routes a selected voice to browser SpeechSynthesis.
+                    let sessionToken = window.browserSessionToken;
+                    if (!sessionToken && typeof window.sarembokRefreshBrowserSession === "function") {
+                        sessionToken = await window.sarembokRefreshBrowserSession();
+                    }
                     if (!sessionToken) throw new Error("browser session unavailable");
 
                     const qs = new URLSearchParams({
@@ -10247,6 +10253,34 @@ button,
                         cache: "no-store",
                         headers: { "Authorization": "Bearer " + sessionToken }
                     });
+
+                    if (response.status === 401 && typeof window.sarembokRefreshBrowserSession === "function") {
+                        sessionToken = await window.sarembokRefreshBrowserSession();
+                        const retry = await fetch("/api/tts?" + qs.toString(), {
+                            method: "GET",
+                            cache: "no-store",
+                            headers: { "Authorization": "Bearer " + sessionToken }
+                        });
+                        if (!retry.ok) throw new Error("neural TTS HTTP " + retry.status);
+                        return await retry.blob().then(async blob => {
+                            if (!blob.size) throw new Error("neural TTS returned empty audio");
+                            const url = URL.createObjectURL(blob);
+                            const audio = new Audio(url);
+                            activeNeuralAudio = audio;
+                            window._activeSpeechAudio = audio;
+                            audio.volume = 1.0;
+                            audio.onended = () => {
+                                URL.revokeObjectURL(url);
+                                finishSpeaking();
+                            };
+                            audio.onerror = () => {
+                                URL.revokeObjectURL(url);
+                                finishSpeaking();
+                            };
+                            try { await audio.play(); }
+                            catch (playErr) { URL.revokeObjectURL(url); throw playErr; }
+                        });
+                    }
 
                     if (!response.ok) {
                         throw new Error("neural TTS HTTP " + response.status);
