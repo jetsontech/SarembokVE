@@ -4328,7 +4328,7 @@ async def handler(websocket) -> None:
 
 def process_http_response(connection: Any, request: Any, response: Any) -> Any:
     path = getattr(request, "path", "") or ""
-    if path == "/session":
+    if path_only == "/session":
         response.headers["Content-Type"] = "application/json; charset=utf-8"
         response.headers["Cache-Control"] = "no-store"
     return response
@@ -4342,7 +4342,11 @@ async def process_http_request(connection: Any, request: Any) -> Any:
         return None
 
     path = getattr(request, "path", None) or getattr(connection, "path", "/")
-    if path in ("/health", "/healthz"):
+    # websockets exposes the request target including the query string. Route
+    # decisions must use the path component so /api/tts?text=... reaches the
+    # runtime HTTP handler instead of falling through to the WebSocket 426.
+    path_only = urllib.parse.urlsplit(path).path
+    if path_only in ("/health", "/healthz"):
         if hasattr(connection, "respond"):
             return connection.respond(200, "OK\n")
         return (200, [("Content-Type", "text/plain; charset=utf-8")], b"OK\n")
@@ -4388,7 +4392,7 @@ async def process_http_request(connection: Any, request: Any) -> Any:
             body_bytes,
         )
 
-    if path == "/api/tts":
+    if path_only == "/api/tts":
         # Neural TTS is deliberately behind the runtime session boundary.
         # The Kokoro container is private on the Docker network.
         auth_header = headers.get("Authorization", "") if hasattr(headers, "get") else ""
