@@ -10141,6 +10141,7 @@ button,
         }
 
         let activeNeuralAudio = null;
+        let activeNeuralAudioSource = null;
 
 
         // SAREMBOK_PRODUCT_PRONUNCIATION_20260914
@@ -10229,13 +10230,71 @@ button,
                 profileKey === "synth" ? 1.02 :
                 0.95;
 
-            // Sarembok neural path: local Kokoro first, browser SpeechSynthesis only
-            // as a compatibility fallback if the private voice service is unavailable.
+            // Sarembok neural path: Kokoro is the sole speech engine.
+            // Playback uses the already-gesture-unlocked Web Audio context rather than
+            // HTMLMediaElement.play(), which can be rejected after an async TTS fetch.
             (async () => {
+                const speechTurnId = currentTurnId;
+                const playKokoroBlob = async (blob) => {
+                    if (!blob || !blob.size) throw new Error("neural TTS returned empty audio");
+                    if (currentTurnId !== speechTurnId) return false;
+
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioCtx) throw new Error("Web Audio API unavailable");
+                    if (!globalAudioCtx) globalAudioCtx = new AudioCtx();
+                    if (globalAudioCtx.state === "suspended") {
+                        await globalAudioCtx.resume();
+                    }
+                    if (globalAudioCtx.state !== "running") {
+                        throw new Error("audio context is not running");
+                    }
+
+                    const encoded = await blob.arrayBuffer();
+                    const decoded = await globalAudioCtx.decodeAudioData(encoded.slice(0));
+                    if (currentTurnId !== speechTurnId) return false;
+
+                    if (activeNeuralAudio) {
+                        try { activeNeuralAudio.pause(); } catch (_) {}
+                        activeNeuralAudio = null;
+                    }
+
+                    let source = null;
+                    let stopped = false;
+                    const controller = {
+                        get currentTime() { return 0; },
+                        set currentTime(_) {},
+                        pause() {
+                            if (stopped) return;
+                            stopped = true;
+                            try { if (source) source.stop(0); } catch (_) {}
+                        }
+                    };
+                    source = globalAudioCtx.createBufferSource();
+                    activeNeuralAudioSource = source;
+                    source.buffer = decoded;
+                    source.connect(globalAudioCtx.destination);
+                    activeNeuralAudio = controller;
+                    window._activeSpeechAudio = controller;
+                    source.onended = () => {
+                        if (activeNeuralAudio === controller) activeNeuralAudio = null;
+                        if (window._activeSpeechAudio === controller) window._activeSpeechAudio = null;
+                        if (activeNeuralAudioSource === source) activeNeuralAudioSource = null;
+                        if (!stopped && currentTurnId === speechTurnId) finishSpeaking();
+                    };
+
+                    source.start(0);
+                    console.info("[tts] Sarembok neural voice active:", kokoroVoice, "WebAudio", decoded.duration.toFixed(2) + "s");
+                    if (typeof window.setKokoroStatus === "function") {
+                        window.setKokoroStatus("Active · " + kokoroVoice + " · 24 kHz neural audio", true);
+                    }
+                    return true;
+                };
+
                 try {
-                    // The browser session can expire independently of the page. Refresh it
-                    // before treating Kokoro as unavailable so a stale/missing token never
-                    // silently routes a selected voice to browser SpeechSynthesis.
+                    // This is intentionally called before the async fetch. It primes the
+                    // Web Audio output while the originating user gesture is still active.
+                    unlockAudioEngine();
+
                     let sessionToken = window.browserSessionToken;
                     if (!sessionToken) sessionToken = await initSession();
                     if (!sessionToken) throw new Error("browser session unavailable");
@@ -10247,8 +10306,6 @@ button,
                         speed: String(kokoroSpeed)
                     });
 
-                    // The selected Kokoro profile is authoritative. Record the exact
-                    // synthesis request for browser-side diagnostics.
                     window.__srbkLastKokoroRequest = {
                         profile: profileKey,
                         voice: kokoroVoice,
@@ -10257,7 +10314,8 @@ button,
                         textLength: clean.slice(0, 4000).length,
                         startedAt: new Date().toISOString()
                     };
-                    const response = await fetch("/api/tts?" + qs.toString(), {
+
+                    let response = await fetch("/api/tts?" + qs.toString(), {
                         method: "GET",
                         cache: "no-store",
                         headers: { "Authorization": "Bearer " + sessionToken }
@@ -10265,93 +10323,24 @@ button,
 
                     if (response.status === 401) {
                         sessionToken = await initSession();
-                        const retry = await fetch("/api/tts?" + qs.toString(), {
+                        if (!sessionToken) throw new Error("browser session refresh failed");
+                        response = await fetch("/api/tts?" + qs.toString(), {
                             method: "GET",
                             cache: "no-store",
                             headers: { "Authorization": "Bearer " + sessionToken }
                         });
-                        if (!retry.ok) throw new Error("neural TTS HTTP " + retry.status);
-                        return await retry.blob().then(async blob => {
-                            if (!blob.size) throw new Error("neural TTS returned empty audio");
-                            const url = URL.createObjectURL(blob);
-                            const audio = new Audio(url);
-                            activeNeuralAudio = audio;
-                            window._activeSpeechAudio = audio;
-                            audio.volume = 1.0;
-                            audio.onended = () => {
-                                URL.revokeObjectURL(url);
-                                finishSpeaking();
-                            };
-                            audio.onerror = () => {
-                                URL.revokeObjectURL(url);
-                                window._activeSpeechAudio = null;
-                                activeNeuralAudio = null;
-                                if (typeof window.setKokoroStatus === "function") {
-                                    window.setKokoroStatus("Kokoro audio error · " + kokoroVoice, false);
-                                }
-                                finishSpeaking();
-                            };
-                            try {
-                                await audio.play();
-                            } catch (playErr) {
-                                URL.revokeObjectURL(url);
-                                window._activeSpeechAudio = null;
-                                activeNeuralAudio = null;
-                                if (typeof window.setKokoroStatus === "function") {
-                                    window.setKokoroStatus("Kokoro playback blocked · " + kokoroVoice, false);
-                                }
-                                throw playErr;
-                            }
-                        });
                     }
 
-                    if (!response.ok) {
-                        throw new Error("neural TTS HTTP " + response.status);
-                    }
-
-                    const blob = await response.blob();
-                    if (!blob.size) throw new Error("neural TTS returned empty audio");
-
-                    const url = URL.createObjectURL(blob);
-                    const audio = new Audio(url);
-                    activeNeuralAudio = audio;
-                    window._activeSpeechAudio = audio;
-                    audio.volume = 1.0;
-                    audio.onended = () => {
-                        URL.revokeObjectURL(url);
-                        window._activeSpeechAudio = null;
-                        finishSpeaking();
-                    };
-                    audio.onerror = () => {
-                        URL.revokeObjectURL(url);
-                        window._activeSpeechAudio = null;
-                        activeNeuralAudio = null;
-                        if (typeof window.setKokoroStatus === "function") {
-                            window.setKokoroStatus("Kokoro audio error · " + kokoroVoice, false);
-                        }
-                        finishSpeaking();
-                    };
-
-                    try {
-                        await audio.play();
-                        console.info("[tts] Sarembok neural voice active:", kokoroVoice);
-                        if (typeof window.setKokoroStatus === "function") window.setKokoroStatus("Active · " + kokoroVoice + " · 24 kHz neural audio", true);
-                        return;
-                    } catch (playErr) {
-                        console.warn("[tts] Kokoro playback blocked for " + kokoroVoice + ":", playErr);
-                        if (typeof window.setKokoroStatus === "function") window.setKokoroStatus("Kokoro playback blocked · " + kokoroVoice, false);
-                        try { audio.pause(); audio.currentTime = 0; } catch (_) {}
-                        URL.revokeObjectURL(url);
-                        window._activeSpeechAudio = null;
-                        activeNeuralAudio = null;
-                    }
+                    if (!response.ok) throw new Error("neural TTS HTTP " + response.status);
+                    await playKokoroBlob(await response.blob());
                 } catch (err) {
-                    console.warn("[tts] Kokoro unavailable for " + kokoroVoice + ":", err);
-                    if (typeof window.setKokoroStatus === "function") window.setKokoroStatus("Kokoro unavailable · " + kokoroVoice, false);
+                    console.warn("[tts] Kokoro playback failed for " + kokoroVoice + ":", err);
+                    if (typeof window.setKokoroStatus === "function") {
+                        const reason = err && err.message ? " · " + err.message : "";
+                        window.setKokoroStatus("Kokoro audio error · " + kokoroVoice + reason, false);
+                    }
+                    if (currentTurnId === speechTurnId) finishSpeaking();
                 }
-
-                // Kokoro is authoritative. Do not substitute browser SpeechSynthesis.
-                finishSpeaking();
             })();
         }
 
@@ -14401,7 +14390,7 @@ document.getElementById('global-input-field').addEventListener('input', function
 /* SAREMBOK_KOKORO_VOICE_UI_V1_RUNTIME */
 (function(){
   const profiles=[{value:"gemini-vega",label:"Vega · af_heart · American Female"},{value:"ada-sovereign",label:"Ada · bf_emma · British Female"},{value:"gemini-aoede",label:"Aoede · af_bella · American Female"},{value:"gemini-kore",label:"Kore · af_nicole · American Female"},{value:"en-US",label:"Onyx · am_michael · American Male"},{value:"synth",label:"Sovereign Synth · am_adam · American Male"}];
-  window.setKokoroStatus=function(message,active){const s=document.getElementById("srbk-kokoro-status"),st=document.getElementById("srbk-kokoro-state"),d=document.getElementById("srbk-kokoro-dot");if(s)s.textContent=message;if(st)st.textContent=active?"ACTIVE":"FALLBACK";if(d)d.style.background=active?"#10b981":"#f59e0b";};
+  window.setKokoroStatus=function(message,active){const s=document.getElementById("srbk-kokoro-status"),st=document.getElementById("srbk-kokoro-state"),d=document.getElementById("srbk-kokoro-dot");if(s)s.textContent=message;if(st)st.textContent=active?"ACTIVE":"READY";if(d)d.style.background=active?"#10b981":"#f59e0b";};
   window.toggleKokoroPanel=function(ev){if(ev)ev.stopPropagation();const p=document.getElementById("srbk-kokoro-panel");if(!p)return;p.classList.toggle("open");if(p.classList.contains("open"))sync();};
   window.testKokoroVoice=function(){
     const sel=document.getElementById("srbk-kokoro-select");
