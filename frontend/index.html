@@ -10085,11 +10085,16 @@ button,
         function toggleVoiceOutput() {
             voiceEnabled = !voiceEnabled;
             window.voiceEnabled = voiceEnabled;
-            if (!voiceEnabled && window.speechSynthesis) {
-                window.speechSynthesis.cancel();
-            setAudioDucking(false);
-                setAvatarSignal("IDLE");
+            if (!voiceEnabled) {
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.cancel();
+                }
+                if (activeNeuralAudio) {
+                    try { activeNeuralAudio.pause(); activeNeuralAudio.currentTime = 0; } catch (_) {}
+                    activeNeuralAudio = null;
+                }
                 setAudioDucking(false);
+                setAvatarSignal("IDLE");
             }
             const label = document.getElementById("hud-voice-label");
             const btn = document.getElementById("hud-voice-toggle");
