@@ -52,9 +52,12 @@ MAX_REQUEST_BYTES = max(1024, int(os.getenv("SAREMBOK_MAX_REQUEST_BYTES", str(10
 MAX_METHOD_LENGTH = max(32, int(os.getenv("SAREMBOK_MAX_METHOD_LENGTH", "128")))
 LLM_PROVIDER_TIMEOUT_SECONDS = max(3, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS", "8")))
 LLM_TOTAL_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS", "15")))
+SAREMBOK_VOICE_URL = os.getenv("SAREMBOK_VOICE_URL", "http://sarembok-voice:9200").rstrip("/")
+SAREMBOK_VOICE_MAX_CHARS = max(100, int(os.getenv("SAREMBOK_VOICE_MAX_CHARS", "4000")))
 BROWSER_SESSION_TTL_SECONDS = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_TTL_SECONDS", "3600")))
 BROWSER_ALLOWED_METHODS = {
     "SarembokChat",
+    "SynthesizeSpeech",
     "GetRuntimeInfo",
     "GetProviderMetrics",
     "BrowserNavigate",
@@ -4384,6 +4387,75 @@ async def process_http_request(connection: Any, request: Any) -> Any:
             ],
             body_bytes,
         )
+
+    if path == "/api/tts":
+        # Neural TTS is deliberately behind the runtime session boundary.
+        # The Kokoro container is private on the Docker network.
+        auth_header = headers.get("Authorization", "") if hasattr(headers, "get") else ""
+        bearer = auth_header[7:].strip() if isinstance(auth_header, str) and auth_header.lower().startswith("bearer ") else ""
+        if not (browser_session_valid(bearer) or (AUTH_TOKEN and bearer and hmac.compare_digest(bearer, AUTH_TOKEN))):
+            return make_api_response(401, {"error": "authentication_required"})
+
+        try:
+            parsed = urllib.parse.urlparse(path)
+            query = urllib.parse.parse_qs(parsed.query)
+            text_value = str(query.get("text", [""])[0]).strip()
+            voice = str(query.get("voice", [os.getenv("SAREMBOK_VOICE_DEFAULT", "af_heart")])[0]).strip()
+            language = str(query.get("language", ["en-us"])[0]).strip().lower() or "en-us"
+            speed_raw = str(query.get("speed", ["0.95"])[0]).strip()
+            speed = min(1.5, max(0.6, float(speed_raw)))
+            if not text_value:
+                return make_api_response(400, {"error": "text_required"})
+            if len(text_value) > SAREMBOK_VOICE_MAX_CHARS:
+                return make_api_response(413, {"error": "text_too_long", "maxChars": SAREMBOK_VOICE_MAX_CHARS})
+
+            voice_payload = json.dumps({
+                "text": text_value,
+                "voice": voice,
+                "language": language,
+                "speed": speed,
+            }).encode("utf-8")
+            req = urllib.request.Request(
+                f"{SAREMBOK_VOICE_URL}/tts",
+                data=voice_payload,
+                headers={"Content-Type": "application/json", "Accept": "audio/wav"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                audio = resp.read()
+
+            if not audio:
+                return make_api_response(502, {"error": "voice_service_returned_no_audio"})
+
+            if hasattr(connection, "respond"):
+                response = connection.respond(200, audio)
+                try:
+                    del response.headers["Content-Type"]
+                except Exception:
+                    pass
+                response.headers["Content-Type"] = "audio/wav"
+                response.headers["Cache-Control"] = "no-store"
+                response.headers["Content-Length"] = str(len(audio))
+                return response
+
+            return (
+                200,
+                [
+                    ("Content-Type", "audio/wav"),
+                    ("Cache-Control", "no-store"),
+                    ("Content-Length", str(len(audio))),
+                ],
+                audio,
+            )
+        except urllib.error.HTTPError as exc:
+            try:
+                detail = exc.read().decode("utf-8", errors="replace")[:1000]
+            except Exception:
+                detail = str(exc)
+            return make_api_response(502, {"error": "voice_service_error", "detail": detail})
+        except Exception as exc:
+            LOG.warning("neural_tts_failed error=%s", exc)
+            return make_api_response(503, {"error": "neural_tts_unavailable", "detail": str(exc)})
 
     if path == "/api/chat-sessions":
         try:
