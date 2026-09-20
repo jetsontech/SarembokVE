@@ -4432,12 +4432,28 @@ async def process_http_request(connection: Any, request: Any) -> Any:
             if not audio:
                 return make_api_response(502, {"error": "voice_service_returned_no_audio"})
 
+            # websockets' HTTP response helper creates a Response object
+            # whose body must be populated explicitly for binary payloads.
+            # Returning the legacy 3-tuple with a bytes body can cause the
+            # connection to terminate with EOF under the current asyncio
+            # server implementation, which surfaces as a 502 from Caddy.
+            if hasattr(connection, "respond"):
+                response = connection.respond(200, "")
+                response.body = audio
+                response.headers["Content-Type"] = "audio/wav"
+                response.headers["Cache-Control"] = "no-store"
+                response.headers["Content-Length"] = str(len(audio))
+                response.headers["Access-Control-Allow-Origin"] = "*"
+                return response
+
+            # Compatibility fallback for older websockets implementations.
             return (
                 200,
                 [
                     ("Content-Type", "audio/wav"),
                     ("Cache-Control", "no-store"),
                     ("Content-Length", str(len(audio))),
+                    ("Access-Control-Allow-Origin", "*"),
                 ],
                 audio,
             )
