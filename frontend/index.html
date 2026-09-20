@@ -10846,11 +10846,11 @@ button,
                     window.sarembokSocket.send(JSON.stringify({ type: "SET_VOICE_PROFILE", voice: activeVoiceModel }));
                 }
             } catch (_) {}
-            if (typeof speakText === "function") {
-                try {
-                    if (window.speechSynthesis) window.speechSynthesis.cancel();
-                    setTimeout(() => speakText(profile.label + " Kokoro voice selected."), 50);
-                } catch (e) { console.warn("[voice] preview notice:", e); }
+            // Selection must not synthesize automatically. Delaying playback with
+            // setTimeout loses the browser's user-gesture activation and can cause
+            // HTMLMediaElement.play() to be rejected. The Test button owns playback.
+            if (window.speechSynthesis) {
+                try { window.speechSynthesis.cancel(); } catch (_) {}
             }
         }
 
@@ -14403,8 +14403,34 @@ document.getElementById('global-input-field').addEventListener('input', function
   const profiles=[{value:"gemini-vega",label:"Vega · af_heart · American Female"},{value:"ada-sovereign",label:"Ada · bf_emma · British Female"},{value:"gemini-aoede",label:"Aoede · af_bella · American Female"},{value:"gemini-kore",label:"Kore · af_nicole · American Female"},{value:"en-US",label:"Onyx · am_michael · American Male"},{value:"synth",label:"Sovereign Synth · am_adam · American Male"}];
   window.setKokoroStatus=function(message,active){const s=document.getElementById("srbk-kokoro-status"),st=document.getElementById("srbk-kokoro-state"),d=document.getElementById("srbk-kokoro-dot");if(s)s.textContent=message;if(st)st.textContent=active?"ACTIVE":"FALLBACK";if(d)d.style.background=active?"#10b981":"#f59e0b";};
   window.toggleKokoroPanel=function(ev){if(ev)ev.stopPropagation();const p=document.getElementById("srbk-kokoro-panel");if(!p)return;p.classList.toggle("open");if(p.classList.contains("open"))sync();};
-  window.testKokoroVoice=function(){const sel=document.getElementById("srbk-kokoro-select");if(sel&&sel.value!==window.__srbkKokoroLastProfile&&typeof changeVoiceProfile==="function"){changeVoiceProfile(sel.value);window.__srbkKokoroLastProfile=sel.value;return;}setKokoroStatus("Generating neural audio…",true);if(typeof speakText==="function")speakText("Sarembok neural voice is online. Kokoro is speaking through the production runtime.");};
-  function sync(){const sel=document.getElementById("srbk-kokoro-select");if(!sel)return;if(!sel.options.length)profiles.forEach(p=>{const o=document.createElement("option");o.value=p.value;o.textContent=p.label;sel.appendChild(o);});const existing=document.getElementById("mh-voice-select");const current=(existing&&existing.value)||"gemini-vega";const match=profiles.find(p=>p.value===current);if(match)sel.value=match.value;window.__srbkKokoroLastProfile=sel.value;sel.onchange=function(){if(typeof changeVoiceProfile==="function")changeVoiceProfile(this.value);window.__srbkKokoroLastProfile=this.value;};}
+  window.testKokoroVoice=function(){
+    const sel=document.getElementById("srbk-kokoro-select");
+    const selected=(sel&&sel.value)||selectedVoiceLang||"gemini-vega";
+    if(typeof changeVoiceProfile==="function" && selected!==selectedVoiceLang) changeVoiceProfile(selected);
+    const profile=(typeof KOKORO_VOICE_MAP!=="undefined"&&KOKORO_VOICE_MAP[selected])?KOKORO_VOICE_MAP[selected]:null;
+    setKokoroStatus("Generating neural audio · "+(profile?profile.label:selected)+"…",true);
+    // Call speakText directly from the button click. Do not defer this call;
+    // preserving the user gesture is required for reliable audio.play().
+    if(typeof speakText==="function") speakText("Sarembok neural voice is online. The selected Kokoro voice is speaking through the production runtime.");
+  };
+  function sync(){
+    const sel=document.getElementById("srbk-kokoro-select");
+    if(!sel)return;
+    if(!sel.options.length)profiles.forEach(p=>{const o=document.createElement("option");o.value=p.value;o.textContent=p.label;sel.appendChild(o);});
+    // The persisted Kokoro profile is authoritative. Never overwrite it from
+    // the legacy MetaHuman/browser voice selector when the panel opens.
+    const saved=(typeof selectedVoiceLang==="string"&&KOKORO_VOICE_MAP[selectedVoiceLang])
+      ? selectedVoiceLang
+      : (()=>{try{return localStorage.getItem("sarembok-kokoro-voice");}catch(_){return null;}})();
+    const current=(saved&&profiles.some(p=>p.value===saved))?saved:"gemini-vega";
+    sel.value=current;
+    if(typeof changeVoiceProfile==="function" && selectedVoiceLang!==current) changeVoiceProfile(current);
+    window.__srbkKokoroLastProfile=sel.value;
+    sel.onchange=function(){
+      if(typeof changeVoiceProfile==="function")changeVoiceProfile(this.value);
+      window.__srbkKokoroLastProfile=this.value;
+    };
+  }
   document.addEventListener("click",function(e){const w=document.getElementById("srbk-kokoro-wrap");if(w&&!w.contains(e.target)){const p=document.getElementById("srbk-kokoro-panel");if(p)p.classList.remove("open");}});
   document.addEventListener("DOMContentLoaded",sync);
 })();
