@@ -54,7 +54,7 @@ def get_pipeline(language: str) -> KPipeline:
         pipeline = pipeline_cache.get(lang_code)
         if pipeline is None:
             LOG.info("loading Kokoro pipeline language=%s code=%s", language, lang_code)
-            pipeline = KPipeline(lang_code=lang_code)
+            pipeline = KPipeline(lang_code=lang_code, repo_id="hexgrad/Kokoro-82M")
             pipeline_cache[lang_code] = pipeline
         return pipeline
 
@@ -155,12 +155,14 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    # Warm the default English pipeline at startup so readiness means the
-    # model can actually synthesize rather than merely import.
+    # Warm the default English pipeline and perform one real synthesis before
+    # binding the HTTP server. This makes startup failure explicit instead of
+    # allowing a container to report healthy while the first request fails.
     get_pipeline(DEFAULT_LANG)
+    warmup_audio = synthesize("Sarembok voice ready.", DEFAULT_VOICE, 0.95, DEFAULT_LANG)
     LOG.info(
-        "Kokoro neural TTS ready port=%s voice=%s max_chars=%s",
-        PORT, DEFAULT_VOICE, MAX_CHARS,
+        "Kokoro neural TTS ready port=%s voice=%s max_chars=%s warmup_bytes=%s",
+        PORT, DEFAULT_VOICE, MAX_CHARS, len(warmup_audio),
     )
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     try:
