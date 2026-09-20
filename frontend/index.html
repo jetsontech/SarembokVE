@@ -6818,7 +6818,7 @@ button,
 
                     <div style="margin-bottom:18px;">
                         <label style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em;">Voice Synthesis Profile</label>
-                        <select class="metahuman-select" id="mh-voice-select" onchange="changeVoiceProfile(this.value)">
+                        <select class="metahuman-select" id="mh-voice-select" onchange="changeVoiceProfile(this.value, true)">
                             <option value="gemini-vega" selected>Vega — Kokoro Heart · American Female</option>
                             <option value="ada-sovereign">Ada v1 — Kokoro Emma · British Female</option>
                             <option value="gemini-aoede">Aoede — Kokoro Bella · Warm American Female</option>
@@ -10861,7 +10861,7 @@ button,
             "en-US": { model: "Onyx", voice: "am_michael", language: "en-us", label: "Onyx" },
             "synth": { model: "Sovereign Synth", voice: "am_adam", language: "en-us", label: "Sovereign Synth" }
         };
-        function changeVoiceProfile(val) {
+        function changeVoiceProfile(val, testNow = false) {
             const key = Object.prototype.hasOwnProperty.call(KOKORO_VOICE_MAP, val) ? val : "gemini-vega";
             const profile = KOKORO_VOICE_MAP[key];
             selectedVoiceLang = key;
@@ -10877,11 +10877,15 @@ button,
                     window.sarembokSocket.send(JSON.stringify({ type: "SET_VOICE_PROFILE", voice: activeVoiceModel }));
                 }
             } catch (_) {}
-            // Selection must not synthesize automatically. Delaying playback with
-            // setTimeout loses the browser's user-gesture activation and can cause
-            // HTMLMediaElement.play() to be rejected. The Test button owns playback.
             if (window.speechSynthesis) {
                 try { window.speechSynthesis.cancel(); } catch (_) {}
+            }
+
+            // A real user selection is a browser gesture, so immediately exercise
+            // the selected neural voice. Startup synchronization calls this function
+            // without testNow and therefore remains silent.
+            if (testNow && typeof window.testKokoroVoice === "function") {
+                void window.testKokoroVoice();
             }
         }
 
@@ -14380,7 +14384,7 @@ document.getElementById('global-input-field').addEventListener('input', function
     if(typeof changeVoiceProfile==="function" && selectedVoiceLang!==current) changeVoiceProfile(current);
     window.__srbkKokoroLastProfile=sel.value;
     sel.onchange=function(){
-      if(typeof changeVoiceProfile==="function")changeVoiceProfile(this.value);
+      if(typeof changeVoiceProfile==="function")changeVoiceProfile(this.value, true);
       window.__srbkKokoroLastProfile=this.value;
     };
   }
