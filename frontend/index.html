@@ -10160,7 +10160,7 @@ button,
                 .trim();
         }
 
-        function speakText(btnOrText) {
+        function speakText(btnOrText, onCompleteCallback, preserveConversationTurn = false) {
             let text = "";
             if (typeof btnOrText === "string") {
                 text = btnOrText;
@@ -10170,7 +10170,9 @@ button,
             }
             if (!text) return;
 
-            interruptSpeech();
+            if (!preserveConversationTurn) {
+                interruptSpeech();
+            }
 
             // Strip code blocks, media/card tags, math delimiters, and links for speech.
             const clean = normalizeSarembokSpeech(
@@ -10214,6 +10216,9 @@ button,
                 hideInterruptPill();
                 window._activeSpeechUtterance = null;
                 activeNeuralAudio = null;
+                if (typeof onCompleteCallback === "function") {
+                    try { onCompleteCallback(); } catch (callbackErr) { console.warn("[tts] completion callback error:", callbackErr); }
+                }
                 if (liveConversationActive) resumeRecognitionAfterSpeech(600);
             };
 
@@ -12001,122 +12006,32 @@ button,
         }
 
         function speakCalmConversational(text, onCompleteCallback) {
-            pauseRecognitionForSpeech();
-            if (!text || !window.speechSynthesis) {
-                if (onCompleteCallback) onCompleteCallback();
-                return;
-            }
-
-            const clean = text
-                .replace(/:::(?:card|video|youtube|audio|doc|pdf|paper)[^\n]*\n?/gi, "")
-                .replace(/:::reveal[^\n]*\n?/gi, " Solution: ")
-                .replace(/:::/g, "")
-                .replace(/```[\s\S]*?```/g, "Code block omitted.")
-                .replace(/\\\[([\s\S]*?)\\\]/g, " $1 ")
-                .replace(/\\\(([\s\S]*?)\\\)/g, " $1 ")
-                .replace(/\$\$([\s\S]*?)\$\$/g, " $1 ")
-                .replace(/\$([^\$]+)\$/g, " $1 ")
-                .replace(/https?:\/\/\S+/g, "")
-                .replace(/`([^`]+)`/g, "$1")
-                .replace(/[*#_~|]/g, "")
-                .replace(/\s+/g, " ")
-                .trim();
-
+            const clean = normalizeSarembokSpeech(String(text || ""));
             if (!clean) {
-                if (onCompleteCallback) onCompleteCallback();
+                if (typeof onCompleteCallback === "function") onCompleteCallback();
                 return;
             }
 
-            pauseRecognitionForSpeech();
-            isSpeakingTurn = true;
-            currentAssistantSpokenText = clean;
-            currentUtteranceHistory.push({ text: clean.toLowerCase(), time: Date.now() });
-            if (currentUtteranceHistory.length > 25) currentUtteranceHistory.shift();
-
-            // Clear any pending recognition buffer and timer when assistant begins speaking
-            clearTimeout(liveSilenceTimer);
-            liveTranscriptBuffer = "";
-
-            setLiveConvUI("SPEAKING (DUPLEX 2-WAY)", `Say "Stop" or click orb to interrupt · "${clean}"`);
-            setAvatarSignal("SPEAKING");
-            setAudioDucking(true);
-            showInterruptPill();
-
-            let visemeInterval = null;
-            const finishSpeaking = () => {
-                if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
-                isSpeakingTurn = false;
-                currentAssistantSpokenText = "";
-                lastSpeechEndTime = Date.now();
-                liveTranscriptBuffer = "";
-                clearTimeout(liveSilenceTimer);
-                morphTargets.jawOpen = 0;
-                updateMorphMeters();
-                hideInterruptPill();
-                window._activeSpeechUtterance = null;
-                activeNeuralAudio = null;
-
-                if (typeof onCompleteCallback === "function") {
-                    onCompleteCallback();
-                }
-
+            // Live conversation uses the exact same authoritative Kokoro path as
+            // ordinary Sarembok responses. Preserve the active conversation turn so
+            // the speech queue does not invalidate the RPC turn that produced it.
+            setLiveConvUI(
+                "SPEAKING (DUPLEX 2-WAY)",
+                'Sarembok neural voice · ' +
+                ((Object.prototype.hasOwnProperty.call(KOKORO_VOICE_MAP, selectedVoiceLang))
+                    ? KOKORO_VOICE_MAP[selectedVoiceLang].label
+                    : "Vega")
+            );
+            speakText(clean, () => {
+                if (typeof onCompleteCallback === "function") onCompleteCallback();
                 if (liveConversationActive && liveSpeechQueue.length === 0 && !isWaitingForAIResponse) {
                     setLiveConvUI(
                         wakeWordRequired ? "LISTENING (WAKE WORD)" : "LISTENING (HANDS-FREE 2-WAY)",
                         wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok"...' : "Speak naturally · Hands-free 2-way conversation"
                     );
                     setAvatarSignal("LISTENING");
-                    // Wait 600ms for room echo and speaker vibrations to dissipate before opening mic
-                    resumeRecognitionAfterSpeech(600);
-                } else if (!liveConversationActive) {
-                    setAvatarSignal("IDLE");
-                    setAudioDucking(false);
                 }
-            };
-
-            unlockAudioEngine();
-
-            if (!window.speechSynthesis) {
-                if (typeof onCompleteCallback === "function") onCompleteCallback();
-                finishSpeaking();
-                return;
-            }
-
-            const utterance = new SpeechSynthesisUtterance(normalizeSarembokSpeech(clean));
-            const resolved = getResolvedVoiceProfile();
-            if (resolved && resolved.voice) {
-                utterance.voice = resolved.voice;
-            }
-            utterance.volume = 1.0;
-            utterance.pitch = (resolved && resolved.pitch !== undefined) ? resolved.pitch : 1.0;
-            utterance.rate = (resolved && resolved.rate !== undefined) ? resolved.rate : 0.95;
-
-            utterance.onboundary = () => { triggerSpeechViseme(); };
-            utterance.onend = finishSpeaking;
-            utterance.onerror = (e) => {
-                console.warn("[duplex] speech error:", e);
-                finishSpeaking();
-            };
-            window._activeSpeechUtterance = utterance;
-
-            if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
-                window.speechSynthesis.cancel();
-            }
-
-            setTimeout(() => {
-                try {
-                    window.speechSynthesis.resume();
-                    window.speechSynthesis.speak(utterance);
-                    setTimeout(() => {
-                        if (window.speechSynthesis && window.speechSynthesis.paused) {
-                            window.speechSynthesis.resume();
-                        }
-                    }, 80);
-                } catch (err) {
-                    console.warn("[duplex] speech invocation failed:", err);
-                    finishSpeaking();
-                }
-            }, 30);
+            }, true);
         }
 
         // Global hotkey interruption listener (Escape or Spacebar outside input)
