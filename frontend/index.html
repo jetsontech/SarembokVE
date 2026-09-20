@@ -10246,6 +10246,17 @@ button,
                         language: kokoroLanguage,
                         speed: String(kokoroSpeed)
                     });
+
+                    // The selected Kokoro profile is authoritative. Record the exact
+                    // synthesis request for browser-side diagnostics.
+                    window.__srbkLastKokoroRequest = {
+                        profile: profileKey,
+                        voice: kokoroVoice,
+                        language: kokoroLanguage,
+                        speed: kokoroSpeed,
+                        textLength: clean.slice(0, 4000).length,
+                        startedAt: new Date().toISOString()
+                    };
                     const response = await fetch("/api/tts?" + qs.toString(), {
                         method: "GET",
                         cache: "no-store",
@@ -10273,10 +10284,24 @@ button,
                             };
                             audio.onerror = () => {
                                 URL.revokeObjectURL(url);
+                                window._activeSpeechAudio = null;
+                                activeNeuralAudio = null;
+                                if (typeof window.setKokoroStatus === "function") {
+                                    window.setKokoroStatus("Kokoro audio error · " + kokoroVoice, false);
+                                }
                                 finishSpeaking();
                             };
-                            try { await audio.play(); }
-                            catch (playErr) { URL.revokeObjectURL(url); throw playErr; }
+                            try {
+                                await audio.play();
+                            } catch (playErr) {
+                                URL.revokeObjectURL(url);
+                                window._activeSpeechAudio = null;
+                                activeNeuralAudio = null;
+                                if (typeof window.setKokoroStatus === "function") {
+                                    window.setKokoroStatus("Kokoro playback blocked · " + kokoroVoice, false);
+                                }
+                                throw playErr;
+                            }
                         });
                     }
 
@@ -10301,7 +10326,10 @@ button,
                         URL.revokeObjectURL(url);
                         window._activeSpeechAudio = null;
                         activeNeuralAudio = null;
-                        fallbackToBrowserSpeech();
+                        if (typeof window.setKokoroStatus === "function") {
+                            window.setKokoroStatus("Kokoro audio error · " + kokoroVoice, false);
+                        }
+                        finishSpeaking();
                     };
 
                     try {
@@ -10310,56 +10338,21 @@ button,
                         if (typeof window.setKokoroStatus === "function") window.setKokoroStatus("Active · " + kokoroVoice + " · 24 kHz neural audio", true);
                         return;
                     } catch (playErr) {
-                        console.warn("[tts] neural audio playback blocked; falling back:", playErr);
-                        if (typeof window.setKokoroStatus === "function") window.setKokoroStatus("Browser blocked audio · fallback active", false);
+                        console.warn("[tts] Kokoro playback blocked for " + kokoroVoice + ":", playErr);
+                        if (typeof window.setKokoroStatus === "function") window.setKokoroStatus("Kokoro playback blocked · " + kokoroVoice, false);
                         try { audio.pause(); audio.currentTime = 0; } catch (_) {}
                         URL.revokeObjectURL(url);
                         window._activeSpeechAudio = null;
                         activeNeuralAudio = null;
                     }
                 } catch (err) {
-                    console.warn("[tts] Kokoro unavailable for " + kokoroVoice + "; using browser fallback:", err);
-                    if (typeof window.setKokoroStatus === "function") window.setKokoroStatus("Kokoro failed · browser fallback · " + kokoroVoice, false);
+                    console.warn("[tts] Kokoro unavailable for " + kokoroVoice + ":", err);
+                    if (typeof window.setKokoroStatus === "function") window.setKokoroStatus("Kokoro unavailable · " + kokoroVoice, false);
                 }
 
-                // Never silently substitute a browser voice for the selected neural voice.
+                // Kokoro is authoritative. Do not substitute browser SpeechSynthesis.
                 finishSpeaking();
             })();
-
-            function fallbackToBrowserSpeech() {
-                if (!window.speechSynthesis) {
-                    console.warn("[tts] no browser SpeechSynthesis fallback available");
-                    finishSpeaking();
-                    return;
-                }
-
-                const utterance = new SpeechSynthesisUtterance(clean);
-                const resolved = getResolvedVoiceProfile();
-                if (resolved && resolved.voice) utterance.voice = resolved.voice;
-                utterance.volume = 1.0;
-                utterance.pitch = (resolved && resolved.pitch !== undefined) ? resolved.pitch : 1.0;
-                utterance.rate = (resolved && resolved.rate !== undefined) ? resolved.rate : 0.95;
-                utterance.onboundary = () => triggerSpeechViseme();
-                utterance.onend = finishSpeaking;
-                utterance.onerror = (e) => {
-                    console.warn("[tts] browser SpeechSynthesis error:", e);
-                    finishSpeaking();
-                };
-                window._activeSpeechUtterance = utterance;
-
-                if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
-                    window.speechSynthesis.cancel();
-                }
-                setTimeout(() => {
-                    try {
-                        window.speechSynthesis.resume();
-                        window.speechSynthesis.speak(utterance);
-                    } catch (err) {
-                        console.warn("[tts] browser speech invocation failed:", err);
-                        finishSpeaking();
-                    }
-                }, 30);
-            }
         }
 
         function toggleSpeechRecognition() {
