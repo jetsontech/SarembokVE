@@ -12,6 +12,11 @@ sarembok.com, www.sarembok.com {
         -Server
     }
 
+    # Authenticated neural TTS endpoint. Runtime validates the short-lived
+    # browser session before proxying to the private Kokoro service.
+    handle /api/tts {
+        reverse_proxy sarembok-runtime:9000
+    }
     handle /api {
         respond "Not Found" 404
     }
