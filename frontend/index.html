@@ -9873,28 +9873,33 @@ button,
         let globalAudioCtx = null;
 
         function unlockAudioEngine() {
-            if (audioContextUnlocked) return;
             try {
                 const AudioCtx = window.AudioContext || window.webkitAudioContext;
                 if (AudioCtx) {
-                    if (!globalAudioCtx) {
+                    if (!globalAudioCtx || globalAudioCtx.state === "closed") {
                         globalAudioCtx = new AudioCtx();
                     }
+                    // Always re-check the real context state; the cached flag may be stale
+                    // after the browser suspends audio while the tab is idle/backgrounded.
                     if (globalAudioCtx.state === "suspended") {
-                        globalAudioCtx.resume();
+                        const resumePromise = globalAudioCtx.resume();
+                        if (resumePromise && typeof resumePromise.catch === "function") {
+                            resumePromise.catch(err => console.warn("[audio] context resume notice:", err));
+                        }
                     }
                     const buffer = globalAudioCtx.createBuffer(1, 1, 22050);
                     const src = globalAudioCtx.createBufferSource();
                     src.buffer = buffer;
                     src.connect(globalAudioCtx.destination);
                     src.start(0);
+                    audioContextUnlocked = true;
+                    console.log("[audio] Hardware audio channel primed:", globalAudioCtx.state);
                 }
                 if (window.speechSynthesis) {
-                    window.speechSynthesis.resume();
+                    try { window.speechSynthesis.resume(); } catch (_) {}
                 }
-                audioContextUnlocked = true;
-                console.log("[audio] Hardware audio channel unlocked via user interaction.");
             } catch (e) {
+                audioContextUnlocked = false;
                 console.warn("[audio] Gesture unlock error:", e);
             }
         }
@@ -9902,6 +9907,9 @@ button,
         window.addEventListener("touchend", unlockAudioEngine, { passive: true });
         window.addEventListener("pointerdown", unlockAudioEngine, { passive: true });
         window.addEventListener("click", unlockAudioEngine, { passive: true });
+        window.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " ") unlockAudioEngine();
+        }, { passive: true });
 
         function showInterruptPill() {
             const pill = document.getElementById("srbk-interrupt-pill");
