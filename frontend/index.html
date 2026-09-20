@@ -10237,9 +10237,7 @@ button,
                     // before treating Kokoro as unavailable so a stale/missing token never
                     // silently routes a selected voice to browser SpeechSynthesis.
                     let sessionToken = window.browserSessionToken;
-                    if (!sessionToken && typeof window.sarembokRefreshBrowserSession === "function") {
-                        sessionToken = await window.sarembokRefreshBrowserSession();
-                    }
+                    if (!sessionToken) sessionToken = await initSession();
                     if (!sessionToken) throw new Error("browser session unavailable");
 
                     const qs = new URLSearchParams({
@@ -10254,8 +10252,8 @@ button,
                         headers: { "Authorization": "Bearer " + sessionToken }
                     });
 
-                    if (response.status === 401 && typeof window.sarembokRefreshBrowserSession === "function") {
-                        sessionToken = await window.sarembokRefreshBrowserSession();
+                    if (response.status === 401) {
+                        sessionToken = await initSession();
                         const retry = await fetch("/api/tts?" + qs.toString(), {
                             method: "GET",
                             cache: "no-store",
@@ -10324,7 +10322,8 @@ button,
                     if (typeof window.setKokoroStatus === "function") window.setKokoroStatus("Kokoro failed · browser fallback · " + kokoroVoice, false);
                 }
 
-                fallbackToBrowserSpeech();
+                // Never silently substitute a browser voice for the selected neural voice.
+                finishSpeaking();
             })();
 
             function fallbackToBrowserSpeech() {
@@ -10869,11 +10868,14 @@ button,
                     const data = await resp.json();
                     if (data && data.sessionToken) {
                         window.browserSessionToken = data.sessionToken;
+                        return data.sessionToken;
                     }
                 }
             } catch (err) {
                 console.debug("[session] initSession notice:", err);
             }
+            window.browserSessionToken = null;
+            return null;
         }
 
         let hasAppStarted = false;
