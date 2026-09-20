@@ -4440,6 +4440,11 @@ async def process_http_request(connection: Any, request: Any) -> Any:
             if hasattr(connection, "respond"):
                 response = connection.respond(200, "")
                 response.body = audio
+                # respond(200, "") initializes Content-Length: 0. Remove
+                # that generated header before installing the real binary size;
+                # Headers permits repeated fields, and Caddy rejects duplicate
+                # Content-Length values for safety.
+                del response.headers["Content-Length"]
                 response.headers["Content-Type"] = "audio/wav"
                 response.headers["Cache-Control"] = "no-store"
                 response.headers["Content-Length"] = str(len(audio))
