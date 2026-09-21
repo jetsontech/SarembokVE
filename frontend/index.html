@@ -9871,6 +9871,9 @@ button,
         let audioHardwareStream = null;
         let audioContextUnlocked = false;
         let globalAudioCtx = null;
+        let globalNeuralAudio = null;
+        let neuralMediaArmed = false;
+        const SAREMBOK_SILENT_WAV = "data:audio/wav;base64,UklGRuQDAABXQVZFZm10IBAAAAABAAEAwF0AAIC7AAACABAAZGF0YcADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
         async function unlockAudioEngine() {
             try {
@@ -9891,8 +9894,8 @@ button,
                         throw new Error("AudioContext is " + globalAudioCtx.state);
                     }
 
-                    // Prime the output chain with a silent sample while the browser still
-                    // has the originating user gesture. A zero-gain node avoids audible clicks.
+                    // Prime the Web Audio output chain while the originating user gesture
+                    // is active. This remains the low-level fallback path.
                     const buffer = globalAudioCtx.createBuffer(1, 1, 22050);
                     const src = globalAudioCtx.createBufferSource();
                     const gain = globalAudioCtx.createGain();
@@ -9903,7 +9906,29 @@ button,
                     src.start(0);
 
                     audioContextUnlocked = true;
-                    console.log("[audio] Hardware audio channel ready:", globalAudioCtx.state);
+                    console.log("[audio] Web Audio channel ready:", globalAudioCtx.state);
+                }
+
+                // Also arm a persistent HTMLMediaElement from the same user gesture.
+                // Once armed, real Kokoro WAV blobs can be played through the browser's
+                // native media pipeline after the asynchronous TTS request completes.
+                if (!globalNeuralAudio) {
+                    globalNeuralAudio = new Audio();
+                    globalNeuralAudio.preload = "auto";
+                    globalNeuralAudio.playsInline = true;
+                    globalNeuralAudio.volume = 1.0;
+                }
+                if (!neuralMediaArmed) {
+                    try {
+                        globalNeuralAudio.src = SAREMBOK_SILENT_WAV;
+                        await globalNeuralAudio.play();
+                        globalNeuralAudio.pause();
+                        globalNeuralAudio.currentTime = 0;
+                        neuralMediaArmed = true;
+                        console.log("[audio] Native media channel armed");
+                    } catch (mediaErr) {
+                        console.debug("[audio] Native media arm deferred:", mediaErr);
+                    }
                 }
 
                 if (window.speechSynthesis) {
@@ -10268,6 +10293,65 @@ button,
                     const AudioCtx = window.AudioContext || window.webkitAudioContext;
                     if (!AudioCtx) throw new Error("Web Audio API unavailable");
                     if (!globalAudioCtx) globalAudioCtx = new AudioCtx();
+                    if (globalAudioCtx.state === "suspended") {
+                        await globalAudioCtx.resume();
+                    }
+                    if (globalAudioCtx.state !== "running") {
+                        throw new Error("audio context is not running");
+                    }
+
+                    // Prefer the persistent native media path after the browser has
+                    // been armed by a real user gesture. Web Audio remains the fallback.
+                    if (globalNeuralAudio && neuralMediaArmed) {
+                        if (activeNeuralAudio) {
+                            try { activeNeuralAudio.pause(); } catch (_) {}
+                            activeNeuralAudio = null;
+                        }
+                        const objectUrl = URL.createObjectURL(blob);
+                        const media = globalNeuralAudio;
+                        let stopped = false;
+                        const controller = {
+                            get currentTime() { return Number.isFinite(media.currentTime) ? media.currentTime : 0; },
+                            set currentTime(v) { try { media.currentTime = v || 0; } catch (_) {} },
+                            pause() {
+                                if (stopped) return;
+                                stopped = true;
+                                try { media.pause(); media.currentTime = 0; } catch (_) {}
+                                try { URL.revokeObjectURL(objectUrl); } catch (_) {}
+                            }
+                        };
+                        media.onended = () => {
+                            try { URL.revokeObjectURL(objectUrl); } catch (_) {}
+                            if (activeNeuralAudio === controller) activeNeuralAudio = null;
+                            if (window._activeSpeechAudio === controller) window._activeSpeechAudio = null;
+                            if (activeNeuralAudioSource === null) activeNeuralAudioSource = null;
+                            if (!stopped && currentTurnId === speechTurnId) finishSpeaking();
+                        };
+                        media.onerror = () => {
+                            try { URL.revokeObjectURL(objectUrl); } catch (_) {}
+                            if (activeNeuralAudio === controller) activeNeuralAudio = null;
+                            if (window._activeSpeechAudio === controller) window._activeSpeechAudio = null;
+                        };
+                        media.src = objectUrl;
+                        media.load();
+                        activeNeuralAudio = controller;
+                        window._activeSpeechAudio = controller;
+                        try {
+                            await media.play();
+                            console.info("[tts] Sarembok native Kokoro voice active:", kokoroVoice, "HTMLMedia");
+                            if (typeof window.setKokoroStatus === "function") {
+                                window.setKokoroStatus("Active · " + kokoroVoice + " · native browser audio", true);
+                            }
+                            return true;
+                        } catch (mediaPlayErr) {
+                            controller.pause();
+                            if (typeof window.setKokoroStatus === "function") {
+                                window.setKokoroStatus("Native audio retry · " + kokoroVoice, true);
+                            }
+                            console.warn("[tts] Native media playback rejected; using Web Audio fallback:", mediaPlayErr);
+                        }
+                    }
+
                     if (globalAudioCtx.state === "suspended") {
                         await globalAudioCtx.resume();
                     }
