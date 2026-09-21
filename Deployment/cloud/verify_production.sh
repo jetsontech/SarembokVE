@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT/Deployment/cloud"
 HOST="${SAREMBOK_PUBLIC_HOST:-sarembok.com}"
 BASE="https://${HOST}"
+BROWSER_UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36'
 FAIL=0
 
 pass(){ printf 'PASS  %s\n' "$1"; }
@@ -74,9 +75,9 @@ else
 fi
 
 printf '\n===== PUBLIC HTTP =====\n'
-HEALTH="$(curl -fsS --max-time 15 "$BASE/health" || true)"
+HEALTH="$(curl -fsS -A "$BROWSER_UA" --max-time 15 "$BASE/health" || true)"
 [ "$HEALTH" = OK ] && pass 'public /health = OK' || fail "public /health = ${HEALTH:-unreachable}"
-HTML="$(curl -fsS --max-time 15 "$BASE/" || true)"
+HTML="$(curl -fsS -A "$BROWSER_UA" --max-time 15 "$BASE/" || true)"
 [ -n "$HTML" ] && pass 'public homepage reachable' || fail 'public homepage unreachable'
 
 printf '\n===== FRONTEND COCKPIT INTEGRITY =====\n'
@@ -116,7 +117,7 @@ PY
 if [ $? -eq 0 ]; then pass 'frontend cockpit and visible-text integrity'; else fail 'frontend cockpit and visible-text integrity'; fi
 
 for path in /api/session; do
-  code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "$BASE$path" || true)"
+  code="$(curl -sS -A "$BROWSER_UA" -o /dev/null -w '%{http_code}' --max-time 15 "$BASE$path" || true)"
   [ "$code" = 200 ] && pass "$path HTTP 200" || fail "$path HTTP $code"
 done
 
