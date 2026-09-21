@@ -9261,38 +9261,74 @@ button,
         /* ============================================================
            WEBSOCKET RPC & STREAMING CONNECTION
            ============================================================ */
+        let ws = null;
+        let rpcCounter = 1;
+        const pending = new Map();
+        let wsReconnectTimer = null;
+        let telemetryRefreshTimer = null;
+
+        function scheduleReconnect() {
+            if (wsReconnectTimer) return;
+            wsReconnectTimer = setTimeout(() => {
+                wsReconnectTimer = null;
+                connect();
+            }, 3000);
+        }
+
+        function rejectPendingRequests(error) {
+            for (const [id, entry] of pending.entries()) {
+                pending.delete(id);
+                try { entry.rej(error); } catch (_) {}
+            }
+        }
+
         function connect() {
+            // Never create competing sockets. Reuse an existing OPEN/CONNECTING socket.
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                return ws;
+            }
+
             let proto = window.location.protocol === "https:" ? "wss:" : "ws:";
             let host = window.location.host || "127.0.0.1:9000";
-            
-            // If running on local test UI server (e.g. port 3000), route WebSocket to sarembok.com runtime
-            // unless port 9000 is explicitly specified for local container development:
+
+            // If running on a local test UI server, route the WebSocket to production.
             if ((window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && window.location.port !== "9000") {
                 proto = "wss:";
                 host = "sarembok.com";
             }
-            const wsUrl = `${proto}//${host}/ws`;
 
+            const wsUrl = `${proto}//${host}/ws`;
             console.log("Connecting to Sarembok runtime:", wsUrl);
+
+            let socket;
             try {
-                ws = new WebSocket(wsUrl);
+                socket = new WebSocket(wsUrl);
             } catch (wsErr) {
                 console.warn("WebSocket init error:", wsErr);
-                return;
+                scheduleReconnect();
+                return null;
             }
 
-            ws.onopen = () => {
+            ws = socket;
+
+            socket.onopen = () => {
+                // Ignore late events from a superseded socket.
+                if (ws !== socket) return;
                 console.log("Sarembok runtime connected.");
                 addTerminalLine("[ws:link] runtime link active :: authenticated", "emerald");
-                refreshTelemetry();
-                setInterval(refreshTelemetry, 25000);
+
+                if (telemetryRefreshTimer) {
+                    clearInterval(telemetryRefreshTimer);
+                }
+                void refreshTelemetry();
+                telemetryRefreshTimer = setInterval(refreshTelemetry, 25000);
             };
 
-            ws.onmessage = event => {
+            socket.onmessage = event => {
+                if (ws !== socket) return;
                 try {
                     const data = JSON.parse(event.data);
 
-                    // Token streaming delta
                     if (data.method === "SarembokChat.delta") {
                         const params = data.params || {};
                         const reqId = params.id || data.id;
@@ -9304,14 +9340,11 @@ button,
                         return;
                     }
 
-                    // RPC Response
                     if (data.id && pending.has(data.id)) {
                         const entry = pending.get(data.id);
                         pending.delete(data.id);
                         if (data.error) {
-                            const rpcError = new Error(
-                                String(data.error.message || "RPC request failed")
-                            );
+                            const rpcError = new Error(String(data.error.message || "RPC request failed"));
                             if (data.error.code !== undefined) rpcError.code = data.error.code;
                             if (data.error.data !== undefined) rpcError.data = data.error.data;
                             rpcError.rpcError = data.error;
@@ -9325,36 +9358,62 @@ button,
                 }
             };
 
-            ws.onerror = err => console.error("WebSocket error:", err);
-            ws.onclose = () => {
-                console.warn("WebSocket closed. Reconnecting in 3s...");
-                setTimeout(connect, 3000);
+            socket.onerror = err => {
+                if (ws !== socket) return;
+                console.error("WebSocket error:", err);
             };
+
+            socket.onclose = () => {
+                if (ws !== socket) return;
+
+                console.warn("WebSocket closed. Reconnecting in 3s...");
+                ws = null;
+
+                if (telemetryRefreshTimer) {
+                    clearInterval(telemetryRefreshTimer);
+                    telemetryRefreshTimer = null;
+                }
+
+                // Do not strand requests for 45 seconds when their transport disappears.
+                rejectPendingRequests(new Error("Runtime WebSocket connection lost"));
+                scheduleReconnect();
+            };
+
+            return socket;
         }
 
         async function ensureConnected(timeoutMs = 6000) {
             if (ws && ws.readyState === WebSocket.OPEN) return true;
-            if (!ws || ws.readyState === WebSocket.CLOSED) {
+
+            if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
                 connect();
             }
-            const start = Date.now();
-            while (Date.now() - start < timeoutMs) {
+
+            const startTime = Date.now();
+            while (Date.now() - startTime < timeoutMs) {
                 if (ws && ws.readyState === WebSocket.OPEN) return true;
                 await new Promise(r => setTimeout(r, 100));
             }
-            return ws && ws.readyState === WebSocket.OPEN;
+            return !!(ws && ws.readyState === WebSocket.OPEN);
         }
 
         async function sendRPC(method, params = {}, onDelta = null) {
             const isReady = await ensureConnected(6000);
             if (!isReady) {
-                throw new Error("Runtime WebSocket not open");
+                throw new Error("Runtime WebSocket unavailable");
             }
+
             if (!window.browserSessionToken) {
                 try {
                     await initSession();
                 } catch (_) {}
             }
+
+            const socket = ws;
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                throw new Error("Runtime WebSocket unavailable");
+            }
+
             return new Promise((resolve, reject) => {
                 const id = "rpc-" + rpcCounter++;
                 const rpcParams = { ...params };
@@ -9362,13 +9421,20 @@ button,
                 const admToken = sessionStorage.getItem("srbk_admin_token");
                 if (admToken) rpcParams.adminToken = admToken;
 
-                pending.set(id, {
-                    res: resolve,
-                    rej: reject,
-                    onDelta
-                });
+                pending.set(id, { res: resolve, rej: reject, onDelta });
 
-                ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params: rpcParams }));
+                try {
+                    socket.send(JSON.stringify({
+                        jsonrpc: "2.0",
+                        id,
+                        method,
+                        params: rpcParams
+                    }));
+                } catch (sendErr) {
+                    pending.delete(id);
+                    reject(new Error("Runtime WebSocket send failed: " + (sendErr?.message || sendErr)));
+                    return;
+                }
 
                 setTimeout(() => {
                     if (pending.has(id)) {
