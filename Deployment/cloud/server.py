@@ -4329,7 +4329,7 @@ async def handler(websocket) -> None:
 def process_http_response(connection: Any, request: Any, response: Any) -> Any:
     path = getattr(request, "path", "") or ""
     path_only = urllib.parse.urlsplit(path).path
-    if path_only == "/session":
+    if path_only in ("/api/session", "/session"):
         response.headers["Content-Type"] = "application/json; charset=utf-8"
         response.headers["Cache-Control"] = "no-store"
     return response
@@ -4351,7 +4351,7 @@ async def process_http_request(connection: Any, request: Any) -> Any:
         if hasattr(connection, "respond"):
             return connection.respond(200, "OK\n")
         return (200, [("Content-Type", "text/plain; charset=utf-8")], b"OK\n")
-    if path == "/session":
+    if path_only in ("/api/session", "/session"):
         session_token = issue_browser_session()
         body = json.dumps({
             "sessionToken": session_token,
