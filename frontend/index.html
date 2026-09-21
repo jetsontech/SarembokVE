@@ -10364,23 +10364,13 @@ button,
                     if (!blob || !blob.size) throw new Error("neural TTS returned empty audio");
                     if (speechRequestId !== ttsPlaybackGeneration) return false;
 
-                    // Use the persistent, gesture-unlocked Web Audio context. The
-                    // returned WAV is decoded into an AudioBuffer and played directly
-                    // through AudioBufferSourceNode, which is not subject to the
-                    // post-fetch HTMLMediaElement autoplay restriction.
-                    const audioContext = globalAudioCtx;
-                    if (!audioContext || audioContext.state === "closed") {
-                        throw new Error("Web Audio context is unavailable");
-                    }
-                    if (audioContext.state === "suspended") {
-                        await audioContext.resume();
-                    }
-                    if (audioContext.state !== "running") {
-                        throw new Error("AudioContext is " + audioContext.state);
-                    }
-
+                    // PRIMARY PLAYBACK PATH: native HTMLAudioElement.
+                    // The TTS endpoint returns a complete WAV file. Let the browser's
+                    // media stack play that file instead of decoding it through Web
+                    // Audio after an asynchronous network request.
                     if (activeNeuralAudio) {
                         try { activeNeuralAudio.pause(); } catch (_) {}
+                        try { activeNeuralAudio.src = ""; } catch (_) {}
                         activeNeuralAudio = null;
                     }
                     if (activeNeuralAudioSource) {
@@ -10388,74 +10378,113 @@ button,
                         activeNeuralAudioSource = null;
                     }
 
-                    const arrayBuffer = await blob.arrayBuffer();
-                    if (speechRequestId !== ttsPlaybackGeneration) return false;
-
-                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
-                    if (!audioBuffer || audioBuffer.length < 1) {
-                        throw new Error("decoded neural TTS audio is empty");
-                    }
-                    if (speechRequestId !== ttsPlaybackGeneration) return false;
-
-                    const source = audioContext.createBufferSource();
-                    source.buffer = audioBuffer;
-                    source.connect(audioContext.destination);
+                    const audioUrl = URL.createObjectURL(blob);
+                    const audio = new Audio();
+                    audio.preload = "auto";
+                    audio.src = audioUrl;
+                    audio.volume = 1.0;
+                    audio.setAttribute("playsinline", "");
+                    audio.setAttribute("webkit-playsinline", "");
 
                     let stopped = false;
+                    let cleaned = false;
+                    const cleanup = () => {
+                        if (cleaned) return;
+                        cleaned = true;
+                        try { audio.pause(); } catch (_) {}
+                        try { audio.removeAttribute("src"); audio.load(); } catch (_) {}
+                        try { URL.revokeObjectURL(audioUrl); } catch (_) {}
+                        if (activeNeuralAudio === audio) activeNeuralAudio = null;
+                        if (window._activeSpeechAudio === audio) window._activeSpeechAudio = null;
+                    };
+
                     const controller = {
                         get currentTime() {
-                            return audioContext.currentTime || 0;
+                            try { return audio.currentTime || 0; } catch (_) { return 0; }
                         },
-                        set currentTime(_) {},
+                        set currentTime(value) {
+                            try { audio.currentTime = value || 0; } catch (_) {}
+                        },
                         pause() {
                             if (stopped) return;
                             stopped = true;
-                            try { source.stop(0); } catch (_) {}
-                            try { source.disconnect(); } catch (_) {}
-                            if (activeNeuralAudio === controller) activeNeuralAudio = null;
-                            if (activeNeuralAudioSource === source) activeNeuralAudioSource = null;
-                            if (window._activeSpeechAudio === controller) window._activeSpeechAudio = null;
+                            cleanup();
                         }
                     };
 
-                    activeNeuralAudio = controller;
-                    activeNeuralAudioSource = source;
-                    window._activeSpeechAudio = controller;
+                    activeNeuralAudio = audio;
+                    window._activeSpeechAudio = audio;
 
-                    source.onended = () => {
-                        try { source.disconnect(); } catch (_) {}
-                        if (activeNeuralAudio === controller) activeNeuralAudio = null;
-                        if (activeNeuralAudioSource === source) activeNeuralAudioSource = null;
-                        if (window._activeSpeechAudio === controller) window._activeSpeechAudio = null;
-                        if (!stopped && speechRequestId === ttsPlaybackGeneration) {
-                            finishSpeaking();
-                        }
-                    };
+                    await new Promise((resolve, reject) => {
+                        let settled = false;
+                        const settle = (fn, value) => {
+                            if (settled) return;
+                            settled = true;
+                            fn(value);
+                        };
 
-                    try {
-                        source.start(0);
-                    } catch (playError) {
-                        controller.pause();
-                        throw new Error("Web Audio playback failed: " + (playError?.message || playError));
-                    }
+                        audio.onended = () => {
+                            if (!stopped && speechRequestId === ttsPlaybackGeneration) {
+                                cleanup();
+                                finishSpeaking();
+                            } else {
+                                cleanup();
+                            }
+                            settle(resolve);
+                        };
 
-                    if (speechRequestId !== ttsPlaybackGeneration) {
-                        controller.pause();
-                        return false;
-                    }
+                        audio.onerror = () => {
+                            const mediaError = audio.error;
+                            settle(reject, new Error(
+                                "HTMLAudio playback failed" +
+                                (mediaError ? " · code " + mediaError.code : "")
+                            ));
+                        };
 
-                    console.info(
-                        "[tts] Sarembok neural voice active:",
-                        kokoroVoice,
-                        "Web Audio WAV playback",
-                        Math.round(audioBuffer.duration * 1000) + "ms"
-                    );
-                    if (typeof window.setKokoroStatus === "function") {
-                        window.setKokoroStatus(
-                            "Active · " + kokoroVoice + " · 24 kHz neural audio",
-                            true
-                        );
-                    }
+                        audio.oncanplay = () => {
+                            if (speechRequestId !== ttsPlaybackGeneration) {
+                                stopped = true;
+                                cleanup();
+                                settle(resolve, false);
+                            }
+                        };
+
+                        audio.onloadedmetadata = () => {
+                            console.info(
+                                "[tts] Sarembok neural voice ready:",
+                                kokoroVoice,
+                                "HTMLAudio WAV",
+                                Math.round((audio.duration || 0) * 1000) + "ms"
+                            );
+                        };
+
+                        audio.play().then(() => {
+                            if (speechRequestId !== ttsPlaybackGeneration) {
+                                stopped = true;
+                                cleanup();
+                                settle(resolve, false);
+                                return;
+                            }
+
+                            console.info(
+                                "[tts] Sarembok neural voice active:",
+                                kokoroVoice,
+                                "HTMLAudio WAV playback"
+                            );
+                            if (typeof window.setKokoroStatus === "function") {
+                                window.setKokoroStatus(
+                                    "Active · " + kokoroVoice + " · native WAV audio",
+                                    true
+                                );
+                            }
+                            settle(resolve, true);
+                        }).catch(err => {
+                            settle(reject, new Error(
+                                "HTMLAudio play() rejected · " + (err?.message || err)
+                            ));
+                        });
+                    });
+
                     return true;
                 };
 
