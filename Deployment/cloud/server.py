@@ -4432,34 +4432,23 @@ async def process_http_request(connection: Any, request: Any) -> Any:
             if not audio:
                 return make_api_response(502, {"error": "voice_service_returned_no_audio"})
 
-            # websockets' HTTP response helper creates a Response object
-            # whose body must be populated explicitly for binary payloads.
-            # Returning the legacy 3-tuple with a bytes body can cause the
-            # connection to terminate with EOF under the current asyncio
-            # server implementation, which surfaces as a 502 from Caddy.
-            if hasattr(connection, "respond"):
-                response = connection.respond(200, "")
-                response.body = audio
-                # respond(200, "") initializes Content-Length: 0. Remove
-                # that generated header before installing the real binary size;
-                # Headers permits repeated fields, and Caddy rejects duplicate
-                # Content-Length values for safety.
-                del response.headers["Content-Length"]
-                response.headers["Content-Type"] = "audio/wav"
-                response.headers["Cache-Control"] = "no-store"
-                response.headers["Content-Length"] = str(len(audio))
-                response.headers["Access-Control-Allow-Origin"] = "*"
-                return response
+            # Return a real websockets HTTP Response with the WAV bytes in
+            # the constructor.  The previous implementation built a text
+            # response with connection.respond() and then mutated its body.
+            # That is fragile across websockets releases and was the wrong
+            # abstraction for binary audio.
+            from websockets.datastructures import Headers
+            from websockets.http11 import Response
 
-            # Compatibility fallback for older websockets implementations.
-            return (
+            return Response(
                 200,
-                [
+                "OK",
+                Headers([
                     ("Content-Type", "audio/wav"),
                     ("Cache-Control", "no-store"),
                     ("Content-Length", str(len(audio))),
                     ("Access-Control-Allow-Origin", "*"),
-                ],
+                ]),
                 audio,
             )
         except urllib.error.HTTPError as exc:
