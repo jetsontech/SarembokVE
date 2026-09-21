@@ -12076,6 +12076,17 @@ button,
             } finally {
                 if (myTurnId === currentTurnId) {
                     isWaitingForAIResponse = false;
+                    // The first live reply can finish speaking while the RPC is still
+                    // unwinding. Once the response is no longer waiting, explicitly
+                    // restart microphone recognition so duplex mode never stalls after
+                    // the first exchange.
+                    if (
+                        liveConversationActive &&
+                        !isSpeakingTurn &&
+                        liveSpeechQueue.length === 0
+                    ) {
+                        resumeRecognitionAfterSpeech(150);
+                    }
                 }
             }
         }
