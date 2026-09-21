@@ -12,6 +12,15 @@ import json
 import logging
 import os
 import threading
+
+# The VPS voice container is CPU-limited to two cores. Pin PyTorch to that
+# same budget so Kokoro does not oversubscribe the host and thrash the CPU.
+import torch
+
+VOICE_THREADS = max(1, int(os.getenv("SAREMBOK_VOICE_THREADS", "2")))
+torch.set_num_threads(VOICE_THREADS)
+torch.set_num_interop_threads(1)
+
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
@@ -145,10 +154,21 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(audio)))
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
-            self.wfile.write(audio)
+            try:
+                self.wfile.write(audio)
+            except BrokenPipeError:
+                # Client interruption is normal during barge-in or replacement
+                # speech. The response was already successful; do not emit a
+                # second 400 response onto a closed socket.
+                LOG.info("client disconnected during audio delivery")
+        except BrokenPipeError:
+            LOG.info("client disconnected during TTS request")
         except Exception as exc:
             LOG.warning("synthesis failed: %s", exc)
-            self._send_json(400, {"error": str(exc)})
+            try:
+                self._send_json(400, {"error": str(exc)})
+            except BrokenPipeError:
+                LOG.info("client disconnected before TTS error response")
 
     def log_message(self, fmt: str, *args) -> None:
         LOG.info("%s - %s", self.address_string(), fmt % args)
@@ -161,8 +181,8 @@ def main() -> None:
     get_pipeline(DEFAULT_LANG)
     warmup_audio = synthesize("Sarembok voice ready.", DEFAULT_VOICE, 0.95, DEFAULT_LANG)
     LOG.info(
-        "Kokoro neural TTS ready port=%s voice=%s max_chars=%s warmup_bytes=%s",
-        PORT, DEFAULT_VOICE, MAX_CHARS, len(warmup_audio),
+        "Kokoro neural TTS ready port=%s voice=%s threads=%s max_chars=%s warmup_bytes=%s",
+        PORT, DEFAULT_VOICE, VOICE_THREADS, MAX_CHARS, len(warmup_audio),
     )
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     try:
