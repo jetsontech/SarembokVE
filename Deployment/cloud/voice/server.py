@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import io
 import json
-import base64
 import logging
 import os
 import threading
@@ -110,37 +109,6 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _stream_tts(self, payload: dict) -> None:
-        clean = " ".join(str(payload.get("text", "")).split()).strip()
-        if not clean:
-            raise ValueError("text is required")
-        if len(clean) > MAX_CHARS:
-            raise ValueError(f"text exceeds {MAX_CHARS} character limit")
-        voice_name = str(payload.get("voice", DEFAULT_VOICE)).strip() or DEFAULT_VOICE
-        rate = min(1.5, max(0.6, float(payload.get("speed", 0.95))))
-        language = str(payload.get("language", DEFAULT_LANG)).strip().lower() or DEFAULT_LANG
-        pipeline = get_pipeline(language)
-        self.send_response(200)
-        self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Connection", "close")
-        self.end_headers()
-        import numpy as np
-        with synthesis_lock:
-            emitted = 0
-            for _, _, audio in pipeline(clean, voice=voice_name, speed=rate):
-                if audio is None: continue
-                samples = audio.detach().cpu().numpy() if hasattr(audio, "detach") else np.asarray(audio)
-                samples = np.asarray(samples).squeeze()
-                if samples.size == 0: continue
-                output = io.BytesIO()
-                sf.write(output, samples, SAMPLE_RATE, format="WAV", subtype="PCM_16")
-                frame = {"audio": base64.b64encode(output.getvalue()).decode("ascii"), "index": emitted}
-                self.wfile.write((json.dumps(frame, separators=(",", ":")) + "\n").encode("utf-8"))
-                self.wfile.flush()
-                emitted += 1
-            if emitted == 0: raise RuntimeError("Kokoro returned no audio")
-
     def do_GET(self) -> None:
         path = urlparse(self.path).path
         if path == "/health":
@@ -175,10 +143,6 @@ class Handler(BaseHTTPRequestHandler):
             if length <= 0 or length > 65536:
                 raise ValueError("invalid_request_size")
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
-            if path == "/tts/stream":
-                self._stream_tts(payload)
-                return
-
             audio = synthesize(
                 payload.get("text", ""),
                 str(payload.get("voice", DEFAULT_VOICE)),
