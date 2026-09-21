@@ -160,6 +160,20 @@
             }
 
             try {
+                /*
+                 * TTS compatibility repair:
+                 * The canonical production /api/tts endpoint accepts POST.
+                 * The legacy browser voice client calls it with GET.  Allow the
+                 * existing client to remain backward-compatible by normalizing
+                 * only this same-origin TTS request to POST before it reaches
+                 * Caddy/Cloudflare.  This prevents the edge from returning an
+                 * HTML 502 for voice profiles such as am_adam.
+                 */
+                if (url.pathname === "/api/tts" && String(init.method || "GET").toUpperCase() === "GET") {
+                    const postInit = { ...init, method: "POST" };
+                    return nativeFetch(input, postInit);
+                }
+
                 if (url.pathname === "/api/background-tasks") {
                     const data = await callRuntime("ListTasks");
                     const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
