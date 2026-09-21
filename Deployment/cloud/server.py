@@ -54,6 +54,7 @@ LLM_PROVIDER_TIMEOUT_SECONDS = max(3, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEO
 LLM_TOTAL_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS", "15")))
 SAREMBOK_VOICE_URL = os.getenv("SAREMBOK_VOICE_URL", "http://sarembok-voice:9200").rstrip("/")
 SAREMBOK_VOICE_MAX_CHARS = max(100, int(os.getenv("SAREMBOK_VOICE_MAX_CHARS", "4000")))
+VOICE_REQUEST_TIMEOUT_SECONDS = max(30, int(os.getenv("SAREMBOK_VOICE_REQUEST_TIMEOUT_SECONDS", "120")))
 BROWSER_SESSION_TTL_SECONDS = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_TTL_SECONDS", "3600")))
 BROWSER_ALLOWED_METHODS = {
     "SarembokChat",
@@ -4426,13 +4427,15 @@ async def process_http_request(connection: Any, request: Any) -> Any:
                 headers={"Content-Type": "application/json", "Accept": "audio/wav"},
                 method="POST",
             )
-            # TTS synthesis is a blocking network/model call. Never execute it
+            # TTS synthesis is a blocking network/model call. Allow the CPU-only
+            # Kokoro service enough time to complete long utterances and queued
+            # requests while keeping the asyncio control plane non-blocking.
             # directly on the runtime asyncio event loop: doing so stalls the WebSocket
             # control plane for the entire Kokoro generation time and makes chat appear
             # hung. Keep the control plane responsive by moving the blocking call to a
             # worker thread.
             def fetch_voice_audio():
-                with urllib.request.urlopen(req, timeout=30) as resp:
+                with urllib.request.urlopen(req, timeout=VOICE_REQUEST_TIMEOUT_SECONDS) as resp:
                     return resp.read()
 
             audio = await asyncio.to_thread(fetch_voice_audio)
