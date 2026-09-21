@@ -10891,7 +10891,7 @@ button,
 
         async function initSession() {
             try {
-                const resp = await fetch("/session", { cache: "no-store" });
+                const resp = await fetch("/api/session", { cache: "no-store" });
                 if (resp.ok) {
                     const data = await resp.json();
                     if (data && data.sessionToken) {
