@@ -115,7 +115,7 @@ print('visible UI text check: PASS')
 PY
 if [ $? -eq 0 ]; then pass 'frontend cockpit and visible-text integrity'; else fail 'frontend cockpit and visible-text integrity'; fi
 
-for path in /session; do
+for path in /api/session; do
   code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "$BASE$path" || true)"
   [ "$code" = 200 ] && pass "$path HTTP 200" || fail "$path HTTP $code"
 done
