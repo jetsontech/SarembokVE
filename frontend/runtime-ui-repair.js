@@ -14,7 +14,7 @@
 
     async function freshBrowserSession() {
         clearBrowserSession();
-        const resp = await nativeFetch("/session", {
+        const resp = await nativeFetch("/api/session", {
             cache: "no-store",
             headers: { "Accept": "application/json" }
         });
