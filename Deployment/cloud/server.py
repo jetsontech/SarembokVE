@@ -4426,8 +4426,16 @@ async def process_http_request(connection: Any, request: Any) -> Any:
                 headers={"Content-Type": "application/json", "Accept": "audio/wav"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                audio = resp.read()
+            # TTS synthesis is a blocking network/model call. Never execute it
+            # directly on the runtime asyncio event loop: doing so stalls the WebSocket
+            # control plane for the entire Kokoro generation time and makes chat appear
+            # hung. Keep the control plane responsive by moving the blocking call to a
+            # worker thread.
+            def fetch_voice_audio():
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    return resp.read()
+
+            audio = await asyncio.to_thread(fetch_voice_audio)
 
             if not audio:
                 return make_api_response(502, {"error": "voice_service_returned_no_audio"})
