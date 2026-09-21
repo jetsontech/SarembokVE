@@ -10485,14 +10485,24 @@ button,
                     if (!sessionToken) sessionToken = await initSession();
                     if (!sessionToken) throw new Error("browser session unavailable");
 
-                    // Keep voice startup responsive. Narration uses the leading ~1400
-                    // characters, cut at a sentence boundary when possible.
+                    // Optimize time-to-first-word. Kokoro is CPU-bound, so synthesize
+                    // only the first short sentence/phrase for the initial request instead
+                    // of making the browser wait for a large narration segment.
                     const spokenText = (() => {
-                        const max = 700;
+                        const max = 280;
                         if (clean.length <= max) return clean;
                         const head = clean.slice(0, max);
-                        const cut = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "));
-                        return (cut > 400 ? head.slice(0, cut + 1) : head).trim();
+                        const sentence = Math.max(
+                            head.lastIndexOf(". "),
+                            head.lastIndexOf("! "),
+                            head.lastIndexOf("? "),
+                            head.lastIndexOf(": ")
+                        );
+                        if (sentence >= 90) return head.slice(0, sentence + 1).trim();
+                        const comma = head.lastIndexOf(", ");
+                        if (comma >= 120) return head.slice(0, comma).trim();
+                        const space = head.lastIndexOf(" ");
+                        return (space >= 160 ? head.slice(0, space) : head).trim();
                     })();
 
                     const qs = new URLSearchParams({
