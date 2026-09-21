@@ -10398,158 +10398,16 @@ button,
             // HTMLMediaElement.play(), which can be rejected after an async TTS fetch.
             (async () => {
                 const speechTurnId = currentTurnId;
-                const playKokoroStream = async (getBlob, count) => {
+                const playKokoroStream = async (getStream, count) => {
                     if (!speechRequestId || speechRequestId !== ttsPlaybackGeneration) return false;
-                    if (!globalAudioCtx || globalAudioCtx.state !== "running") {
-                        throw new Error("Web Audio output context is not running");
-                    }
-
-                    // Kokoro returns complete WAV files per phrase. Decode each phrase
-                    // into the already-unlocked Web Audio context and schedule it as a
-                    // BufferSource. Do NOT replace the src of one HTMLAudio element:
-                    // doing that while an ended event is settling can terminate the
-                    // conversational turn after the first phrase.
-                    let stopped = false;
-                    let currentSource = null;
-                    let currentStartedAt = 0;
-                    let currentOffset = 0;
-                    let cleaned = false;
-
-                    const cleanup = () => {
-                        if (cleaned) return;
-                        cleaned = true;
-                        if (currentSource) {
-                            try { currentSource.onended = null; } catch (_) {}
-                            try { currentSource.stop(0); } catch (_) {}
-                            try { currentSource.disconnect(); } catch (_) {}
-                            currentSource = null;
-                        }
-                        if (activeNeuralAudioSource) {
-                            try { activeNeuralAudioSource.stop(0); } catch (_) {}
-                            activeNeuralAudioSource = null;
-                        }
-                        if (activeNeuralAudio === controller) activeNeuralAudio = null;
-                        if (window._activeSpeechAudio === controller) window._activeSpeechAudio = null;
-                    };
-
-                    const stopStream = () => {
-                        if (stopped) return;
-                        stopped = true;
-                        cleanup();
-                    };
-
-                    const controller = {
-                        get currentTime() {
-                            if (!currentSource || !globalAudioCtx) return currentOffset;
-                            return Math.max(0, currentOffset + (globalAudioCtx.currentTime - currentStartedAt));
-                        },
-                        set currentTime(value) {
-                            currentOffset = Math.max(0, Number(value) || 0);
-                        },
-                        pause() {
-                            stopStream();
-                        }
-                    };
-
-                    activeNeuralAudio = controller;
-                    window._activeSpeechAudio = controller;
-
-                    const decodeBlob = async (blob, index) => {
-                        if (!blob || !blob.size) throw new Error("neural TTS returned empty audio");
-                        if (speechRequestId !== ttsPlaybackGeneration || stopped) return null;
-
-                        const arrayBuffer = await blob.arrayBuffer();
-                        if (speechRequestId !== ttsPlaybackGeneration || stopped) return null;
-
-                        const buffer = await globalAudioCtx.decodeAudioData(arrayBuffer);
-                        if (!buffer || !buffer.length) throw new Error("neural TTS returned undecodable audio");
-
-                        console.info(
-                            "[tts] Sarembok neural voice ready:",
-                            kokoroVoice,
-                            "chunk", (index + 1) + "/" + count,
-                            "WAV",
-                            Math.round(buffer.duration * 1000) + "ms"
-                        );
-                        return buffer;
-                    };
-
-                    const playBuffer = async (buffer, index) => {
-                        if (!buffer) return false;
-                        if (speechRequestId !== ttsPlaybackGeneration || stopped) return false;
-
-                        const ctx = globalAudioCtx;
-                        const source = ctx.createBufferSource();
-                        source.buffer = buffer;
-                        source.connect(ctx.destination);
-                        currentSource = source;
-                        activeNeuralAudioSource = source;
-                        currentStartedAt = ctx.currentTime;
-                        currentOffset = 0;
-
-                        if (typeof window.setKokoroStatus === "function") {
-                            window.setKokoroStatus(
-                                "Active · " + kokoroVoice +
-                                " · speaking " + (index + 1) + "/" + count,
-                                true
-                            );
-                        }
-
-                        console.info(
-                            "[tts] Sarembok neural voice active:",
-                            kokoroVoice,
-                            "chunk", (index + 1) + "/" + count
-                        );
-
-                        await new Promise((resolve, reject) => {
-                            let settled = false;
-                            const settle = (ok, error) => {
-                                if (settled) return;
-                                settled = true;
-                                source.onended = null;
-                                if (error) reject(error);
-                                else resolve(ok);
-                            };
-
-                            source.onended = () => settle(true);
-                            try {
-                                source.start(0);
-                            } catch (err) {
-                                settle(false, err instanceof Error ? err : new Error(String(err)));
-                            }
-                        });
-
-                        if (activeNeuralAudioSource === source) activeNeuralAudioSource = null;
-                        if (currentSource === source) currentSource = null;
-                        try { source.disconnect(); } catch (_) {}
-
-                        return speechRequestId === ttsPlaybackGeneration && !stopped;
-                    };
-
-                    try {
-                        // One phrase plays while the next phrase is synthesized and
-                        // decoded in parallel. This gives fast first-word latency without
-                        // sacrificing the complete response.
-                        let nextBufferPromise = getBlob(0).then(blob => decodeBlob(blob, 0));
-
-                        for (let index = 0; index < count; index++) {
-                            const buffer = await nextBufferPromise;
-                            if (!buffer || speechRequestId !== ttsPlaybackGeneration || stopped) return false;
-
-                            if (index + 1 < count) {
-                                nextBufferPromise = getBlob(index + 1).then(blob => decodeBlob(blob, index + 1));
-                            }
-
-                            const played = await playBuffer(buffer, index);
-                            if (!played) return false;
-                        }
-
-                        cleanup();
-                        return true;
-                    } catch (err) {
-                        cleanup();
-                        throw err;
-                    }
+                    if (!globalAudioCtx || globalAudioCtx.state !== "running") throw new Error("Web Audio output context is not running");
+                    let stopped=false, currentSource=null, currentStartedAt=0, currentOffset=0, cleaned=false;
+                    const cleanup=()=>{if(cleaned)return;cleaned=true;if(currentSource){try{currentSource.onended=null;}catch(_){}try{currentSource.stop(0);}catch(_){}try{currentSource.disconnect();}catch(_){}currentSource=null;}if(activeNeuralAudioSource){try{activeNeuralAudioSource.stop(0);}catch(_){}activeNeuralAudioSource=null;}if(activeNeuralAudio===controller)activeNeuralAudio=null;if(window._activeSpeechAudio===controller)window._activeSpeechAudio=null;};
+                    const controller={get currentTime(){if(!currentSource||!globalAudioCtx)return currentOffset;return Math.max(0,currentOffset+(globalAudioCtx.currentTime-currentStartedAt));},set currentTime(v){currentOffset=Math.max(0,Number(v)||0);},pause(){stopped=true;cleanup();}};
+                    activeNeuralAudio=controller; window._activeSpeechAudio=controller;
+                    const playAudio=async(encoded)=>{if(stopped||speechRequestId!==ttsPlaybackGeneration)return false;const bin=atob(encoded),bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);const buffer=await globalAudioCtx.decodeAudioData(bytes.buffer);const source=globalAudioCtx.createBufferSource();source.buffer=buffer;source.connect(globalAudioCtx.destination);currentSource=source;activeNeuralAudioSource=source;currentStartedAt=globalAudioCtx.currentTime;source.start(0);await new Promise(resolve=>{source.onended=resolve;});if(currentSource===source)currentSource=null;if(activeNeuralAudioSource===source)activeNeuralAudioSource=null;currentOffset+=buffer.duration;return !stopped&&speechRequestId===ttsPlaybackGeneration;};
+                    const open=async(index)=>{const stream=await getStream(index);if(!stream||typeof stream.next!=="function")throw new Error("neural TTS stream unavailable");return stream;};
+                    try{let pending=open(0);for(let index=0;index<count;index++){const stream=await pending;if(index+1<count)pending=open(index+1);while(!stopped&&speechRequestId===ttsPlaybackGeneration){const item=await stream.next();if(!item||item.done)break;if(!(await playAudio(item.value)))return false;}}cleanup();return true;}catch(err){cleanup();throw err;}
                 };
 
                 try {
@@ -10628,52 +10486,22 @@ button,
                     activeTtsAbortController = ttsAbort;
                     activeTtsRequestId = speechRequestId;
 
-                    const synthesizeChunk = async (spokenText) => {
-                        const makeRequest = async () => {
-                            const qs = new URLSearchParams({
-                                text: spokenText,
-                                voice: kokoroVoice,
-                                language: kokoroLanguage,
-                                speed: String(kokoroSpeed)
-                            });
-                            return fetch("/api/tts?" + qs.toString(), {
-                                method: "GET",
-                                cache: "no-store",
-                                signal: ttsAbort.signal,
-                                headers: { "Authorization": "Bearer " + sessionToken }
-                            });
-                        };
-
-                        let response = await makeRequest();
-                        if (response.status === 401) {
-                            sessionToken = await initSession();
-                            if (!sessionToken) throw new Error("browser session refresh failed");
-                            response = await makeRequest();
-                        }
-
-                        const contentType = (response.headers.get("content-type") || "").toLowerCase();
-                        if (!response.ok) {
-                            let detail = "";
-                            try { detail = (await response.text()).slice(0, 300); } catch (_) {}
-                            throw new Error("neural TTS HTTP " + response.status + (detail ? " · " + detail : ""));
-                        }
-                        if (!contentType.includes("audio/")) {
-                            let detail = "";
-                            try { detail = (await response.text()).slice(0, 300); } catch (_) {}
-                            throw new Error("neural TTS returned non-audio data" + (detail ? " · " + detail : ""));
-                        }
-
-                        const audioBlob = await response.blob();
-                        if (audioBlob.size < 128) throw new Error("neural TTS returned only " + audioBlob.size + " bytes");
-                        return audioBlob;
+                    const synthesizeChunk = async function* (spokenText) {
+                        const qs=new URLSearchParams({text:spokenText,voice:kokoroVoice,language:kokoroLanguage,speed:String(kokoroSpeed)});
+                        let response=await fetch("/api/tts/stream?"+qs.toString(),{method:"GET",cache:"no-store",signal:ttsAbort.signal,headers:{"Authorization":"Bearer "+sessionToken}});
+                        if(response.status===401){sessionToken=await initSession();if(!sessionToken)throw new Error("browser session refresh failed");response=await fetch("/api/tts/stream?"+qs.toString(),{method:"GET",cache:"no-store",signal:ttsAbort.signal,headers:{"Authorization":"Bearer "+sessionToken}});}
+                        if(!response.ok){let detail="";try{detail=(await response.text()).slice(0,300);}catch(_){}throw new Error("neural TTS HTTP "+response.status+(detail?" · "+detail:""));}
+                        if(!response.body)throw new Error("neural TTS stream has no body");
+                        const reader=response.body.pipeThrough(new TextDecoderStream()).getReader();let pending="";
+                        try{while(true){const {value,done}=await reader.read();if(done)break;pending+=value||"";let n;while((n=pending.indexOf("\n"))>=0){const line=pending.slice(0,n).trim();pending=pending.slice(n+1);if(!line)continue;const frame=JSON.parse(line);if(frame.error)throw new Error(frame.error);if(frame.audio)yield frame.audio;}}if(pending.trim()){const frame=JSON.parse(pending.trim());if(frame.error)throw new Error(frame.error);if(frame.audio)yield frame.audio;}}finally{try{reader.releaseLock();}catch(_){} }
                     };
 
                     // Start with the first natural sentence/phrase immediately,
                     // then keep the complete response moving in order. The stream owns
                     // the audio element for the entire turn, so chunk boundaries cannot
                     // accidentally terminate playback after the first sentence.
-                    const getBlob = (index) => synthesizeChunk(speechChunks[index]);
-                    const streamed = await playKokoroStream(getBlob, speechChunks.length);
+                    const getStream = (index) => synthesizeChunk(speechChunks[index]);
+                    const streamed = await playKokoroStream(getStream, speechChunks.length);
                     if (!streamed || speechRequestId !== ttsPlaybackGeneration) return;
 
                     finishSpeaking();
