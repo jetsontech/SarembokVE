@@ -10161,6 +10161,7 @@ button,
 
         let activeNeuralAudio = null;
         let activeNeuralAudioSource = null;
+        let activeTtsAbortController = null;
 
 
         // SAREMBOK_PRODUCT_PRONUNCIATION_20260914
@@ -10235,6 +10236,11 @@ button,
                 hideInterruptPill();
                 window._activeSpeechUtterance = null;
                 activeNeuralAudio = null;
+                activeNeuralAudioSource = null;
+                if (activeTtsAbortController) {
+                    try { activeTtsAbortController.abort(); } catch (_) {}
+                    activeTtsAbortController = null;
+                }
                 if (typeof onCompleteCallback === "function") {
                     try { onCompleteCallback(); } catch (callbackErr) { console.warn("[tts] completion callback error:", callbackErr); }
                 }
@@ -10352,9 +10358,16 @@ button,
                         startedAt: new Date().toISOString()
                     };
 
+                    if (activeTtsAbortController) {
+                        try { activeTtsAbortController.abort(); } catch (_) {}
+                    }
+                    const ttsAbort = new AbortController();
+                    activeTtsAbortController = ttsAbort;
+
                     let response = await fetch("/api/tts?" + qs.toString(), {
                         method: "GET",
                         cache: "no-store",
+                        signal: ttsAbort.signal,
                         headers: { "Authorization": "Bearer " + sessionToken }
                     });
 
@@ -10364,6 +10377,7 @@ button,
                         response = await fetch("/api/tts?" + qs.toString(), {
                             method: "GET",
                             cache: "no-store",
+                            signal: ttsAbort.signal,
                             headers: { "Authorization": "Bearer " + sessionToken }
                         });
                     }
@@ -10387,6 +10401,7 @@ button,
                     if (audioBlob.size < 128) throw new Error("neural TTS returned only " + audioBlob.size + " bytes");
                     await playKokoroBlob(audioBlob);
                 } catch (err) {
+                    if (err && err.name === "AbortError") return;
                     console.warn("[tts] Kokoro playback failed for " + kokoroVoice + ":", err);
                     if (typeof window.setKokoroStatus === "function") {
                         const reason = err && err.message ? " · " + err.message : "";
@@ -11900,9 +11915,17 @@ button,
                 try { vegaRefAudio.pause(); vegaRefAudio.currentTime = 0; } catch (e) {}
                 vegaRefAudio = null;
             }
+            if (activeTtsAbortController) {
+                try { activeTtsAbortController.abort(); } catch (e) {}
+                activeTtsAbortController = null;
+            }
             if (activeNeuralAudio) {
                 try { activeNeuralAudio.pause(); activeNeuralAudio.currentTime = 0; } catch (e) {}
                 activeNeuralAudio = null;
+            }
+            if (activeNeuralAudioSource) {
+                try { activeNeuralAudioSource.stop(0); } catch (e) {}
+                activeNeuralAudioSource = null;
             }
             if (window.speechSynthesis) {
                 window.speechSynthesis.cancel();
