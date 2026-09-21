@@ -12297,6 +12297,73 @@ button,
             processLiveSpeechQueue();
         }
 
+        async function prefetchLiveSpeech(text) {
+            const normalized = String(text || "").trim();
+            if (!normalized) return null;
+
+            const profileKey = Object.prototype.hasOwnProperty.call(KOKORO_VOICE_MAP, selectedVoiceLang)
+                ? selectedVoiceLang : "gemini-vega";
+            const profile = KOKORO_VOICE_MAP[profileKey];
+            const speed =
+                profileKey === "ada-sovereign" ? 0.98 :
+                profileKey === "gemini-kore" ? 0.95 :
+                profileKey === "synth" ? 1.02 :
+                0.95;
+
+            const key = [
+                profile.voice, profile.language, String(speed), normalized
+            ].join("\u0001");
+
+            const existing = srbkTtsPrefetch.get(key);
+            if (existing) return existing.promise;
+
+            let token = window.browserSessionToken || "";
+            if (!token) {
+                token = await initSession();
+                if (!token) return null;
+            }
+
+            const controller = new AbortController();
+            const promise = (async () => {
+                const request = async () => {
+                    const qs = new URLSearchParams({
+                        text: normalized,
+                        voice: profile.voice,
+                        language: profile.language,
+                        speed: String(speed)
+                    });
+                    return fetch("/api/tts?" + qs.toString(), {
+                        method: "GET",
+                        cache: "no-store",
+                        signal: controller.signal,
+                        headers: { "Authorization": "Bearer " + token }
+                    });
+                };
+
+                let response = await request();
+                if (response.status === 401) {
+                    token = await initSession();
+                    if (!token) throw new Error("browser session refresh failed");
+                    response = await request();
+                }
+
+                const type = (response.headers.get("content-type") || "").toLowerCase();
+                if (!response.ok) throw new Error("neural TTS HTTP " + response.status);
+                if (!type.includes("audio/")) throw new Error("neural TTS returned non-audio data");
+
+                const blob = await response.blob();
+                if (blob.size < 128) throw new Error("neural TTS returned only " + blob.size + " bytes");
+                return blob;
+            })();
+
+            srbkTtsPrefetch.set(key, { promise, controller });
+            promise.catch(() => {}).finally(() => {
+                const item = srbkTtsPrefetch.get(key);
+                if (item && item.promise === promise) srbkTtsPrefetch.delete(key);
+            });
+            return promise;
+        }
+
         function processLiveSpeechQueue() {
             if (isProcessingSpeechQueue || liveSpeechQueue.length === 0) return;
             if (!liveConversationActive && !voiceEnabled) {
@@ -12308,7 +12375,7 @@ button,
             isProcessingSpeechQueue = true;
 
             if (liveSpeechQueue.length > 0) {
-                try { prefetchSpeech(liveSpeechQueue[0]); } catch (_) {}
+                void prefetchLiveSpeech(liveSpeechQueue[0]).catch(() => {});
             }
 
             speakCalmConversational(nextText, () => {
