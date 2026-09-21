@@ -4569,6 +4569,13 @@ async def serve() -> None:
             "0.0.0.0",
             PORT,
             max_size=MAX_REQUEST_BYTES,
+            # process_request handles /api/tts and performs synchronous Kokoro
+            # generation in a worker thread. The websockets HTTP handshake
+            # timeout defaults to 10s, which aborts legitimate TTS requests
+            # before CPU synthesis can finish and surfaces as a Caddy 502/EOF.
+            # Keep the control plane non-blocking while allowing neural TTS to
+            # complete for the full configured text limit.
+            open_timeout=90,
             ping_interval=20,
             ping_timeout=20,
             close_timeout=5,
