@@ -10567,8 +10567,8 @@ button,
                     // Sarembok starts speaking quickly; one following chunk is synthesized
                     // ahead while the current chunk is playing to minimize audible gaps.
                     const splitSpeechChunks = (value) => {
-                        const maxFirst = 240;
-                        const maxNext = 420;
+                        const maxFirst = 90;
+                        const maxNext = 260;
                         const sentences = String(value || "").match(/[^.!?]+[.!?]+(?:\\s+|$)|[^.!?]+$/g) || [];
                         const chunks = [];
                         let pending = "";
