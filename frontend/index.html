@@ -9909,31 +9909,6 @@ button,
                     console.log("[audio] Web Audio channel ready:", globalAudioCtx.state);
                 }
 
-                // Also arm a persistent HTMLMediaElement from the same user gesture.
-                // Once armed, real Kokoro WAV blobs can be played through the browser's
-                // native media pipeline after the asynchronous TTS request completes.
-                if (!globalNeuralAudio) {
-                    globalNeuralAudio = new Audio();
-                    globalNeuralAudio.preload = "auto";
-                    globalNeuralAudio.playsInline = true;
-                    globalNeuralAudio.volume = 1.0;
-                }
-                if (!neuralMediaArmed) {
-                    try {
-                        globalNeuralAudio.src = SAREMBOK_SILENT_WAV;
-                        await globalNeuralAudio.play();
-                        globalNeuralAudio.pause();
-                        globalNeuralAudio.currentTime = 0;
-                        neuralMediaArmed = true;
-                        console.log("[audio] Native media channel armed");
-                    } catch (mediaErr) {
-                        console.debug("[audio] Native media arm deferred:", mediaErr);
-                    }
-                }
-
-                if (window.speechSynthesis) {
-                    try { window.speechSynthesis.resume(); } catch (_) {}
-                }
                 return true;
             } catch (e) {
                 audioContextUnlocked = false;
@@ -10268,7 +10243,7 @@ button,
                 if (liveConversationActive) resumeRecognitionAfterSpeech(600);
             };
 
-            unlockAudioEngine();
+            void unlockAudioEngine();
 
             const profileKey = Object.prototype.hasOwnProperty.call(KOKORO_VOICE_MAP, selectedVoiceLang)
                 ? selectedVoiceLang : "gemini-vega";
@@ -10300,58 +10275,8 @@ button,
                         throw new Error("audio context is not running");
                     }
 
-                    // Prefer the persistent native media path after the browser has
-                    // been armed by a real user gesture. Web Audio remains the fallback.
-                    if (globalNeuralAudio && neuralMediaArmed) {
-                        if (activeNeuralAudio) {
-                            try { activeNeuralAudio.pause(); } catch (_) {}
-                            activeNeuralAudio = null;
-                        }
-                        const objectUrl = URL.createObjectURL(blob);
-                        const media = globalNeuralAudio;
-                        let stopped = false;
-                        const controller = {
-                            get currentTime() { return Number.isFinite(media.currentTime) ? media.currentTime : 0; },
-                            set currentTime(v) { try { media.currentTime = v || 0; } catch (_) {} },
-                            pause() {
-                                if (stopped) return;
-                                stopped = true;
-                                try { media.pause(); media.currentTime = 0; } catch (_) {}
-                                try { URL.revokeObjectURL(objectUrl); } catch (_) {}
-                            }
-                        };
-                        media.onended = () => {
-                            try { URL.revokeObjectURL(objectUrl); } catch (_) {}
-                            if (activeNeuralAudio === controller) activeNeuralAudio = null;
-                            if (window._activeSpeechAudio === controller) window._activeSpeechAudio = null;
-                            if (activeNeuralAudioSource === null) activeNeuralAudioSource = null;
-                            if (!stopped && currentTurnId === speechTurnId) finishSpeaking();
-                        };
-                        media.onerror = () => {
-                            try { URL.revokeObjectURL(objectUrl); } catch (_) {}
-                            if (activeNeuralAudio === controller) activeNeuralAudio = null;
-                            if (window._activeSpeechAudio === controller) window._activeSpeechAudio = null;
-                        };
-                        media.src = objectUrl;
-                        media.load();
-                        activeNeuralAudio = controller;
-                        window._activeSpeechAudio = controller;
-                        try {
-                            await media.play();
-                            console.info("[tts] Sarembok native Kokoro voice active:", kokoroVoice, "HTMLMedia");
-                            if (typeof window.setKokoroStatus === "function") {
-                                window.setKokoroStatus("Active · " + kokoroVoice + " · native browser audio", true);
-                            }
-                            return true;
-                        } catch (mediaPlayErr) {
-                            controller.pause();
-                            if (typeof window.setKokoroStatus === "function") {
-                                window.setKokoroStatus("Native audio retry · " + kokoroVoice, true);
-                            }
-                            console.warn("[tts] Native media playback rejected; using Web Audio fallback:", mediaPlayErr);
-                        }
-                    }
-
+                    // Use a fresh Web Audio source for every utterance. This avoids
+                    // browser media-element state carrying over from the previous response.
                     if (globalAudioCtx.state === "suspended") {
                         await globalAudioCtx.resume();
                     }
@@ -10401,16 +10326,27 @@ button,
                 };
 
                 try {
-                    // This is intentionally called before the async fetch. It primes the
-                    // Web Audio output while the originating user gesture is still active.
-                    unlockAudioEngine();
+                    // Await the same audio context used for playback. This is fast after
+                    // the first user interaction and prevents overlapping unlock calls.
+                    const audioReady = await unlockAudioEngine();
+                    if (!audioReady) throw new Error("audio device is not ready");
 
                     let sessionToken = window.browserSessionToken;
                     if (!sessionToken) sessionToken = await initSession();
                     if (!sessionToken) throw new Error("browser session unavailable");
 
+                    // Keep voice startup responsive. Narration uses the leading ~1400
+                    // characters, cut at a sentence boundary when possible.
+                    const spokenText = (() => {
+                        const max = 1400;
+                        if (clean.length <= max) return clean;
+                        const head = clean.slice(0, max);
+                        const cut = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "));
+                        return (cut > 400 ? head.slice(0, cut + 1) : head).trim();
+                    })();
+
                     const qs = new URLSearchParams({
-                        text: clean.slice(0, 4000),
+                        text: spokenText,
                         voice: kokoroVoice,
                         language: kokoroLanguage,
                         speed: String(kokoroSpeed)
@@ -10421,7 +10357,7 @@ button,
                         voice: kokoroVoice,
                         language: kokoroLanguage,
                         speed: kokoroSpeed,
-                        textLength: clean.slice(0, 4000).length,
+                        textLength: spokenText.length,
                         startedAt: new Date().toISOString()
                     };
 
