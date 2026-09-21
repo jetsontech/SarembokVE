@@ -116,10 +116,61 @@ print('visible UI text check: PASS')
 PY
 if [ $? -eq 0 ]; then pass 'frontend cockpit and visible-text integrity'; else fail 'frontend cockpit and visible-text integrity'; fi
 
-for path in /api/session; do
-  code="$(curl -sS -A "$BROWSER_UA" -o /dev/null -w '%{http_code}' --max-time 15 "$BASE$path" || true)"
-  [ "$code" = 200 ] && pass "$path HTTP 200" || fail "$path HTTP $code"
-done
+SESSION_FILE="$(mktemp)"
+SESSION_CODE="$(curl -sS -A "$BROWSER_UA" -o "$SESSION_FILE" -w '%{http_code}' --max-time 15 "$BASE/api/session" || true)"
+if [ "$SESSION_CODE" = 200 ]; then
+  pass '/api/session HTTP 200'
+else
+  fail "/api/session HTTP $SESSION_CODE"
+fi
+
+if [ "$SESSION_CODE" = 200 ]; then
+  SESSION_TOKEN="$(python3 - "$SESSION_FILE" <<'PY'
+import json,sys
+try:
+    data=json.load(open(sys.argv[1],encoding='utf-8'))
+    token=data.get('sessionToken')
+    if not token:
+        raise ValueError('missing sessionToken')
+    print(token)
+except Exception as exc:
+    print(f'session token parse failed: {exc}', file=sys.stderr)
+    raise SystemExit(1)
+PY
+  )" || SESSION_TOKEN=""
+  if [ -n "$SESSION_TOKEN" ]; then
+    TTS_FILE="$(mktemp --suffix=.wav)"
+    TTS_META="$(curl -sS -A "$BROWSER_UA" \
+      -H "Authorization: Bearer $SESSION_TOKEN" \
+      -H "Accept: audio/wav" \
+      -o "$TTS_FILE" \
+      -w '%{http_code} %{content_type} %{size_download}' \
+      --max-time 60 \
+      "$BASE/api/tts?text=Sarembok%20voice%20test.%20Kore%20is%20speaking.&voice=af_nicole&language=en-us&speed=0.95" || true)"
+    TTS_CODE="$(printf '%s' "$TTS_META" | awk '{print $1}')"
+    TTS_TYPE="$(printf '%s' "$TTS_META" | awk '{print $2}')"
+    TTS_BYTES="$(printf '%s' "$TTS_META" | awk '{print $3}')"
+    if [ "$TTS_CODE" = 200 ] && printf '%s' "$TTS_TYPE" | grep -qi '^audio/wav' && [ -n "$TTS_BYTES" ] && [ "$TTS_BYTES" -gt 128 ] && \
+       python3 - "$TTS_FILE" <<'PY'
+import sys,wave
+path=sys.argv[1]
+with wave.open(path,'rb') as wf:
+    assert wf.getnchannels() == 1
+    assert wf.getsampwidth() == 2
+    assert wf.getframerate() == 24000
+    assert wf.getnframes() > 0
+PY
+    then
+      pass "Kore Kokoro TTS audio valid ($TTS_BYTES bytes, 24 kHz PCM)"
+    else
+      fail "Kore Kokoro TTS failed: HTTP=$TTS_CODE type=$TTS_TYPE bytes=$TTS_BYTES"
+    fi
+    rm -f "$TTS_FILE"
+  else
+    fail 'could not parse browser session token'
+  fi
+fi
+rm -f "$SESSION_FILE"
 
 printf '\n===== RESULT =====\n'
 if [ "$FAIL" -eq 0 ]; then
