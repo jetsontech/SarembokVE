@@ -14175,7 +14175,7 @@ button,
   function refreshBrowserSession() {
     if (refreshPromise) return refreshPromise;
     clearBrowserSession();
-    refreshPromise = fetch("/session", {
+    refreshPromise = fetch("/api/session", {
       method: "GET",
       cache: "no-store",
       credentials: "same-origin",
