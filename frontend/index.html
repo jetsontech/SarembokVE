@@ -10225,6 +10225,10 @@ button,
         let activeNeuralAudio = null;
         let activeNeuralAudioSource = null;
         let activeTtsAbortController = null;
+        // Monotonic browser-side TTS generation. This is deliberately separate from
+        // currentTurnId because AI/RPC turns and audio playback have different lifecycles.
+        let ttsPlaybackGeneration = 0;
+        let activeTtsRequestId = 0;
 
 
         // SAREMBOK_PRODUCT_PRONUNCIATION_20260914
@@ -10286,8 +10290,13 @@ button,
             setAvatarSignal("SPEAKING");
             setAudioDucking(true);
 
+            // Each speakText invocation owns one playback generation. Older audio
+            // callbacks must never clean up or abort a newer request.
+            const speechRequestId = ++ttsPlaybackGeneration;
+
             let visemeInterval = null;
             const finishSpeaking = () => {
+                if (speechRequestId !== ttsPlaybackGeneration) return;
                 if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
                 isSpeakingTurn = false;
                 currentAssistantSpokenText = "";
@@ -10298,12 +10307,23 @@ button,
                 updateMorphMeters();
                 hideInterruptPill();
                 window._activeSpeechUtterance = null;
-                activeNeuralAudio = null;
-                activeNeuralAudioSource = null;
-                if (activeTtsAbortController) {
-                    try { activeTtsAbortController.abort(); } catch (_) {}
+
+                if (activeTtsRequestId === speechRequestId) {
+                    if (activeTtsAbortController) {
+                        try { activeTtsAbortController.abort(); } catch (_) {}
+                    }
                     activeTtsAbortController = null;
+                    activeTtsRequestId = 0;
                 }
+                if (activeNeuralAudio) {
+                    try { activeNeuralAudio.pause(); } catch (_) {}
+                    activeNeuralAudio = null;
+                }
+                if (activeNeuralAudioSource) {
+                    try { activeNeuralAudioSource.stop(0); } catch (_) {}
+                    activeNeuralAudioSource = null;
+                }
+
                 if (typeof onCompleteCallback === "function") {
                     try { onCompleteCallback(); } catch (callbackErr) { console.warn("[tts] completion callback error:", callbackErr); }
                 }
@@ -10330,7 +10350,7 @@ button,
                 const speechTurnId = currentTurnId;
                 const playKokoroBlob = async (blob) => {
                     if (!blob || !blob.size) throw new Error("neural TTS returned empty audio");
-                    if (currentTurnId !== speechTurnId) return false;
+                    if (speechRequestId !== ttsPlaybackGeneration) return false;
 
                     // Use the persistent, gesture-unlocked Web Audio context. The
                     // returned WAV is decoded into an AudioBuffer and played directly
@@ -10357,13 +10377,13 @@ button,
                     }
 
                     const arrayBuffer = await blob.arrayBuffer();
-                    if (currentTurnId !== speechTurnId) return false;
+                    if (speechRequestId !== ttsPlaybackGeneration) return false;
 
                     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
                     if (!audioBuffer || audioBuffer.length < 1) {
                         throw new Error("decoded neural TTS audio is empty");
                     }
-                    if (currentTurnId !== speechTurnId) return false;
+                    if (speechRequestId !== ttsPlaybackGeneration) return false;
 
                     const source = audioContext.createBufferSource();
                     source.buffer = audioBuffer;
@@ -10395,7 +10415,7 @@ button,
                         if (activeNeuralAudio === controller) activeNeuralAudio = null;
                         if (activeNeuralAudioSource === source) activeNeuralAudioSource = null;
                         if (window._activeSpeechAudio === controller) window._activeSpeechAudio = null;
-                        if (!stopped && currentTurnId === speechTurnId) {
+                        if (!stopped && speechRequestId === ttsPlaybackGeneration) {
                             finishSpeaking();
                         }
                     };
@@ -10407,7 +10427,7 @@ button,
                         throw new Error("Web Audio playback failed: " + (playError?.message || playError));
                     }
 
-                    if (currentTurnId !== speechTurnId) {
+                    if (speechRequestId !== ttsPlaybackGeneration) {
                         controller.pause();
                         return false;
                     }
@@ -10468,6 +10488,7 @@ button,
                     }
                     const ttsAbort = new AbortController();
                     activeTtsAbortController = ttsAbort;
+                    activeTtsRequestId = speechRequestId;
 
                     let response = await fetch("/api/tts?" + qs.toString(), {
                         method: "GET",
@@ -10507,12 +10528,13 @@ button,
                     await playKokoroBlob(audioBlob);
                 } catch (err) {
                     if (err && err.name === "AbortError") return;
+                    if (speechRequestId !== ttsPlaybackGeneration) return;
                     console.warn("[tts] Kokoro playback failed for " + kokoroVoice + ":", err);
                     if (typeof window.setKokoroStatus === "function") {
                         const reason = err && err.message ? " · " + err.message : "";
                         window.setKokoroStatus("Kokoro audio error · " + kokoroVoice + reason, false);
                     }
-                    if (currentTurnId === speechTurnId) finishSpeaking();
+                    finishSpeaking();
                 }
             })();
         }
@@ -12011,6 +12033,7 @@ button,
         function interruptSpeech() {
             console.log("[barge-in] interruptSpeech called.");
             currentTurnId++; // Invalidate active AI generation
+            ttsPlaybackGeneration++; // Invalidate every in-flight browser TTS operation
             liveSpeechQueue = [];
             isProcessingSpeechQueue = false;
             currentAssistantSpokenText = "";
@@ -12024,6 +12047,7 @@ button,
                 try { activeTtsAbortController.abort(); } catch (e) {}
                 activeTtsAbortController = null;
             }
+            activeTtsRequestId = 0;
             if (activeNeuralAudio) {
                 try { activeNeuralAudio.pause(); activeNeuralAudio.currentTime = 0; } catch (e) {}
                 activeNeuralAudio = null;
