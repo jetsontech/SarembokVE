@@ -9659,6 +9659,8 @@ button,
            ============================================================ */
         async function sendDirective(isBackground = false) {
             const _sh = document.getElementById('simple-chat-hero'); if (_sh) _sh.classList.remove('visible');
+            // Capture the browser's real user gesture before any RPC/network await.
+            void unlockAudioEngine();
             interruptSpeech();
             const input = document.getElementById("directive-input");
             const btn = document.getElementById("execute-button");
@@ -9939,37 +9941,39 @@ button,
         async function unlockAudioEngine() {
             try {
                 const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                if (AudioCtx) {
-                    if (!globalAudioCtx || globalAudioCtx.state === "closed") {
-                        globalAudioCtx = new AudioCtx();
-                    }
+                if (!AudioCtx) throw new Error("Web Audio API is unavailable");
 
-                    // Resume the real context and WAIT for it to become running.
-                    // Calling resume() without awaiting it can leave a race where the
-                    // subsequent TTS fetch completes before the output device is active.
-                    if (globalAudioCtx.state === "suspended") {
-                        await globalAudioCtx.resume();
-                    }
-
-                    if (globalAudioCtx.state !== "running") {
-                        throw new Error("AudioContext is " + globalAudioCtx.state);
-                    }
-
-                    // Keep one inaudible oscillator alive after the user gesture.
-                    // This prevents Chrome from suspending the AudioContext between replies.
-                    if (!audioKeepAliveSource) {
-                        audioKeepAliveSource = globalAudioCtx.createOscillator();
-                        audioKeepAliveGain = globalAudioCtx.createGain();
-                        audioKeepAliveGain.gain.value = 0.000001;
-                        audioKeepAliveSource.connect(audioKeepAliveGain);
-                        audioKeepAliveGain.connect(globalAudioCtx.destination);
-                        audioKeepAliveSource.start();
-                    }
-
-                    audioContextUnlocked = true;
-                    console.log("[audio] Web Audio channel ready and persistent:", globalAudioCtx.state);
+                if (!globalAudioCtx || globalAudioCtx.state === "closed") {
+                    globalAudioCtx = new AudioCtx();
+                    audioKeepAliveSource = null;
+                    audioKeepAliveGain = null;
                 }
 
+                // This function is intentionally called synchronously from real user
+                // gestures (send/test/mic/click). Await the resume operation so an
+                // async TTS fetch can never race a still-suspended output context.
+                if (globalAudioCtx.state === "suspended") {
+                    await globalAudioCtx.resume();
+                }
+                if (globalAudioCtx.state === "suspended") {
+                    await globalAudioCtx.resume();
+                }
+                if (globalAudioCtx.state !== "running") {
+                    throw new Error("AudioContext is " + globalAudioCtx.state);
+                }
+
+                // Keep the context alive between responses. The oscillator is connected
+                // through an effectively silent gain node and is never exposed as speech.
+                if (!audioKeepAliveSource) {
+                    audioKeepAliveSource = globalAudioCtx.createOscillator();
+                    audioKeepAliveGain = globalAudioCtx.createGain();
+                    audioKeepAliveGain.gain.value = 0.000001;
+                    audioKeepAliveSource.connect(audioKeepAliveGain);
+                    audioKeepAliveGain.connect(globalAudioCtx.destination);
+                    audioKeepAliveSource.start();
+                }
+
+                audioContextUnlocked = true;
                 return true;
             } catch (e) {
                 audioContextUnlocked = false;
@@ -9977,6 +9981,13 @@ button,
                 return false;
             }
         }
+
+        // Browser visibility changes can suspend Web Audio. Re-arm the same persistent
+        // context when the page becomes visible again; no new context is created unless
+        // the old one was actually closed.
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden && voiceEnabled) void unlockAudioEngine();
+        });
         window.addEventListener("touchstart", () => { void unlockAudioEngine(); }, { passive: true });
         window.addEventListener("touchend", () => { void unlockAudioEngine(); }, { passive: true });
         window.addEventListener("pointerdown", () => { void unlockAudioEngine(); }, { passive: true });
@@ -10199,6 +10210,7 @@ button,
 
         function toggleVoiceOutput() {
             voiceEnabled = !voiceEnabled;
+            if (voiceEnabled) void unlockAudioEngine();
             window.voiceEnabled = voiceEnabled;
             if (!voiceEnabled) {
                 if (window.speechSynthesis) {
@@ -13043,6 +13055,7 @@ button,
         }
 
         function startSimpleVoice() {
+            void unlockAudioEngine();
             enableLiveAudioNow();
             if (window.webkitSpeechRecognition || window.SpeechRecognition) {
                 toggleSpeechRecognition();
@@ -14380,6 +14393,8 @@ button,
 <script>
 // ==================== GLOBAL INPUT BAR ROUTING ====================
 function globalSendMessage(isBackground) {
+    // Capture the browser's real user gesture before routing into async chat/TTS.
+    void unlockAudioEngine();
     const field = document.getElementById('global-input-field');
     if (!field) return;
     const text = field.value.trim();
