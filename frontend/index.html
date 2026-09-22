@@ -9326,8 +9326,9 @@ button,
             };
 
             socket.onmessage = event => {
-                if (ws !== socket) return;
+                const isCurrentSocket = ws === socket;
                 if (typeof event.data !== "string") {
+                    if (!isCurrentSocket) return;
                     if (typeof window.__srbkTtsBinaryHandler === "function") {
                         void window.__srbkTtsBinaryHandler(event);
                     }
@@ -9371,6 +9372,16 @@ button,
             };
 
             socket.onclose = () => {
+                // Reject only requests that were actually sent over this socket.
+                // A valid response from an older socket must not be stranded merely
+                // because a reconnect has already installed a newer socket.
+                for (const [id, entry] of pending.entries()) {
+                    if (entry.socket === socket) {
+                        pending.delete(id);
+                        try { entry.rej(new Error("Runtime WebSocket connection lost")); } catch (_) {}
+                    }
+                }
+
                 if (ws !== socket) return;
 
                 console.warn("WebSocket closed. Reconnecting in 3s...");
@@ -9428,7 +9439,7 @@ button,
                 const admToken = sessionStorage.getItem("srbk_admin_token");
                 if (admToken) rpcParams.adminToken = admToken;
 
-                pending.set(id, { res: resolve, rej: reject, onDelta });
+                pending.set(id, { res: resolve, rej: reject, onDelta, socket });
 
                 try {
                     socket.send(JSON.stringify({
