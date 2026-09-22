@@ -9323,6 +9323,12 @@ button,
 
             socket.onmessage = event => {
                 if (ws !== socket) return;
+                if (typeof event.data !== "string") {
+                    if (typeof window.__srbkTtsBinaryHandler === "function") {
+                        void window.__srbkTtsBinaryHandler(event);
+                    }
+                    return;
+                }
                 try {
                     const data = JSON.parse(event.data);
 
@@ -10725,8 +10731,123 @@ button,
                     // then keep the complete response moving in order. The stream owns
                     // the audio element for the entire turn, so chunk boundaries cannot
                     // accidentally terminate playback after the first sentence.
-                    const getBlob = (index) => synthesizeChunk(speechChunks[index]);
-                    const streamed = await playKokoroStream(getBlob, speechChunks.length);
+                    const playKokoroRealtime = async (spokenText) => {
+                        if (!globalAudioCtx || globalAudioCtx.state !== "running") {
+                            throw new Error("Web Audio output context is not running");
+                        }
+
+                        const socket = ws;
+                        if (!socket || socket.readyState !== WebSocket.OPEN) {
+                            throw new Error("Runtime WebSocket unavailable");
+                        }
+
+                        let stopped = false;
+                        let nextAudioTime = globalAudioCtx.currentTime + 0.035;
+                        let started = false;
+                        const streamId = "tts-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+                        let resolveDone, rejectDone;
+                        const done = new Promise((resolve, reject) => {
+                            resolveDone = resolve; rejectDone = reject;
+                        });
+
+                        const previousBinaryHandler = window.__srbkTtsBinaryHandler;
+                        window.__srbkTtsBinaryHandler = async (event) => {
+                            if (stopped || typeof event.data === "string") return;
+                            try {
+                                const bytes = new Uint8Array(await event.data.arrayBuffer());
+                                if (bytes.byteLength < 2) return;
+                                const usable = bytes.byteLength - (bytes.byteLength % 2);
+                                const pcm = new Int16Array(bytes.buffer, bytes.byteOffset, usable / 2);
+                                const samples = new Float32Array(pcm.length);
+                                for (let n = 0; n < pcm.length; n++) samples[n] = pcm[n] / 32768;
+
+                                const buffer = globalAudioCtx.createBuffer(1, samples.length, 24000);
+                                buffer.copyToChannel(samples, 0);
+                                const source = globalAudioCtx.createBufferSource();
+                                source.buffer = buffer;
+                                source.connect(globalAudioCtx.destination);
+
+                                const startAt = Math.max(nextAudioTime, globalAudioCtx.currentTime + 0.015);
+                                nextAudioTime = startAt + buffer.duration;
+                                source.start(startAt);
+                                activeNeuralAudioSource = source;
+
+                                if (!started) {
+                                    started = true;
+                                    if (typeof window.setKokoroStatus === "function") {
+                                        window.setKokoroStatus("Active · " + kokoroVoice + " · realtime", true);
+                                    }
+                                }
+                                source.onended = () => {
+                                    if (activeNeuralAudioSource === source) activeNeuralAudioSource = null;
+                                    try { source.disconnect(); } catch (_) {}
+                                };
+                            } catch (err) {
+                                rejectDone(err);
+                            }
+                        };
+
+                        const controller = {
+                            pause() {
+                                stopped = true;
+                                try {
+                                    socket.send(JSON.stringify({
+                                        jsonrpc: "2.0",
+                                        id: "cancel-" + streamId,
+                                        method: "CancelActiveStream",
+                                        params: { streamId }
+                                    }));
+                                } catch (_) {}
+                            }
+                        };
+                        activeNeuralAudio = controller;
+                        window._activeSpeechAudio = controller;
+
+                        const listener = (event) => {
+                            if (typeof event.data !== "string") return;
+                            try {
+                                const msg = JSON.parse(event.data);
+                                const params = msg.params || {};
+                                if (params.id !== streamId) return;
+                                if (msg.method === "SynthesizeSpeechStream.done") resolveDone(true);
+                                else if (msg.method === "SynthesizeSpeechStream.error") rejectDone(new Error(params.error || "TTS stream failed"));
+                            } catch (_) {}
+                        };
+                        socket.addEventListener("message", listener);
+
+                        socket.send(JSON.stringify({
+                            jsonrpc: "2.0",
+                            id: streamId,
+                            method: "SynthesizeSpeechStream",
+                            params: {
+                                text: spokenText,
+                                voice: kokoroVoice,
+                                language: kokoroLanguage,
+                                speed: kokoroSpeed,
+                                sessionToken: window.browserSessionToken || sessionToken
+                            }
+                        }));
+
+                        try {
+                            await done;
+                            await new Promise(resolve => setTimeout(resolve, Math.max(0, (nextAudioTime - globalAudioCtx.currentTime) * 1000)));
+                            return !stopped;
+                        } finally {
+                            socket.removeEventListener("message", listener);
+                            if (window.__srbkTtsBinaryHandler === previousBinaryHandler) {
+                                window.__srbkTtsBinaryHandler = previousBinaryHandler;
+                            }
+                        }
+                    };
+
+                    const streamed = await (async () => {
+                        for (let index = 0; index < speechChunks.length; index++) {
+                            if (speechRequestId !== ttsPlaybackGeneration) return false;
+                            const ok = await playKokoroRealtime(speechChunks[index]);
+                            if (!ok) return false;
+                        }
+                        return true;
+                    })();
                     if (!streamed || speechRequestId !== ttsPlaybackGeneration) return;
 
                     finishSpeaking();
