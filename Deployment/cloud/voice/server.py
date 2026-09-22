@@ -134,7 +134,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
-        if path != "/tts":
+        if path not in ("/tts", "/tts/stream"):
             self._send_json(404, {"error": "not_found"})
             return
 
@@ -143,12 +143,47 @@ class Handler(BaseHTTPRequestHandler):
             if length <= 0 or length > 65536:
                 raise ValueError("invalid_request_size")
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
-            audio = synthesize(
-                payload.get("text", ""),
-                str(payload.get("voice", DEFAULT_VOICE)),
-                float(payload.get("speed", 0.95)),
-                str(payload.get("language", DEFAULT_LANG)),
-            )
+            text_value = payload.get("text", "")
+            voice = str(payload.get("voice", DEFAULT_VOICE))
+            speed = float(payload.get("speed", 0.95))
+            language = str(payload.get("language", DEFAULT_LANG))
+
+            if path == "/tts/stream":
+                clean = " ".join(str(text_value).split()).strip()
+                if not clean:
+                    raise ValueError("text is required")
+                if len(clean) > MAX_CHARS:
+                    raise ValueError(f"text exceeds {MAX_CHARS} character limit")
+
+                rate = min(1.5, max(0.6, speed))
+                pipeline = get_pipeline(language)
+
+                # Raw signed 16-bit PCM is intentionally used for the streaming
+                # transport. Each Kokoro generator yield is immediately available
+                # to the client; there is no full-response WAV assembly barrier.
+                self.send_response(200)
+                self.send_header("Content-Type", "audio/pcm;rate=24000;channels=1")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Sarembok-Audio-Format", "s16le")
+                self.send_header("X-Sarembok-Sample-Rate", str(SAMPLE_RATE))
+                self.end_headers()
+
+                import numpy as np
+                with synthesis_lock:
+                    for _, _, chunk in pipeline(clean, voice=voice.strip() or DEFAULT_VOICE, speed=rate):
+                        pcm = np.asarray(chunk, dtype=np.float32)
+                        pcm = np.clip(pcm, -1.0, 1.0)
+                        pcm16 = (pcm * 32767.0).astype("<i2", copy=False).tobytes()
+                        if pcm16:
+                            try:
+                                self.wfile.write(pcm16)
+                                self.wfile.flush()
+                            except BrokenPipeError:
+                                LOG.info("client disconnected during streaming TTS")
+                                return
+                return
+
+            audio = synthesize(text_value, voice, speed, language)
             self.send_response(200)
             self.send_header("Content-Type", "audio/wav")
             self.send_header("Content-Length", str(len(audio)))
@@ -157,9 +192,6 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 self.wfile.write(audio)
             except BrokenPipeError:
-                # Client interruption is normal during barge-in or replacement
-                # speech. The response was already successful; do not emit a
-                # second 400 response onto a closed socket.
                 LOG.info("client disconnected during audio delivery")
         except BrokenPipeError:
             LOG.info("client disconnected during TTS request")
