@@ -4297,7 +4297,7 @@ def validate_request(request: Any) -> tuple[str, dict[str, Any]]:
     if not isinstance(params, dict):
         raise ValueError("params must be an object")
     authenticate(request, method)
-    return ACTIVE_TTS_STREAMS: dict[str, dict[str, Any]] = {}
+    ACTIVE_TTS_STREAMS: dict[str, dict[str, Any]] = {}
 ACTIVE_TTS_STREAMS_LOCK_REAL = threading.RLock()
 
 def cancel_tts_stream(stream_id: str) -> bool:
