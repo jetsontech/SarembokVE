@@ -135,7 +135,7 @@ class ProviderRouter:
         'deepseek': 'deepseek/deepseek-chat',
         'qwen-2.5-coder': 'qwen/qwen-2.5-coder-32b-instruct',
         'code': 'qwen/qwen-2.5-coder-32b-instruct',
-        'gemini-flash': 'google/gemini-flash-1.5',
+        'gemini-flash': 'google/gemini-flash-latest',
     }
 
     def resolve_model_id(self, model_hint: str | None) -> str | None:
