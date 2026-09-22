@@ -9719,7 +9719,7 @@ button,
             let streamedText = "";
 
             try {
-                const selectedModel = document.getElementById("active-model-select")?.value || "gpt-4o-mini";
+                const selectedModel = document.getElementById("active-model-select")?.value || "gemini-flash";
                 const selectedLang = document.getElementById("active-language-select")?.value || "en";
                 const isAdm = Boolean(window.adminExecutionActive || text.startsWith("/admin") || text.startsWith("/exec") || text.startsWith("/sh") || text.startsWith("/py"));
                 const userKey = localStorage.getItem("sarembok_user_api_key") || "";
@@ -11495,7 +11495,7 @@ button,
         /* ============================================================
            ENHANCEMENT SUITE JAVASCRIPT HANDLERS
            ============================================================ */
-        let activeModel = localStorage.getItem("srbk_model") || "gpt-4o-mini";
+        let activeModel = localStorage.getItem("srbk_model") || "gemini-flash";
         let activeLang = localStorage.getItem("srbk_lang") || "en";
 
         function onModelChange(val) {
@@ -12613,7 +12613,7 @@ button,
             let sentenceBuffer = "";
 
             try {
-                const selectedModel = document.getElementById("active-model-select")?.value || "gpt-4o-mini";
+                const selectedModel = document.getElementById("active-model-select")?.value || "gemini-flash";
                 const selectedLang = document.getElementById("active-language-select")?.value || "en";
                 const userKey = localStorage.getItem("sarembok_user_api_key") || "";
                 const userModel = userKey ? (localStorage.getItem("sarembok_user_model") || selectedModel) : selectedModel;
