@@ -135,7 +135,7 @@ class ProviderRouter:
         'deepseek': 'deepseek/deepseek-chat',
         'qwen-2.5-coder': 'qwen/qwen-2.5-coder-32b-instruct',
         'code': 'qwen/qwen-2.5-coder-32b-instruct',
-        'gemini-flash': 'google/gemini-flash-latest',
+        'gemini-flash': 'google/gemini-3.8-flash',
     }
 
     def resolve_model_id(self, model_hint: str | None) -> str | None:
@@ -157,7 +157,7 @@ class ProviderRouter:
                 if dk.startswith("sk-or-"):
                     result['UserOpenRouter'] = ProviderSpec('UserOpenRouter', target_model or os.getenv('OPENROUTER_MODEL', 'openai/gpt-4o-mini'), 'openai', 'https://openrouter.ai/api/v1/chat/completions', dk)
                 elif dk.startswith("AIza"):
-                    result['UserGemini'] = ProviderSpec('UserGemini', target_model or os.getenv('GEMINI_MODEL', 'gemini-2.0-flash'), 'gemini', 'https://generativelanguage.googleapis.com/v1beta/interactions', dk)
+                    result['UserGemini'] = ProviderSpec('UserGemini', target_model or os.getenv('GEMINI_MODEL', 'gemini-3.8-flash'), 'gemini', 'https://generativelanguage.googleapis.com/v1beta/interactions', dk)
                 elif dk.startswith("gsk_"):
                     result['UserGroq'] = ProviderSpec('UserGroq', target_model or os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile'), 'openai', 'https://api.groq.com/openai/v1/chat/completions', dk)
                 elif dk.startswith("sk-"):
@@ -177,7 +177,7 @@ class ProviderRouter:
             result['Groq'] = ProviderSpec('Groq', os.getenv('GROQ_MODEL', 'openai/gpt-oss-120b'), 'openai', 'https://api.groq.com/openai/v1/chat/completions', groq)
         gemini = os.getenv('GEMINI_API_KEY', '').strip()
         if gemini:
-            result['Gemini'] = ProviderSpec('Gemini', os.getenv('GEMINI_MODEL', 'gemini-3.6-flash'), 'gemini', 'https://generativelanguage.googleapis.com/v1beta/interactions', gemini)
+            result['Gemini'] = ProviderSpec('Gemini', os.getenv('GEMINI_MODEL', 'gemini-3.8-flash'), 'gemini', 'https://generativelanguage.googleapis.com/v1beta/interactions', gemini)
         custom = os.getenv('LLM_ENDPOINT_URL', '').strip()
         if custom:
             result['Custom'] = ProviderSpec('Custom', os.getenv('LLM_MODEL', 'llama-3.1-8b'), 'openai', custom, os.getenv('LLM_API_KEY', 'dummy'))
