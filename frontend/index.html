@@ -9300,6 +9300,10 @@ button,
             let socket;
             try {
                 socket = new WebSocket(wsUrl);
+                // Normalize binary WebSocket delivery to ArrayBuffer. The TTS
+                // playback path accepts both ArrayBuffer and Blob, so browser
+                // implementations cannot silently fail on frame type.
+                socket.binaryType = "arraybuffer";
             } catch (wsErr) {
                 console.warn("WebSocket init error:", wsErr);
                 scheduleReconnect();
@@ -10803,7 +10807,16 @@ button,
                             if (stopped || typeof event.data === "string") return;
                             decodeChain = decodeChain.then(async () => {
                                 if (stopped) return;
-                                const bytes = new Uint8Array(await event.data.arrayBuffer());
+                                let bytes;
+                                if (event.data instanceof ArrayBuffer) {
+                                    bytes = new Uint8Array(event.data);
+                                } else if (event.data instanceof Blob) {
+                                    bytes = new Uint8Array(await event.data.arrayBuffer());
+                                } else if (event.data instanceof Uint8Array) {
+                                    bytes = event.data;
+                                } else {
+                                    throw new Error("Unsupported TTS binary frame type");
+                                }
                                 if (bytes.byteLength < 2) return;
                                 const usable = bytes.byteLength - (bytes.byteLength % 2);
                                 const duration = (usable / 2) / 24000;
@@ -14970,7 +14983,7 @@ document.getElementById('global-input-field').addEventListener('input', function
 <script>
 /* SAREMBOK_KOKORO_VOICE_UI_V1_RUNTIME */
 (function(){
-  const profiles=[{value:"gemini-vega",label:"Vega · af_heart · American Female"},{value:"ada-sovereign",label:"Ada · bf_emma · British Female"},{value:"gemini-aoede",label:"Aoede · af_bella · American Female"},{value:"gemini-kore",label:"Kore · af_nicole · American Female"},{value:"en-US",label:"Onyx · am_michael · American Male"},{value:"synth",label:"Sovereign Synth · am_adam · American Male"}];
+  const profiles=[{value:"gemini-vega",label:"Vega · af_heart · American Female"},{value:"ada-sovereign",label:"Ada · bf_emma · British Female"},{value:"gemini-aoede",label:"Aoede · af_bella · American Female"},{value:"gemini-kore",label:"Kore · af_kore · American Female"},{value:"en-US",label:"Onyx · am_michael · American Male"},{value:"synth",label:"Sovereign Synth · am_adam · American Male"}];
   window.setKokoroStatus=function(message,active){const s=document.getElementById("srbk-kokoro-status"),st=document.getElementById("srbk-kokoro-state"),d=document.getElementById("srbk-kokoro-dot");if(s)s.textContent=message;if(st)st.textContent=active?"ACTIVE":"READY";if(d)d.style.background=active?"#10b981":"#f59e0b";};
   window.toggleKokoroPanel=function(ev){if(ev)ev.stopPropagation();const p=document.getElementById("srbk-kokoro-panel");if(!p)return;p.classList.toggle("open");if(p.classList.contains("open"))sync();};
   window.testKokoroVoice=async function(){
