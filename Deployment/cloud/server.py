@@ -4466,6 +4466,7 @@ async def handler(websocket) -> None:
                     result = await asyncio.to_thread(dispatch, method, params)
                 response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}
                 LOG.info("rpc_success method=%s request_id=%s", method, request.get("id"))
+                await websocket.send(json.dumps(response, separators=(",", ":")))
             except PermissionError as exc:
                 response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32001, "message": str(exc)}}
                 LOG.warning("rpc_auth_failed peer=%s", peer)
