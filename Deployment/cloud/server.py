@@ -22,6 +22,7 @@ import urllib.request
 import urllib.error
 import urllib.parse
 import uuid
+import threading
 
 from runtime_authority import snapshot as runtime_authority_snapshot
 from runtime_response_composer import (
@@ -4296,16 +4297,29 @@ def validate_request(request: Any) -> tuple[str, dict[str, Any]]:
     if not isinstance(params, dict):
         raise ValueError("params must be an object")
     authenticate(request, method)
-    return method, params
+    return ACTIVE_TTS_STREAMS: dict[str, dict[str, Any]] = {}
+ACTIVE_TTS_STREAMS_LOCK_REAL = threading.RLock()
+
+def cancel_tts_stream(stream_id: str) -> bool:
+    with ACTIVE_TTS_STREAMS_LOCK_REAL:
+        state = ACTIVE_TTS_STREAMS.get(stream_id)
+        if not state:
+            return False
+        state["cancelled"] = True
+        response = state.get("response")
+        if response is not None:
+            try:
+                response.close()
+            except Exception:
+                pass
+        task = state.get("task")
+        if task is not None and not task.done():
+            task.cancel()
+        return True
 
 
 async def stream_speech_over_websocket(websocket, request_id: str, params: dict[str, Any]) -> None:
-    """Stream Kokoro PCM frames over the authenticated Sarembok WebSocket.
-
-    The voice container remains private. The runtime is the auth boundary and
-    transport multiplexer. PCM is forwarded as soon as Kokoro yields a segment;
-    the browser never waits for the entire WAV to be synthesized.
-    """
+    """Stream authenticated Kokoro PCM with independent cancellation."""
     text_value = str(params.get("text", "")).strip()
     voice = str(params.get("voice", os.getenv("SAREMBOK_VOICE_DEFAULT", "af_heart"))).strip()
     language = str(params.get("language", "en-us")).strip().lower() or "en-us"
@@ -4326,7 +4340,7 @@ async def stream_speech_over_websocket(websocket, request_id: str, params: dict[
     )
 
     loop = asyncio.get_running_loop()
-    queue: asyncio.Queue = asyncio.Queue(maxsize=8)
+    queue: asyncio.Queue = asyncio.Queue(maxsize=16)
     response_holder: dict[str, Any] = {}
     sentinel = object()
 
@@ -4334,15 +4348,30 @@ async def stream_speech_over_websocket(websocket, request_id: str, params: dict[
         try:
             with urllib.request.urlopen(req, timeout=VOICE_REQUEST_TIMEOUT_SECONDS) as resp:
                 response_holder["response"] = resp
+                with ACTIVE_TTS_STREAMS_LOCK_REAL:
+                    state = ACTIVE_TTS_STREAMS.get(request_id)
+                    if state is not None:
+                        state["response"] = resp
                 while True:
                     chunk = resp.read(32768)
                     if not chunk:
+                        break
+                    if ACTIVE_TTS_STREAMS.get(request_id, {}).get("cancelled"):
                         break
                     asyncio.run_coroutine_threadsafe(queue.put(chunk), loop).result()
         except Exception as exc:
             response_holder["error"] = exc
         finally:
-            asyncio.run_coroutine_threadsafe(queue.put(sentinel), loop).result()
+            try:
+                asyncio.run_coroutine_threadsafe(queue.put(sentinel), loop).result()
+            except Exception:
+                pass
+
+    state = {"cancelled": False, "response": None, "task": asyncio.current_task()}
+    with ACTIVE_TTS_STREAMS_LOCK_REAL:
+        if request_id in ACTIVE_TTS_STREAMS:
+            raise ValueError("duplicate_tts_stream_id")
+        ACTIVE_TTS_STREAMS[request_id] = state
 
     worker = asyncio.create_task(asyncio.to_thread(pump))
     try:
@@ -4355,8 +4384,12 @@ async def stream_speech_over_websocket(websocket, request_id: str, params: dict[
             item = await queue.get()
             if item is sentinel:
                 break
+            if state["cancelled"]:
+                return
             await websocket.send(item)
 
+        if state["cancelled"]:
+            return
         if "error" in response_holder:
             raise response_holder["error"]
 
@@ -4364,22 +4397,32 @@ async def stream_speech_over_websocket(websocket, request_id: str, params: dict[
             "method": "SynthesizeSpeechStream.done",
             "params": {"id": request_id}
         }, separators=(",", ":")))
+    except asyncio.CancelledError:
+        state["cancelled"] = True
+        raise
     finally:
-        if worker.done():
-            worker.exception()
-        else:
-            # Closing the upstream HTTP response releases a blocked read on
-            # client cancellation/barging-in without killing the runtime.
-            resp = response_holder.get("response")
-            if resp is not None:
-                try: resp.close()
-                except Exception: pass
+        state["cancelled"] = True if state.get("cancelled") else state.get("cancelled", False)
+        resp = response_holder.get("response")
+        if resp is not None:
+            try:
+                resp.close()
+            except Exception:
+                pass
+        if not worker.done():
             worker.cancel()
+            try:
+                await worker
+            except asyncio.CancelledError:
+                pass
+        with ACTIVE_TTS_STREAMS_LOCK_REAL:
+            ACTIVE_TTS_STREAMS.pop(request_id, None)
+ worker.cancel()
 
 
 async def handler(websocket) -> None:
     peer = getattr(websocket, "remote_address", None)
     LOG.info("connection_open peer=%s", peer)
+    stream_tasks: set[asyncio.Task] = set()
     try:
         async for raw in websocket:
             request: Any = None
@@ -4388,25 +4431,45 @@ async def handler(websocket) -> None:
                     raise ValueError("request_too_large")
                 request = json.loads(raw)
                 method, params = validate_request(request)
-                if method == "SynthesizeSpeechStream":
-                    stream_id = str(request.get("id", ""))
-                    await stream_speech_over_websocket(websocket, stream_id, params)
+
+                if method == "CancelActiveStream":
+                    target_id = str(params.get("streamId") or params.get("id") or "")
+                    cancelled = cancel_tts_stream(target_id) if target_id else False
+                    await websocket.send(json.dumps({
+                        "jsonrpc": "2.0",
+                        "id": request.get("id"),
+                        "result": {"cancelled": cancelled, "streamId": target_id}
+                    }, separators=(",", ":")))
                     continue
+
+                if method == "SynthesizeSpeechStream":
+                    stream_id = str(request.get("id", "")).strip()
+                    if not stream_id:
+                        raise ValueError("tts_stream_id_required")
+                    task = asyncio.create_task(stream_speech_over_websocket(websocket, stream_id, params))
+                    stream_tasks.add(task)
+                    task.add_done_callback(stream_tasks.discard)
+                    continue
+
                 async with get_db_lock():
-                    # Keep synchronous SQLite/provider I/O off the asyncio event loop.
                     result = await asyncio.to_thread(dispatch, method, params)
                 response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}
                 LOG.info("rpc_success method=%s request_id=%s", method, request.get("id"))
             except PermissionError as exc:
                 response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32001, "message": str(exc)}}
                 LOG.warning("rpc_auth_failed peer=%s", peer)
+                await websocket.send(json.dumps(response, separators=(",", ":")))
             except Exception as exc:
                 response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32000, "message": str(exc)}}
                 LOG.warning("rpc_error peer=%s error=%s", peer, exc)
-            await websocket.send(json.dumps(response, separators=(",", ":")))
+                await websocket.send(json.dumps(response, separators=(",", ":")))
     except websockets.exceptions.ConnectionClosed:
         pass
     finally:
+        for task in list(stream_tasks):
+            task.cancel()
+        if stream_tasks:
+            await asyncio.gather(*stream_tasks, return_exceptions=True)
         LOG.info("connection_close peer=%s", peer)
 
 
