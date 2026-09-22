@@ -10742,54 +10742,91 @@ button,
                         }
 
                         let stopped = false;
-                        let nextAudioTime = globalAudioCtx.currentTime + 0.035;
                         let started = false;
+                        let nextAudioTime = globalAudioCtx.currentTime;
+                        let bufferedSeconds = 0;
+                        let decodeChain = Promise.resolve();
+                        const pendingChunks = [];
+                        const sources = new Set();
                         const streamId = "tts-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+
                         let resolveDone, rejectDone;
                         const done = new Promise((resolve, reject) => {
-                            resolveDone = resolve; rejectDone = reject;
+                            resolveDone = resolve;
+                            rejectDone = reject;
                         });
 
+                        const scheduleChunk = (bytes) => {
+                            if (stopped || !bytes || bytes.byteLength < 2) return;
+                            const usable = bytes.byteLength - (bytes.byteLength % 2);
+                            const pcm = new Int16Array(bytes.buffer, bytes.byteOffset, usable / 2);
+                            const samples = new Float32Array(pcm.length);
+                            for (let n = 0; n < pcm.length; n++) {
+                                samples[n] = pcm[n] / 32768;
+                            }
+
+                            const buffer = globalAudioCtx.createBuffer(1, samples.length, 24000);
+                            buffer.copyToChannel(samples, 0);
+                            const source = globalAudioCtx.createBufferSource();
+                            source.buffer = buffer;
+                            source.connect(globalAudioCtx.destination);
+                            sources.add(source);
+
+                            const lead = started ? 0.025 : 0.075;
+                            const startAt = Math.max(nextAudioTime, globalAudioCtx.currentTime + lead);
+                            nextAudioTime = startAt + buffer.duration;
+                            bufferedSeconds = Math.max(0, bufferedSeconds - buffer.duration);
+                            source.start(startAt);
+
+                            if (!started) {
+                                started = true;
+                                if (typeof window.setKokoroStatus === "function") {
+                                    window.setKokoroStatus("Active · " + kokoroVoice + " · realtime", true);
+                                }
+                            }
+
+                            source.onended = () => {
+                                sources.delete(source);
+                                try { source.disconnect(); } catch (_) {}
+                            };
+                        };
+
+                        const flushPending = () => {
+                            if (stopped) return;
+                            while (pendingChunks.length) {
+                                scheduleChunk(pendingChunks.shift());
+                            }
+                        };
+
                         const previousBinaryHandler = window.__srbkTtsBinaryHandler;
-                        window.__srbkTtsBinaryHandler = async (event) => {
+                        window.__srbkTtsBinaryHandler = (event) => {
                             if (stopped || typeof event.data === "string") return;
-                            try {
+                            decodeChain = decodeChain.then(async () => {
+                                if (stopped) return;
                                 const bytes = new Uint8Array(await event.data.arrayBuffer());
                                 if (bytes.byteLength < 2) return;
                                 const usable = bytes.byteLength - (bytes.byteLength % 2);
-                                const pcm = new Int16Array(bytes.buffer, bytes.byteOffset, usable / 2);
-                                const samples = new Float32Array(pcm.length);
-                                for (let n = 0; n < pcm.length; n++) samples[n] = pcm[n] / 32768;
+                                const duration = (usable / 2) / 24000;
+                                pendingChunks.push(bytes);
+                                bufferedSeconds += duration;
 
-                                const buffer = globalAudioCtx.createBuffer(1, samples.length, 24000);
-                                buffer.copyToChannel(samples, 0);
-                                const source = globalAudioCtx.createBufferSource();
-                                source.buffer = buffer;
-                                source.connect(globalAudioCtx.destination);
-
-                                const startAt = Math.max(nextAudioTime, globalAudioCtx.currentTime + 0.015);
-                                nextAudioTime = startAt + buffer.duration;
-                                source.start(startAt);
-                                activeNeuralAudioSource = source;
-
-                                if (!started) {
-                                    started = true;
-                                    if (typeof window.setKokoroStatus === "function") {
-                                        window.setKokoroStatus("Active · " + kokoroVoice + " · realtime", true);
-                                    }
-                                }
-                                source.onended = () => {
-                                    if (activeNeuralAudioSource === source) activeNeuralAudioSource = null;
-                                    try { source.disconnect(); } catch (_) {}
-                                };
-                            } catch (err) {
-                                rejectDone(err);
-                            }
+                                // Hold an initial jitter buffer so small CPU/network
+                                // timing variations do not become audible gaps.
+                                if (!started && bufferedSeconds < 0.090) return;
+                                flushPending();
+                            }).catch(rejectDone);
                         };
 
                         const controller = {
                             pause() {
+                                if (stopped) return;
                                 stopped = true;
+                                pendingChunks.length = 0;
+                                for (const source of sources) {
+                                    try { source.stop(); } catch (_) {}
+                                    try { source.disconnect(); } catch (_) {}
+                                }
+                                sources.clear();
                                 try {
                                     socket.send(JSON.stringify({
                                         jsonrpc: "2.0",
@@ -10798,6 +10835,7 @@ button,
                                         params: { streamId }
                                     }));
                                 } catch (_) {}
+                                resolveDone(false);
                             }
                         };
                         activeNeuralAudio = controller;
@@ -10809,8 +10847,14 @@ button,
                                 const msg = JSON.parse(event.data);
                                 const params = msg.params || {};
                                 if (params.id !== streamId) return;
-                                if (msg.method === "SynthesizeSpeechStream.done") resolveDone(true);
-                                else if (msg.method === "SynthesizeSpeechStream.error") rejectDone(new Error(params.error || "TTS stream failed"));
+                                if (msg.method === "SynthesizeSpeechStream.done") {
+                                    decodeChain.then(() => {
+                                        flushPending();
+                                        resolveDone(true);
+                                    }).catch(rejectDone);
+                                } else if (msg.method === "SynthesizeSpeechStream.error") {
+                                    rejectDone(new Error(params.error || "TTS stream failed"));
+                                }
                             } catch (_) {}
                         };
                         socket.addEventListener("message", listener);
@@ -10829,7 +10873,8 @@ button,
                         }));
 
                         try {
-                            await done;
+                            const ok = await done;
+                            if (!ok) return false;
                             await new Promise(resolve => setTimeout(resolve, Math.max(0, (nextAudioTime - globalAudioCtx.currentTime) * 1000)));
                             return !stopped;
                         } finally {
