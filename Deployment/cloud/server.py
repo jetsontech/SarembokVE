@@ -59,6 +59,7 @@ BROWSER_SESSION_TTL_SECONDS = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_T
 BROWSER_ALLOWED_METHODS = {
     "SarembokChat",
     "SynthesizeSpeech",
+    "SynthesizeSpeechStream",
     "GetRuntimeInfo",
     "GetProviderMetrics",
     "BrowserNavigate",
@@ -4298,6 +4299,84 @@ def validate_request(request: Any) -> tuple[str, dict[str, Any]]:
     return method, params
 
 
+async def stream_speech_over_websocket(websocket, request_id: str, params: dict[str, Any]) -> None:
+    """Stream Kokoro PCM frames over the authenticated Sarembok WebSocket.
+
+    The voice container remains private. The runtime is the auth boundary and
+    transport multiplexer. PCM is forwarded as soon as Kokoro yields a segment;
+    the browser never waits for the entire WAV to be synthesized.
+    """
+    text_value = str(params.get("text", "")).strip()
+    voice = str(params.get("voice", os.getenv("SAREMBOK_VOICE_DEFAULT", "af_heart"))).strip()
+    language = str(params.get("language", "en-us")).strip().lower() or "en-us"
+    speed = min(1.5, max(0.6, float(params.get("speed", 0.95))))
+    if not text_value:
+        raise ValueError("text_required")
+    if len(text_value) > SAREMBOK_VOICE_MAX_CHARS:
+        raise ValueError("text_too_long")
+
+    payload = json.dumps({
+        "text": text_value, "voice": voice, "language": language, "speed": speed
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        f"{SAREMBOK_VOICE_URL}/tts/stream",
+        data=payload,
+        headers={"Content-Type": "application/json", "Accept": "audio/pcm"},
+        method="POST",
+    )
+
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue = asyncio.Queue(maxsize=8)
+    response_holder: dict[str, Any] = {}
+    sentinel = object()
+
+    def pump() -> None:
+        try:
+            with urllib.request.urlopen(req, timeout=VOICE_REQUEST_TIMEOUT_SECONDS) as resp:
+                response_holder["response"] = resp
+                while True:
+                    chunk = resp.read(32768)
+                    if not chunk:
+                        break
+                    asyncio.run_coroutine_threadsafe(queue.put(chunk), loop).result()
+        except Exception as exc:
+            response_holder["error"] = exc
+        finally:
+            asyncio.run_coroutine_threadsafe(queue.put(sentinel), loop).result()
+
+    worker = asyncio.create_task(asyncio.to_thread(pump))
+    try:
+        await websocket.send(json.dumps({
+            "method": "SynthesizeSpeechStream.started",
+            "params": {"id": request_id, "sampleRate": 24000, "format": "s16le"}
+        }, separators=(",", ":")))
+
+        while True:
+            item = await queue.get()
+            if item is sentinel:
+                break
+            await websocket.send(item)
+
+        if "error" in response_holder:
+            raise response_holder["error"]
+
+        await websocket.send(json.dumps({
+            "method": "SynthesizeSpeechStream.done",
+            "params": {"id": request_id}
+        }, separators=(",", ":")))
+    finally:
+        if worker.done():
+            worker.exception()
+        else:
+            # Closing the upstream HTTP response releases a blocked read on
+            # client cancellation/barging-in without killing the runtime.
+            resp = response_holder.get("response")
+            if resp is not None:
+                try: resp.close()
+                except Exception: pass
+            worker.cancel()
+
+
 async def handler(websocket) -> None:
     peer = getattr(websocket, "remote_address", None)
     LOG.info("connection_open peer=%s", peer)
@@ -4309,6 +4388,10 @@ async def handler(websocket) -> None:
                     raise ValueError("request_too_large")
                 request = json.loads(raw)
                 method, params = validate_request(request)
+                if method == "SynthesizeSpeechStream":
+                    stream_id = str(request.get("id", ""))
+                    await stream_speech_over_websocket(websocket, stream_id, params)
+                    continue
                 async with get_db_lock():
                     # Keep synchronous SQLite/provider I/O off the asyncio event loop.
                     result = await asyncio.to_thread(dispatch, method, params)
