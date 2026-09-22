@@ -9421,7 +9421,10 @@ button,
                 throw new Error("Runtime WebSocket unavailable");
             }
 
-            if (!window.browserSessionToken) {
+            // Browser sessions are intentionally short-lived and live in runtime
+            // memory. A runtime restart invalidates the page's previous token, so chat
+            // requests must obtain a fresh session before they are sent.
+            if (method === "SarembokChat" || !window.browserSessionToken) {
                 try {
                     await initSession();
                 } catch (_) {}
