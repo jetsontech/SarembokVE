@@ -6925,7 +6925,7 @@ button,
                             <option value="llama-3.3-70b">Llama 3.3 70B (Deep Reasoning)</option>
                             <option value="deepseek-v3">DeepSeek V3 (Advanced Synthesis)</option>
                             <option value="qwen-2.5-coder">Qwen 2.5 Coder (Code & Architecture)</option>
-                            <option value="gemini-flash">Gemini Flash (Massive Context)</option>
+                            <option value="gemini-flash">Gemini 3.8 Flash (Massive Context)</option>
                         </select>
                         <select class="cyber-select" id="active-language-select" onchange="onLanguageChange(this.value)" title="Language">
                             <option value="en">English (EN)</option>
@@ -9723,7 +9723,7 @@ button,
                 const selectedLang = document.getElementById("active-language-select")?.value || "en";
                 const isAdm = Boolean(window.adminExecutionActive || text.startsWith("/admin") || text.startsWith("/exec") || text.startsWith("/sh") || text.startsWith("/py"));
                 const userKey = localStorage.getItem("sarembok_user_api_key") || "";
-                const userModel = localStorage.getItem("sarembok_user_model") || selectedModel;
+                const userModel = userKey ? (localStorage.getItem("sarembok_user_model") || selectedModel) : selectedModel;
                 const result = await sendRPC(
                     "SarembokChat",
                     {
@@ -12616,7 +12616,7 @@ button,
                 const selectedModel = document.getElementById("active-model-select")?.value || "gpt-4o-mini";
                 const selectedLang = document.getElementById("active-language-select")?.value || "en";
                 const userKey = localStorage.getItem("sarembok_user_api_key") || "";
-                const userModel = localStorage.getItem("sarembok_user_model") || selectedModel;
+                const userModel = userKey ? (localStorage.getItem("sarembok_user_model") || selectedModel) : selectedModel;
 
                 const isAdm = Boolean(window.adminExecutionActive || cleanSpeech.startsWith("/admin") || cleanSpeech.startsWith("/exec") || cleanSpeech.startsWith("/sh") || cleanSpeech.startsWith("/py"));
                 const result = await sendRPC(
@@ -14109,6 +14109,7 @@ button,
                 showToast("API KEY & MODEL SAVED · FRONTIER MODE ACTIVE");
             } else {
                 localStorage.removeItem("sarembok_user_api_key");
+                localStorage.removeItem("sarembok_user_model");
                 showToast("NO KEY ENTERED · LOCAL SOVEREIGN MODE");
             }
             updateAiKeyHudBadge();
@@ -14117,6 +14118,7 @@ button,
 
         function clearUserAiKey() {
             localStorage.removeItem("sarembok_user_api_key");
+            localStorage.removeItem("sarembok_user_model");
             const keyInput = document.getElementById("user-ai-key-input");
             if (keyInput) keyInput.value = "";
             showToast("KEY REMOVED · RESET TO SOVEREIGN MODE");
