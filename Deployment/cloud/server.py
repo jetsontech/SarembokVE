@@ -37,7 +37,7 @@ from runtime_response_composer import (
     render_limitations,
     render_model_inventory,
 )
-from provider_router import ProviderRouter
+from provider_router import ProviderRouter, set_stream_callback, reset_stream_callback
 from capability_registry import CapabilityRegistry
 from structured_response import build_structured_response
 from datetime import datetime, timezone
@@ -4462,8 +4462,48 @@ async def handler(websocket) -> None:
                     task.add_done_callback(stream_tasks.discard)
                     continue
 
-                async with get_db_lock():
-                    result = await asyncio.to_thread(dispatch, method, params)
+                if method == "SarembokChat" and bool(params.get("stream", False)):
+                    # True end-to-end token streaming:
+                    # provider stream -> callback -> WebSocket delta -> browser.
+                    # The provider runs in a worker thread, so bridge its synchronous
+                    # callback back onto the event loop without blocking inference.
+                    loop = asyncio.get_running_loop()
+                    delta_queue: asyncio.Queue[str | None] = asyncio.Queue()
+
+                    async def _send_chat_deltas() -> None:
+                        while True:
+                            chunk = await delta_queue.get()
+                            if chunk is None:
+                                return
+                            await websocket.send(json.dumps({
+                                "jsonrpc": "2.0",
+                                "method": "SarembokChat.delta",
+                                "params": {
+                                    "id": request.get("id"),
+                                    "text": chunk,
+                                },
+                            }, separators=(",", ":")))
+
+                    def _on_delta(chunk: str) -> None:
+                        text_chunk = str(chunk or "")
+                        if text_chunk:
+                            loop.call_soon_threadsafe(delta_queue.put_nowait, text_chunk)
+
+                    delta_sender = asyncio.create_task(_send_chat_deltas())
+                    stream_token = set_stream_callback(_on_delta)
+                    try:
+                        # Keep SQLite protection around dispatch as before, while the
+                        # provider's network wait happens in the worker thread.
+                        async with get_db_lock():
+                            result = await asyncio.to_thread(dispatch, method, params)
+                    finally:
+                        reset_stream_callback(stream_token)
+                        await delta_queue.put(None)
+                        await delta_sender
+                else:
+                    async with get_db_lock():
+                        result = await asyncio.to_thread(dispatch, method, params)
+
                 response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}
                 LOG.info("rpc_success method=%s request_id=%s", method, request.get("id"))
                 await websocket.send(json.dumps(response, separators=(",", ":")))
