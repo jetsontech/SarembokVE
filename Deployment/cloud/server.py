@@ -4428,7 +4428,6 @@ async def stream_speech_over_websocket(websocket, request_id: str, params: dict[
                 pass
         with ACTIVE_TTS_STREAMS_LOCK_REAL:
             ACTIVE_TTS_STREAMS.pop(request_id, None)
- worker.cancel()
 
 
 async def handler(websocket) -> None:
