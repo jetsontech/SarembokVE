@@ -4400,6 +4400,16 @@ async def stream_speech_over_websocket(websocket, request_id: str, params: dict[
     except asyncio.CancelledError:
         state["cancelled"] = True
         raise
+    except Exception as exc:
+        if not state["cancelled"]:
+            try:
+                await websocket.send(json.dumps({
+                    "method": "SynthesizeSpeechStream.error",
+                    "params": {"id": request_id, "error": str(exc)}
+                }, separators=(",", ":")))
+            except Exception:
+                pass
+        raise
     finally:
         state["cancelled"] = True if state.get("cancelled") else state.get("cancelled", False)
         resp = response_holder.get("response")
