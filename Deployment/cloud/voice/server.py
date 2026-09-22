@@ -124,8 +124,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {
                 "engine": "kokoro",
                 "voices": [
-                    "af_heart", "af_bella", "af_nicole", "af_sarah", "af_sky",
-                    "am_adam", "am_michael",
+                    "af_heart", "af_bella", "af_nicole", "af_sarah", "af_sky", "af_aoede", "af_kore",
+                    "am_adam", "am_michael", "am_onyx",
                     "bf_emma", "bf_isabella", "bm_george", "bm_lewis",
                 ],
             })
