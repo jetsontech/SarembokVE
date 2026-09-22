@@ -181,8 +181,15 @@ class ProviderRouter:
         custom = os.getenv('LLM_ENDPOINT_URL', '').strip()
         if custom:
             result['Custom'] = ProviderSpec('Custom', os.getenv('LLM_MODEL', 'llama-3.1-8b'), 'openai', custom, os.getenv('LLM_API_KEY', 'dummy'))
-        order = [x.strip() for x in os.getenv('SAREMBOK_PROVIDER_ORDER', 'OpenRouter,Groq,Gemini,OpenAI,Custom').split(',') if x.strip()]
-        
+        order = [x.strip() for x in os.getenv('SAREMBOK_PROVIDER_ORDER', 'Gemini,OpenRouter,Groq,OpenAI,Custom').split(',') if x.strip()]
+
+        # Gemini 3.8 Flash is the latency-first native path. When it is explicitly
+        # requested, prefer Google's direct API even if an older deployment-level
+        # provider order still names OpenRouter first. If no Gemini key is configured,
+        # normal fallback ordering remains intact.
+        if target_model == 'google/gemini-3.8-flash':
+            order = ['Gemini'] + [x for x in order if x != 'Gemini']
+
         # Prioritize user-provided dynamic keys at top of dispatch chain
         user_keys = [k for k in result if k.startswith('User')]
         specs = [result[k] for k in user_keys]
