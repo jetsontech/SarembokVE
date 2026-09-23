@@ -9720,6 +9720,8 @@ button,
             const assistantBubble = createAssistantDialogue();
             const content = assistantBubble.querySelector(".srbk-content");
             let streamedText = "";
+            let speechBuffer = "";
+            let streamedSpeechStarted = false;
 
             try {
                 const selectedModel = document.getElementById("active-model-select")?.value || "gemini-flash";
@@ -9740,9 +9742,28 @@ button,
                     },
                     delta => {
                         if (myTurnId !== currentTurnId) return;
-                        streamedText += delta;
+                        const chunk = String(delta || "");
+                        streamedText += chunk;
                         content.innerHTML = md(enrichResponseOnClient(text, streamedText));
                         scrollDialogue();
+
+                        // Start neural voice from completed sentences while the LLM is
+                        // still generating. This removes the "wait for full answer"
+                        // behavior and creates natural text + speech overlap.
+                        if (voiceEnabled && !liveConversationActive && chunk) {
+                            speechBuffer += chunk;
+                            const sentencePattern = /([.!?])\s+/;
+                            let match;
+                            while ((match = sentencePattern.exec(speechBuffer))) {
+                                const end = match.index + 1;
+                                const sentence = speechBuffer.slice(0, end).trim();
+                                speechBuffer = speechBuffer.slice(end).trimStart();
+                                if (sentence) {
+                                    streamedSpeechStarted = true;
+                                    enqueueLiveSpeech(sentence);
+                                }
+                            }
+                        }
                     }
                 );
 
@@ -9793,8 +9814,13 @@ button,
                     content.appendChild(shotCard);
                 }
 
-                if (voiceEnabled && myTurnId === currentTurnId && !liveConversationActive && finalText) {
-                    enqueueLiveSpeech(finalText);
+                if (voiceEnabled && myTurnId === currentTurnId && !liveConversationActive) {
+                    if (streamedSpeechStarted) {
+                        if (speechBuffer.trim()) enqueueLiveSpeech(speechBuffer.trim());
+                    } else if (finalText) {
+                        // Non-streaming fallback: speak the complete answer.
+                        enqueueLiveSpeech(finalText);
+                    }
                 }
 
                 scrollDialogue();
