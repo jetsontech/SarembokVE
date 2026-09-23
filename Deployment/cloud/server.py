@@ -4609,10 +4609,20 @@ async def handler(websocket) -> None:
                     delta_sender = asyncio.create_task(_send_chat_deltas())
                     stream_token = set_stream_callback(_on_delta)
                     try:
-                        # Keep SQLite protection around dispatch as before, while the
-                        # provider's network wait happens in the worker thread.
-                        async with get_db_lock():
+                        # The fast conversational lane performs no pre-provider SQLite
+                        # work, so do not hold the global DB lock while waiting on Gemini.
+                        # Complex/tool-backed dialogue keeps the serialized DB path.
+                        prompt_hint = str(params.get("prompt") or params.get("message") or params.get("text") or "")
+                        fast_chat = _is_fast_conversational_turn(
+                            prompt_hint,
+                            image_frame=str(params.get("imageFrame") or params.get("image_frame") or params.get("frame") or "").strip() or None,
+                            admin=bool(params.get("admin", False)),
+                        )
+                        if fast_chat:
                             result = await asyncio.to_thread(dispatch, method, params)
+                        else:
+                            async with get_db_lock():
+                                result = await asyncio.to_thread(dispatch, method, params)
                     finally:
                         reset_stream_callback(stream_token)
                         await delta_queue.put(None)
