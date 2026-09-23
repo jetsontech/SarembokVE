@@ -6345,19 +6345,19 @@ button,
                     <span id="hud-voice-label">VOICE: ON</span>
                 </button>
                 <div id="srbk-kokoro-wrap">
-                    <button id="srbk-kokoro-btn" onclick="toggleKokoroPanel(event)" title="Kokoro Neural Voice"><span id="srbk-kokoro-dot"></span><span>KOKORO NEURAL</span></button>
+                    <button id="srbk-kokoro-btn" onclick="toggleKokoroPanel(event)" title="Kokoro Neural Voice"><span id="srbk-kokoro-dot"></span><span>KOKORO FALLBACK</span></button>
                     <div id="srbk-kokoro-panel" role="dialog" aria-label="Kokoro Neural Voice">
                         <div class="srbk-kokoro-kicker">SAREMBOK VOICE ENGINE</div>
-                        <div class="srbk-kokoro-title">KOKORO NEURAL</div>
+                        <div class="srbk-kokoro-title">KOKORO FALLBACK</div>
                         <div class="srbk-kokoro-grid">
                             <div class="srbk-kokoro-stat"><div class="srbk-kokoro-kicker">ENGINE</div><div class="srbk-kokoro-value">Kokoro</div></div>
                             <div class="srbk-kokoro-stat"><div class="srbk-kokoro-kicker">MODEL</div><div class="srbk-kokoro-value">Kokoro-82M</div></div>
                             <div class="srbk-kokoro-stat"><div class="srbk-kokoro-kicker">AUDIO</div><div class="srbk-kokoro-value">24 kHz PCM</div></div>
-                            <div class="srbk-kokoro-stat"><div class="srbk-kokoro-kicker">STATUS</div><div id="srbk-kokoro-state" class="srbk-kokoro-value">READY</div></div>
+                            <div class="srbk-kokoro-stat"><div class="srbk-kokoro-kicker">STATUS</div><div id="srbk-kokoro-state" class="srbk-kokoro-value">FALLBACK</div></div>
                         </div>
                         <select id="srbk-kokoro-select" aria-label="Kokoro voice"></select>
-                        <button id="srbk-kokoro-test" onclick="testKokoroVoice()">▶ TEST KOKORO VOICE</button>
-                        <div id="srbk-kokoro-status">Neural speech is the primary voice path. Browser speech is fallback only.</div>
+                        <button id="srbk-kokoro-test" onclick="testKokoroVoice()">▶ TEST FALLBACK VOICE</button>
+                        <div id="srbk-kokoro-status">Fallback neural speech only. Live conversation uses native Gemini Live audio.</div>
                     </div>
                 </div>
 
@@ -7001,7 +7001,7 @@ button,
                         <h1 class="simple-hero-title">Sarembok V E</h1>
                         <p class="simple-hero-sub">Sovereign multimodal intelligence · Duplex live voice, camera &amp; screen perception, dynamic skills, and creative generation.</p>
                         <div class="simple-starter-grid">
-                            <div class="simple-starter-card" onclick="startSimpleVoice()">
+                            <div class="simple-starter-card" onclick="startSarembokLiveVoice()">
                                 <div class="simple-starter-icon">🎙️</div>
                                 <div class="simple-starter-title">Spoken Conversation</div>
                                 <div class="simple-starter-desc">Talk hands-free in real time with instant voice interruption</div>
@@ -7041,7 +7041,7 @@ button,
                 </div>
 
                 <div class="dialogue-input-bar">
-                    <button class="dialogue-mic-btn" id="dialogue-mic-btn" onclick="toggleSpeechRecognition()" title="Voice Dictation (Speech-to-Text)">
+                    <button class="dialogue-mic-btn" id="dialogue-mic-btn" onclick="toggleLiveConversation()" title="Native Gemini Live conversation">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
                     </button>
                     <button class="dialogue-mic-btn" id="dialogue-camera-btn" onclick="captureVisionCameraFrame()" title="Camera Vision (Attach camera snapshot)" style="background:transparent; color:var(--cyan); border-color:rgba(0,240,255,0.3);">
@@ -15122,5 +15122,6 @@ document.getElementById('global-input-field').addEventListener('input', function
   document.addEventListener("DOMContentLoaded",sync);
 })();
 </script>
+    <script src="/live-voice.js?v=20260923-native-live"></script>
 </body>
 </html>
