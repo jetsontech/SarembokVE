@@ -203,6 +203,7 @@ def _auth_token_request(api_key: str, mode: str) -> dict[str, Any]:
         "liveConnectConstraints": {
             "model": f"models/{model}",
             "config": {
+                "sessionResumption": {},
                 "responseModalities": ["AUDIO"],
             },
         },
