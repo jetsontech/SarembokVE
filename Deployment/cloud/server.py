@@ -38,6 +38,7 @@ from runtime_response_composer import (
     render_model_inventory,
 )
 from provider_router import ProviderRouter, set_stream_callback, reset_stream_callback
+from live_voice import provision_ephemeral_token
 from capability_registry import CapabilityRegistry
 from structured_response import build_structured_response
 from datetime import datetime, timezone
@@ -59,6 +60,7 @@ VOICE_REQUEST_TIMEOUT_SECONDS = max(30, int(os.getenv("SAREMBOK_VOICE_REQUEST_TI
 BROWSER_SESSION_TTL_SECONDS = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_TTL_SECONDS", "3600")))
 BROWSER_ALLOWED_METHODS = {
     "SarembokChat",
+    "RecordLiveTurn",
     "SynthesizeSpeech",
     "SynthesizeSpeechStream",
     "GetRuntimeInfo",
@@ -2522,6 +2524,33 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         res["timestamp"] = now()
         return res
 
+    if method == "RecordLiveTurn":
+        session_id = str(params.get("sessionId", "default")).strip() or "default"
+        user_text = str(params.get("userText", "") or "").strip()
+        assistant_text = str(params.get("assistantText", "") or "").strip()
+        model = str(params.get("model", "gemini-3.8-live") or "gemini-3.8-live").strip()
+        if not user_text and not assistant_text:
+            return {"recorded": False, "reason": "empty_turn"}
+        _save_conversation(session_id, user_text, assistant_text)
+        store.event(
+            "sarembok-prime",
+            "LIVE_VOICE_TURN",
+            {
+                "sessionId": session_id,
+                "model": model,
+                "userChars": len(user_text),
+                "assistantChars": len(assistant_text),
+            },
+        )
+        return {
+            "recorded": True,
+            "sessionId": session_id,
+            "model": model,
+            "userChars": len(user_text),
+            "assistantChars": len(assistant_text),
+            "timestamp": now(),
+        }
+
     if method == "GetConversationHistory":
         session_id = str(params.get("sessionId", "default")).strip() or "default"
         limit = min(100, max(1, int(params.get("limit", 50))))
@@ -4658,7 +4687,7 @@ async def handler(websocket) -> None:
 def process_http_response(connection: Any, request: Any, response: Any) -> Any:
     path = getattr(request, "path", "") or ""
     path_only = urllib.parse.urlsplit(path).path
-    if path_only in ("/api/session", "/session"):
+    if path_only in ("/api/session", "/session", "/api/live/token"):
         response.headers["Content-Type"] = "application/json; charset=utf-8"
         response.headers["Cache-Control"] = "no-store"
     return response
@@ -4721,6 +4750,29 @@ async def process_http_request(connection: Any, request: Any) -> Any:
             ],
             body_bytes,
         )
+
+    if path_only == "/api/live/token":
+        # Native Gemini Live audio uses a short-lived, single-use token. The
+        # browser never receives Sarembok's long-lived Gemini API key.
+        auth_header = headers.get("Authorization", "") if hasattr(headers, "get") else ""
+        bearer = auth_header[7:].strip() if isinstance(auth_header, str) and auth_header.lower().startswith("bearer ") else ""
+        authorized = browser_session_valid(bearer) or (
+            AUTH_TOKEN and bearer and hmac.compare_digest(bearer, AUTH_TOKEN)
+        )
+        if not authorized:
+            return make_api_response(401, {"error": "authentication_required"})
+
+        parsed = urllib.parse.urlparse(path)
+        query = urllib.parse.parse_qs(parsed.query)
+        mode = str(query.get("mode", ["conversational"])[0]).strip().lower()
+        if mode not in {"conversational", "agentic"}:
+            return make_api_response(400, {"error": "invalid_live_mode"})
+        try:
+            token_data = await asyncio.to_thread(provision_ephemeral_token, mode)
+            return make_api_response(200, token_data)
+        except Exception as exc:
+            LOG.warning("gemini_live_token_failed mode=%s error=%s", mode, exc)
+            return make_api_response(503, {"error": "gemini_live_unavailable", "detail": str(exc)})
 
     if path_only == "/api/tts":
         # Neural TTS is deliberately behind the runtime session boundary.
