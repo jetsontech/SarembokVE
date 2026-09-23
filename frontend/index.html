@@ -9752,16 +9752,41 @@ button,
                         // behavior and creates natural text + speech overlap.
                         if (voiceEnabled && !liveConversationActive && chunk) {
                             speechBuffer += chunk;
-                            const sentencePattern = /([.!?])\s+/;
                             let match;
-                            while ((match = sentencePattern.exec(speechBuffer))) {
-                                const end = match.index + 1;
-                                const sentence = speechBuffer.slice(0, end).trim();
-                                speechBuffer = speechBuffer.slice(end).trimStart();
-                                if (sentence) {
-                                    streamedSpeechStarted = true;
-                                    enqueueLiveSpeech(sentence);
+
+                            // Flush on a completed sentence immediately. For prose
+                            // with long clauses (poems, technical narration, etc.),
+                            // also flush a mature comma/semicolon/colon/em-dash clause
+                            // so neural speech does not wait for an entire stanza.
+                            while (true) {
+                                const sentenceMatch = /([.!?])\s+/.exec(speechBuffer);
+                                if (sentenceMatch) {
+                                    const end = sentenceMatch.index + 1;
+                                    const unit = speechBuffer.slice(0, end).trim();
+                                    speechBuffer = speechBuffer.slice(end).trimStart();
+                                    if (unit) {
+                                        streamedSpeechStarted = true;
+                                        enqueueLiveSpeech(unit);
+                                    }
+                                    continue;
                                 }
+
+                                if (speechBuffer.length >= 90) {
+                                    const clauseMatches = [...speechBuffer.matchAll(/[,;:]\s+|—\s+/g)]
+                                        .map(m => ({ index: m.index, end: m.index + m[0].length }))
+                                        .filter(m => m.index >= 60 && m.index <= 175);
+                                    if (clauseMatches.length) {
+                                        const cut = clauseMatches[clauseMatches.length - 1].end;
+                                        const unit = speechBuffer.slice(0, cut).trim();
+                                        speechBuffer = speechBuffer.slice(cut).trimStart();
+                                        if (unit) {
+                                            streamedSpeechStarted = true;
+                                            enqueueLiveSpeech(unit);
+                                        }
+                                        continue;
+                                    }
+                                }
+                                break;
                             }
                         }
                     }
@@ -10624,28 +10649,27 @@ button,
                         const source = String(value || "").replace(/\s+/g, " ").trim();
                         if (!source) return [];
 
-                        // Sentence integrity is non-negotiable. Never hard-wrap a
-                        // sentence at a comma, word, or character limit.
+                        // Low-latency neural speech: preserve sentence meaning, but
+                        // never make the TTS engine wait on a long paragraph/stanza.
+                        // Clauses are capped so CPU Kokoro can synthesize the next unit
+                        // while the current unit is already being spoken.
                         const sentences = source.match(/[^.!?]+(?:[.!?]+(?=\s|$)|$)/g) || [source];
                         const chunks = [];
-                        let pending = "";
 
                         for (const raw of sentences) {
-                            const sentence = raw.trim();
-                            if (!sentence) continue;
-                            if (!pending) {
-                                pending = sentence;
-                                continue;
+                            let remaining = raw.trim();
+                            while (remaining.length > 190) {
+                                const candidates = [...remaining.matchAll(/[,;:]\s+|—\s+/g)]
+                                    .map(m => m.index + m[0].length)
+                                    .filter(index => index >= 75 && index <= 190);
+                                if (!candidates.length) break;
+                                const cut = candidates[candidates.length - 1];
+                                chunks.push(remaining.slice(0, cut).trim());
+                                remaining = remaining.slice(cut).trim();
                             }
-                            const combined = pending + " " + sentence;
-                            if (combined.length <= 420) {
-                                pending = combined;
-                            } else {
-                                chunks.push(pending);
-                                pending = sentence;
-                            }
+                            if (remaining) chunks.push(remaining);
                         }
-                        if (pending) chunks.push(pending);
+
                         return chunks.length ? chunks : [source];
                     };
 
@@ -10938,14 +10962,10 @@ button,
                         }
                     };
 
-                    const streamed = await (async () => {
-                        for (let index = 0; index < speechChunks.length; index++) {
-                            if (speechRequestId !== ttsPlaybackGeneration) return false;
-                            const ok = await playKokoroRealtime(speechChunks[index]);
-                            if (!ok) return false;
-                        }
-                        return true;
-                    })();
+                    const streamed = await playKokoroStream(
+                        (index) => synthesizeChunk(speechChunks[index]),
+                        speechChunks.length
+                    );
                     if (!streamed || speechRequestId !== ttsPlaybackGeneration) return;
 
                     finishSpeaking();
