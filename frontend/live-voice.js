@@ -15,6 +15,7 @@
     var nativeLiveActive = false;
     var nativeLiveStopping = false;
     var nativeLiveMode = "conversational";
+    var nativeLiveReconnecting = false;
     var nativeLiveConfig = null;
     var nativeLiveMediaStream = null;
     var nativeInputContext = null;
@@ -132,6 +133,16 @@
             btn.classList.toggle("active", nativeLiveActive);
             var label = btn.querySelector("span");
             if (label) label.textContent = nativeLiveActive ? "LIVE VOICE: ACTIVE" : "LIVE VOICE";
+        }
+
+        var modeButton = document.getElementById("live-mode-toggle-btn");
+        if (modeButton) {
+            modeButton.textContent =
+                nativeLiveMode === "agentic" ? "LIVE MODE: DEEP" : "LIVE MODE: FAST";
+            modeButton.title =
+                nativeLiveMode === "agentic"
+                    ? "Deep agentic Live is active. Tap to return to Fast."
+                    : "Fast conversational Live is active. Tap for Deep agentic Live.";
         }
 
         var mic = document.getElementById("dialogue-mic-btn");
@@ -713,7 +724,7 @@
             if (nativeLiveStopping) return;
 
             nativeSetupComplete = false;
-            if (nativeLiveActive && !nativeReconnectTimer) {
+            if (nativeLiveActive && !nativeLiveReconnecting && !nativeReconnectTimer) {
                 nativeReconnectTimer = setTimeout(function () {
                     nativeReconnectTimer = null;
                     void restartNativeLiveSession();
@@ -899,6 +910,7 @@
     async function restartNativeLiveSession() {
         if (!nativeLiveActive) return;
 
+        nativeLiveReconnecting = true;
         try {
             if (nativeLiveSocket) {
                 try {
@@ -917,10 +929,13 @@
                 "Refreshing native audio session…"
             );
         } catch (err) {
+            nativeLiveReconnecting = false;
             setNativeLiveStatus(
                 "LIVE RECONNECT FAILED",
                 String(err.message || err)
             );
+        } finally {
+            nativeLiveReconnecting = false;
         }
     }
 
@@ -984,6 +999,30 @@
         return startNativeLive(selectedMode);
     }
 
+    async function toggleSarembokLiveMode() {
+        var nextMode =
+            nativeLiveMode === "agentic" ? "conversational" : "agentic";
+        nativeLiveMode = nextMode;
+
+        var modeButton = document.getElementById("live-mode-toggle-btn");
+        if (modeButton) {
+            modeButton.textContent =
+                nextMode === "agentic" ? "LIVE MODE: DEEP" : "LIVE MODE: FAST";
+        }
+
+        if (nativeLiveActive) {
+            await stopNativeLive();
+            return startNativeLive(nextMode);
+        }
+
+        setNativeLiveStatus(
+            "LIVE VOICE",
+            nextMode === "agentic"
+                ? "Deep agentic Live selected · background reasoning"
+                : "Fast conversational Live selected · lowest-latency dialogue"
+        );
+    }
+
     function toggleNativeLiveConversation() {
         if (nativeLiveActive) return stopNativeLive();
         return startNativeLive("conversational");
@@ -1009,6 +1048,7 @@
         return startSarembokLiveVoice("agentic");
     };
     window.toggleNativeLiveConversation = toggleNativeLiveConversation;
+    window.toggleSarembokLiveMode = toggleSarembokLiveMode;
 
     // Override only the legacy public entry points. The old SpeechRecognition /
     // Kokoro functions remain available as fallback implementation code but are
@@ -1048,6 +1088,9 @@
             kokoroStatus.textContent =
                 "Fallback neural speech only. Live conversation uses native Gemini Live audio.";
         }
+
+        var legacyWakeWord = document.getElementById("wake-word-toggle-btn");
+        if (legacyWakeWord) legacyWakeWord.style.display = "none";
 
         var kokoroState = document.getElementById("srbk-kokoro-state");
         if (kokoroState) kokoroState.textContent = "FALLBACK";
