@@ -1025,12 +1025,12 @@
 
     function toggleNativeLiveConversation() {
         if (nativeLiveActive) return stopNativeLive();
-        return startNativeLive("conversational");
+        return startNativeLive(nativeLiveMode);
     }
 
     function handleNativeOrbClick() {
         if (!nativeLiveActive) {
-            return startNativeLive("conversational");
+            return startNativeLive(nativeLiveMode);
         }
 
         // Gemini Live VAD detects human speech and interrupts model audio. The
