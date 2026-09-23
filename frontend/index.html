@@ -10362,7 +10362,37 @@ button,
 
         // SAREMBOK_PRODUCT_PRONUNCIATION_20260914
         function normalizeSarembokSpeech(text) {
-            return String(text || "")
+            let speech = String(text || "");
+
+            // Kokoro on the current CPU deployment can mis-tokenize apostrophe
+            // contractions (for example "you'd" -> "you dee"). Expand common
+            // English contractions in the speech layer only; the visible response
+            // remains unchanged.
+            const contractions = [
+                [/\byou'd\b/gi, "you would"], [/\byou'll\b/gi, "you will"], [/\byou're\b/gi, "you are"],
+                [/\byou've\b/gi, "you have"], [/\byour\b/gi, "your"],
+                [/\bwe'd\b/gi, "we would"], [/\bwe'll\b/gi, "we will"], [/\bwe're\b/gi, "we are"], [/\bwe've\b/gi, "we have"],
+                [/\bthey'd\b/gi, "they would"], [/\bthey'll\b/gi, "they will"], [/\bthey're\b/gi, "they are"], [/\bthey've\b/gi, "they have"],
+                [/\bI'd\b/g, "I would"], [/\bI'll\b/g, "I will"], [/\bI'm\b/g, "I am"], [/\bI've\b/g, "I have"],
+                [/\bhe'd\b/gi, "he would"], [/\bhe'll\b/gi, "he will"], [/\bhe's\b/gi, "he is"],
+                [/\bshe'd\b/gi, "she would"], [/\bshe'll\b/gi, "she will"], [/\bshe's\b/gi, "she is"],
+                [/\bit'd\b/gi, "it would"], [/\bit'll\b/gi, "it will"], [/\bit's\b/gi, "it is"],
+                [/\bthat's\b/gi, "that is"], [/\bthat'd\b/gi, "that would"], [/\bthat'll\b/gi, "that will"],
+                [/\bwhat's\b/gi, "what is"], [/\bwhat'd\b/gi, "what would"], [/\bwhat'll\b/gi, "what will"],
+                [/\bwho's\b/gi, "who is"], [/\bwho'd\b/gi, "who would"], [/\bwho'll\b/gi, "who will"],
+                [/\bwhere's\b/gi, "where is"], [/\bwhen's\b/gi, "when is"], [/\bwhy's\b/gi, "why is"], [/\bhow's\b/gi, "how is"],
+                [/\bdon't\b/gi, "do not"], [/\bdoesn't\b/gi, "does not"], [/\bdidn't\b/gi, "did not"],
+                [/\bisn't\b/gi, "is not"], [/\baren't\b/gi, "are not"], [/\bwasn't\b/gi, "was not"], [/\bweren't\b/gi, "were not"],
+                [/\bcan't\b/gi, "cannot"], [/\bcouldn't\b/gi, "could not"], [/\bwon't\b/gi, "will not"], [/\bwouldn't\b/gi, "would not"],
+                [/\bshouldn't\b/gi, "should not"], [/\bmustn't\b/gi, "must not"], [/\bhaven't\b/gi, "have not"], [/\bhasn't\b/gi, "has not"], [/\bhadn't\b/gi, "had not"],
+                [/\blet's\b/gi, "let us"], [/\bthere's\b/gi, "there is"], [/\bhere's\b/gi, "here is"],
+                [/\bn't\b/gi, " not"], [/\b'cause\b/gi, "because"]
+            ];
+            for (const [pattern, replacement] of contractions) {
+                speech = speech.replace(pattern, replacement);
+            }
+
+            return speech
                 // Brand pronunciation
                 .replace(/\bSarembok\s*VE\b/gi, "Sarembok V E")
                 .replace(/\bSarembokVE\b/gi, "Sarembok V E")
