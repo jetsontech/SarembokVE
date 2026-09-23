@@ -417,10 +417,15 @@
                 }
             }
 
+            var responseBody = { result: result };
+            if (nativeLiveMode !== "agentic") {
+                responseBody.scheduling = "WHEN_IDLE";
+            }
+
             responses.push({
                 id: String(call.id || ""),
                 name: name,
-                response: result
+                response: responseBody
             });
         }
 
@@ -453,6 +458,23 @@
             );
             logNativeLive("native audio session established", "emerald");
             return;
+        }
+
+        var interactionStatus =
+            message.interactionStatus ||
+            serverContent.interactionStatus ||
+            "";
+
+        if (interactionStatus === "IN_PROGRESS") {
+            setNativeLiveStatus(
+                "WORKING (GEMINI LIVE)",
+                "Sarembok is working in the background"
+            );
+        } else if (interactionStatus === "IDLE") {
+            setNativeLiveStatus(
+                "LISTENING (GEMINI LIVE)",
+                "Native audio-to-audio conversation · speak naturally"
+            );
         }
 
         if (toolCall.functionCalls && toolCall.functionCalls.length) {
@@ -531,27 +553,37 @@
         }
 
         if (serverContent.turnComplete) {
-            var completedUser = nativeTurnUserText;
-            var completedAssistant = nativeTurnAssistantText;
+            // Standard Live uses turnComplete as the idle boundary. Extended
+            // Thinking can emit turnComplete while interactionStatus remains
+            // IN_PROGRESS because background reasoning/tool work continues.
+            var extendedStillWorking =
+                nativeLiveMode === "agentic" &&
+                interactionStatus &&
+                interactionStatus !== "IDLE";
 
-            if (completedUser || completedAssistant) {
-                nativeHistory.push({
-                    user: completedUser,
-                    assistant: completedAssistant
-                });
-                if (nativeHistory.length > 8) nativeHistory.shift();
+            if (!extendedStillWorking) {
+                var completedUser = nativeTurnUserText;
+                var completedAssistant = nativeTurnAssistantText;
+
+                if (completedUser || completedAssistant) {
+                    nativeHistory.push({
+                        user: completedUser,
+                        assistant: completedAssistant
+                    });
+                    if (nativeHistory.length > 8) nativeHistory.shift();
+                }
+
+                void persistNativeTurn();
+
+                resetNativeTurn();
+                setNativeLiveStatus(
+                    "LISTENING (GEMINI LIVE)",
+                    "Native audio-to-audio conversation · speak naturally"
+                );
+                try {
+                    if (typeof setAudioDucking === "function") setAudioDucking(false);
+                } catch (_) {}
             }
-
-            void persistNativeTurn();
-
-            resetNativeTurn();
-            setNativeLiveStatus(
-                "LISTENING (GEMINI LIVE)",
-                "Native audio-to-audio conversation · speak naturally"
-            );
-            try {
-                if (typeof setAudioDucking === "function") setAudioDucking(false);
-            } catch (_) {}
         }
 
         if (goAway && nativeLiveActive) {
@@ -636,10 +668,18 @@
 
         nativeLiveSocket.onopen = function () {
             var setup = tokenData.setup || {};
+            var generationConfig = Object.assign(
+                {},
+                setup.generationConfig || {}
+            );
+            if (setup.thinkingConfig) {
+                generationConfig.thinkingConfig = setup.thinkingConfig;
+            }
+
             var setupMessage = {
                 setup: {
                     model: "models/" + tokenData.model,
-                    generationConfig: setup.generationConfig,
+                    generationConfig: generationConfig,
                     systemInstruction: setup.systemInstruction,
                     tools: setup.tools,
                     realtimeInputConfig: setup.realtimeInputConfig,
@@ -649,10 +689,6 @@
                     historyConfig: setup.historyConfig
                 }
             };
-
-            if (setup.thinkingConfig) {
-                setupMessage.setup.thinkingConfig = setup.thinkingConfig;
-            }
 
             nativeLiveSocket.send(JSON.stringify(setupMessage));
         };
