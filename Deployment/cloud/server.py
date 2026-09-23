@@ -130,6 +130,49 @@ ADMIN_ALLOWED_PASSCODES = {
 ADMIN_TOKENS: set[str] = set()
 USER_SESSIONS: dict[str, dict[str, Any]] = {}
 
+# Fast conversational lane: keeps recent turns in memory so ordinary dialogue
+# does not wait on SQLite reads before the first model token.
+FAST_CHAT_HISTORY: dict[str, list[dict[str, str]]] = {}
+FAST_CHAT_HISTORY_LOCK = threading.RLock()
+FAST_CHAT_MAX_TURNS = 8
+
+FAST_LANE_BLOCKERS = (
+    "latest", "news", "headline", "weather", "stock", "price", "crypto",
+    "research", "search", "browse", "look up", "find out", "current event",
+    "what happened", "happening", "today", "yesterday", "this week",
+    "this month", "breaking", "election", "president", "market",
+    "create ", "spawn ", "build ", "deploy ", "execute ", "run ",
+    "remember", "store memory", "save ", "forget ", "delete ",
+    "play ", "watch ", "show ", "stream ", "listen to ", "youtube",
+    "screenshot", "render ", "browser", "code", "program", "script",
+    "architecture", "api ", "docker", "linux", "gpu", "worker",
+    "task", "agent", "compute", "generate image", "image",
+    "/admin", "/exec", "/sh", "/py",
+)
+
+def _is_fast_conversational_turn(prompt: str, image_frame: str | None = None, admin: bool = False) -> bool:
+    if admin or image_frame:
+        return False
+    text = (prompt or "").strip().lower()
+    if not text or len(text) > 400:
+        return False
+    return not any(marker in text for marker in FAST_LANE_BLOCKERS)
+
+def _get_fast_chat_history(session_id: str) -> list[dict[str, str]]:
+    sid = session_id or "sess_main"
+    with FAST_CHAT_HISTORY_LOCK:
+        return list(FAST_CHAT_HISTORY.get(sid, []))[-FAST_CHAT_MAX_TURNS:]
+
+def _record_fast_chat_turn(session_id: str, prompt: str, reply: str) -> None:
+    sid = session_id or "sess_main"
+    with FAST_CHAT_HISTORY_LOCK:
+        history = FAST_CHAT_HISTORY.setdefault(sid, [])
+        history.extend([
+            {"role": "user", "content": str(prompt or "").strip()},
+            {"role": "assistant", "content": str(reply or "").strip()},
+        ])
+        del history[:-FAST_CHAT_MAX_TURNS]
+
 
 import base64
 try:
@@ -1980,6 +2023,56 @@ def sarembok_process_dialogue(
             "action": None,
             "timestamp": now()
         }
+
+    # Fast conversational lane.
+    # Ordinary dialogue should not wait on runtime inventory, SQLite history,
+    # memory recall, or real-time enrichment before Gemini can emit token 1.
+    if _is_fast_conversational_turn(prompt_clean, image_frame=image_frame, admin=is_admin):
+        fast_history = _get_fast_chat_history(session_id)
+        fast_system = (
+            "You are Sarembok VE, a natural conversational AI assistant. "
+            "Respond directly to the user's message with a warm, concise, human conversational style. "
+            "Do not describe internal system architecture unless asked. "
+            "For ordinary conversation, prefer a short answer of 1-4 sentences and get to the point immediately."
+        )
+        fast_messages = [{"role": "system", "content": fast_system}, *fast_history, {"role": "user", "content": prompt_clean}]
+        try:
+            provider_result = PROVIDER_ROUTER.generate(
+                fast_system,
+                prompt_clean,
+                fast_messages,
+                requested_model=model,
+                dynamic_key=api_key,
+            )
+            reply = _enrich_multimodal_reply(prompt_clean, provider_result.text).strip()
+            _record_fast_chat_turn(session_id, prompt_clean, reply)
+            return {
+                "response": reply,
+                "audioText": reply,
+                "source": provider_result.provider,
+                "model": provider_result.model,
+                "action": None,
+                "structuredResponse": build_structured_response(
+                    reply,
+                    provider=provider_result.provider,
+                    model=provider_result.model,
+                    latency_ms=provider_result.latency_ms,
+                ),
+                "metadata": {
+                    "provider": provider_result.provider,
+                    "model": provider_result.model,
+                    "latency_ms": provider_result.latency_ms,
+                    "provider_api": provider_result.api,
+                    "usage": provider_result.usage,
+                    "latencyLane": "fast_conversational",
+                },
+                "_deferPersistence": True,
+                "_persistSessionId": session_id,
+                "_persistPrompt": prompt_clean,
+                "_persistReply": reply,
+            }
+        except Exception as exc:
+            LOG.info("fast_conversational_lane_fallback error=%s", exc)
 
     # 5. Build context from real system state
     conv_rows = store.db.execute(
@@ -4430,6 +4523,30 @@ async def stream_speech_over_websocket(websocket, request_id: str, params: dict[
             ACTIVE_TTS_STREAMS.pop(request_id, None)
 
 
+async def _persist_deferred_chat(result: dict[str, Any]) -> None:
+    session_id = str(result.pop("_persistSessionId", "default") or "default")
+    prompt = str(result.pop("_persistPrompt", "") or "")
+    reply = str(result.pop("_persistReply", "") or "")
+    result.pop("_deferPersistence", None)
+    if not prompt or not reply:
+        return
+    try:
+        async with get_db_lock():
+            await asyncio.to_thread(_save_conversation, session_id, prompt, reply)
+            await asyncio.to_thread(
+                store.event,
+                "sarembok-prime",
+                "CHAT_RESPONSE",
+                {
+                    "prompt": prompt[:200],
+                    "model": result.get("model"),
+                    "provider": result.get("source"),
+                },
+            )
+    except Exception as exc:
+        LOG.warning("deferred chat persistence failed: %s", exc)
+
+
 async def handler(websocket) -> None:
     peer = getattr(websocket, "remote_address", None)
     LOG.info("connection_open peer=%s", peer)
@@ -4504,9 +4621,12 @@ async def handler(websocket) -> None:
                     async with get_db_lock():
                         result = await asyncio.to_thread(dispatch, method, params)
 
+                defer_persistence = isinstance(result, dict) and bool(result.get("_deferPersistence"))
                 response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}
                 LOG.info("rpc_success method=%s request_id=%s", method, request.get("id"))
                 await websocket.send(json.dumps(response, separators=(",", ":")))
+                if defer_persistence:
+                    asyncio.create_task(_persist_deferred_chat(result))
             except PermissionError as exc:
                 response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32001, "message": str(exc)}}
                 LOG.warning("rpc_auth_failed peer=%s", peer)
