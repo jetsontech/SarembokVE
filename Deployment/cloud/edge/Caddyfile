@@ -20,6 +20,12 @@ sarembok.com, www.sarembok.com {
 
     # Authenticated neural TTS endpoint. Runtime validates the short-lived
     # browser session before proxying to the private Kokoro service.
+    # Native Gemini Live ephemeral-token broker. Keep this before the
+    # catch-all /api/* rejection below.
+    handle /api/live/token {
+        reverse_proxy sarembok-runtime:9000
+    }
+
     handle /api/tts {
         reverse_proxy sarembok-runtime:9000
     }
