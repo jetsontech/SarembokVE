@@ -22,6 +22,7 @@
     var nativeMicSource = null;
     var nativeInputWorklet = null;
     var nativeWorkletUrl = null;
+    var nativeWorkletLoaded = false;
     var nativeOutputSources = new Set();
     var nativeNextAudioTime = 0;
     var nativeSetupComplete = false;
@@ -618,13 +619,10 @@
             nativeWorkletUrl = URL.createObjectURL(blob);
         }
 
-        if (!nativeInputWorklet) {
+        if (!nativeWorkletLoaded) {
             await nativeInputContext.audioWorklet.addModule(nativeWorkletUrl);
+            nativeWorkletLoaded = true;
         }
-    }
-
-    function startNativeInputPipeline() {
-        if (!nativeInputContext || !nativeNativeMediaStream) return;
     }
 
     async function connectNativeGemini(tokenData) {
