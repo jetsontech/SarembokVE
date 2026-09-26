@@ -743,6 +743,8 @@
                 if (r.ok) {
                     const data = await r.json();
                     sessionToken = data.token || data.sessionToken || data.browserSessionToken;
+                    window.sessionToken = sessionToken;
+                    window.browserSessionToken = sessionToken;
                     return sessionToken;
                 }
             } catch(err) {
