@@ -3,8 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
-    <meta name="sarembok-theme" content="SAREMBOK_THEME_CONTROL_V1_20260916">
-    <meta name="sarembok-light-theme" content="SAREMBOK_LIGHT_THEME_V3_ACTIVE_20260916">
     <title>SAREMBOKVE · AI-NATIVE COMPUTING ENVIRONMENT</title>
     <meta name="description" content="SarembokVE is an AI-native computing environment and sovereign control plane for agents, persistent memory, tool execution, research, orchestration, and distributed compute.">
 
@@ -6186,33 +6184,6 @@ button,
 </script>
 
 <script>
-/* SAREMBOK_THEME_RUNTIME_V3_20260916 */
-(function () {
-    function applyTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        try { localStorage.setItem('sarembok-theme', theme); } catch (_) {}
-        var b = document.getElementById('srbk-theme-switch');
-        if (b) b.textContent = theme === 'light' ? 'DARK' : 'LIGHT';
-    }
-    var saved = null;
-    try { saved = localStorage.getItem('sarembok-theme'); } catch (_) {}
-    applyTheme(saved === 'dark' ? 'dark' : 'light');
-    function mount() {
-        if (document.getElementById('srbk-theme-switch')) return;
-        var b = document.createElement('button');
-        b.id = 'srbk-theme-switch';
-        b.className = 'srbk-theme-switch';
-        b.type = 'button';
-        b.setAttribute('aria-label', 'Toggle light and dark theme');
-        b.addEventListener('click', function () {
-            applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
-        });
-        document.body.appendChild(b);
-        applyTheme(document.documentElement.getAttribute('data-theme') || 'light');
-    }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, {once:true});
-    else mount();
-})();
 </script>
 
 </head>
@@ -6269,13 +6240,7 @@ button,
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                     <div>
                         <div class="hud-badge-kicker">SYSTEM</div>
-<!-- SAREMBOK_THEME_CONTROL_V1_20260916 -->
-<button id="srbk-theme-toggle" class="srbk-theme-toggle" type="button" aria-label="Switch color theme" title="Switch color theme">
-  <svg id="srbk-theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>
-  <span id="srbk-theme-label" class="srbk-theme-label">LIGHT</span>
-</button>
-
-                        <div class="hud-badge-val" id="hud-system-status">NOMINAL</div>
+<div class="hud-badge-val" id="hud-system-status">NOMINAL</div>
                     </div>
                 </div>
 
@@ -15022,38 +14987,6 @@ document.getElementById('global-input-field').addEventListener('input', function
 </script>
 
 <script>
-
-/* SAREMBOK_THEME_CONTROL_V1_20260916 */
-(function installSarembokThemeControl(){
-    const key = 'sarembok-theme';
-    const root = document.documentElement;
-    const saved = localStorage.getItem(key);
-    const initial = saved === 'light' || saved === 'dark' ? saved : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-    root.dataset.theme = initial;
-
-    function sync(){
-        const light = root.dataset.theme === 'light';
-        const label = document.getElementById('srbk-theme-label');
-        const icon = document.getElementById('srbk-theme-icon');
-        const btn = document.getElementById('srbk-theme-toggle');
-        if(label) label.textContent = light ? 'DARK' : 'LIGHT';
-        if(btn) btn.setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
-        if(btn) btn.title = light ? 'Switch to dark theme' : 'Switch to light theme';
-        if(icon) icon.innerHTML = light ? '<path d="M21 12.8A8.5 8.5 0 0 1 11.2 3a6.8 6.8 0 1 0 9.8 9.8Z"></path>' : '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path>';
-    }
-    function bind(){
-        const btn = document.getElementById('srbk-theme-toggle');
-        if(!btn || btn.dataset.bound) return;
-        btn.dataset.bound = '1';
-        btn.addEventListener('click', function(){
-            root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
-            localStorage.setItem(key, root.dataset.theme);
-            sync();
-        });
-        sync();
-    }
-    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, {once:true}); else bind();
-})();
 
 </script>
 <!-- SAREMBOK_RUNTIME_UI_BRIDGES_V2 -->
