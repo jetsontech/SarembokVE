@@ -451,7 +451,7 @@
         .console-media-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 10px; border-bottom:1px solid var(--border-default); background:var(--bg-surface); }
         .console-media-title { font:600 10px/1 var(--font-mono); letter-spacing:.12em; color:var(--text-secondary); }
         .console-media-state { font:500 9px/1 var(--font-mono); color:var(--text-muted); }
-        .console-media-stage { position:relative; width:100%; aspect-ratio:16/9; min-height:120px; background:#000; }
+        .console-media-stage { position:relative; width:100%; aspect-ratio:16/9; min-height:120px; max-height:360px; background:#000; }
         .console-media-stage video,.console-media-stage iframe { width:100%; height:100%; display:block; border:0; background:#000; }
         .console-media-placeholder { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:7px; color:var(--text-muted); font:500 10px/1.4 var(--font-mono); text-align:center; padding:20px; }
         .console-media-placeholder strong { color:var(--text-secondary); font-size:11px; }
@@ -464,7 +464,7 @@
         .voice-status { display:flex; align-items:center; gap:6px; margin-top:7px; min-height:16px; font:500 9px/1.35 var(--font-mono); color:var(--text-muted); }
         .voice-status-dot { width:6px; height:6px; flex:0 0 auto; border-radius:50%; background:var(--text-muted); }
         .voice-status-dot.active { background:var(--green); box-shadow:0 0 7px rgba(72,187,120,.65); }
-        @media (max-width:768px) { .console-media{margin:8px 10px 0;} .console-media-stage{min-height:150px;} .console-media-controls{flex-wrap:wrap;} .console-media-url{flex:1 1 100%;min-height:38px;font-size:12px;} .console-media-btn,.voice-btn{min-height:38px;padding:8px 10px;} .input-row{flex-wrap:wrap;padding:6px;} .input-row .chat-input{order:1;flex:1 1 100%;width:100%;} .input-row .voice-btn,.input-row .send-btn{order:2;} .input-row .voice-status{order:3;flex:1 1 100%;} }
+        @media (max-width:768px) { .console-media{margin:8px 10px 0;} .console-media-stage{min-height:150px;max-height:220px;} .console-media-controls{flex-wrap:nowrap;} .console-media-url{flex:1 1 auto;min-width:0;min-height:38px;font-size:12px;} .console-media-btn,.voice-btn{min-height:38px;padding:8px 10px;} .input-row{flex-wrap:wrap;padding:6px;} .input-row .chat-input{order:1;flex:1 1 100%;width:100%;} .input-row .voice-btn,.input-row .send-btn{order:2;} .input-row .voice-status{order:3;flex:1 1 100%;} } .console-media-stage{min-height:150px;} .console-media-controls{flex-wrap:wrap;} .console-media-url{flex:1 1 100%;min-height:38px;font-size:12px;} .console-media-btn,.voice-btn{min-height:38px;padding:8px 10px;} .input-row{flex-wrap:wrap;padding:6px;} .input-row .chat-input{order:1;flex:1 1 100%;width:100%;} .input-row .voice-btn,.input-row .send-btn{order:2;} .input-row .voice-status{order:3;flex:1 1 100%;} }
         /* ====== RIGHT RAIL: SYSTEM STATE ====== */
         .system-rail {
             background: var(--bg-surface);
