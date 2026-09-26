@@ -376,8 +376,126 @@
         console.info("[Sarembok] runtime UI health", window.__srbkRuntimeUiHealth);
     }
 
+    function installMobileConsoleRepair() {
+        if (document.getElementById("srbk-mobile-console-repair")) return;
+
+        const style = document.createElement("style");
+        style.id = "srbk-mobile-console-repair";
+        style.textContent = `
+            @media (max-width: 768px) {
+                /* Keep the console composer visible above the mobile dock and keyboard. */
+                #global-input-bar {
+                    display: flex !important;
+                    position: fixed !important;
+                    left: 0 !important;
+                    right: 0 !important;
+                    bottom: 0 !important;
+                    width: 100% !important;
+                    z-index: 10050 !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    padding: 8px 10px calc(62px + env(safe-area-inset-bottom, 0px)) !important;
+                    pointer-events: none !important;
+                }
+                #global-input-bar-inner {
+                    display: flex !important;
+                    width: 100% !important;
+                    min-height: 54px !important;
+                    visibility: visible !important;
+                    pointer-events: auto !important;
+                }
+                #global-input-field {
+                    display: block !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    min-width: 0 !important;
+                    min-height: 40px !important;
+                    flex: 1 1 auto !important;
+                    font-size: 16px !important;
+                    line-height: 1.35 !important;
+                    -webkit-user-select: text !important;
+                    user-select: text !important;
+                }
+                #global-send-btn,
+                #global-mic-btn,
+                #global-vision-btn {
+                    flex: 0 0 auto !important;
+                }
+                #global-bg-btn {
+                    display: none !important;
+                }
+                /* Prevent the active view from scrolling the composer underneath content. */
+                .view-panel.active {
+                    padding-bottom: 132px !important;
+                }
+                #srbk-mobile-main-site {
+                    display: flex !important;
+                }
+            }
+            @media (min-width: 769px) {
+                #srbk-mobile-main-site { display: none !important; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        const back = document.createElement("button");
+        back.id = "srbk-mobile-main-site";
+        back.type = "button";
+        back.setAttribute("aria-label", "Return to Sarembok main site");
+        back.title = "Return to main site";
+        back.innerHTML = '<span aria-hidden="true">‹</span><span>MAIN SITE</span>';
+        back.style.cssText = [
+            "position:fixed",
+            "top:calc(10px + env(safe-area-inset-top, 0px))",
+            "left:10px",
+            "z-index:10060",
+            "display:none",
+            "align-items:center",
+            "gap:6px",
+            "height:36px",
+            "padding:0 11px 0 8px",
+            "border:1px solid rgba(0,240,255,.32)",
+            "border-radius:18px",
+            "background:rgba(3,8,16,.92)",
+            "backdrop-filter:blur(14px)",
+            "-webkit-backdrop-filter:blur(14px)",
+            "color:#00f0ff",
+            "font:700 9px/1 JetBrains Mono,monospace",
+            "letter-spacing:.08em",
+            "box-shadow:0 6px 24px rgba(0,0,0,.45)"
+        ].join(";");
+        back.addEventListener("click", function () {
+            try { window.location.assign("/"); } catch (_) { window.location.href = "/"; }
+        });
+        document.body.appendChild(back);
+
+        function refreshMobileLayout() {
+            const bar = document.getElementById("global-input-bar");
+            const field = document.getElementById("global-input-field");
+            if (!bar || !field) return;
+            const mobile = window.matchMedia("(max-width: 768px)").matches;
+            back.style.display = mobile ? "flex" : "none";
+            if (mobile) {
+                bar.style.display = "flex";
+                bar.style.left = "0";
+                bar.style.right = "0";
+                bar.style.bottom = "0";
+                field.style.display = "block";
+                field.style.visibility = "visible";
+                field.style.opacity = "1";
+            }
+        }
+
+        refreshMobileLayout();
+        window.addEventListener("resize", refreshMobileLayout, { passive: true });
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener("resize", refreshMobileLayout, { passive: true });
+        }
+    }
+
     function install() {
         installCanonicalRpcRecovery();
+        installMobileConsoleRepair();
         installNavigationGuard();
         installTruthfulTelemetry();
         installLegacyApiBridge();
