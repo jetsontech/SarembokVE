@@ -446,6 +446,40 @@
         .send-btn:hover { opacity: 0.85; }
         .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+        .voice-btn {
+            flex: 0 0 auto;
+            min-height: 40px;
+            padding: 8px 10px;
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-sm);
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+            font: 600 10px/1 var(--font-sans);
+            letter-spacing: .03em;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .voice-btn:hover { border-color: var(--border-hover); color: var(--text-primary); }
+        .voice-btn.active, .voice-btn.live { border-color: var(--border-focus); color: var(--accent); background: var(--accent-dim); }
+        .voice-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 0 0 auto;
+            min-width: 0;
+            color: var(--text-muted);
+            font: 500 9px/1 var(--font-mono);
+            white-space: nowrap;
+        }
+        .voice-status-dot {
+            width: 6px;
+            height: 6px;
+            flex: 0 0 6px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+        .voice-status-dot.active { background: var(--green); box-shadow: 0 0 6px rgba(72,187,120,.45); }
+
         /* ====== INLINE CHAT MEDIA ====== */
         .inline-media {
             margin-top: 12px;
@@ -614,18 +648,45 @@
                 padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
             }
             .input-row {
-                min-height: 48px;
-                padding-left: 12px;
+                display: grid;
+                grid-template-columns: 1fr auto;
+                grid-template-areas:
+                    "input input"
+                    "voice send"
+                    "status status";
+                align-items: center;
+                gap: 8px;
+                min-height: 0;
+                padding: 8px;
             }
             .chat-input {
+                grid-area: input;
+                display: block;
+                width: 100%;
                 min-width: 0;
+                min-height: 44px;
                 font-size: 16px;
-                padding: 9px 0;
+                padding: 10px 4px;
             }
+            .input-row .voice-btn {
+                min-height: 40px;
+                width: 100%;
+                padding: 8px 10px;
+            }
+            #dialogue-mic-btn { grid-area: voice; }
+            #hud-live-2way-btn { grid-area: voice; display: none; }
             .send-btn {
-                min-width: 64px;
+                grid-area: send;
+                min-width: 72px;
                 min-height: 40px;
                 padding: 8px 14px;
+            }
+            .voice-status {
+                grid-area: status;
+                min-height: 18px;
+                justify-content: center;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
         }
     </style>
