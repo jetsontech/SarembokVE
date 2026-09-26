@@ -446,6 +446,25 @@
         .send-btn:hover { opacity: 0.85; }
         .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+        /* ====== MEDIA + VOICE DECK ====== */
+        .console-media { flex:0 0 auto; margin:10px 16px 0; border:1px solid var(--border-default); border-radius:var(--radius-md); background:#05070b; overflow:hidden; box-shadow:var(--shadow-md); }
+        .console-media-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 10px; border-bottom:1px solid var(--border-default); background:var(--bg-surface); }
+        .console-media-title { font:600 10px/1 var(--font-mono); letter-spacing:.12em; color:var(--text-secondary); }
+        .console-media-state { font:500 9px/1 var(--font-mono); color:var(--text-muted); }
+        .console-media-stage { position:relative; width:100%; aspect-ratio:16/9; min-height:120px; background:#000; }
+        .console-media-stage video,.console-media-stage iframe { width:100%; height:100%; display:block; border:0; background:#000; }
+        .console-media-placeholder { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:7px; color:var(--text-muted); font:500 10px/1.4 var(--font-mono); text-align:center; padding:20px; }
+        .console-media-placeholder strong { color:var(--text-secondary); font-size:11px; }
+        .console-media-controls { display:flex; gap:6px; padding:7px; border-top:1px solid var(--border-default); background:var(--bg-surface); }
+        .console-media-url { flex:1; min-width:0; border:1px solid var(--border-default); border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); padding:7px 9px; font:11px var(--font-mono); outline:none; }
+        .console-media-btn,.voice-btn { border:1px solid var(--border-default); border-radius:var(--radius-sm); background:var(--bg-elevated); color:var(--text-secondary); padding:7px 10px; font:600 10px var(--font-mono); cursor:pointer; white-space:nowrap; }
+        .console-media-btn:hover,.voice-btn:hover { border-color:var(--border-focus); color:var(--text-primary); }
+        .voice-btn.active { border-color:var(--green); color:var(--green); background:var(--green-dim); }
+        .voice-btn.live { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+        .voice-status { display:flex; align-items:center; gap:6px; margin-top:7px; min-height:16px; font:500 9px/1.35 var(--font-mono); color:var(--text-muted); }
+        .voice-status-dot { width:6px; height:6px; flex:0 0 auto; border-radius:50%; background:var(--text-muted); }
+        .voice-status-dot.active { background:var(--green); box-shadow:0 0 7px rgba(72,187,120,.65); }
+        @media (max-width:768px) { .console-media{margin:8px 10px 0;} .console-media-stage{min-height:150px;} .console-media-controls{flex-wrap:wrap;} .console-media-url{flex:1 1 100%;min-height:38px;font-size:12px;} .console-media-btn,.voice-btn{min-height:38px;padding:8px 10px;} .input-row{flex-wrap:wrap;padding:6px;} .input-row .chat-input{order:1;flex:1 1 100%;width:100%;} .input-row .voice-btn,.input-row .send-btn{order:2;} .input-row .voice-status{order:3;flex:1 1 100%;} }
         /* ====== RIGHT RAIL: SYSTEM STATE ====== */
         .system-rail {
             background: var(--bg-surface);
@@ -611,6 +630,15 @@
 
         <!-- CENTER: CONVERSATION -->
         <main class="conversation-panel">
+            <section class="console-media" aria-label="Sarembok media player">
+                <div class="console-media-head"><span class="console-media-title">SAREMBOK MEDIA · VIDEO / STREAM</span><span class="console-media-state" id="console-media-state">READY</span></div>
+                <div class="console-media-stage" id="console-media-stage">
+                    <div class="console-media-placeholder" id="console-media-placeholder"><strong>MEDIA WINDOW READY</strong><span>Paste a direct video URL or YouTube link below.<br>Media returned by a response can also open here.</span></div>
+                    <video id="console-video" controls playsinline preload="metadata" style="display:none;"></video>
+                    <iframe id="console-youtube" title="Sarembok video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="display:none;"></iframe>
+                </div>
+                <div class="console-media-controls"><input class="console-media-url" id="console-media-url" type="url" inputmode="url" placeholder="https://… video or YouTube URL"><button class="console-media-btn" type="button" onclick="playConsoleMediaFromInput()">PLAY</button><button class="console-media-btn" type="button" onclick="stopConsoleMedia()">STOP</button><button class="console-media-btn" type="button" onclick="fullscreenConsoleMedia()">FULLSCREEN</button></div>
+            </section>
             <div class="conversation-scroll" id="conversation-scroll">
                 <div class="msg-group">
                     <div class="msg-sender agent">
@@ -624,8 +652,11 @@
             </div>
             <div class="input-area">
                 <div class="input-row">
+                    <button class="voice-btn" id="dialogue-mic-btn" type="button" onclick="toggleLiveConversation()" title="Start two-way live voice">🎙 2-WAY</button>
+                    <button class="voice-btn active" id="hud-live-2way-btn" type="button" onclick="toggleLiveConversation()" title="Start two-way live voice">LIVE VOICE</button>
                     <input type="text" class="chat-input" id="chat-input" placeholder="Message Sarembok…" autocomplete="off" spellcheck="true">
                     <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
+                    <div class="voice-status" id="console-voice-status"><span class="voice-status-dot" id="console-voice-dot"></span><span id="console-voice-state">VOICE READY</span><span id="console-voice-hint"></span></div>
                 </div>
             </div>
         </main>
@@ -720,67 +751,27 @@
             return null;
         }
 
-        // ====== WEBSOCKET ======
-        async function connect() {
-            await initSession();
-
-            const loc = window.location;
-            const proto = loc.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = (loc.hostname === 'localhost' || loc.hostname === '127.0.0.1')
-                ? 'ws://127.0.0.1:9120'
-                : `${proto}//${loc.host}/ws`;
-
-            ws = new WebSocket(wsUrl);
-
-            ws.onopen = async () => {
-                updateConnectionUI(true);
-                if (!sessionToken) await initSession();
-                fetchRuntimeInfo();
-                fetchMemories();
+        // ====== WEBSOCKET / STREAMING RPC ======
+        function connect() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return ws;
+            const loc=window.location, proto=loc.protocol==='https:'?'wss:':'ws:', wsUrl=proto+'//'+loc.host+'/ws';
+            ws=new WebSocket(wsUrl); ws.binaryType='arraybuffer';
+            ws.onopen=async()=>{updateConnectionUI(true);if(!sessionToken)await initSession();fetchRuntimeInfo();fetchMemories();};
+            ws.onmessage=(e)=>{
+                if(typeof e.data!=='string'){if(typeof window.__srbkTtsBinaryHandler==='function')void window.__srbkTtsBinaryHandler(e);return;}
+                try{const data=JSON.parse(e.data);
+                    if(data.method==='SarembokChat.delta'){const params=data.params||{},reqId=params.id||data.id,entry=pending.get(reqId),delta=params.text??params.delta??'';if(entry&&delta&&typeof entry.onDelta==='function')entry.onDelta(delta);return;}
+                    if(data.id&&pending.has(data.id)){const entry=pending.get(data.id);pending.delete(data.id);if(data.error){const err=new Error(String(data.error.message||'RPC request failed'));err.code=data.error.code;err.rpcError=data.error;entry.rej(err);}else entry.res(data.result);}
+                }catch(err){console.warn('[sarembok] WebSocket message parse error:',err);}
             };
-
-            ws.onmessage = (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    if (data.id && pending.has(data.id)) {
-                        const { res, rej } = pending.get(data.id);
-                        pending.delete(data.id);
-                        if (data.error) rej(data.error);
-                        else res(data.result);
-                    }
-                } catch(err) {}
-            };
-
-            ws.onclose = () => {
-                updateConnectionUI(false);
-                setTimeout(connect, 3000);
-            };
-
-            ws.onerror = () => updateConnectionUI(false);
+            ws.onclose=()=>{updateConnectionUI(false);for(const [id,entry] of pending.entries()){pending.delete(id);try{entry.rej(new Error('Runtime WebSocket connection lost'));}catch(_){} }setTimeout(connect,3000);};
+            ws.onerror=()=>updateConnectionUI(false); return ws;
         }
-
-        async function sendRPC(method, params = {}) {
-            if (!sessionToken) {
-                await initSession();
-            }
-            return new Promise((res, rej) => {
-                if (!ws || ws.readyState !== WebSocket.OPEN) return rej(new Error('Not connected to runtime'));
-                const id = 'rpc-' + (rpcCounter++);
-                const payload = { ...params };
-                if (sessionToken && !payload.sessionToken) {
-                    payload.sessionToken = sessionToken;
-                }
-                pending.set(id, { res, rej });
-                ws.send(JSON.stringify({ jsonrpc: '2.0', id, method, params: payload }));
-                setTimeout(() => {
-                    if (pending.has(id)) {
-                        pending.delete(id);
-                        rej(new Error('RPC request timed out waiting for server response'));
-                    }
-                }, 45000);
-            });
+        async function sendRPC(method,params={},onDelta=null){
+            if(!sessionToken)await initSession();
+            if(!ws||ws.readyState!==WebSocket.OPEN){await new Promise((resolve,reject)=>{const started=Date.now();const wait=()=>{if(ws&&ws.readyState===WebSocket.OPEN)return resolve();if(Date.now()-started>8000)return reject(new Error('Runtime WebSocket unavailable'));setTimeout(wait,80);};connect();wait();});}
+            return new Promise((res,rej)=>{const id='rpc-'+(rpcCounter++),payload={...params};if(sessionToken&&!payload.sessionToken)payload.sessionToken=sessionToken;pending.set(id,{res,rej,onDelta,socket:ws});try{ws.send(JSON.stringify({jsonrpc:'2.0',id,method,params:payload}));}catch(err){pending.delete(id);rej(err);return;}setTimeout(()=>{if(pending.has(id)){pending.delete(id);rej(new Error('RPC request timed out waiting for server response'));}},45000);});
         }
-
         // ====== CONNECTION UI ======
         function updateConnectionUI(connected) {
             const dot = document.getElementById('connection-dot');
@@ -870,48 +861,19 @@
             } catch(e) { return isoStr.substring(0, 10); }
         }
 
-        // ====== SEND MESSAGE ======
-        async function sendMessage() {
-            const input = document.getElementById('chat-input');
-            const text = input.value.trim();
-            if (!text) return;
-
-            input.value = '';
-            input.focus();
-
-            appendMessage('user', 'You', text);
-            const thinkingEl = showThinking();
-
-            try {
-                const result = await sendRPC('SarembokChat', {
-                    prompt: text,
-                    sessionId: sessionId,
-                });
-
-                thinkingEl.remove();
-
-                // Update system state panel
-                if (result.source) document.getElementById('sys-provider').textContent = result.source;
-                if (result.model) document.getElementById('sys-model').textContent = result.model;
-                if (result.metadata && result.metadata.latency_ms) {
-                    document.getElementById('sys-latency').textContent = `${result.metadata.latency_ms}ms`;
-                }
-
-                const reply = result.response || result.audioText || 'Response received.';
-                appendMessage('agent', 'Sarembok', reply, result.model, result.recalledMemories);
-
-                // Refresh memory panel
-                fetchMemories();
-                fetchRuntimeInfo();
-
-            } catch(e) {
-                thinkingEl.remove();
-                const errMsg = (e && (e.message || (typeof e === 'object' ? (e.message || JSON.stringify(e)) : String(e)))) || 'Request failed';
-                console.error('[sarembok] RPC Error:', e);
-                appendMessage('agent', 'Sarembok', `Error: ${errMsg}`, 'system');
-            }
+        // ====== SEND MESSAGE / STREAMING RESPONSE ======
+        async function sendMessage(){
+            const input=document.getElementById('chat-input'),text=input.value.trim();if(!text)return;
+            if(typeof window.consoleVoiceUnlock==='function')void window.consoleVoiceUnlock();if(typeof window.consoleVoiceInterrupt==='function')window.consoleVoiceInterrupt();
+            input.value='';input.focus();appendMessage('user','You',text);const thinkingEl=showThinking();let streamedText='',assistantContent=null,assistantSender=null,speechBuffer='',speechStarted=false;
+            const updateStreamUi=(delta)=>{streamedText+=String(delta||'');if(!assistantContent){thinkingEl.innerHTML='<div class="msg-sender agent" id="streaming-assistant-sender">Sarembok</div><div class="msg-body" id="streaming-assistant-content"></div>';assistantSender=thinkingEl.querySelector('#streaming-assistant-sender');assistantContent=thinkingEl.querySelector('#streaming-assistant-content');}assistantContent.innerHTML=formatReply(streamedText);const scroll=document.getElementById('conversation-scroll');scroll.scrollTop=scroll.scrollHeight;
+                if(window.consoleVoiceEnabled&&delta){speechBuffer+=String(delta);while(true){const match=/([.!?])\s+/.exec(speechBuffer);if(!match)break;const end=match.index+1,unit=speechBuffer.slice(0,end).trim();speechBuffer=speechBuffer.slice(end).trimStart();if(unit){speechStarted=true;window.consoleVoiceEnqueue(unit);}}if(speechBuffer.length>=110){const matches=[...speechBuffer.matchAll(/[,;:]\s+|—\s+/g)].filter(m=>m.index>=65&&m.index<=190);if(matches.length){const cut=matches[matches.length-1].index+matches[matches.length-1][0].length,unit=speechBuffer.slice(0,cut).trim();speechBuffer=speechBuffer.slice(cut).trimStart();if(unit){speechStarted=true;window.consoleVoiceEnqueue(unit);}}}}};
+            try{const result=await sendRPC('SarembokChat',{prompt:text,sessionId:sessionId,stream:true},updateStreamUi);const finalText=String(result?.response||result?.audioText||streamedText||'Response received.');
+                if(!assistantContent){thinkingEl.remove();appendMessage('agent','Sarembok',finalText,result?.model,result?.recalledMemories);}else{assistantContent.innerHTML=formatReply(finalText);if(assistantSender&&result?.model)assistantSender.innerHTML='Sarembok <span class="msg-model-tag">'+esc(result.model)+'</span>';}
+                if(window.consoleVoiceEnabled){if(speechStarted){if(speechBuffer.trim())window.consoleVoiceEnqueue(speechBuffer.trim());}else window.consoleVoiceEnqueue(finalText);}
+                if(result?.videoUrl)playConsoleMedia(String(result.videoUrl),'Response media');else detectAndPlayConsoleMedia(finalText);fetchMemories();fetchRuntimeInfo();document.getElementById('conversation-scroll').scrollTop=document.getElementById('conversation-scroll').scrollHeight;
+            }catch(e){thinkingEl.innerHTML='<div class="msg-sender agent">Sarembok</div><div class="msg-body" style="color:var(--amber);">Error: '+esc(e.message||e)+'</div>';}
         }
-
         function appendMessage(role, sender, text, modelTag, recalledMemories) {
             const scroll = document.getElementById('conversation-scroll');
             const group = document.createElement('div');
@@ -1000,6 +962,28 @@
             document.getElementById('session-id').textContent = `Session: ${sessionId}`;
             connect();
         });
+        // ====== CONSOLE MEDIA ======
+        function setConsoleMediaState(text){const el=document.getElementById('console-media-state');if(el)el.textContent=text;}
+        function playConsoleMedia(url,title){const raw=String(url||'').trim();if(!raw)return;const video=document.getElementById('console-video'),yt=document.getElementById('console-youtube'),placeholder=document.getElementById('console-media-placeholder');if(!video||!yt)return;const m=raw.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/i);video.pause();video.removeAttribute('src');video.style.display='none';yt.style.display='none';if(m){yt.src='https://www.youtube.com/embed/'+m[1]+'?rel=0&autoplay=1&playsinline=1';yt.style.display='block';if(placeholder)placeholder.style.display='none';setConsoleMediaState('YOUTUBE · '+(title||'MEDIA'));return;}video.src=raw;video.style.display='block';if(placeholder)placeholder.style.display='none';setConsoleMediaState('VIDEO · '+(title||'MEDIA'));video.load();video.play().then(()=>setConsoleMediaState('PLAYING · '+(title||'MEDIA'))).catch(()=>setConsoleMediaState('READY · press PLAY'));}
+        function playConsoleMediaFromInput(){const input=document.getElementById('console-media-url');if(input&&input.value.trim())playConsoleMedia(input.value.trim(),'USER MEDIA');}
+        function stopConsoleMedia(){const video=document.getElementById('console-video'),yt=document.getElementById('console-youtube'),placeholder=document.getElementById('console-media-placeholder');if(video){video.pause();video.removeAttribute('src');video.load();video.style.display='none';}if(yt){yt.src='';yt.style.display='none';}if(placeholder)placeholder.style.display='flex';setConsoleMediaState('READY');}
+        function fullscreenConsoleMedia(){const v=document.getElementById('console-video'),f=document.getElementById('console-youtube'),n=(v&&v.style.display!=='none')?v:f;if(n&&n.requestFullscreen)n.requestFullscreen().catch(()=>{});else if(n&&n.webkitEnterFullscreen)n.webkitEnterFullscreen();}
+        function detectAndPlayConsoleMedia(text){const m=String(text||'').match(/https?:\/\/[^\s<>"']+/i);if(!m)return;const url=m[0].replace(/[),.;]+$/,'');if(/youtube\.com|youtu\.be/i.test(url)||/\.(mp4|webm|ogg|mov|m4v)(?:\?|#|$)/i.test(url)){const input=document.getElementById('console-media-url');if(input)input.value=url;playConsoleMedia(url,'RESPONSE MEDIA');}}
+        // ====== CONSOLE NATIVE LIVE VOICE ADAPTERS ======
+        window.setLiveConvUI=function(state,hint){const s=document.getElementById('console-voice-state'),h=document.getElementById('console-voice-hint'),d=document.getElementById('console-voice-dot'),l=document.getElementById('hud-live-2way-btn'),m=document.getElementById('dialogue-mic-btn'),active=/LISTENING|HEARING|SPEAKING|WORKING|ACTIVE|CONNECTING/i.test(String(state||''));if(s)s.textContent=String(state||'VOICE READY');if(h)h.textContent=hint?' · '+String(hint):'';if(d)d.classList.toggle('active',active);if(l)l.classList.toggle('live',active);if(m)m.classList.toggle('active',active);};
+        window.setAvatarSignal=function(){};window.setAudioDucking=function(){};window.addTerminalLine=function(){};
     </script>
+<script>
+(function(){'use strict';let audioCtx=null,nextAudioTime=0,generation=0,processing=false;const queue=[],activeSources=new Set(),VOICE='af_heart',LANGUAGE='en-us',SPEED='0.95';window.consoleVoiceEnabled=true;
+async function unlock(){try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw new Error('Web Audio unavailable');if(!audioCtx||audioCtx.state==='closed')audioCtx=new AC({latencyHint:'interactive'});if(audioCtx.state!=='running')await audioCtx.resume();if(audioCtx.state!=='running')throw new Error('AudioContext '+audioCtx.state);return true;}catch(e){const s=document.getElementById('console-voice-state');if(s)s.textContent='AUDIO BLOCKED · TAP VOICE';return false;}}
+function normalize(t){return String(t||'').replace(/```[\s\S]*?```/g,' ').replace(/`([^`]+)`/g,'$1').replace(/!\[[^\]]*\]\([^)]*\)/g,' ').replace(/\[[^\]]*\]\([^)]*\)/g,' ').replace(/https?:\/\/\S+/g,' ').replace(/[*_#>~|]/g,' ').replace(/\s+/g,' ').trim();}
+async function fetchWav(t,signal){let token=window.sessionToken||'';const qs=new URLSearchParams({text:normalize(t),voice:VOICE,language:LANGUAGE,speed:SPEED});let r=await fetch('/api/tts?'+qs.toString(),{method:'GET',cache:'no-store',signal,headers:{Authorization:'Bearer '+token,Accept:'audio/wav'}});if(r.status===401){if(typeof window.initSession==='function')await window.initSession();r=await fetch('/api/tts?'+qs.toString(),{method:'GET',cache:'no-store',signal,headers:{Authorization:'Bearer '+(window.sessionToken||''),Accept:'audio/wav'}});}if(!r.ok)throw new Error('TTS HTTP '+r.status);const type=(r.headers.get('content-type')||'').toLowerCase();if(!type.includes('audio/'))throw new Error('TTS returned non-audio');return r.arrayBuffer();}
+function scheduleWav(ab){if(!audioCtx||audioCtx.state!=='running')return;const g=generation;audioCtx.decodeAudioData(ab.slice(0)).then(buffer=>{if(g!==generation)return;const source=audioCtx.createBufferSource();source.buffer=buffer;source.connect(audioCtx.destination);const start=Math.max(nextAudioTime,audioCtx.currentTime+0.035);nextAudioTime=start+buffer.duration;activeSources.add(source);source.onended=()=>{activeSources.delete(source);try{source.disconnect();}catch(_){} };source.start(start);}).catch(()=>{});}
+async function process(){if(processing)return;processing=true;try{while(queue.length){const item=queue.shift();if(item.generation!==generation)continue;try{const wav=await item.promise;if(item.generation!==generation)continue;scheduleWav(wav);}catch(e){if(item.generation===generation)console.warn('[console-voice]',e);}}}finally{processing=false;if(queue.length)void process();}}
+window.consoleVoiceEnqueue=function(text){const spoken=normalize(text);if(!spoken||!window.consoleVoiceEnabled)return;const g=generation,controller=new AbortController(),promise=fetchWav(spoken,controller.signal);queue.push({promise,generation:g,controller});void process();};
+window.consoleVoiceInterrupt=function(){generation++;queue.splice(0).forEach(x=>{try{x.controller.abort();}catch(_){}});nextAudioTime=audioCtx?audioCtx.currentTime:0;activeSources.forEach(s=>{try{s.stop(0);}catch(_){}try{s.disconnect();}catch(_){} });activeSources.clear();};
+window.consoleVoiceUnlock=unlock;document.addEventListener('visibilitychange',()=>{if(!document.hidden&&window.consoleVoiceEnabled)void unlock();});window.addEventListener('pointerdown',()=>void unlock(),{passive:true});window.addEventListener('touchstart',()=>void unlock(),{passive:true});window.addEventListener('pagehide',()=>{try{window.consoleVoiceInterrupt();}catch(_){}});})();
+</script>
+<script src="/live-voice.js?v=20260926-console-live"></script>
 </body>
 </html>
