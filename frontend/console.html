@@ -62,10 +62,13 @@
         /* ====== LAYOUT: 3-COLUMN ====== */
         .console-layout {
             display: grid;
-            grid-template-columns: 280px 1fr 260px;
-            grid-template-rows: auto 1fr;
+            grid-template-columns: 280px minmax(0, 1fr) 260px;
+            grid-template-rows: 48px minmax(0, 1fr);
             height: 100vh;
+            height: 100dvh;
+            min-height: 100svh;
             gap: 0;
+            overflow: hidden;
         }
 
         /* ====== TOP BAR ====== */
@@ -78,6 +81,7 @@
             background: var(--bg-surface);
             border-bottom: 1px solid var(--border-default);
             height: 48px;
+            box-sizing: border-box;
             z-index: 10;
         }
 
@@ -93,6 +97,26 @@
             letter-spacing: 2px;
             text-transform: uppercase;
             color: var(--text-primary);
+        }
+
+        .console-main-site {
+            display: inline-flex;
+            align-items: center;
+            flex: 0 0 auto;
+            padding: 6px 9px;
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            background: var(--bg-elevated);
+            text-decoration: none;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: .6px;
+            white-space: nowrap;
+        }
+        .console-main-site:hover {
+            color: var(--text-primary);
+            border-color: var(--border-focus);
         }
 
         .logo-tag {
@@ -238,6 +262,8 @@
         .conversation-panel {
             display: flex;
             flex-direction: column;
+            min-width: 0;
+            min-height: 0;
             background: var(--bg-base);
             overflow: hidden;
         }
@@ -365,9 +391,13 @@
 
         /* ====== INPUT BAR ====== */
         .input-area {
-            padding: 12px 24px 16px;
+            flex: 0 0 auto;
+            padding: 12px 24px calc(16px + env(safe-area-inset-bottom, 0px));
             border-top: 1px solid var(--border-default);
             background: var(--bg-surface);
+            box-sizing: border-box;
+            position: relative;
+            z-index: 20;
         }
 
         .input-row {
@@ -497,9 +527,56 @@
         }
 
         @media (max-width: 768px) {
-            .console-layout { grid-template-columns: 1fr; }
+            html, body { height: 100%; min-height: 100%; }
+            body { overflow: hidden; }
+            .console-layout {
+                grid-template-columns: minmax(0, 1fr);
+                grid-template-rows: 48px minmax(0, 1fr);
+                height: 100dvh;
+                min-height: 100svh;
+            }
             .memory-rail { display: none; }
             .system-rail { display: none; }
+            .top-bar {
+                padding: 8px 12px;
+            }
+            .top-bar-left {
+                min-width: 0;
+                gap: 8px;
+            }
+            .logo-tag {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .conversation-panel {
+                min-height: 0;
+                height: auto;
+            }
+            .conversation-scroll {
+                min-height: 0;
+                padding: 16px 14px;
+                -webkit-overflow-scrolling: touch;
+            }
+            .input-area {
+                display: block;
+                width: 100%;
+                padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+            }
+            .input-row {
+                min-height: 48px;
+                padding-left: 12px;
+            }
+            .chat-input {
+                min-width: 0;
+                font-size: 16px;
+                padding: 9px 0;
+            }
+            .send-btn {
+                min-width: 64px;
+                min-height: 40px;
+                padding: 8px 14px;
+            }
         }
     </style>
 </head>
@@ -508,6 +585,7 @@
         <!-- TOP BAR -->
         <header class="top-bar">
             <div class="top-bar-left">
+                <a href="/" class="console-main-site" aria-label="Return to Sarembok main site">‹ MAIN SITE</a>
                 <span class="logo-mark">SAREMBOK</span>
                 <span class="logo-tag">Persistent Agent Console</span>
             </div>
