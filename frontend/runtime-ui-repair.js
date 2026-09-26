@@ -384,17 +384,36 @@
         style.textContent = `
             @media (max-width: 768px) {
                 /* Keep the console composer visible above the mobile dock and keyboard. */
+                /* Restore the mobile navigation dock above all page content. */
+                .cyber-left-dock {
+                    display: flex !important;
+                    position: fixed !important;
+                    top: auto !important;
+                    left: 0 !important;
+                    right: 0 !important;
+                    bottom: 0 !important;
+                    width: 100% !important;
+                    height: 52px !important;
+                    z-index: 10060 !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                }
+                .cyber-left-dock .dock-btn {
+                    display: flex !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                }
                 #global-input-bar {
                     display: flex !important;
                     position: fixed !important;
                     left: 0 !important;
                     right: 0 !important;
-                    bottom: 0 !important;
+                    bottom: 52px !important;
                     width: 100% !important;
                     z-index: 10050 !important;
                     visibility: visible !important;
                     opacity: 1 !important;
-                    padding: 8px 10px calc(62px + env(safe-area-inset-bottom, 0px)) !important;
+                    padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
                     pointer-events: none !important;
                 }
                 #global-input-bar-inner {
@@ -426,7 +445,7 @@
                 }
                 /* Prevent the active view from scrolling the composer underneath content. */
                 .view-panel.active {
-                    padding-bottom: 132px !important;
+                    padding-bottom: 150px !important;
                 }
                 #srbk-mobile-main-site {
                     display: flex !important;
