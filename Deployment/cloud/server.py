@@ -2345,7 +2345,7 @@ def sarembok_process_dialogue(
                 mem_id = f"mem-spatial-{uuid.uuid4().hex[:8]}"
                 stamp = now()
                 store.db.execute(
-                    "INSERT INTO memories(memory_id, tier, key, value, agent_id, created_at) VALUES(?,?,?,?,?,?)",
+                    "INSERT INTO memories(memory_id, tier, key, value, agent_id, session_id, created_at) VALUES(?,?,?,?,?,?,?)",
                     (mem_id, "SPATIAL", f"visual_obs_{stamp[:19].replace(':', '-')}", f"Visual perception for: {prompt_clean[:120]}", "sarembok-prime", session_id, stamp),
                 )
                 store.db.commit()
