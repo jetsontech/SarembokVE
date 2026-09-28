@@ -11640,12 +11640,12 @@ button,
                 }
 
                 container.innerHTML = list.map(m => `
-                    <div class="memory-card-item" id="card-${m.memoryId}">
+                    <div class="memory-card-item" id="card-${m.memoryId}" tabindex="0" role="button" title="Open the conversation associated with this memory">
                         <div class="memory-card-head">
                             <span class="memory-card-key">${escapeHtml(m.key)}</span>
                             <div style="display:flex; align-items:center; gap:6px;">
                                 <span class="cyber-card-badge ${m.tier === 'SEMANTIC' ? 'cyan' : m.tier === 'WORKING' ? 'amber' : 'good'}">${escapeHtml(m.tier)}</span>
-                                <button class="memory-card-del-btn" onclick="deleteMemoryItem('${m.memoryId}')" title="Delete memory fact">🗑️</button>
+                                <button class="memory-card-del-btn" title="Delete memory fact">🗑️</button>
                             </div>
                         </div>
                         <div class="memory-card-val">${escapeHtml(m.value)}</div>
@@ -11656,6 +11656,25 @@ button,
                     </div>
                 `).join("");
 
+                list.forEach(m => {
+                    const card = document.getElementById(`card-${m.memoryId}`);
+                    if (!card) return;
+                    const del = card.querySelector(".memory-card-del-btn");
+                    if (del) del.addEventListener("click", e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        deleteMemoryItem(m.memoryId);
+                    });
+                    const open = () => openMemoryConversation(m.memoryId);
+                    card.addEventListener("click", open);
+                    card.addEventListener("keydown", e => {
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            open();
+                        }
+                    });
+                });
+
             } catch (err) {
                 if (container) {
                     container.innerHTML = `
@@ -11665,6 +11684,37 @@ button,
                         </div>
                     `;
                 }
+            }
+        }
+
+        async function openMemoryConversation(memoryId) {
+            if (!memoryId) return;
+            try {
+                showToast("RETRIEVING ASSOCIATED CONVERSATION…");
+                const res = await sendRPC("GetMemoryConversation", { memoryId, limit: 200 });
+                if (!res?.success || !Array.isArray(res.messages) || !res.messages.length) {
+                    showToast("NO ASSOCIATED CONVERSATION FOUND");
+                    return;
+                }
+
+                const messages = res.messages.map(m => ({
+                    role: m.role === "user" ? "user" : "assistant",
+                    sender: m.role === "user" ? "YOU" : "SAREMBOK",
+                    text: m.content || "",
+                    html: escapeHtml(m.content || ""),
+                    timestamp: m.createdAt ? new Date(m.createdAt).getTime() : Date.now()
+                }));
+                const sessionId = res.sessionId || ("memory_" + memoryId);
+                const title = res.memory?.key || "Memory Conversation";
+                let sessions = {};
+                try { sessions = JSON.parse(localStorage.getItem("sarembok_chat_sessions") || "{}"); } catch (_) {}
+                sessions[sessionId] = { session_id: sessionId, title, messages, updated_at: Date.now() };
+                localStorage.setItem("sarembok_chat_sessions", JSON.stringify(sessions));
+                localStorage.setItem("sarembok_active_session_id", sessionId);
+                await resumeChatSession(sessionId);
+                showToast("MEMORY CONVERSATION RESTORED");
+            } catch (err) {
+                showToast("MEMORY RETRIEVAL FAILED: " + (err?.message || err));
             }
         }
 
