@@ -78,6 +78,7 @@ BROWSER_ALLOWED_METHODS = {
     "DeleteMemory",
     "StoreMemory",
     "ListMemories",
+    "GetMemoryConversation",
     "ListWorkers",
     "ScaleWorkers",
     "GetGpuMarketplace",
@@ -297,6 +298,7 @@ class CloudStore:
                 key TEXT NOT NULL,
                 value TEXT NOT NULL,
                 agent_id TEXT,
+                session_id TEXT,
                 created_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS file_assets (
@@ -377,6 +379,11 @@ class CloudStore:
         columns = [row[1] for row in self.db.execute("PRAGMA table_info(tasks)").fetchall()]
         if columns and "required_capability" not in columns:
             self.db.execute("ALTER TABLE tasks ADD COLUMN required_capability TEXT NOT NULL DEFAULT 'compute'")
+            self.db.commit()
+
+        memory_cols = [row[1] for row in self.db.execute("PRAGMA table_info(memories)").fetchall()]
+        if memory_cols and "session_id" not in memory_cols:
+            self.db.execute("ALTER TABLE memories ADD COLUMN session_id TEXT")
             self.db.commit()
 
         chat_cols = [row[1] for row in self.db.execute("PRAGMA table_info(chat_sessions)").fetchall()]
@@ -1992,7 +1999,7 @@ def sarembok_process_dialogue(
         mem_id = f"mem-{uuid.uuid4().hex[:8]}"
         stamp = now()
         key_name = f"fact_{uuid.uuid4().hex[:4]}"
-        store.db.execute("INSERT INTO memories VALUES (?,?,?,?,?,?)", (mem_id, "SEMANTIC", key_name, mem_text, "sarembok-prime", stamp))
+        store.db.execute("INSERT INTO memories(memory_id, tier, key, value, agent_id, session_id, created_at) VALUES(?,?,?,?,?,?,?)", (mem_id, "SEMANTIC", key_name, mem_text, "sarembok-prime", session_id, stamp))
         store.db.commit()
         action_info = {"type": "STORE_MEMORY", "memoryId": mem_id, "key": key_name, "value": mem_text}
         response_text = f"Stored to memory: \"{mem_text}\""
@@ -2339,7 +2346,7 @@ def sarembok_process_dialogue(
                 stamp = now()
                 store.db.execute(
                     "INSERT INTO memories(memory_id, tier, key, value, agent_id, created_at) VALUES(?,?,?,?,?,?)",
-                    (mem_id, "SPATIAL", f"visual_obs_{stamp[:19].replace(':', '-')}", f"Visual perception for: {prompt_clean[:120]}", "sarembok-prime", stamp),
+                    (mem_id, "SPATIAL", f"visual_obs_{stamp[:19].replace(':', '-')}", f"Visual perception for: {prompt_clean[:120]}", "sarembok-prime", session_id, stamp),
                 )
                 store.db.commit()
             except Exception as e:
@@ -3282,7 +3289,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
     if method == "ListMemories":
         tier_filter = str(params.get("tier", "")).strip().upper()
         agent_filter = str(params.get("agentId", "")).strip()
-        query = "SELECT memory_id, tier, key, value, agent_id, created_at FROM memories WHERE 1=1"
+        query = "SELECT memory_id, tier, key, value, agent_id, session_id, created_at FROM memories WHERE 1=1"
         qp: list[Any] = []
         if tier_filter:
             query += " AND tier=?"
@@ -3292,7 +3299,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             qp.append(agent_filter)
         query += " ORDER BY created_at DESC LIMIT 100"
         rows = store.db.execute(query, qp).fetchall()
-        memories = [{"memoryId": r[0], "tier": r[1], "key": r[2], "value": r[3], "agentId": r[4], "createdAt": r[5]} for r in rows]
+        memories = [{"memoryId": r[0], "tier": r[1], "key": r[2], "value": r[3], "agentId": r[4], "sessionId": r[5], "createdAt": r[6]} for r in rows]
         return {"memories": memories, "count": len(memories)}
 
     if method == "StoreMemory":
@@ -3305,8 +3312,8 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         memory_id = f"mem-{uuid.uuid4().hex[:10]}"
         stamp = now()
         store.db.execute(
-            "INSERT INTO memories(memory_id, tier, key, value, agent_id, created_at) VALUES(?,?,?,?,?,?)",
-            (memory_id, tier, key, value, agent_id, stamp),
+            "INSERT INTO memories(memory_id, tier, key, value, agent_id, session_id, created_at) VALUES(?,?,?,?,?,?,?)",
+            (memory_id, tier, key, value, agent_id, str(params.get("sessionId", "")).strip() or None, stamp),
         )
         store.db.commit()
         store.event(agent_id, "MEMORY_STORED", {"memoryId": memory_id, "tier": tier, "key": key})
@@ -3317,7 +3324,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         agent_id = params.get("agentId")
         if not key:
             raise ValueError("key is required")
-        query = "SELECT memory_id, tier, key, value, agent_id, created_at FROM memories WHERE key=?"
+        query = "SELECT memory_id, tier, key, value, agent_id, session_id, created_at FROM memories WHERE key=?"
         qp = [key]
         if agent_id:
             query += " AND agent_id=?"
@@ -3326,13 +3333,13 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         row = store.db.execute(query, qp).fetchone()
         if not row:
             return {"found": False, "key": key, "value": None}
-        return {"found": True, "memoryId": row[0], "tier": row[1], "key": row[2], "value": row[3], "agentId": row[4], "createdAt": row[5]}
+        return {"found": True, "memoryId": row[0], "tier": row[1], "key": row[2], "value": row[3], "agentId": row[4], "sessionId": row[5], "createdAt": row[6]}
 
     if method == "SearchMemories":
         query_term = str(params.get("query", "")).strip()
         tier_filter = str(params.get("tier", "")).strip().upper()
         limit = min(100, max(1, int(params.get("limit", 50))))
-        sql = "SELECT memory_id, tier, key, value, agent_id, created_at FROM memories WHERE 1=1"
+        sql = "SELECT memory_id, tier, key, value, agent_id, session_id, created_at FROM memories WHERE 1=1"
         qp: list[Any] = []
         if query_term:
             sql += " AND (key LIKE ? OR value LIKE ?)"
@@ -3343,8 +3350,42 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         sql += " ORDER BY created_at DESC LIMIT ?"
         qp.append(limit)
         rows = store.db.execute(sql, qp).fetchall()
-        memories = [{"memoryId": r[0], "tier": r[1], "key": r[2], "value": r[3], "agentId": r[4], "createdAt": r[5]} for r in rows]
+        memories = [{"memoryId": r[0], "tier": r[1], "key": r[2], "value": r[3], "agentId": r[4], "sessionId": r[5], "createdAt": r[6]} for r in rows]
         return {"memories": memories, "count": len(memories), "query": query_term}
+
+    if method == "GetMemoryConversation":
+        memory_id = str(params.get("memoryId", "")).strip()
+        if not memory_id:
+            raise ValueError("memoryId is required")
+        row = store.db.execute(
+            "SELECT memory_id, session_id, created_at, key, value FROM memories WHERE memory_id=?",
+            (memory_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError(f"memory_not_found: {memory_id}")
+        session_id = row[1]
+        if not session_id:
+            nearest = store.db.execute(
+                "SELECT session_id FROM conversations ORDER BY ABS(strftime('%s', created_at) - strftime('%s', ?)) LIMIT 1",
+                (row[2],),
+            ).fetchone()
+            if nearest:
+                session_id = nearest[0]
+        if not session_id:
+            return {"success": False, "memoryId": memory_id, "found": False, "reason": "conversation_not_linked"}
+        limit = min(200, max(1, int(params.get("limit", 100))))
+        rows = store.db.execute(
+            "SELECT role, content, created_at FROM conversations WHERE session_id=? ORDER BY created_at ASC LIMIT ?",
+            (session_id, limit),
+        ).fetchall()
+        return {
+            "success": True,
+            "found": bool(rows),
+            "memoryId": memory_id,
+            "sessionId": session_id,
+            "memory": {"key": row[3], "value": row[4], "createdAt": row[2]},
+            "messages": [{"role": r[0], "content": r[1], "createdAt": r[2]} for r in rows],
+        }
 
     if method == "DeleteMemory":
         memory_id = str(params.get("memoryId", "")).strip()
