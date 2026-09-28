@@ -4201,7 +4201,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         # 3. Record in Semantic Memory
         mem_id = f"mem-{uuid.uuid4().hex[:8]}"
         store.db.execute(
-            "INSERT INTO memories VALUES (?,?,?,?,?,?)",
+            "INSERT INTO memories(memory_id, tier, key, value, agent_id, created_at) VALUES(?,?,?,?,?,?)",
             (mem_id, "EPISODIC", f"pipeline_{pipeline_id}", f"Autonomous pipeline executed for goal: '{goal}' with {len(subtasks)} stages.", architect_id, stamp)
         )
         store.db.commit()
