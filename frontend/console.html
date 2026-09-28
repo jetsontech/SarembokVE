@@ -814,7 +814,8 @@
         let ws = null;
         let rpcCounter = 1;
         const pending = new Map();
-        const sessionId = 'session-' + Date.now().toString(36);
+        let sessionId = localStorage.getItem('sarembok_active_session_id') || ('session-' + Date.now().toString(36));
+        localStorage.setItem('sarembok_active_session_id', sessionId);
         let sessionToken = null;
         let memories = [];
 
@@ -929,6 +930,16 @@
                     <div class="memory-key">${esc(mem.key)}</div>
                     <div class="memory-value">${esc(mem.value)}</div>
                 `;
+                el.setAttribute('role', 'button');
+                el.setAttribute('tabindex', '0');
+                el.title = 'Open the conversation associated with this memory';
+                el.addEventListener('click', () => openMemoryConversation(mem.memoryId));
+                el.addEventListener('keydown', e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openMemoryConversation(mem.memoryId);
+                    }
+                });
                 list.appendChild(el);
             });
         }
@@ -944,6 +955,39 @@
                 if (diffDays < 7) return `${diffDays}d ago`;
                 return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
             } catch(e) { return isoStr.substring(0, 10); }
+        }
+
+        async function openMemoryConversation(memoryId) {
+            if (!memoryId) return;
+            try {
+                const result = await sendRPC('GetMemoryConversation', { memoryId, limit: 200 });
+                if (!result?.success || !Array.isArray(result.messages) || !result.messages.length) {
+                    const state = document.getElementById('console-voice-state');
+                    if (state) state.textContent = 'NO CONVERSATION LINKED';
+                    return;
+                }
+
+                sessionId = result.sessionId || sessionId;
+                localStorage.setItem('sarembok_active_session_id', sessionId);
+                const scroll = document.getElementById('conversation-scroll');
+                if (scroll) scroll.innerHTML = '';
+                result.messages.forEach(m => {
+                    appendMessage(
+                        m.role === 'user' ? 'user' : 'agent',
+                        m.role === 'user' ? 'You' : 'Sarembok',
+                        m.content || '',
+                        null,
+                        null
+                    );
+                });
+                if (scroll) scroll.scrollTop = scroll.scrollHeight;
+                const state = document.getElementById('console-voice-state');
+                if (state) state.textContent = 'CONVERSATION RESTORED';
+            } catch (err) {
+                const state = document.getElementById('console-voice-state');
+                if (state) state.textContent = 'MEMORY RETRIEVAL FAILED';
+                console.warn('[sarembok] memory conversation retrieval failed:', err);
+            }
         }
 
         // ====== SEND MESSAGE / STREAMING RESPONSE ======
