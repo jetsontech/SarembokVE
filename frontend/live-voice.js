@@ -608,28 +608,63 @@
     function makeInputWorkletSource() {
         return (
             "class SarembokLiveInput extends AudioWorkletProcessor {" +
-            "constructor(){super();this.buffer=[];this.phase=0;this.ratio=sampleRate/16000;}" +
-            "process(inputs,outputs,parameters){" +
-            "const input=inputs[0]&&inputs[0][0];" +
-            "if(!input||!input.length)return true;" +
-            "for(let i=0;i<input.length;i++)this.buffer.push(input[i]);" +
-            "const out=[];" +
-            "while(this.phase+1<this.buffer.length){" +
-            "const i=Math.floor(this.phase),f=this.phase-i;" +
-            "const a=this.buffer[i]||0,b=this.buffer[i+1]||a;" +
-            "out.push(a+(b-a)*f);this.phase+=this.ratio;}" +
-            "const consume=Math.floor(this.phase);" +
-            "if(consume>0){this.buffer=this.buffer.slice(consume);this.phase-=consume;}" +
-            "if(out.length){" +
-            "let cursor=0;" +
-            "while(cursor+640<=out.length){" +
-            "const pcm=new Int16Array(640);" +
-            "for(let n=0;n<640;n++){" +
-            "let v=Math.max(-1,Math.min(1,out[cursor+n]));" +
-            "pcm[n]=v<0?v*32768:v*32767;}" +
-            "this.port.postMessage(pcm.buffer,[pcm.buffer]);cursor+=640;}" +
+            "constructor(){" +
+                "super();" +
+                "this.buffer=[];" +
+                "this.phase=0;" +
+                "this.ratio=sampleRate/16000;" +
+                "this.speechSeen=false;" +
+                "this.silenceMs=0;" +
+                "this.vadThreshold=0.012;" +
+                "this.endSilenceMs=500;" +
             "}" +
-            "return true;}" +
+            "process(inputs,outputs,parameters){" +
+                "const input=inputs[0]&&inputs[0][0];" +
+                "if(!input||!input.length)return true;" +
+                "for(let i=0;i<input.length;i++)this.buffer.push(input[i]);" +
+                "const out=[];" +
+                "while(this.phase+1<this.buffer.length){" +
+                    "const i=Math.floor(this.phase),f=this.phase-i;" +
+                    "const a=this.buffer[i]||0,b=this.buffer[i+1]||a;" +
+                    "out.push(a+(b-a)*f);this.phase+=this.ratio;" +
+                "}" +
+                "const consume=Math.floor(this.phase);" +
+                "if(consume>0){this.buffer=this.buffer.slice(consume);this.phase-=consume;}" +
+                "if(out.length){" +
+                    "let cursor=0;" +
+                    "while(cursor+640<=out.length){" +
+                        "const pcm=new Int16Array(640);" +
+                        "let sum=0;" +
+                        "for(let n=0;n<640;n++){" +
+                            "let v=Math.max(-1,Math.min(1,out[cursor+n]));" +
+                            "pcm[n]=v<0?v*32768:v*32767;" +
+                            "sum+=v*v;" +
+                        "}" +
+                        "const rms=Math.sqrt(sum/640);" +
+                        "const speech=rms>=this.vadThreshold;" +
+                        "if(speech){" +
+                            "this.speechSeen=true;" +
+                            "this.silenceMs=0;" +
+                        "}else if(this.speechSeen){" +
+                            "this.silenceMs+=40;" +
+                        "}" +
+                        "this.port.postMessage({" +
+                            "pcm:pcm.buffer," +
+                            "speech:speech," +
+                            "speechEnded:(" +
+                                "this.speechSeen&&" +
+                                "this.silenceMs>=this.endSilenceMs" +
+                            ")" +
+                        "},[pcm.buffer]);" +
+                        "if(this.speechSeen&&this.silenceMs>=this.endSilenceMs){" +
+                            "this.speechSeen=false;" +
+                            "this.silenceMs=0;" +
+                        "}" +
+                        "cursor+=640;" +
+                    "}" +
+                "}" +
+                "return true;" +
+            "}" +
             "}" +
             "registerProcessor('sarembok-live-input',SarembokLiveInput);"
         );
@@ -864,7 +899,12 @@
                         nativeLiveSocket.readyState !== WebSocket.OPEN
                     ) return;
 
-                    var bytes = new Uint8Array(event.data);
+                    var payload = event.data || {};
+                    var pcmBuffer = payload.pcm;
+
+                    if (!pcmBuffer) return;
+
+                    var bytes = new Uint8Array(pcmBuffer);
                     if (!bytes.length) return;
 
                     nativeLiveSocket.send(JSON.stringify({
@@ -875,6 +915,14 @@
                             }
                         }
                     }));
+
+                    if (payload.speechEnded) {
+                        nativeLiveSocket.send(JSON.stringify({
+                            realtimeInput: {
+                                audioStreamEnd: true
+                            }
+                        }));
+                    }
                 };
 
                 nativeMicSource.connect(nativeInputWorklet);
