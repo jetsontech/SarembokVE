@@ -865,9 +865,15 @@
         nativeStartPromise = (async function () {
             nativeLiveMode = mode === "agentic" ? "agentic" : "conversational";
             nativeLiveStopping = false;
-            nativeLiveActive = true;
 
             try {
+                // Native Gemini Live owns the microphone and speaker. Stop any
+                // legacy Kokoro/SpeechRecognition turn before taking control.
+                try {
+                    if (typeof interruptSpeech === "function") interruptSpeech();
+                } catch (_) {}
+
+                nativeLiveActive = true;
                 setNativeLiveStatus(
                     "CONNECTING (GEMINI LIVE)",
                     "Opening native real-time audio channel…"
@@ -886,12 +892,13 @@
                 });
 
                 var tokenPromise = fetchLiveToken(nativeLiveMode);
-                var results = await Promise.all([mediaPromise, tokenPromise]);
 
-                nativeLiveMediaStream = results[0];
-                nativeLiveConfig = results[1];
-
+                // Unlock/initialize the browser audio pipeline while this call still
+                // originates from the user's gesture. Do not wait for the token
+                // network round-trip before starting the audio contexts.
+                nativeLiveMediaStream = await mediaPromise;
                 await ensureAudioContexts();
+                nativeLiveConfig = await tokenPromise;
 
                 nativeOutputContext.resume().catch(function () {});
                 nativeInputContext.resume().catch(function () {});
