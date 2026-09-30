@@ -704,12 +704,28 @@
             nativeLiveSocket.send(JSON.stringify(setupMessage));
         };
 
-        nativeLiveSocket.onmessage = function (event) {
-            if (typeof event.data !== "string") return;
+        nativeLiveSocket.onmessage = async function (event) {
             try {
-                handleNativeServerMessage(JSON.parse(event.data));
+                var text = null;
+
+                if (typeof event.data === "string") {
+                    text = event.data;
+                } else if (event.data instanceof ArrayBuffer) {
+                    text = new TextDecoder("utf-8").decode(
+                        new Uint8Array(event.data)
+                    );
+                } else if (event.data instanceof Blob) {
+                    text = await event.data.text();
+                }
+
+                if (!text) return;
+
+                handleNativeServerMessage(JSON.parse(text));
             } catch (err) {
-                logNativeLive("protocol message parse error: " + err.message, "amber");
+                logNativeLive(
+                    "protocol message parse error: " + err.message,
+                    "amber"
+                );
             }
         };
 
