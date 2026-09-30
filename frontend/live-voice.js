@@ -538,6 +538,29 @@
             if (inlineData && inlineData.data) {
                 try {
                     var audioBytes = bytesFromBase64(inlineData.data);
+                    var audioNow = performance.now();
+
+                    if (!window.__sarembokFirstAudioTime) {
+                        window.__sarembokFirstAudioTime = audioNow;
+                        console.log(
+                            "[GEMINI-LIVE AUDIO] FIRST AUDIO",
+                            audioNow.toFixed(1),
+                            "bytes=" + audioBytes.byteLength
+                        );
+                    } else {
+                        var delta =
+                            audioNow - window.__sarembokLastAudioTime;
+
+                        console.log(
+                            "[GEMINI-LIVE AUDIO] CHUNK",
+                            audioNow.toFixed(1),
+                            "delta=" + delta.toFixed(1) + "ms",
+                            "bytes=" + audioBytes.byteLength
+                        );
+                    }
+
+                    window.__sarembokLastAudioTime = audioNow;
+
                     queueNativeOutputPcm(audioBytes);
                 } catch (err) {
                     logNativeLive("audio decode error: " + err.message, "amber");
@@ -917,6 +940,11 @@
                     }));
 
                     if (payload.speechEnded) {
+                        console.log(
+                            "[GEMINI-LIVE TIMING] audioStreamEnd",
+                            performance.now().toFixed(1)
+                        );
+
                         nativeLiveSocket.send(JSON.stringify({
                             realtimeInput: {
                                 audioStreamEnd: true
