@@ -200,12 +200,12 @@ def _auth_token_request(api_key: str, mode: str) -> dict[str, Any]:
         "uses": 1,
         "expireTime": _iso_utc(expires),
         "newSessionExpireTime": _iso_utc(new_session_expires),
-        "liveConnectConstraints": {
+        "bidiGenerateContentSetup": {
             "model": f"models/{model}",
-            "config": {
-                "sessionResumption": {},
+            "generationConfig": {
                 "responseModalities": ["AUDIO"],
             },
+            "sessionResumption": {},
         },
     }
 
