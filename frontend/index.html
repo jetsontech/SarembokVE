@@ -10957,10 +10957,10 @@ button,
                         }
                     };
 
-                    const streamed = await playKokoroStream(
-                        (index) => synthesizeChunk(speechChunks[index]),
-                        speechChunks.length
-                    );
+                    // Use the runtime PCM stream directly. This starts playback
+                    // as Kokoro produces audio instead of waiting for complete WAV
+                    // synthesis of the first phrase, and preserves strict turn order.
+                    const streamed = await playKokoroRealtime(clean);
                     if (!streamed || speechRequestId !== ttsPlaybackGeneration) return;
 
                     finishSpeaking();
