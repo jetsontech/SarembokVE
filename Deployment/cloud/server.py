@@ -2571,6 +2571,19 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         tool_name = str(params.get("tool") or params.get("toolName") or "").strip()
         arguments = params.get("arguments") or {}
         if not server_name or not tool_name: raise ValueError("server_and_tool_required")
+        raw_call = (tool_name + " " + json.dumps(arguments, ensure_ascii=False)).lower()
+        high_impact_mcp = any(token in raw_call for token in (
+            "purchase", "buy", "order", "payment", "transfer", "send_money",
+            "delete", "remove", "close_account", "unsubscribe"
+        ))
+        if high_impact_mcp and not bool(params.get("confirm")):
+            return {
+                "ok": False,
+                "requiresConfirmation": True,
+                "error": "explicit_confirmation_required_for_high_impact_mcp_action",
+                "server": server_name,
+                "tool": tool_name,
+            }
         try:
             from mcp_client import get_mcp_client_manager
         except ImportError:
