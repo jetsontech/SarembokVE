@@ -54,7 +54,6 @@ class FrontierControlTests(unittest.TestCase):
         legacy_speech_cap = "return s[" + ":380]"
         self.assertNotIn(legacy_speech_cap, server)
         self.assertNotIn('fallback_id = "4xDzrJKXOOY" if "synth" in q_low else "jfKfPfyJRdk"', server)
-        self.assertIn("verified": True, server) if False else None
         self.assertIn('"verified":True', server.replace(" ", ""))
         self.assertIn('"matchScore"', server)
 
