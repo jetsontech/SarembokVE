@@ -1783,7 +1783,9 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
     p_low = prompt.lower()
     rep = (rep or "").strip()
 
-    # Preserve provider responses verbatim; never delete individual sentences.\n\n    # Extract topic for dynamic video search embedding
+    # Preserve provider responses verbatim; never delete individual sentences.
+
+    # Extract topic for dynamic video search embedding
     topic = re.sub(r"(?i)^(?:can you\s+)?(?:please\s+)?(?:play|show|open|stream|watch|listen to)\s+(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:video\s+about\s+|on\s+youtube\s+|youtube\s+)?", "", prompt).strip()
     topic = re.sub(r"(?i)\s+(?:on\s+youtube|from\s+youtube|video|stream|song)$", "", topic).strip()
     topic = topic.replace('"', '').replace("'", "").strip() or "lofi study music"
