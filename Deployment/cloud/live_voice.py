@@ -93,6 +93,36 @@ def _tool_declarations() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "browser_session_open",
+            "description": "Open or resume a persistent Sarembok browser session for website and web-app interaction.",
+            "behavior": "EXECUTE_VERIFIED",
+            "parameters": {"type": "OBJECT", "properties": {"sessionId": {"type": "STRING"}}},
+        },
+        {
+            "name": "browser_inspect",
+            "description": "Inspect the current browser page, visible text, links, buttons, inputs, and controls before acting.",
+            "behavior": "READ_ONLY",
+            "parameters": {"type": "OBJECT", "properties": {"sessionId": {"type": "STRING"}}},
+        },
+        {
+            "name": "browser_action",
+            "description": "Execute a verified browser action such as navigate, click, fill, type, select, press, scroll, or wait. Do not claim completion unless the returned state verifies it.",
+            "behavior": "EXECUTE_VERIFIED",
+            "parameters": {"type": "OBJECT", "properties": {"sessionId": {"type": "STRING"}, "action": {"type": "STRING"}, "url": {"type": "STRING"}, "selector": {"type": "STRING"}, "text": {"type": "STRING"}, "value": {"type": "STRING"}, "key": {"type": "STRING"}, "confirm": {"type": "BOOLEAN"}} , "required": ["sessionId","action"]},
+        },
+        {
+            "name": "mcp_list_servers",
+            "description": "List configured external MCP integrations and their live connection/tool status.",
+            "behavior": "READ_ONLY",
+            "parameters": {"type": "OBJECT", "properties": {}},
+        },
+        {
+            "name": "mcp_call",
+            "description": "Call a tool on a configured external MCP server. Never claim the result until the tool returns.",
+            "behavior": "EXECUTE_VERIFIED",
+            "parameters": {"type": "OBJECT", "properties": {"server": {"type": "STRING"}, "tool": {"type": "STRING"}, "arguments": {"type": "OBJECT"}}, "required": ["server","tool"]},
+        },
+        {
             "name": "search_memory",
             "description": "Search Sarembok persistent memory for information relevant to the current conversation.",
             "behavior": "NON_BLOCKING",
@@ -111,7 +141,7 @@ def _tool_declarations() -> list[dict[str, Any]]:
 
 def _system_instruction(mode: str) -> str:
     base = (
-        "You are Sarembok VE, a real conversational AI running inside the "
+        "You are Sarembok VE, built by Tim Hall and running inside the "
         "Sarembok AI-native computing environment. Speak naturally, warmly, "
         "and directly. This is live spoken conversation, so answer in "
         "short natural turns instead of long essays. Do not use Markdown, "
@@ -169,8 +199,8 @@ def build_live_setup(mode: str = "conversational") -> dict[str, Any]:
         "realtimeInputConfig": {
             "automaticActivityDetection": {
                 "disabled": False,
-                "prefixPaddingMs": 180,
-                "silenceDurationMs": 420,
+                "prefixPaddingMs": 160,
+                "silenceDurationMs": 280,
             },
             "activityHandling": "START_OF_ACTIVITY_INTERRUPTS",
         },
