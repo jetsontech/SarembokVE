@@ -6906,7 +6906,7 @@ button,
                             <span class="admin-exec-dot"></span>
                             <span id="admin-exec-btn-text">ADMIN: OFF</span>
                         </button>
-                        <div class="cyber-card-badge cyan" id="dialogue-gpu-badge" title="Active Engine">ENGINE: GPT-4O-MINI</div>
+                        <div class="cyber-card-badge cyan" id="dialogue-gpu-badge" title="Active Engine">ENGINE: RUNTIME-AUTHORITY</div>
                         <button class="dialogue-voice-chip" id="dialogue-voice-toggle-chip" onclick="toggleVoiceOutput()" title="Toggle voice narration">
                             <span class="voice-chip-dot"></span>
                             <span id="dialogue-voice-chip-text">VOICE: ON</span>
@@ -7691,7 +7691,7 @@ button,
                             <div class="feature-card-title-group">
                                 <div class="feature-icon-badge">🎨</div>
                                 <div>
-                                    <div class="feature-title-text">Frontier Image Generation &amp; 4K Lightbox</div>
+                                    <div class="feature-title-text">Visual Synthesis &amp; Verified Image Output</div>
                                     <span class="cyber-card-badge cyan" style="font-size:9px; padding:1px 6px;">FLUX.1 ACCELERATED</span>
                                 </div>
                             </div>
@@ -8726,38 +8726,7 @@ button,
             s = s.replace(/\s+(?=\d+\.\s+\*\*)/g, "\n");
             const pLow = String(prompt || "").toLowerCase();
 
-            function isRefusalSentence(sent) {
-                const sClean = sent.trim().toLowerCase();
-                if (!sClean) return false;
-                const refusalKeywords = [
-                    "can't play music directly", "cannot play music directly",
-                    "can't open youtube directly", "cannot open youtube directly",
-                    "unable to open youtube", "unable to play music",
-                    "i can't", "i cannot", "i'm unable", "i am unable",
-                    "i don't have the ability", "i do not have the ability",
-                    "as an ai", "while i can't", "while i cannot",
-                    "you can access it by", "you can access youtube by",
-                    "access it by typing", "using the youtube app on your device",
-                    "navigating to the website in your browser",
-                    "if you need help finding specific content",
-                    "if you need help finding something specific on youtube",
-                    "external applications directly"
-                ];
-                return refusalKeywords.some(k => sClean.includes(k));
-            }
-
-            const paragraphs = s.split("\n\n");
-            const cleanedParas = [];
-            for (const p of paragraphs) {
-                const sentences = p.trim().split(/(?<=[.!?])\s+/);
-                const goodSentences = sentences.filter(sent => !isRefusalSentence(sent));
-                if (goodSentences.length > 0) {
-                    cleanedParas.push(goodSentences.join(" "));
-                }
-            }
-            s = cleanedParas.join("\n\n").trim();
-
-            // Extract specific query or topic from user prompt
+            // Never remove individual provider sentences; limitations and refusals are valid response content.\n\n            // Extract specific query or topic from user prompt
             let cleanTopic = prompt.replace(/^["'`“‘]+|["'`”’]+$/g, "").trim();
             const musicSubMatch = cleanTopic.match(/\b(?:play|stream|listen to)\s+(?:me\s+)?(?:some\s+)?([a-z0-9\s\-]+?)(?:,\s*and\s+|\s+and\s+|\s+while\s+|$|\.|\n)/i);
             const videoSubMatch = cleanTopic.match(/\b(?:watch|show|open)\s+(?:me\s+)?(?:a\s+)?(?:video\s+about\s+)?([a-z0-9\s\-]+?)(?:,\s*and\s+|\s+and\s+|\s+while\s+|$|\.|\n)/i);
@@ -8827,20 +8796,8 @@ button,
             // If the incoming text ALREADY has a verified media card with a real URL from the backend, keep it!
             const hasVerifiedMedia = /:::(?:video|music|youtube|image)[^\n]*\n\s*https?:\/\/[^\s\n]+\s*\n:::/i.test(s);
 
-            if (!hasVerifiedMedia && isImage && !s.includes(":::image")) {
-                let imgPrompt = prompt.trim().replace(/^["'`“‘]+|["'`”’]+$/g, "").trim();
-                const imgSubMatch = imgPrompt.match(/\b(?:generate|create|render|draw|synthesize|paint)\s+(?:an?\s+)?(?:4k\s+|8k\s+|hd\s+|cinematic\s+)?(?:image|picture|photo|artwork|rendering)?\s+(?:of\s+)?([a-z0-9\s\-]+?)(?:,\s*and\s+|\s+and\s+|\s+while\s+|$|\.|\n)/i);
-                if (imgSubMatch && imgSubMatch[1].trim().length > 2) {
-                    imgPrompt = imgSubMatch[1].trim();
-                } else {
-                    imgPrompt = imgPrompt.replace(/^(?:can you\s+)?(?:please\s+)?(?:generate|create|render|draw|make|synthesize|paint|illustrate)\s+(?:an?\s+)?(?:4k\s+|8k\s+|hd\s+|cinematic\s+)?(?:image|picture|photo|artwork|illustration|rendering)?\s+(?:of\s+)?/gi, "").trim();
-                }
-                imgPrompt = imgPrompt || "cybernetic neural core in sovereign computing matrix";
-                const enc = encodeURIComponent(imgPrompt);
-                const seed = Math.floor(Math.random() * 9000000) + 1000000;
-                const imgUrl = `https://image.pollinations.ai/prompt/${enc}?width=1024&height=1024&model=flux&nologo=true&seed=${seed}`;
-                s = `:::image ${imgPrompt.toUpperCase()} · FRONTIER SYNTHESIS\n${imgUrl}\n:::\n\n${s}`.trim();
-            }
+            // Image generation is rendered only from a verified backend :::image block.
+            // The browser must never invent an image URL.
 
             // Both image and audio/video can render concurrently in parallel execution
             if (!hasVerifiedMedia && (isVideo || isMusic) && !s.includes(":::video") && !s.includes(":::music")) {
