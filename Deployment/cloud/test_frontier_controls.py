@@ -47,6 +47,20 @@ class FrontierControlTests(unittest.TestCase):
             if oldw is None: os.environ.pop('SAREMBOK_RATE_LIMIT_WINDOW_SECONDS',None)
             else: os.environ['SAREMBOK_RATE_LIMIT_WINDOW_SECONDS']=oldw
 
+
+    def test_complete_speech_and_media_truth_controls(self):
+        from pathlib import Path
+        server = Path("Deployment/cloud/server.py").read_text(encoding="utf-8")
+        self.assertNotIn("return s[:380]", server)
+        self.assertNotIn('fallback_id = "4xDzrJKXOOY" if "synth" in q_low else "jfKfPfyJRdk"', server)
+        self.assertIn("youtube_no_verified_match", server)
+
+    def test_browser_execution_methods_are_user_authorized(self):
+        guard=ProductionGuard()
+        identity=Identity("USER","u")
+        for method in ("BrowserSessionOpen","BrowserSessionInspect","BrowserAction","BrowserSessionClose","CallMcpTool"):
+            guard.require(method,{},identity)
+
     def test_graph_cycle_rejected(self):
         graph=ExecutionGraph('g',(GraphNode('a','x',('b',)),GraphNode('b','y',('a',))))
         self.assertIn('dependency_cycle',validate_graph(graph))
