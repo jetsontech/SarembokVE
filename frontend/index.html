@@ -10758,6 +10758,53 @@ button,
                         return audioBlob;
                     };
 
+                    // Full-response speech: ordered chunks with one-chunk-ahead synthesis.
+                    const playKokoroBlob = async (blob) => {
+                        if (!globalAudioCtx || globalAudioCtx.state !== "running") throw new Error("Web Audio output context is not running");
+                        if (!blob || blob.size < 128) throw new Error("Invalid neural audio blob");
+                        const bytes = await blob.arrayBuffer();
+                        const audioBuffer = await globalAudioCtx.decodeAudioData(bytes.slice(0));
+                        if (!audioBuffer.duration) throw new Error("Neural audio contained no duration");
+                        return await new Promise((resolve, reject) => {
+                            let stopped = false;
+                            const source = globalAudioCtx.createBufferSource();
+                            source.buffer = audioBuffer;
+                            source.connect(globalAudioCtx.destination);
+                            activeNeuralAudio = {
+                                pause() {
+                                    if (stopped) return;
+                                    stopped = true;
+                                    try { source.stop(0); } catch (_) {}
+                                    try { source.disconnect(); } catch (_) {}
+                                    resolve(false);
+                                }
+                            };
+                            window._activeSpeechAudio = activeNeuralAudio;
+                            source.onended = () => {
+                                if (activeNeuralAudio && !stopped) activeNeuralAudio = null;
+                                try { source.disconnect(); } catch (_) {}
+                                if (!stopped) resolve(true);
+                            };
+                            try {
+                                source.start();
+                                if (typeof window.setKokoroStatus === "function") window.setKokoroStatus("Speaking · " + kokoroVoice + " · ordered", true);
+                            } catch (err) { reject(err); }
+                        });
+                    };
+
+                    let nextChunkPromise = speechChunks.length ? synthesizeChunk(speechChunks[0]) : null;
+                    for (let i = 0; i < speechChunks.length; i++) {
+                        if (speechRequestId !== ttsPlaybackGeneration) return;
+                        const currentPromise = nextChunkPromise;
+                        nextChunkPromise = (i + 1 < speechChunks.length) ? synthesizeChunk(speechChunks[i + 1]) : null;
+                        const blob = await currentPromise;
+                        const ok = await playKokoroBlob(blob);
+                        if (!ok || speechRequestId !== ttsPlaybackGeneration) return;
+                    }
+                    if (speechRequestId !== ttsPlaybackGeneration) return;
+                    finishSpeaking();
+                    return;
+
                     // Start with the first natural sentence/phrase immediately,
                     // then keep the complete response moving in order. The stream owns
                     // the audio element for the entire turn, so chunk boundaries cannot
@@ -10928,10 +10975,7 @@ button,
                     // Use the runtime PCM stream directly. This starts playback
                     // as Kokoro produces audio instead of waiting for complete WAV
                     // synthesis of the first phrase, and preserves strict turn order.
-                    const streamed = await playKokoroRealtime(clean);
-                    if (!streamed || speechRequestId !== ttsPlaybackGeneration) return;
-
-                    finishSpeaking();
+                    // Ordered chunk playback above is the active conversational path.
                 } catch (err) {
                     if (err && err.name === "AbortError") return;
                     if (speechRequestId !== ttsPlaybackGeneration) return;
