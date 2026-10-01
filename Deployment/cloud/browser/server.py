@@ -210,8 +210,10 @@ class BrowserRuntime:
         role = str(request.get("role") or "").strip()
         name = str(request.get("name") or "").strip()
         exact = bool(request.get("exact", True))
+        placeholder = str(request.get("placeholder") or "").strip()
         if selector: return page.locator(selector)
         if role: return page.get_by_role(role, name=name or None, exact=exact)
+        if placeholder: return page.get_by_placeholder(placeholder, exact=exact)
         if text: return page.get_by_text(text, exact=exact)
         raise ValueError("selector_or_text_or_role_required")
 
@@ -262,7 +264,17 @@ class BrowserRuntime:
             item["active_page"]=result["pageIndex"]; page=new_page
         elif action in {"click","fill","type","select","hover","press"}:
             loc=self._target_locator(page,request).first; timeout=max(1000,min(15000,int(request.get("timeoutMs",NAVIGATION_TIMEOUT_MS))))
-            if action=="click": loc.click(timeout=timeout)
+            if action=="click":
+                before_pages=list(context.pages)
+                loc.click(timeout=timeout)
+                page.wait_for_timeout(min(800, max(100, int(request.get("settleMs", 300)))))
+                after_pages=list(context.pages)
+                if len(after_pages) > len(before_pages):
+                    for new_index, candidate in enumerate(after_pages):
+                        if candidate not in before_pages:
+                            item["active_page"] = new_index
+                            page = candidate
+                            break
             elif action=="fill": loc.fill(str(request.get("value") or ""),timeout=timeout)
             elif action=="type": loc.press_sequentially(str(request.get("value") or ""),delay=max(0,min(150,int(request.get("delayMs",0)))),timeout=timeout)
             elif action=="select":
