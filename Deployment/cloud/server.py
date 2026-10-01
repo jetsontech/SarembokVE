@@ -1427,71 +1427,48 @@ _YT_CACHE: dict[str, str] = {
     "ai news": "5eT0GZqj3yE",
 }
 
-def resolve_youtube_search(query: str) -> dict[str, str]:
-    q_clean = (query or "").strip()
-    q_low = q_clean.lower()
-    
-    # Check cache for exact match only (no loose substring hijacking)
-    if q_low in _YT_CACHE:
-        v = _YT_CACHE[q_low]
-        return {"videoId": v, "url": f"https://www.youtube.com/watch?v={v}", "title": q_clean.upper()}
+def _youtube_terms(value: str) -> list[str]:
+    stop = {"the","a","an","and","or","of","to","for","me","some","on","youtube","video","music","song","play","watch","show","listen","live"}
+    return [t for t in re.findall(r"[a-z0-9]+", str(value or "").lower()) if len(t) > 1 and t not in stop]
 
-    # Live scrape top real video ID from YouTube search
+def _youtube_candidate_score(query: str, title: str) -> float:
+    q = _youtube_terms(query); t = _youtube_terms(title)
+    if not q or not t: return 0.0
+    overlap = len(set(q) & set(t)) / len(set(q))
+    phrase = 1.0 if " ".join(q) in " ".join(t) else 0.0
+    return round((overlap * 0.8) + (phrase * 0.2), 4)
+
+def _extract_youtube_candidates(node: Any, out: list[dict[str, str]], limit: int = 30) -> None:
+    if len(out) >= limit: return
+    if isinstance(node, dict):
+        vr = node.get("videoRenderer")
+        if isinstance(vr, dict) and vr.get("videoId"):
+            title_obj = vr.get("title") or {}; runs = title_obj.get("runs") or []
+            title = "".join(str(run.get("text") or "") for run in runs).strip() or str(title_obj.get("simpleText") or "").strip()
+            out.append({"videoId": str(vr.get("videoId")), "title": title})
+            if len(out) >= limit: return
+        for value in node.values(): _extract_youtube_candidates(value, out, limit)
+    elif isinstance(node, list):
+        for value in node: _extract_youtube_candidates(value, out, limit)
+
+def resolve_youtube_search(query: str) -> dict[str, Any]:
+    q_clean = str(query or "").strip() or "lofi study music"
+    q_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(q_clean)}"
     try:
-        encoded = urllib.parse.quote(q_clean or "lofi study music")
-        url = f"https://www.youtube.com/results?search_query={encoded}"
-        req = urllib.request.Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9"
-        })
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            html = resp.read().decode("utf-8", errors="ignore")
-
-            # 1. Parse ytInitialData JSON to extract verified videoRenderer (skips Shorts shelves & ads)
-            match = re.search(r'var ytInitialData\s*=\s*({.*?});</script>', html) or re.search(r'ytInitialData\s*=\s*({.*?});', html)
-            if match:
-                try:
-                    data = json.loads(match.group(1))
-                    contents = data.get("contents", {}).get("twoColumnSearchResultsRenderer", {}).get("primaryContents", {}).get("sectionListRenderer", {}).get("contents", [])
-                    for section in contents:
-                        items = section.get("itemSectionRenderer", {}).get("contents", [])
-                        for item in items:
-                            vr = item.get("videoRenderer")
-                            if vr and "videoId" in vr:
-                                vid = vr["videoId"]
-                                title = ""
-                                title_runs = vr.get("title", {}).get("runs", [])
-                                if title_runs:
-                                    title = "".join(r.get("text", "") for r in title_runs)
-                                elif "simpleText" in vr.get("title", {}):
-                                    title = vr.get("title", {}).get("simpleText")
-                                display_title = (title or q_clean).upper()
-                                _YT_CACHE[q_low] = vid
-                                return {"videoId": vid, "url": f"https://www.youtube.com/watch?v={vid}", "title": display_title}
-                except Exception:
-                    pass
-
-            # 2. Strict regex explicitly targeting videoRenderer (skips reelItemRenderer & shortsLockup)
-            vr_ids = re.findall(r'"videoRenderer":\{"videoId":"([a-zA-Z0-9_-]{11})"', html)
-            if vr_ids:
-                real_id = vr_ids[0]
-                _YT_CACHE[q_low] = real_id
-                return {"videoId": real_id, "url": f"https://www.youtube.com/watch?v={real_id}", "title": q_clean.upper()}
-
-            # 3. Fallback to generic video ID
-            generic_ids = re.findall(r'"videoId":"([a-zA-Z0-9_-]{11})"', html)
-            if generic_ids:
-                real_id = generic_ids[0]
-                _YT_CACHE[q_low] = real_id
-                return {"videoId": real_id, "url": f"https://www.youtube.com/watch?v={real_id}", "title": q_clean.upper()}
-
+        req = urllib.request.Request(q_url, headers={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154.0 Safari/537.36","Accept-Language":"en-US,en;q=0.9"})
+        with urllib.request.urlopen(req, timeout=7) as resp: html = resp.read().decode("utf-8", errors="ignore")
+        candidates=[]
+        match=re.search(r"ytInitialData\s*=\s*({.*?});</script>",html) or re.search(r"ytInitialData\s*=\s*({.*?});",html)
+        if match:
+            try: _extract_youtube_candidates(json.loads(match.group(1)), candidates, 30)
+            except Exception: pass
+        ranked=sorted(((_youtube_candidate_score(q_clean,x.get("title","")),x) for x in candidates), key=lambda z:z[0], reverse=True)
+        if ranked and ranked[0][0] >= 0.45:
+            score,best=ranked[0]; vid=best["videoId"]; title=best.get("title") or q_clean
+            return {"videoId":vid,"url":f"https://www.youtube.com/watch?v={vid}","searchUrl":q_url,"title":title,"verified":True,"matchScore":score}
     except Exception as exc:
-        LOG.warning("YouTube live search lookup error for '%s': %s", q_clean, exc)
-
-    fallback_id = "4xDzrJKXOOY" if "synth" in q_low else "jfKfPfyJRdk"
-    return {"videoId": fallback_id, "url": f"https://www.youtube.com/watch?v={fallback_id}", "title": q_clean.upper()}
-
-
+        LOG.warning("YouTube verified search failed for %r: %s",q_clean,exc)
+    return {"videoId":None,"url":q_url,"searchUrl":q_url,"title":f"Search results for {q_clean}","verified":False,"matchScore":0.0}
 def get_visual_engine_status() -> dict[str, Any]:
     """Returns the configuration and readiness of all 3 visual synthesis tiers."""
     comfy_url = os.getenv("COMFYUI_URL", os.getenv("SOVEREIGN_GPU_ENDPOINT", "http://127.0.0.1:8188")).strip().rstrip("/")
@@ -1867,20 +1844,17 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
         resolved = resolve_youtube_search(topic)
         real_url = resolved["url"]
         display_title = resolved.get("title") or topic.upper()
-        
-        # Replace all hallucinated youtube links with the verified real URL
-        rep = re.sub(r'https?://(?:www\.)?(?:youtube\.com/watch\?[^\s\)\"]+|youtu\.be/[\w-]+)', real_url, rep)
-        
-        # Strip any existing or partial :::video or :::music blocks first
+        rep = re.sub(r'https?://(?:www\.)?(?:youtube\.com/watch\?[^\s\)"]+|youtu\.be/[\w-]+)', real_url, rep)
         rep = re.sub(r':::(?:video|music|youtube)[^\n]*\n[\s\S]*?:::\n?', '', rep).strip()
         rep = re.sub(r':::(?:video|music|youtube)[^\n]*', '', rep).strip()
-        
-        # Prepend clean verified widget
-        if is_music:
-            rep = f":::music {display_title} · AUDIO STREAM\n{real_url}\n:::\n\n{rep}".strip()
+        if resolved.get("verified") and resolved.get("videoId"):
+            if is_music:
+                rep = f":::music {display_title} · VERIFIED AUDIO STREAM\n{real_url}\n:::\n\n{rep}".strip()
+            else:
+                rep = f":::video {display_title} · VERIFIED VIDEO STREAM\n{real_url}\n:::\n\n{rep}".strip()
         else:
-            rep = f":::video {display_title} · VIDEO STREAM\n{real_url}\n:::\n\n{rep}".strip()
-
+            media_kind = "music" if is_music else "video"
+            rep = f"No verified {media_kind} result matched \"{topic}\". I did not substitute a different item. Search results: {resolved.get('searchUrl', real_url)}\n\n{rep}".strip()
     # 2. Generative Image Card (supports co-existing with Audio Stream in Multi-Task mode!)
     if is_image or ":::image" in rep:
         try:
@@ -1902,7 +1876,7 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
         if is_image:
             tasks_lines.append("[Visual Synthesis]: Image generation requested; live provider availability is reported separately.")
         if is_music or any(w in p_low for w in ("music", "lofi", "song", "audio")):
-            tasks_lines.append("[Audio Stream]: Active Cyber Music Channel Online")
+            tasks_lines.append("[Audio Stream]: Music requested; verified playback result is reported separately.")
         if any(w in p_low for w in ("news", "search", "research", "ai", "market")):
             tasks_lines.append("[Live Intelligence]: Synchronized Real-Time Knowledge Fabric")
         if any(w in p_low for w in ("calc", "math", "code", "budget")):
@@ -1922,9 +1896,9 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
             except Exception:
                 rep = "Image generation is not currently operational in this Sarembok runtime."
         elif is_video:
-            rep = f"Streaming **{topic.upper()}**:\n\n:::video {topic.upper()} · VIDEO STREAM\n{real_url}\n:::\n\nStreaming live. Let me know if you need anything else."
+            rep = f"No verified video result matched **{topic.upper()}**. I did not substitute a different video. Search results: {resolved.get("searchUrl", real_url)}"
         elif is_music:
-            rep = f"Playing **{topic.upper()}**:\n\n:::music {topic.upper()} · AUDIO STREAM\n{real_url}\n:::\n\nPlaying now in your audio deck."
+            rep = f"No verified music result matched **{topic.upper()}**. I did not substitute a different track. Search results: {resolved.get("searchUrl", real_url)}"
         else:
             rep = "Cyber audio & multimodal synthesis initialized. Active streaming channels and interface components are ready."
 
