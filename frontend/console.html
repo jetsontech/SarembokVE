@@ -1170,6 +1170,6 @@ window.consoleVoiceEnqueue=function(text){const spoken=normalize(text);if(!spoke
 window.consoleVoiceInterrupt=function(){generation++;queue.splice(0).forEach(x=>{try{x.controller.abort();}catch(_){}});nextAudioTime=audioCtx?audioCtx.currentTime:0;activeSources.forEach(s=>{try{s.stop(0);}catch(_){}try{s.disconnect();}catch(_){} });activeSources.clear();};
 window.consoleVoiceUnlock=unlock;document.addEventListener('visibilitychange',()=>{if(!document.hidden&&window.consoleVoiceEnabled)void unlock();});window.addEventListener('pointerdown',()=>void unlock(),{passive:true});window.addEventListener('touchstart',()=>void unlock(),{passive:true});window.addEventListener('pagehide',()=>{try{window.consoleVoiceInterrupt();}catch(_){}});})();
 </script>
-<script src="/live-voice.js?v=20260926-console-live"></script>
+<script src="/live-voice.js?v=20261001-live-truth"></script>
 </body>
 </html>
