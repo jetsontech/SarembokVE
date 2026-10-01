@@ -76,22 +76,23 @@ def _provider_snapshot() -> list[dict[str, Any]]:
 class CapabilityRegistry:
     def snapshot(self, runtime_state: dict[str, Any] | None = None) -> dict[str, Any]:
         runtime = runtime_state or {}
+        image_operational = bool(
+            os.getenv("SAREMBOK_IMAGE_GENERATION_ENABLED", "").strip().lower()
+            in {"1", "true", "yes", "on"}
+        )
+        capabilities = []
+        for m, (d, desc) in RPC_CAPABILITIES.items():
+            enabled = True if m != "GenerateImage" else image_operational
+            capabilities.append({
+                "method": m,
+                "domain": d,
+                "description": desc,
+                "enabled": enabled,
+            })
         return {
             "registryVersion": "2.0",
             "truthModel": "implemented_configured_operational",
-            image_operational = bool(
-                os.getenv("SAREMBOK_IMAGE_GENERATION_ENABLED", "").strip().lower()
-                in {"1", "true", "yes", "on"}
-            )
-            capabilities = []
-            for m, (d, desc) in RPC_CAPABILITIES.items():
-                enabled = True if m != "GenerateImage" else image_operational
-                capabilities.append({
-                    "method": m,
-                    "domain": d,
-                    "description": desc,
-                    "enabled": enabled,
-                })
+            "capabilities": capabilities,
             "providers": _provider_snapshot(),
             "runtime": runtime,
         }
