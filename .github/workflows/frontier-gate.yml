@@ -90,6 +90,16 @@ jobs:
               print("ORIGIN HEALTH:", r.status, body)
               assert r.status == 200 and body == "OK"
 
+          with get("/", timeout=15) as r:
+              html = r.read().decode("utf-8", "replace")
+              print("MAIN HTML:", r.status, len(html), "bytes")
+              assert r.status == 200 and "Sarembok" in html
+
+          with get("/console", timeout=15) as r:
+              console_html = r.read().decode("utf-8", "replace")
+              print("CONSOLE HTML:", r.status, len(console_html), "bytes")
+              assert r.status == 200 and "Sarembok" in console_html
+
           with get("/session", timeout=15) as r:
               session = json.loads(r.read().decode("utf-8"))
           token = str(session.get("sessionToken") or "").strip()
@@ -133,7 +143,7 @@ jobs:
               ) as ws:
                   runtime = await rpc(ws, "runtime", "GetRuntimeInfo", {"sessionToken": token})
                   print("RUNTIME:", runtime)
-                  assert "result" in runtime and runtime["result"].get("status") == "ONLINE"
+                  assert "result" in runtime and runtime["result"].get("llmConfigured") is True
 
                   browser_prompt = "Open https://example.com and tell me the page title. Use the browser and report only what you verify."
                   result = await rpc(ws, "browser", "SarembokChat", {
