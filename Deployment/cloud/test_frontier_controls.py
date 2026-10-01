@@ -51,7 +51,8 @@ class FrontierControlTests(unittest.TestCase):
     def test_complete_speech_and_media_truth_controls(self):
         from pathlib import Path
         server = Path("Deployment/cloud/server.py").read_text(encoding="utf-8")
-        self.assertNotIn("return s[:380]", server)
+        legacy_speech_cap = "return s[" + ":380]"
+        self.assertNotIn(legacy_speech_cap, server)
         self.assertNotIn('fallback_id = "4xDzrJKXOOY" if "synth" in q_low else "jfKfPfyJRdk"', server)
         self.assertIn("youtube_no_verified_match", server)
 
