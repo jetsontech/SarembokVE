@@ -1125,10 +1125,32 @@
                 wrap.appendChild(video);
                 video.addEventListener('loadedmetadata',()=>{video.play().catch(()=>{});},{once:true});
             }
+            const controls=document.createElement('div');
+            controls.className='inline-media-controls';
+            controls.style.cssText='display:flex;gap:8px;align-items:center;margin-top:6px;';
+            const pop=document.createElement('button');
+            pop.type='button';
+            pop.textContent='↗ POP OUT VIDEO';
+            pop.style.cssText='cursor:pointer;border:1px solid rgba(0,240,255,.45);background:rgba(0,240,255,.08);color:var(--cyan);border-radius:6px;padding:5px 9px;font-size:10px;font-weight:700;';
+            pop.onclick=()=>{
+                const target = m
+                    ? 'https://www.youtube.com/embed/'+m[1]+'?rel=0&autoplay=1&playsinline=1'
+                    : raw;
+                const w=window.open('','sarembok-media-popout','width=900,height=600,resizable=yes,scrollbars=no');
+                if(!w){ alert('Allow pop-up windows for sarembok.com to pop out video.'); return; }
+                w.document.open();
+                w.document.write('<!doctype html><html><head><title>Sarembok Video</title><style>html,body{margin:0;height:100%;background:#05080d;overflow:hidden}iframe,video{width:100%;height:100%;border:0;display:block}</style></head><body>'+
+                    (m ? '<iframe src="'+target+'" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>'
+                       : '<video src="'+raw.replace(/"/g,'&quot;')+'" controls autoplay playsinline></video>')+
+                    '</body></html>');
+                w.document.close();
+            };
+            controls.appendChild(pop);
             const label=document.createElement('div');
             label.className='inline-media-label';
             label.textContent=title||'Response media';
-            wrap.appendChild(label);
+            controls.appendChild(label);
+            wrap.appendChild(controls);
             group.appendChild(wrap);
             return wrap;
         }
