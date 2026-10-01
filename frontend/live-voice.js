@@ -79,7 +79,10 @@
     }
 
     async function fetchLiveToken(mode) {
-        var sessionToken = await ensureBrowserSession();
+        var lastError = null;
+        for (var attempt = 1; attempt <= 3; attempt++) {
+            try {
+                var sessionToken = await ensureBrowserSession();
         var response = await fetch(
             "/api/live/token?mode=" + encodeURIComponent(mode),
             {
@@ -120,7 +123,17 @@
         if (!data.token || !data.setup || !data.model) {
             throw new Error("Gemini Live token response is incomplete");
         }
-        return data;
+                return data;
+            } catch (err) {
+                lastError = err;
+                if (attempt < 3) {
+                    await new Promise(function(resolve) {
+                        setTimeout(resolve, 350 * attempt);
+                    });
+                }
+            }
+        }
+        throw new Error("Live token request failed after 3 attempts: " + String(lastError && lastError.message || lastError || "network error"));
     }
 
     function setNativeLiveStatus(state, hint) {
@@ -794,8 +807,9 @@
             );
         };
 
-        nativeLiveSocket.onclose = function () {
+        nativeLiveSocket.onclose = function (event) {
             if (nativeLiveStopping) return;
+            logNativeLive("Gemini Live socket closed code=" + String(event && event.code || "") + " reason=" + String(event && event.reason || ""), "amber");
 
             nativeSetupComplete = false;
             if (nativeLiveActive && !nativeLiveReconnecting && !nativeReconnectTimer) {
@@ -1031,7 +1045,7 @@
             nativeLiveReconnecting = false;
             setNativeLiveStatus(
                 "LIVE RECONNECT FAILED",
-                String(err.message || err)
+                "The live session could not be refreshed: " + String(err.message || err)
             );
         } finally {
             nativeLiveReconnecting = false;
