@@ -68,6 +68,11 @@ BROWSER_ALLOWED_METHODS = {
     "BrowserNavigate",
     "BrowserScreenshot",
     "BrowserRender",
+    "BrowserSessionOpen",
+    "BrowserSessionInspect",
+    "BrowserAction",
+    "BrowserSessionClose",
+    "CallMcpTool",
     "CreateDigitalHumanSession",
     "GetDigitalHumanSession",
     "ListDigitalHumanSessions",
@@ -153,6 +158,24 @@ FAST_LANE_BLOCKERS = (
     "/admin", "/exec", "/sh", "/py",
 )
 
+
+WEB_EXECUTION_MARKERS = (
+    "go to ", "navigate to ", "open the website", "open the site", "visit ",
+    "on the website", "on the site", "click ", "fill ", "type ", "enter ",
+    "select ", "choose ", "submit ", "log in", "login", "sign in",
+    "sign into", "use the website", "use this site", "search the web",
+    "search on ", "open a browser", "browser", "website", "web app",
+)
+MEDIA_EXECUTION_MARKERS = (
+    "play ", "watch ", "listen to ", "stream ", "youtube", "video",
+    "song", "music", "audio",
+)
+
+def _is_browser_execution_intent(prompt: str) -> bool:
+    low = str(prompt or "").strip().lower()
+    if not low or any(marker in low for marker in MEDIA_EXECUTION_MARKERS):
+        return False
+    return any(marker in low for marker in WEB_EXECUTION_MARKERS)
 def _is_fast_conversational_turn(prompt: str, image_frame: str | None = None, admin: bool = False) -> bool:
     if admin or image_frame:
         return False
