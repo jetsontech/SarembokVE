@@ -8726,7 +8726,9 @@ button,
             s = s.replace(/\s+(?=\d+\.\s+\*\*)/g, "\n");
             const pLow = String(prompt || "").toLowerCase();
 
-            // Never remove individual provider sentences; limitations and refusals are valid response content.\n\n            // Extract specific query or topic from user prompt
+            // Never remove individual provider sentences; limitations and refusals are valid response content.
+
+            // Extract specific query or topic from user prompt
             let cleanTopic = prompt.replace(/^["'`“‘]+|["'`”’]+$/g, "").trim();
             const musicSubMatch = cleanTopic.match(/\b(?:play|stream|listen to)\s+(?:me\s+)?(?:some\s+)?([a-z0-9\s\-]+?)(?:,\s*and\s+|\s+and\s+|\s+while\s+|$|\.|\n)/i);
             const videoSubMatch = cleanTopic.match(/\b(?:watch|show|open)\s+(?:me\s+)?(?:a\s+)?(?:video\s+about\s+)?([a-z0-9\s\-]+?)(?:,\s*and\s+|\s+and\s+|\s+while\s+|$|\.|\n)/i);
