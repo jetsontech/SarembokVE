@@ -999,7 +999,12 @@
                 if(window.consoleVoiceEnabled&&delta){speechBuffer+=String(delta);while(true){const match=/([.!?])\s+/.exec(speechBuffer);if(!match)break;const end=match.index+1,unit=speechBuffer.slice(0,end).trim();speechBuffer=speechBuffer.slice(end).trimStart();if(unit){speechStarted=true;window.consoleVoiceEnqueue(unit);}}if(speechBuffer.length>=110){const matches=[...speechBuffer.matchAll(/[,;:]\s+|—\s+/g)].filter(m=>m.index>=65&&m.index<=190);if(matches.length){const cut=matches[matches.length-1].index+matches[matches.length-1][0].length,unit=speechBuffer.slice(0,cut).trim();speechBuffer=speechBuffer.slice(cut).trimStart();if(unit){speechStarted=true;window.consoleVoiceEnqueue(unit);}}}}};
             try{const result=await sendRPC('SarembokChat',{prompt:text,sessionId:sessionId,stream:true},updateStreamUi);const finalText=String(result?.response||result?.audioText||streamedText||'Response received.');
                 let assistantGroup=thinkingEl;
-                if(!assistantContent){thinkingEl.remove();assistantGroup=appendMessage('agent','Sarembok',finalText,result?.model,result?.recalledMemories);}else{assistantContent.innerHTML=formatReply(finalText);if(assistantSender&&result?.model)assistantSender.innerHTML='Sarembok <span class="msg-model-tag">'+esc(result.model)+'</span>';}
+                if(!assistantContent){thinkingEl.remove();assistantGroup=appendMessage('agent','Sarembok',finalText,result?.model,result?.recalledMemories);}else{assistantContent.innerHTML=formatReply(finalText);if(assistantSender&&(result?.model||result?.metadata?.model)){
+ const provider=String(result?.metadata?.provider||result?.source||'').trim();
+ const model=String(result?.model||result?.metadata?.model||'').trim();
+ const tag=provider&&model&&provider!==model?provider+' / '+model:model||provider;
+ assistantSender.innerHTML='Sarembok <span class="msg-model-tag">'+esc(tag)+'</span>';
+}}
                 if(window.consoleVoiceEnabled){if(speechStarted){if(speechBuffer.trim())window.consoleVoiceEnqueue(speechBuffer.trim());}else window.consoleVoiceEnqueue(finalText);}
                 const mediaUrl=String(result?.videoUrl||extractMediaUrl(finalText)||'').trim();
                 if(mediaUrl)appendInlineMedia(assistantGroup,mediaUrl,'Response media');
