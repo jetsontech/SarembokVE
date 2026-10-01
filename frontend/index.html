@@ -9720,6 +9720,15 @@ button,
 
                 let finalText = result?.response || result?.audioText || streamedText || "Directive executed.";
                 finalText = enrichResponseOnClient(text, finalText);
+                const engineBadge = document.getElementById("dialogue-gpu-badge");
+                if (engineBadge) {
+                    const provider = String(result?.metadata?.provider || result?.source || "").trim();
+                    const modelName = String(result?.metadata?.model || result?.model || "").trim();
+                    const label = provider && modelName && provider !== modelName
+                        ? provider + " / " + modelName
+                        : modelName || provider || "RUNTIME";
+                    engineBadge.textContent = "ENGINE: " + label.toUpperCase();
+                }
                 if (result?.structuredResponse && typeof window.renderStructuredResponse === "function") {
                     content.innerHTML = renderStructuredResponse(result.structuredResponse) || md(finalText);
                 } else {
