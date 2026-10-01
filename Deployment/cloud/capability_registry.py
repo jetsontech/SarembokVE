@@ -45,7 +45,7 @@ RPC_CAPABILITIES = {
     "GetDigitalHumanSession": ("avatar", "Get digital human session status and voice profile."),
     "ListDigitalHumanSessions": ("avatar", "List all digital human sessions."),
     "CloseDigitalHumanSession": ("avatar", "Close an active digital human session."),
-    "GenerateImage": ("frontier-vision", "Image generation capability; operational availability is determined by live provider/worker state."),
+    "GenerateImage": ("frontier-vision", "Image generation when a verified visual provider or GPU worker is operational."),
     "ExecuteComputeTask": ("compute", "Execute compute work on eligible registered workers."),
     "GetVisualEngineStatus": ("frontier-vision", "Read visual synthesis provider and worker status."),
 }
@@ -79,10 +79,19 @@ class CapabilityRegistry:
         return {
             "registryVersion": "2.0",
             "truthModel": "implemented_configured_operational",
-            "capabilities": [
-                {"method": m, "domain": d, "description": desc, "enabled": True}
-                for m, (d, desc) in RPC_CAPABILITIES.items()
-            ],
+            image_operational = bool(
+                os.getenv("SAREMBOK_IMAGE_GENERATION_ENABLED", "").strip().lower()
+                in {"1", "true", "yes", "on"}
+            )
+            capabilities = []
+            for m, (d, desc) in RPC_CAPABILITIES.items():
+                enabled = True if m != "GenerateImage" else image_operational
+                capabilities.append({
+                    "method": m,
+                    "domain": d,
+                    "description": desc,
+                    "enabled": enabled,
+                })
             "providers": _provider_snapshot(),
             "runtime": runtime,
         }
