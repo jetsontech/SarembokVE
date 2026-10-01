@@ -442,6 +442,14 @@ class Handler(BaseHTTPRequestHandler):
                 height = int(request.get("height", 800))
                 result = BROWSER.render(url, width=width, height=height)
                 self._send(200, {"ok": True, **result})
+            elif self.path == "/session":
+                self._send(200, BROWSER.open_session(str(request.get("sessionId") or "")))
+            elif self.path == "/session/inspect":
+                self._send(200, BROWSER.inspect_session(str(request.get("sessionId") or ""), bool(request.get("includeText", True))))
+            elif self.path == "/session/action":
+                self._send(200, BROWSER.action(request))
+            elif self.path == "/session/close":
+                self._send(200, BROWSER.close_session(str(request.get("sessionId") or "")))
             else:
                 self._send(404, {"error": "not_found"})
 
