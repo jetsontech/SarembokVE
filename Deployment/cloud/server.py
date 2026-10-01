@@ -2156,7 +2156,7 @@ def sarembok_process_dialogue(
         _save_conversation(session_id, prompt_clean, id_reply)
         return {
             "response": id_reply,
-            "audioText": "I am Sarembok VE, the sovereign multimodal computing environment and autonomous AI runtime.",
+            "audioText": "Sarembok VE was built by Tim Hall. It is the AI-native computing environment and runtime you are interacting with.",
             "source": "runtime_authority",
             "model": "runtime-authority",
             "action": None,
