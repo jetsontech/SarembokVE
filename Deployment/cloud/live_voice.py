@@ -53,7 +53,6 @@ def _tool_declarations() -> list[dict[str, Any]]:
         {
             "name": "get_runtime_info",
             "description": "Read the authoritative live Sarembok runtime status, worker counts, agents, tasks, memory, and system counters.",
-            "behavior": "NON_BLOCKING",
             "parameters": {
                 "type": "OBJECT",
                 "properties": {},
@@ -95,13 +94,11 @@ def _tool_declarations() -> list[dict[str, Any]]:
         {
             "name": "browser_session_open",
             "description": "Open or resume a persistent Sarembok browser session for website and web-app interaction.",
-            "behavior": "EXECUTE_VERIFIED",
             "parameters": {"type": "OBJECT", "properties": {"sessionId": {"type": "STRING"}}},
         },
         {
             "name": "browser_inspect",
             "description": "Inspect the current browser page, visible text, links, buttons, inputs, and controls before acting.",
-            "behavior": "READ_ONLY",
             "parameters": {"type": "OBJECT", "properties": {"sessionId": {"type": "STRING"}}},
         },
         {
