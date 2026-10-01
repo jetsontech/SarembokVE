@@ -175,6 +175,10 @@ def _is_browser_execution_intent(prompt: str) -> bool:
     low = str(prompt or "").strip().lower()
     if not low or any(marker in low for marker in MEDIA_EXECUTION_MARKERS):
         return False
+    if re.search(r"https?://\S+", low):
+        return True
+    if re.search(r"\b(?:check|read|open|use|access|connect|update|post|create|send|search)\b.{0,60}\b(?:gmail|outlook|email|slack|discord|github|gitlab|notion|drive|calendar|linkedin|facebook|instagram|reddit)\b", low):
+        return True
     return any(marker in low for marker in WEB_EXECUTION_MARKERS)
 def _is_fast_conversational_turn(prompt: str, image_frame: str | None = None, admin: bool = False) -> bool:
     if admin or image_frame:
