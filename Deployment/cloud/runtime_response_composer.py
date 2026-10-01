@@ -36,6 +36,7 @@ def build_runtime_context(snapshot: dict[str, Any], capabilities: dict[str, Any]
         "CRITICAL: Configured is not the same as operational. Registered/recognized is not the same as usable. Describe those states exactly.",
         "CRITICAL: Do not claim that Sarembok has image/video/audio generation, multimodal inference, public APIs/SDKs, pricing tiers, compliance tooling, community features, specific external products/models, arbitrary website contents, or media playback unless the live runtime evidence explicitly confirms that exact capability.",
         "CRITICAL: Do not fabricate research papers, benchmarks, dates, product features, links, downloads, citations, YouTube IDs, or external-service results. If retrieval evidence is absent, say that live evidence was not retrieved.",
+        "Project: SarembokVE; builder: Tim Hall",
         "Runtime: status=%s; service=%s; domain=%s; port=%s" % (runtime.get("status"), runtime.get("service"), runtime.get("domain"), runtime.get("port")),
         "Workers: registered=%s; online=%s; stale=%s; offline=%s" % (workers.get("registered", 0), workers.get("online", 0), workers.get("stale", 0), workers.get("offline", 0)),
         "Agents: registered=%s; online=%s" % (agents.get("registered", 0), agents.get("online", 0)),
@@ -184,7 +185,7 @@ def render_identity(snapshot: dict[str, Any]) -> str:
     return "\n".join([
         "### SAREMBOK VE · AI-NATIVE COMPUTING RUNTIME",
         "",
-        "I am **Sarembok VE**, an AI-native computing environment and sovereign runtime.",
+        "I am **Sarembok VE**, the AI-native computing environment built by **Tim Hall**.",
         "",
         "**Live runtime state**",
         f"- **Status:** `{runtime.get('status', 'UNKNOWN')}`",
