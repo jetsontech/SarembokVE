@@ -40,7 +40,13 @@
         get_provider_metrics: "GetProviderMetrics",
         list_workers: "ListWorkers",
         list_tasks: "ListTasks",
-        search_memory: "SearchMemories"
+        search_memory: "SearchMemories",
+        browser_session_open: "BrowserSessionOpen",
+        browser_inspect: "BrowserSessionInspect",
+        browser_action: "BrowserAction",
+        browser_session_close: "BrowserSessionClose",
+        mcp_list_servers: "ListMcpServers",
+        mcp_call: "CallMcpTool"
     };
 
     function srbkSendRPC(method, params, onDelta) {
@@ -652,7 +658,7 @@
                 "this.speechSeen=false;" +
                 "this.silenceMs=0;" +
                 "this.vadThreshold=0.012;" +
-                "this.endSilenceMs=500;" +
+                "this.endSilenceMs=320;" +
             "}" +
             "process(inputs,outputs,parameters){" +
                 "const input=inputs[0]&&inputs[0][0];" +
