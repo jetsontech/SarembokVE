@@ -1911,6 +1911,11 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
 
     img_query = img_sub.group(1).strip() if (img_sub and len(img_sub.group(1).strip()) > 2) else prompt
 
+    # An unspecified "play something/music/song" request may use a clearly
+    # identified neutral default. Specific requests are never substituted.
+    if is_music and topic.lower() in {"something", "anything", "music", "some music", "a song"}:
+        topic = "lofi study music"
+
     # 1. Video or Audio Card
     if is_video or is_music or ":::video" in rep or ":::music" in rep or "youtube.com" in rep:
         resolved = resolve_youtube_search(topic)
