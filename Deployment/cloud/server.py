@@ -1485,7 +1485,7 @@ def get_visual_engine_status() -> dict[str, Any]:
     together_configured = bool(os.getenv("TOGETHER_API_KEY"))
     openai_configured = bool(os.getenv("OPENAI_API_KEY"))
 
-    active_tier = "Tier 3 (Pollinations FLUX.1 Cluster)"
+    active_tier = "UNAVAILABLE"
     if comfy_online:
         active_tier = "Tier 1 (Sovereign ComfyUI GPU Node)"
     elif fal_configured:
@@ -1509,11 +1509,11 @@ def get_visual_engine_status() -> dict[str, Any]:
             "openai": {"configured": openai_configured, "model": "dall-e-3"},
         },
         "tier3_community": {
-            "name": "Pollinations AI Cluster",
-            "status": "ONLINE",
-            "model": "flux.1-schnell",
-            "unlimited": True,
-            "zeroKeyRequired": True,
+            "name": "Community fallback",
+            "status": "DISABLED",
+            "model": None,
+            "unlimited": False,
+            "zeroKeyRequired": False,
         },
     }
 
@@ -1773,65 +1773,17 @@ def resolve_image_generation(
                             "latencyMs": latency_ms,
                         }
         except Exception as e:
-            LOG.warning("OpenAI DALL-E generation failed, falling back to Tier 3: %s", e)
+            LOG.warning("OpenAI DALL-E generation failed: %s", e)
 
-    # -------------------------------------------------------------
-    # Tier 3: Guaranteed Zero-Key Resilience Fallback (Pollinations FLUX.1)
-    # -------------------------------------------------------------
-    encoded = urllib.parse.quote(cleaned_prompt)
-    url = f"https://image.pollinations.ai/prompt/{encoded}?width={width}&height={height}&model=flux&nologo=true&seed={actual_seed}"
-    latency_ms = round((time.perf_counter() - start_time) * 1000.0, 1)
-
-    return {
-        "url": url,
-        "prompt": cleaned_prompt,
-        "title": title,
-        "width": width,
-        "height": height,
-        "seed": actual_seed,
-        "model": "flux.1-schnell",
-        "provider": "Pollinations AI Community Cluster",
-        "tier": "Tier 3 (Zero-Key Community Fallback)",
-        "badge": "⚡ FRONTIER FLUX.1 (COMMUNITY)",
-        "latencyMs": latency_ms,
-    }
+    # No verified image provider is available. Never return a fabricated image URL.
+    raise RuntimeError("image_generation_unavailable: no verified visual provider or GPU worker is operational")
 
 
 def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
     p_low = prompt.lower()
     rep = (rep or "").strip()
 
-    def _is_refusal_sentence(sent: str) -> bool:
-        s_clean = sent.strip().lower()
-        if not s_clean:
-            return False
-        refusal_keywords = (
-            "can't play music directly", "cannot play music directly",
-            "can't open youtube directly", "cannot open youtube directly",
-            "unable to open youtube", "unable to play music",
-            "i can't", "i cannot", "i'm unable", "i am unable",
-            "i don't have the ability", "i do not have the ability",
-            "as an ai", "while i can't", "while i cannot",
-            "you can access it by", "you can access youtube by",
-            "access it by typing", "using the youtube app on your device",
-            "navigating to the website in your browser",
-            "if you need help finding specific content",
-            "if you need help finding something specific on youtube",
-            "external applications directly"
-        )
-        return any(k in s_clean for k in refusal_keywords)
-
-    if rep:
-        paragraphs = rep.split("\n\n")
-        cleaned_paras = []
-        for p in paragraphs:
-            sentences = re.split(r"(?<=[.!?])\s+", p.strip())
-            good_sentences = [sent for sent in sentences if not _is_refusal_sentence(sent)]
-            if good_sentences:
-                cleaned_paras.append(" ".join(good_sentences))
-        rep = "\n\n".join(cleaned_paras).strip()
-
-    # Extract topic for dynamic video search embedding
+    # Preserve provider responses verbatim; never delete individual sentences.\n\n    # Extract topic for dynamic video search embedding
     topic = re.sub(r"(?i)^(?:can you\s+)?(?:please\s+)?(?:play|show|open|stream|watch|listen to)\s+(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:video\s+about\s+|on\s+youtube\s+|youtube\s+)?", "", prompt).strip()
     topic = re.sub(r"(?i)\s+(?:on\s+youtube|from\s+youtube|video|stream|song)$", "", topic).strip()
     topic = topic.replace('"', '').replace("'", "").strip() or "lofi study music"
@@ -1906,17 +1858,17 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
 
     # 2. Generative Image Card (supports co-existing with Audio Stream in Multi-Task mode!)
     if is_image or ":::image" in rep:
-        img_data = resolve_image_generation(img_query)
-        img_url = img_data["url"]
-        img_title = img_data["title"].upper()
-
-        # Strip any existing or partial :::image blocks first
-        rep = re.sub(r':::image[^\n]*\n[\s\S]*?:::\n?', '', rep).strip()
-        rep = re.sub(r':::image[^\n]*', '', rep).strip()
-
-        # Prepend clean verified image widget
-        img_badge = img_data.get("badge", "FRONTIER SYNTHESIS")
-        rep = f":::image {img_title} · {img_badge}\n{img_url}\n:::\n\n{rep}".strip()
+        try:
+            img_data = resolve_image_generation(img_query)
+            img_url = img_data["url"]
+            img_title = img_data["title"].upper()
+            rep = re.sub(r':::image[^\n]*\n[\s\S]*?:::\n?', '', rep).strip()
+            rep = re.sub(r':::image[^\n]*', '', rep).strip()
+            img_badge = img_data.get("badge", "VERIFIED IMAGE GENERATION")
+            rep = f":::image {img_title} · {img_badge}\n{img_url}\n:::\n\n{rep}".strip()
+        except Exception as exc:
+            LOG.info("Image generation unavailable: %s", exc)
+            rep = (rep + "\n\nImage generation is not currently operational in this Sarembok runtime.").strip()
 
     # 3. Check for Simultaneous Multi-Tasking intent
     task_intents = ("while searching", "simultaneously", "at the same time", "in parallel", "also calculate", "and also", "while calculating", "and search", "multi task", "multitask")
@@ -2036,12 +1988,23 @@ def sarembok_process_dialogue(
     # Fast conversational lane.
     # Ordinary dialogue should not wait on runtime inventory, SQLite history,
     # memory recall, or real-time enrichment before Gemini can emit token 1.
-    if _is_fast_conversational_turn(prompt_clean, image_frame=image_frame, admin=is_admin):
+    if (
+        _is_fast_conversational_turn(prompt_clean, image_frame=image_frame, admin=is_admin)
+        and not (
+            is_identity_query(prompt_clean)
+            or is_capability_query(prompt_clean)
+            or is_limitation_query(prompt_clean)
+            or is_self_state_query(prompt_clean)
+        )
+    ):
         fast_history = _get_fast_chat_history(session_id)
         fast_system = (
             "You are Sarembok VE, a natural conversational AI assistant. "
             "Respond directly to the user's message with a warm, concise, human conversational style. "
             "Do not describe internal system architecture unless asked. "
+            "Never claim you were created by OpenAI, Google, or another model vendor, and never invent "
+            "Sarembok capabilities, product history, browsing, image generation, or other platform facts. "
+            "Self-description questions are handled by the runtime authority path. "
             "For ordinary conversation, prefer a short answer of 1-4 sentences and get to the point immediately."
         )
         fast_messages = [{"role": "system", "content": fast_system}, *fast_history, {"role": "user", "content": prompt_clean}]
@@ -2200,33 +2163,16 @@ def sarembok_process_dialogue(
         authoritative_context,
         f"CURRENT SYSTEM CLOCK: {current_time_str}.",
         "",
-        "==================== REAL-TIME & MULTIMODAL SYNTHESIS DIRECTIVES ====================",
-        f"1. YOU HAVE ACTIVE REAL-TIME ACCESS to the live web, current world events, and breaking news feeds.",
-        f"2. FULL MULTIMODAL MEDIA & PARALLEL EXECUTION CAPABILITIES: Sarembok has native UI support for playing music, generating cyber synth audio, embedding YouTube videos, streaming audio, displaying research documents/PDF cards, rendering Interactive Flashcards, executing code, and orchestrating multiple tasks simultaneously.",
-        f"3. STRICT PROHIBITION: NEVER state 'While I can't display videos/cards directly', 'I cannot play music', 'As an AI I cannot multi-task', 'I don't have real-time access', or any variation of a capability refusal.",
-        f"4. WHEN ASKED TO PLAY MUSIC, SOUNDTRACKS, LO-FI, JAZZ, SYNTHWAVE, OR SONGS:",
-        f"   - Immediately embed the interactive music stream using :::music blocks, for example:",
-        f"     :::music Lofi Chill 24/7 Study Stream",
-        f"     https://www.youtube.com/watch?v=jfKfPfyJRdk",
-        f"     :::",
-        f"   - You can also embed Synthwave (https://www.youtube.com/watch?v=4xDzrJKXOOY), Classical Focus, or any requested music stream.",
-        f"5. WHEN ASKED TO PERFORM MULTIPLE TASKS SIMULTANEOUSLY / CONCURRENTLY:",
-        f"   - Decompose and execute ALL requested tasks in parallel in a single comprehensive response.",
-        f"   - Present the concurrent status using a :::tasks block, for example:",
-        f"     :::tasks",
-        f"     [Music Stream]: Playing Lo-Fi Focus Audio",
-        f"     [Mathematical Computation]: Calculated revenue projections and algebra solutions",
-        f"     [Live Market Research]: Retrieved latest global technology and AI updates",
-        f"     :::",
-        f"   - Provide the complete interactive outputs for each stream (music player, math equations, research summary, cards).",
-        f"6. WHEN ASKED FOR VIDEOS, YOUTUBE CLIPS, TUTORIALS, OR RESEARCH LECTURES:",
-        f"   - Embed the relevant video using :::video blocks or direct YouTube links.",
-        f"7. WHEN ASKED FOR RESEARCH DOCUMENTS, ARXIV PAPERS, TECHNICAL SPECS, OR PDFS:",
-        f"   - Format the document with a rich document card using :::doc blocks.",
-        f"8. WHEN ASKED FOR FLASHCARDS, MATH QUESTIONS, QUIZZES, OR STUDY CARDS:",
-        f"   - Format each question/card as an interactive Cyber Flashcard using :::card and :::reveal blocks with LaTeX math notation ($...$ and $$...$$).",
-        f"9. You are Sarembok, an advanced sovereign intelligence on the Sarembok VE platform.",
-        "=======================================================================================",
+        "==================== SAREMBOK RESPONSE TRUTH BOUNDARY ====================",
+        "Answer the user's actual question directly and preserve all material parts of the answer.",
+        "Never invent Sarembok's creator, architecture, capabilities, providers, models, web results, media URLs, or generation results.",
+        "Use Runtime Authority for Sarembok identity, capabilities, status, workers, memory, and provider facts.",
+        "Use live retrieval/tool evidence for current web or repository content; if retrieval fails, say so instead of fabricating content.",
+        "Do not claim image generation is available unless the live visual engine reports an operational provider/worker and an actual generation result exists.",
+        "Do not claim two-way voice is active unless the live voice session is actually connected.",
+        "Do not claim video/audio playback occurred unless the response contains verified media evidence.",
+        "Do not omit or rewrite individual sentences from the provider response merely because they contain a limitation or refusal.",
+        "===========================================================================",
     ]
 
     # Advanced Memory Personalization (Enhancement 5): Retrieve contextual facts from SQLite
