@@ -120,15 +120,17 @@ jobs:
 
           ws_url = base.replace("https://", "wss://").replace("http://", "ws://") + "/ws"
 
-          async def rpc(ws, req_id, method, params):
+          async def rpc(ws, req_id, method, params, timeout=30):
               await ws.send(json.dumps({"jsonrpc":"2.0","id":req_id,"method":method,"params":params}))
-              while True:
-                  raw = await ws.recv()
-                  if not isinstance(raw, str):
-                      continue
-                  msg = json.loads(raw)
-                  if msg.get("id") == req_id:
-                      return msg
+              async def receive():
+                  while True:
+                      raw = await ws.recv()
+                      if not isinstance(raw, str):
+                          continue
+                      msg = json.loads(raw)
+                      if msg.get("id") == req_id:
+                          return msg
+              return await asyncio.wait_for(receive(), timeout=timeout)
 
           async def main():
               ssl_context = ssl._create_unverified_context()
@@ -145,17 +147,34 @@ jobs:
                   print("RUNTIME:", runtime)
                   assert "result" in runtime and runtime["result"].get("llmConfigured") is True
 
-                  browser_prompt = "Open https://example.com and tell me the page title. Use the browser and report only what you verify."
-                  result = await rpc(ws, "browser", "SarembokChat", {
+                  direct = await rpc(ws, "browser-direct", "BrowserNavigate", {
                       "sessionToken": token,
-                      "prompt": browser_prompt,
-                      "sessionId": "production-smoke-browser",
-                      "stream": False,
+                      "url": "https://example.com",
                   })
-                  print("BROWSER CHAT:", json.dumps(result, ensure_ascii=False)[:12000])
-                  assert "result" in result
-                  reply = str(result["result"].get("response") or "")
-                  assert "example domain" in reply.lower(), "browser execution did not verify Example Domain"
+                  print("BROWSER DIRECT:", json.dumps(direct, ensure_ascii=False)[:12000])
+                  assert "result" in direct, "BrowserNavigate RPC did not return a result"
+                  direct_result = direct["result"]
+                  assert direct_result.get("verified") is True or direct_result.get("ok") is True
+                  direct_text = json.dumps(direct_result, ensure_ascii=False).lower()
+                  assert "example domain" in direct_text, "direct browser navigation did not verify Example Domain"
+
+                  persistent = await rpc(ws, "browser-session", "BrowserSessionOpen", {
+                      "sessionToken": token,
+                      "sessionId": "production-smoke-browser",
+                  })
+                  print("BROWSER SESSION:", json.dumps(persistent, ensure_ascii=False)[:12000])
+                  assert "result" in persistent, "BrowserSessionOpen RPC did not return a result"
+
+                  action = await rpc(ws, "browser-action", "BrowserAction", {
+                      "sessionToken": token,
+                      "sessionId": "production-smoke-browser",
+                      "action": "navigate",
+                      "url": "https://example.com",
+                  })
+                  print("BROWSER ACTION:", json.dumps(action, ensure_ascii=False)[:12000])
+                  assert "result" in action, "BrowserAction RPC did not return a result"
+                  action_text = json.dumps(action["result"], ensure_ascii=False).lower()
+                  assert "example domain" in action_text, "persistent browser action did not verify Example Domain"
 
           asyncio.run(main())
           print("PRODUCTION ORIGIN SMOKE: PASS")
