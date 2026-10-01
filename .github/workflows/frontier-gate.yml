@@ -37,3 +37,72 @@ jobs:
 
       - name: Frontier control tests
         run: python -m unittest Deployment/cloud/test_frontier_controls.py
+
+      - name: Public production smoke
+        env:
+          SAREMBOK_PUBLIC_URL: https://sarembok.com
+        run: |
+          python -m pip install -q websockets
+          python - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.parse
+          import urllib.request
+          import websockets
+
+          base = os.environ["SAREMBOK_PUBLIC_URL"].rstrip("/")
+          print("PRODUCTION URL:", base)
+
+          with urllib.request.urlopen(base + "/health", timeout=15) as r:
+              body = r.read().decode("utf-8", "replace").strip()
+              print("HEALTH:", r.status, body)
+              assert r.status == 200 and body == "OK"
+
+          with urllib.request.urlopen(base + "/session", timeout=15) as r:
+              session = json.loads(r.read().decode("utf-8"))
+          token = str(session.get("sessionToken") or "").strip()
+          assert token, "sessionToken missing"
+          print("SESSION: OK")
+
+          text_value = ("Sarembok production speech smoke. " * 20).strip()
+          qs = urllib.parse.urlencode({"text": text_value, "voice": "af_heart", "language": "en-us", "speed": "0.95"})
+          req = urllib.request.Request(
+              base + "/api/tts?" + qs,
+              headers={"Authorization": "Bearer " + token, "Accept": "audio/wav"},
+          )
+          with urllib.request.urlopen(req, timeout=90) as r:
+              audio = r.read()
+              content_type = (r.headers.get("content-type") or "").lower()
+              print("TTS:", r.status, content_type, len(audio), "bytes")
+              assert r.status == 200 and "audio/" in content_type and len(audio) > 128
+
+          ws_url = base.replace("https://", "wss://").replace("http://", "ws://") + "/ws"
+
+          async def rpc(ws, req_id, method, params):
+              await ws.send(json.dumps({"jsonrpc":"2.0","id":req_id,"method":method,"params":params}))
+              while True:
+                  raw = await ws.recv()
+                  if not isinstance(raw, str):
+                      continue
+                  msg = json.loads(raw)
+                  if msg.get("id") == req_id:
+                      return msg
+
+          async def main():
+              async with websockets.connect(ws_url, origin=base, open_timeout=30, ping_interval=20, ping_timeout=20, max_size=2**20) as ws:
+                  runtime = await rpc(ws, "runtime", "GetRuntimeInfo", {"sessionToken": token})
+                  print("RUNTIME:", runtime)
+                  assert "result" in runtime and runtime["result"].get("status") == "ONLINE"
+
+                  browser_prompt = "Open https://example.com and tell me the page title. Use the browser and report only what you verify."
+                  result = await rpc(ws, "browser", "SarembokChat", {"sessionToken": token, "prompt": browser_prompt, "sessionId": "production-smoke-browser", "stream": False})
+                  print("BROWSER CHAT:", json.dumps(result, ensure_ascii=False)[:12000])
+                  assert "result" in result
+                  reply = str(result["result"].get("response") or "")
+                  assert "example domain" in reply.lower(), "browser execution did not verify Example Domain"
+
+          import asyncio
+          asyncio.run(main())
+          print("PUBLIC PRODUCTION SMOKE: PASS")
+          PY
