@@ -110,6 +110,12 @@ class BrowserRuntime:
         )
 
     def stop(self) -> None:
+        with self.sessions_lock:
+            sessions = list(self.sessions.values())
+            self.sessions.clear()
+        for item in sessions:
+            try: item["context"].close()
+            except Exception: pass
         if self.browser is not None:
             self.browser.close()
             self.browser = None
@@ -153,6 +159,47 @@ class BrowserRuntime:
         context.route("**/*", route_handler)
         return context
 
+    def _cleanup_sessions(self) -> None:
+        cutoff = time.time() - self.session_ttl_seconds
+        with self.sessions_lock:
+            stale = [sid for sid, item in self.sessions.items() if float(item.get("last_used", 0)) < cutoff]
+            for sid in stale:
+                item = self.sessions.pop(sid, None)
+                if item:
+                    try: item["context"].close()
+                    except Exception: pass
+
+    def open_session(self, session_id: str = "") -> dict[str, Any]:
+        self._cleanup_sessions()
+        sid = str(session_id or "").strip() or f"browser-{uuid.uuid4().hex[:12]}"
+        with self.sessions_lock:
+            item = self.sessions.get(sid)
+            if item:
+                item["last_used"] = time.time()
+                pages = list(item["context"].pages)
+                return {"ok": True, "created": False, "sessionId": sid, "pageCount": len(pages), "activePage": int(item.get("active_page", 0)), "url": pages[int(item.get("active_page", 0))].url if pages else "about:blank"}
+            context = self._create_context()
+            context.new_page()
+            self.sessions[sid] = {"context": context, "active_page": 0, "created_at": time.time(), "last_used": time.time()}
+            return {"ok": True, "created": True, "sessionId": sid, "pageCount": 1, "activePage": 0, "url": "about:blank"}
+
+    def close_session(self, session_id: str) -> dict[str, Any]:
+        sid = str(session_id or "").strip()
+        with self.sessions_lock: item = self.sessions.pop(sid, None)
+        if item:
+            try: item["context"].close()
+            except Exception: pass
+        return {"ok": True, "sessionId": sid, "closed": bool(item)}
+
+    def _get_session(self, session_id: str) -> tuple[str, dict[str, Any]]:
+        self._cleanup_sessions()
+        sid = str(session_id or "").strip()
+        if not sid: raise ValueError("session_id_required")
+        with self.sessions_lock:
+            item = self.sessions.get(sid)
+            if not item: raise ValueError("browser_session_not_found")
+            item["last_used"] = time.time()
+            return sid, item
     def navigate(self, url: str) -> dict[str, Any]:
         target = validate_url(url)
         started = time.perf_counter()
