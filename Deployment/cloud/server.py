@@ -1529,7 +1529,7 @@ def _extract_youtube_candidates(node: Any, out: list[dict[str, str]], limit: int
 
 def resolve_youtube_search(query: str) -> dict[str, Any]:
     q_clean = str(query or "").strip() or "lofi study music"
-    direct = re.search(r"(?:youtube\\.com/(?:watch\\?v=|embed/|shorts/)|youtu\\.be/)([A-Za-z0-9_-]{11})", q_clean, re.I)
+    direct = re.search(r"(?:youtube\.com/(?:watch\?v=|embed/|shorts/)|youtu\.be/)([A-Za-z0-9_-]{11})", q_clean, re.I)
     if direct:
         vid = direct.group(1)
         return {"videoId": vid, "url": f"https://www.youtube.com/watch?v={vid}", "searchUrl": f"https://www.youtube.com/watch?v={vid}", "title": q_clean, "verified": True, "matchScore": 1.0, "direct": True}
