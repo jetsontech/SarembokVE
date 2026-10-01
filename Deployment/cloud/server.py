@@ -1877,7 +1877,7 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
     if any(ti in p_low for ti in task_intents) and ":::tasks" not in rep:
         tasks_lines = []
         if is_image:
-            tasks_lines.append("[Visual Synthesis]: FLUX.1 Tensor Core Generation Online")
+            tasks_lines.append("[Visual Synthesis]: Image generation requested; live provider availability is reported separately.")
         if is_music or any(w in p_low for w in ("music", "lofi", "song", "audio")):
             tasks_lines.append("[Audio Stream]: Active Cyber Music Channel Online")
         if any(w in p_low for w in ("news", "search", "research", "ai", "market")):
@@ -1892,9 +1892,12 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
 
     if not rep or len(rep.strip()) < 10:
         if is_image:
-            img_data = resolve_image_generation(prompt)
-            img_badge = img_data.get("badge", "FRONTIER SYNTHESIS")
-            rep = f"Synthesized **{img_data['title']}** via {img_data.get('provider', 'Sovereign Engine')} ({img_data.get('latencyMs', 0)}ms):\n\n:::image {img_data['title'].upper()} · {img_badge}\n{img_data['url']}\n:::\n\nResolution: {img_data.get('width', 1024)}x{img_data.get('height', 1024)} · Tier: {img_data.get('tier', 'Tier 1')}"
+            try:
+                img_data = resolve_image_generation(prompt)
+                img_badge = img_data.get("badge", "VERIFIED IMAGE GENERATION")
+                rep = f"Synthesized **{img_data['title']}** via {img_data.get('provider', 'Verified provider')} ({img_data.get('latencyMs', 0)}ms):\n\n:::image {img_data['title'].upper()} · {img_badge}\n{img_data['url']}\n:::\n\nResolution: {img_data.get('width', 1024)}x{img_data.get('height', 1024)} · Tier: {img_data.get('tier', 'verified')}"
+            except Exception:
+                rep = "Image generation is not currently operational in this Sarembok runtime."
         elif is_video:
             rep = f"Streaming **{topic.upper()}**:\n\n:::video {topic.upper()} · VIDEO STREAM\n{real_url}\n:::\n\nStreaming live. Let me know if you need anything else."
         elif is_music:
