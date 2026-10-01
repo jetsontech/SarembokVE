@@ -2459,7 +2459,7 @@ def sarembok_process_dialogue(
         s = re.sub(r"https?:\/\/\S+", "", s)
         s = re.sub(r"[*#_`~|]", "", s)
         s = re.sub(r"\s+", " ", s).strip()
-        return s[:380]
+        return s
 
     if reply and reply.strip():
         reply = reply.strip()
