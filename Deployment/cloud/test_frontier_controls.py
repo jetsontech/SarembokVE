@@ -54,7 +54,8 @@ class FrontierControlTests(unittest.TestCase):
         legacy_speech_cap = "return s[" + ":380]"
         self.assertNotIn(legacy_speech_cap, server)
         self.assertNotIn('fallback_id = "4xDzrJKXOOY" if "synth" in q_low else "jfKfPfyJRdk"', server)
-        self.assertIn("youtube_no_verified_match", server)
+        verified_search_marker = "youtube_" + "no_verified_match"
+        self.assertIn(verified_search_marker, server)
 
     def test_browser_execution_methods_are_user_authorized(self):
         guard=ProductionGuard()
