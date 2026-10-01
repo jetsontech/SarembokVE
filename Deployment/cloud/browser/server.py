@@ -133,7 +133,7 @@ class BrowserRuntime:
             "service": "sarembok-browser",
             "engine": "chromium",
             "automation": "playwright",
-            "capabilities": ["navigate", "render", "screenshot"],
+            "capabilities": ["navigate", "render", "screenshot", "persistent_sessions", "click", "fill", "type", "select", "press", "scroll", "extract", "popup_tabs"],
             "uptimeSeconds": int(time.time() - self.started_at),
             "allowedHosts": allowed_hosts(),
             "browserProcess": "ONLINE" if browser_online else "OFFLINE",
