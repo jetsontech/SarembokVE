@@ -2462,6 +2462,45 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         query = str(params.get("query") or params.get("topic") or "").strip()
         return resolve_youtube_search(query)
 
+    if method == "BrowserSessionOpen":
+        sid = str(params.get("sessionId") or "").strip()
+        browser_url = os.getenv("SAREMBOK_BROWSER_URL", "http://sarembok-browser:9100")
+        req = urllib.request.Request(f"{browser_url}/session", data=json.dumps({"sessionId": sid}).encode("utf-8"), headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=20) as resp: return json.loads(resp.read().decode("utf-8"))
+
+    if method == "BrowserSessionInspect":
+        sid = str(params.get("sessionId") or "").strip()
+        browser_url = os.getenv("SAREMBOK_BROWSER_URL", "http://sarembok-browser:9100")
+        req = urllib.request.Request(f"{browser_url}/session/inspect", data=json.dumps({"sessionId": sid, "includeText": bool(params.get("includeText", True))}).encode("utf-8"), headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=20) as resp: return json.loads(resp.read().decode("utf-8"))
+
+    if method == "BrowserAction":
+        browser_url = os.getenv("SAREMBOK_BROWSER_URL", "http://sarembok-browser:9100")
+        payload = dict(params)
+        req = urllib.request.Request(f"{browser_url}/session/action", data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp: return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            try: return json.loads(e.read().decode("utf-8"))
+            except Exception: return {"ok": False, "error": str(e)}
+
+    if method == "BrowserSessionClose":
+        sid = str(params.get("sessionId") or "").strip()
+        browser_url = os.getenv("SAREMBOK_BROWSER_URL", "http://sarembok-browser:9100")
+        req = urllib.request.Request(f"{browser_url}/session/close", data=json.dumps({"sessionId": sid}).encode("utf-8"), headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=20) as resp: return json.loads(resp.read().decode("utf-8"))
+
+    if method == "CallMcpTool":
+        server_name = str(params.get("server") or params.get("serverName") or "").strip()
+        tool_name = str(params.get("tool") or params.get("toolName") or "").strip()
+        arguments = params.get("arguments") or {}
+        if not server_name or not tool_name: raise ValueError("server_and_tool_required")
+        try:
+            from mcp_client import get_mcp_client_manager
+        except ImportError:
+            from Deployment.cloud.mcp_client import get_mcp_client_manager
+        result = get_mcp_client_manager().call_external_tool(server_name, tool_name, arguments if isinstance(arguments, dict) else {})
+        return {"ok": True, "server": server_name, "tool": tool_name, "result": result, "verified": True}
     if method in ("SarembokChat", "AriaChat", "Chat", "AriaDialogue", "SarembokDialogue"):
         prompt = str(params.get("prompt") or params.get("message") or params.get("text") or "").strip()
         if not prompt:
