@@ -12,7 +12,7 @@ USER_METHODS = {
  "GetCurrentUser","GetFeedbackSummary","ListMemories","SearchMemories","ListDigitalHumanSessions",
  "GetDigitalHumanSession","ListMcpServers","GetGpuMarketplace","ListGpuRentals","GetVisionStatus",
  "GetAdminStatus","GetConversationHistory","GetRuntimeAuthority","GetRuntimeDiagnostics","SarembokChat","Chat",
- "SarembokDialogue","BrowserNavigate","BrowserScreenshot","BrowserRender","SubmitFeedback","StoreMemory",
+ "SarembokDialogue","BrowserNavigate","BrowserScreenshot","BrowserRender","BrowserSessionOpen","BrowserSessionInspect","BrowserAction","BrowserSessionClose","CallMcpTool","SubmitFeedback","StoreMemory",
  "DeleteMemory","CreateDigitalHumanSession","CloseDigitalHumanSession","SearchYouTube","ResolveMediaStream",
  "ProcessVisionFrame","SpatialVisualRecall","GenerateImage","SaveUserChatSession","ListUserChatSessions",
  "DeleteUserChatSession"
