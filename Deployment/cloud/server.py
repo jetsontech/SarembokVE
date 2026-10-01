@@ -1248,6 +1248,78 @@ class AdminToolRegistry:
         return {"query": query_or_url, "intelligence": data[:2000] if data else "No external intelligence returned."}
 
 
+def run_browser_agent_loop(prompt_clean: str, system_prompt: str, session_id: str, model: str | None = None, max_steps: int = 8) -> tuple[str, list[dict[str, Any]]]:
+    """Execute ordinary website/web-app tasks through persistent Playwright and verified MCP tools."""
+    browser_session_id = "chat-browser-" + re.sub(r"[^a-zA-Z0-9_-]", "-", str(session_id or "default"))[:64]
+    open_result = dispatch("BrowserSessionOpen", {"sessionId": browser_session_id})
+    if not open_result.get("ok"): return "I could not open the browser session.", [{"step":1,"tool":"browser_session_open","output":open_result}]
+
+    tools_doc = """
+==================== SAREMBOK WEB / APP EXECUTION PROTOCOL ====================
+You are operating as Sarembok's verified web and application execution agent.
+Use the browser tools to inspect the page before interacting with it.
+TOOLS:
+1. browser_inspect() -> inspect current URL, visible text, links, buttons, forms, and controls.
+2. browser_navigate(url="https://...") -> navigate the persistent browser session.
+3. browser_action(action=..., selector=..., text=..., value=..., key=...) -> click, fill, type, select, press, scroll, wait, back, forward, extract.
+4. mcp_list() -> list configured external MCP integrations and their live tools.
+5. mcp_call(server="...", tool="...", arguments={...}) -> execute a configured MCP tool.
+RULES:
+- Inspect before clicking or filling when the target is not already unambiguous.
+- Never claim an action completed unless the tool returned ok=true and verified=true.
+- Keep the exact user target. Never substitute a different site, product, video, account, or item because search failed.
+- For purchase, payment, deletion, transfer, sending money, account closure, unsubscribe, or other high-impact actions, execute only when the tool request includes confirm=true; otherwise report that explicit confirmation is required.
+- Use MCP for application/API integrations when an appropriate configured server exists.
+- Do not claim browser or application access is impossible unless the browser/MCP tool actually failed.
+- End with FINAL_RESPONSE containing only what was actually verified.
+========================================================================
+"""
+    messages=[
+        {"role":"system","content":system_prompt+"\n"+tools_doc},
+        {"role":"user","content":prompt_clean},
+        {"role":"user","content":"OBSERVATION: Persistent browser session is open with sessionId="+browser_session_id+". Inspect it before acting."},
+    ]
+    traces=[]
+    for step in range(1,max_steps+1):
+        try:
+            res=PROVIDER_ROUTER.generate(system_prompt+"\n"+tools_doc,prompt_clean,messages,requested_model=model)
+            text_out=(res.text or "").strip()
+        except Exception as exc:
+            return f"Web execution stopped because the selected intelligence provider failed: {exc}", traces
+        action_match=re.search(r"ACTION:\s*([a-zA-Z0-9_\-]+)",text_out,re.I)
+        if action_match:
+            tool=action_match.group(1).strip().lower()
+            args={}
+            args_match=re.search(r"ARGUMENTS:\s*(\{.*?\})",text_out,re.S|re.I)
+            if args_match:
+                try: args=json.loads(args_match.group(1))
+                except Exception: args={}
+            tool_map={
+                "browser_session_open":"BrowserSessionOpen",
+                "browser_inspect":"BrowserSessionInspect",
+                "browser_navigate":"BrowserAction",
+                "browser_action":"BrowserAction",
+                "browser_close":"BrowserSessionClose",
+                "mcp_list":"ListMcpServers",
+                "mcp_call":"CallMcpTool",
+            }
+            rpc_method=tool_map.get(tool)
+            if not rpc_method:
+                obs={"ok":False,"error":"unknown_web_agent_tool","tool":tool}
+            else:
+                if rpc_method in ("BrowserSessionOpen","BrowserSessionInspect","BrowserSessionClose"): args.setdefault("sessionId",browser_session_id)
+                elif rpc_method=="BrowserAction": args.setdefault("sessionId",browser_session_id)
+                try:
+                    obs=dispatch(rpc_method,args)
+                except Exception as exc: obs={"ok":False,"error":str(exc)}
+            traces.append({"step":step,"tool":tool,"args":args,"output":obs,"timestamp":now()})
+            messages.append({"role":"assistant","content":text_out})
+            messages.append({"role":"user","content":"OBSERVATION: "+json.dumps(obs,ensure_ascii=False)})
+            continue
+        final_match=re.search(r"FINAL_RESPONSE:\s*(.*)",text_out,re.S|re.I)
+        if final_match: return final_match.group(1).strip(),traces
+        return text_out,traces
+    return "Web execution reached the maximum verified action steps without a final completion report.",traces
 def run_admin_agent_loop(
     prompt_clean: str,
     system_prompt: str,
@@ -2239,6 +2311,27 @@ def sarembok_process_dialogue(
             "Do NOT use bulleted lists, raw markdown symbols, or long essays. Speak naturally as in a live telephone call."
         )
     system_prompt = "\n".join(system_context_parts)
+
+    # Unified website/application execution path for ordinary chat.
+    if _is_browser_execution_intent(prompt_clean):
+        browser_reply, browser_traces = run_browser_agent_loop(
+            prompt_clean,
+            system_prompt,
+            session_id,
+            model=model,
+            max_steps=8,
+        )
+        _save_conversation(session_id, prompt_clean, browser_reply)
+        return {
+            "response": browser_reply,
+            "audioText": browser_reply,
+            "source": "sarembok-browser-agent",
+            "model": model or "runtime-agent",
+            "action": {"type": "BROWSER_EXECUTION", "verified": True},
+            "toolTraces": browser_traces,
+            "structuredResponse": build_structured_response(browser_reply, provider="sarembok-browser-agent", model=model or "runtime-agent"),
+            "metadata": {"provider": "sarembok-browser-agent", "model": model or "runtime-agent", "toolSteps": len(browser_traces)},
+        }
 
     # Autonomous Agentic Admin Execution Loop
     if is_admin:
@@ -4636,7 +4729,7 @@ async def handler(websocket) -> None:
                     task.add_done_callback(stream_tasks.discard)
                     continue
 
-                if method == "SarembokChat" and bool(params.get("stream", False)):
+                if method == "SarembokChat" and bool(params.get("stream", False)) and not _is_browser_execution_intent(str(params.get("prompt") or params.get("message") or params.get("text") or "")) and not any(m in str(params.get("prompt") or params.get("message") or params.get("text") or "").lower() for m in MEDIA_EXECUTION_MARKERS):
                     # True end-to-end token streaming:
                     # provider stream -> callback -> WebSocket delta -> browser.
                     # The provider runs in a worker thread, so bridge its synchronous
