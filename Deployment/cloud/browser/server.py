@@ -242,7 +242,11 @@ class BrowserRuntime:
         pages=list(context.pages)
         if not pages: page=context.new_page(); item["active_page"]=0
         else: page=pages[min(max(int(item.get("active_page",0)),0),len(pages)-1)]
-        destructive = bool(request.get("destructive") or request.get("confirmRequired"))
+        target_text = " ".join(str(request.get(k) or "").lower() for k in ("action","text","selector","value","role","name"))
+        destructive = bool(request.get("destructive") or request.get("confirmRequired")) or any(
+            token in target_text
+            for token in ("purchase","buy","order","transfer","send money","delete account","close account","unsubscribe","confirm payment")
+        )
         if destructive and not bool(request.get("confirm")):
             return {"ok":False,"requiresConfirmation":True,"error":"explicit_confirmation_required_for_high_impact_action",**self.inspect_session(sid, include_text=False)}
         started=time.perf_counter()
