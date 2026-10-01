@@ -98,6 +98,9 @@ class BrowserRuntime:
         self.started_at = time.time()
         self.playwright = None
         self.browser = None
+        self.sessions: dict[str, dict[str, Any]] = {}
+        self.sessions_lock = threading.RLock()
+        self.session_ttl_seconds = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_TTL_SECONDS", "1800")))
 
     def start(self) -> None:
         self.playwright = sync_playwright().start()
