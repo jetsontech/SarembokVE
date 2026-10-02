@@ -21,13 +21,27 @@ $py = Join-Path $venv "Scripts\python.exe"
 
 # Install the concrete browser executor once. Chromium is installed separately so
 # web_automation is a real capability, not an advertised stub.
-$playwrightCheck = & $py -c "import playwright; print('ok')" 2>$null
-if ($LASTEXITCODE -ne 0) {
+# PowerShell with $ErrorActionPreference="Stop" can promote native stderr from
+# a failing Python import into a terminating error even when redirected with
+# 2>$null. Capture stderr into the pipeline and suppress the probe output so
+# a missing package becomes a normal install path.
+& $py -c "import playwright" 2>&1 | Out-Null
+$playwrightExit = $LASTEXITCODE
+if ($playwrightExit -ne 0) {
     & $py -m pip install "playwright>=1.55,<2"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to install Playwright."
+    }
 }
-$chromiumCheck = & $py -c "from pathlib import Path; import playwright; print(Path(playwright.__file__).parent)" 2>$null
-if ($LASTEXITCODE -eq 0) {
-    & $py -m playwright install chromium
+
+& $py -c "import playwright" 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    throw "Playwright is not importable after installation."
+}
+
+& $py -m playwright install chromium
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to install or verify Chromium for Playwright."
 }
 
 if (-not $env:SAREMBOK_WORKER_ENROLLMENT_TOKEN) {
