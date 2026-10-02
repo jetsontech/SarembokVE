@@ -205,24 +205,11 @@ class SarembokWorker:
                 val = a + b
             return {"result": val, "operation": op, "executedBy": self.worker_id, "timestamp": datetime.now(timezone.utc).isoformat()}
 
-        # 2. MetaHuman expression / viseme task
-        if task_type == "meta_human":
-            emotion = payload.get("emotion", "neutral")
-            return {
-                "morphTargets": {"jawOpen": 0.45, "mouthSmile": 0.8},
-                "emotion": emotion,
-                "rendered": True,
-                "executedBy": self.worker_id,
-            }
-
-        # 3. General compute / inference
-        prompt = payload.get("prompt", "")
+        # Do not fabricate success for capabilities without a concrete executor.
         return {
-            "output": f"Processed: {prompt or 'OK'}",
-            "tokens": 42,
-            "latencyMs": 12.5,
+            "status": "UNSUPPORTED",
+            "error": f"No concrete executor is installed for task type '{task_type}'",
             "executedBy": self.worker_id,
-            "gpuModel": self.gpu_info["gpuModel"],
         }
 
     def execute_host_action(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -309,15 +296,21 @@ class SarembokWorker:
                         # Execute payload
                         result = self.execute_task_payload(task_type, payload)
 
-                        # Complete task with the actual worker result so the control plane can verify it.
-                        comp_res = await self._send_rpc(ws, "CompleteTask", {
-                            "taskId": task_id,
-                            "workerId": self.worker_id,
-                            "result": result,
-                            "error": None if result.get("status") in ("VERIFIED", "SUCCESS", "COMPLETED") else result.get("error"),
-                        })
-                        LOG.info("Completed task '%s': status=%s", task_id, comp_res.get("status"))
-
+                        # Complete only real successes; non-executed actions are failed with evidence.
+                        if result.get("status") in ("VERIFIED", "SUCCESS", "COMPLETED") or task_type in ("smoke_test", "arithmetic"):
+                            comp_res = await self._send_rpc(ws, "CompleteTask", {
+                                "taskId": task_id,
+                                "workerId": self.worker_id,
+                                "result": result,
+                                "error": None,
+                            })
+                        else:
+                            comp_res = await self._send_rpc(ws, "FailTask", {
+                                "taskId": task_id,
+                                "workerId": self.worker_id,
+                                "error": str(result.get("error") or result.get("status") or "execution_not_completed"),
+                                "retryable": False,
+                            })
                         if single_task_mode:
                             LOG.info("Single task mode completed successfully.")
                             self.stop_event.set()
