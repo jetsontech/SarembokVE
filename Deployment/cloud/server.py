@@ -64,7 +64,7 @@ LLM_PROVIDER_TIMEOUT_SECONDS = max(3, int(os.getenv("SAREMBOK_LLM_PROVIDER_TIMEO
 LLM_TOTAL_TIMEOUT_SECONDS = max(5, int(os.getenv("SAREMBOK_LLM_TOTAL_TIMEOUT_SECONDS", "15")))
 SAREMBOK_VOICE_URL = os.getenv("SAREMBOK_VOICE_URL", "http://sarembok-voice:9200").rstrip("/")
 SAREMBOK_VOICE_MAX_CHARS = max(100, int(os.getenv("SAREMBOK_VOICE_MAX_CHARS", "4000")))
-VOICE_REQUEST_TIMEOUT_SECONDS = max(30, int(os.getenv("SAREMBOK_VOICE_REQUEST_TIMEOUT_SECONDS", "120")))
+VOICE_REQUEST_TIMEOUT_SECONDS = max(30, int(os.getenv("SAREMBOK_VOICE_REQUEST_TIMEOUT_SECONDS", "180")))
 BROWSER_SESSION_TTL_SECONDS = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_TTL_SECONDS", "3600")))
 WORKER_AUTH_METHODS = {
     "RegisterWorker",
@@ -5822,7 +5822,7 @@ async def serve() -> None:
             # before CPU synthesis can finish and surfaces as a Caddy 502/EOF.
             # Keep the control plane non-blocking while allowing neural TTS to
             # complete for the full configured text limit.
-            open_timeout=90,
+            open_timeout=180,
             ping_interval=20,
             ping_timeout=20,
             close_timeout=5,
