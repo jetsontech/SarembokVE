@@ -224,19 +224,13 @@ def _auth_token_request(api_key: str, mode: str) -> dict[str, Any]:
     new_session_expires = now + timedelta(seconds=LIVE_NEW_SESSION_TTL_SECONDS)
     model = _model_for_mode(mode)
 
+    # Use the stable CreateToken request accepted by the current auth_tokens
+    # endpoint. The browser receives the Sarembok-approved Live setup below
+    # and sends that setup when opening BidiGenerateContent.
     payload = {
         "uses": 1,
         "expireTime": _iso_utc(expires),
         "newSessionExpireTime": _iso_utc(new_session_expires),
-        "liveConnectConstraints": {
-            "model": f"models/{model}",
-            "config": {
-                "generationConfig": {
-                    "responseModalities": ["AUDIO"],
-                },
-                "sessionResumption": {},
-            },
-        },
     }
 
     request = urllib.request.Request(
@@ -271,7 +265,6 @@ def _auth_token_request(api_key: str, mode: str) -> dict[str, Any]:
         "uses": 1,
         "issuedAt": _iso_utc(now),
     }
-
 
 def provision_ephemeral_token(mode: str = "conversational") -> dict[str, Any]:
     normalized = (mode or "conversational").strip().lower()
