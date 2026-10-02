@@ -57,6 +57,14 @@ class FrontierControlTests(unittest.TestCase):
         self.assertIn('"verified":True', server.replace(" ", ""))
         self.assertIn('"matchScore"', server)
 
+    def test_register_worker_enrollment_token_is_preserved_for_legacy_dispatch(self):
+        from pathlib import Path
+        source = Path("Deployment/cloud/production_entrypoint_frontier.py").read_text(encoding="utf-8")
+        self.assertIn('stripped_secret_keys = {"workerToken","authToken","sessionToken"}', source)
+        self.assertIn('if method != "RegisterWorker":', source)
+        self.assertIn('stripped_secret_keys.add("enrollmentToken")', source)
+        self.assertNotIn('{"workerToken","authToken","sessionToken","enrollmentToken"}', source)
+
     def test_browser_execution_methods_are_user_authorized(self):
         guard=ProductionGuard()
         identity=Identity("USER","u")
