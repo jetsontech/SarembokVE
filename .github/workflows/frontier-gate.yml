@@ -38,6 +38,13 @@ jobs:
       - name: Frontier control tests
         run: python -m unittest Deployment/cloud/test_frontier_controls.py
 
+      - name: Worker execution and task routing tests
+        run: |
+          python -m unittest \
+            Deployment/cloud/test_worker_task_executor.py \
+            Deployment/cloud/test_task_routing.py \
+            Deployment/cloud/test_worker_lifecycle.py
+
 
       - name: Public production smoke
         env:
