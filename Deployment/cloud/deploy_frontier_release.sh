@@ -40,7 +40,7 @@ set -a
 set +a
 
 "${C[@]}" config >/dev/null
-"${C[@]}" build --pull sarembok-runtime sarembok-browser sarembok-edge
+"${C[@]}" build --pull sarembok-runtime sarembok-browser sarembok-voice sarembok-edge
 "${C[@]}" up -d --force-recreate
 sleep 12
 
@@ -54,6 +54,33 @@ python3 Deployment/cloud/frontier_release_gate.py
 printf '\n===== FRONTIER V2 LIVE VERIFIER =====\n'
 bash Deployment/cloud/verify_frontier_v2.sh
 bash Deployment/cloud/verify_frontier_e2e.sh
+
+printf '\n===== GEMINI LIVE TOKEN VERIFICATION =====\n'
+python3 - <<'PY'
+import json, urllib.request, urllib.error
+base = "https://sarembok.com"
+session_req = urllib.request.Request(base + "/session", headers={"User-Agent":"SarembokFrontierVerifier/1.0"})
+with urllib.request.urlopen(session_req, timeout=20) as r:
+    session = json.loads(r.read().decode())
+token = str(session.get("sessionToken") or "").strip()
+if not token:
+    raise SystemExit("FAIL: /session did not issue sessionToken")
+req = urllib.request.Request(
+    base + "/api/live/token?mode=conversational",
+    headers={"Authorization":"Bearer " + token, "Accept":"application/json", "User-Agent":"SarembokFrontierVerifier/1.0"},
+)
+try:
+    with urllib.request.urlopen(req, timeout=30) as r:
+        data = json.loads(r.read().decode())
+except urllib.error.HTTPError as exc:
+    print(exc.read().decode("utf-8","replace")[:2000])
+    raise
+if not data.get("token"):
+    raise SystemExit("FAIL: Gemini Live token was not returned")
+print("GEMINI LIVE TOKEN: PASS")
+print("MODEL:", data.get("model"))
+PY
+
 bash Deployment/cloud/backup_database.sh
 
 printf '\n===== RELEASE RESULT =====\n'
