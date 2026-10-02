@@ -205,6 +205,13 @@ class SarembokWorker:
                 val = a + b
             return {"result": val, "operation": op, "executedBy": self.worker_id, "timestamp": datetime.now(timezone.utc).isoformat()}
 
+        # 2. Enrolled host-control executor
+        if task_type == "host_action":
+            result = self.execute_host_action(payload)
+            result.setdefault("executedBy", self.worker_id)
+            result.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+            return result
+
         # Do not fabricate success for capabilities without a concrete executor.
         return {
             "status": "UNSUPPORTED",
