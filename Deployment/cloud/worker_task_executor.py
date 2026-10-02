@@ -280,6 +280,36 @@ class WorkerTaskExecutor:
         except Exception:
             return False
 
+    @staticmethod
+    def _browser_executable() -> str | None:
+        explicit = os.getenv("SAREMBOK_WORKER_BROWSER_EXECUTABLE", "").strip()
+        if explicit and os.path.isfile(explicit):
+            return explicit
+
+        if platform.system() == "Windows":
+            candidates = [
+                os.getenv("PROGRAMFILES", ""),
+                os.getenv("PROGRAMFILES(X86)", ""),
+                os.getenv("LOCALAPPDATA", ""),
+            ]
+            names = [
+                ("Google", "Chrome", "Application", "chrome.exe"),
+                ("Microsoft", "Edge", "Application", "msedge.exe"),
+            ]
+            for root in candidates:
+                if not root:
+                    continue
+                for parts in names:
+                    candidate = os.path.join(root, *parts)
+                    if os.path.isfile(candidate):
+                        return candidate
+
+        for command in ("google-chrome", "chromium", "chromium-browser", "msedge"):
+            found = __import__("shutil").which(command)
+            if found:
+                return found
+        return None
+
     def _web_automation(self, payload: dict[str, Any]) -> dict[str, Any]:
         if not self._playwright_available():
             return {"status": "UNAVAILABLE", "error": "Playwright is not installed on this worker", "retryable": True}
@@ -300,7 +330,11 @@ class WorkerTaskExecutor:
 
         try:
             with sync_playwright() as pw:
-                browser = pw.chromium.launch(headless=headless)
+                browser_executable = self._browser_executable()
+                launch_kwargs: dict[str, Any] = {"headless": headless}
+                if browser_executable:
+                    launch_kwargs["executable_path"] = browser_executable
+                browser = pw.chromium.launch(**launch_kwargs)
                 page = browser.new_page()
                 page.set_default_timeout(timeout_ms)
                 page.goto(url, wait_until=str(payload.get("waitUntil", "domcontentloaded")))
