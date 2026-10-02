@@ -106,6 +106,37 @@ class TestTaskRouting(unittest.TestCase):
         self.assertEqual(row[0], "PENDING_WORKER")
         self.assertIsNone(row[1])
 
+    def test_fail_task_persists_error(self):
+        worker = "routing-failure-worker"
+        server.store.db.execute(
+            "INSERT INTO workers(worker_id,capabilities,status,last_heartbeat,active_tasks) VALUES(?,?,?,?,0)",
+            (worker, '["compute"]', "ONLINE", server.now()),
+        )
+        task = server.store.create_task(
+            "web_automation",
+            worker,
+            {"url": "https://example.com"},
+            "web_automation",
+        )
+        server.store.db.execute(
+            "UPDATE tasks SET status='RUNNING' WHERE task_id=?",
+            (task["taskId"],),
+        )
+        server.store.db.commit()
+        result = server.dispatch("FailTask", {
+            "taskId": task["taskId"],
+            "workerId": worker,
+            "error": "web_automation_failed: browser launch failed",
+            "retryable": False,
+        })
+        self.assertEqual(result["status"], "FAILED")
+        row = server.store.db.execute(
+            "SELECT status, error FROM tasks WHERE task_id=?",
+            (task["taskId"],),
+        ).fetchone()
+        self.assertEqual(row[0], "FAILED")
+        self.assertEqual(row[1], "web_automation_failed: browser launch failed")
+
     def test_pipeline_state_finalizes_from_real_task_statuses(self):
         res = server.dispatch("ExecuteAutonomousPipeline", {"goal": "test pipeline finalization"})
         pipeline_id = res["pipelineId"]
