@@ -24,6 +24,13 @@ import urllib.error
 import urllib.parse
 import uuid
 import threading
+import sys
+
+# Make sibling cloud modules importable both in the production container and when
+# server.py is imported directly by local/CI regression tests.
+_CLOUD_DIR = os.path.dirname(os.path.abspath(__file__))
+if _CLOUD_DIR not in sys.path:
+    sys.path.insert(0, _CLOUD_DIR)
 
 from runtime_authority import snapshot as runtime_authority_snapshot
 from runtime_response_composer import (
