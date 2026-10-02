@@ -342,6 +342,17 @@ class CloudStore:
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS pipelines (
+                pipeline_id TEXT PRIMARY KEY,
+                goal TEXT NOT NULL,
+                architect_agent_id TEXT,
+                status TEXT NOT NULL,
+                total_stages INTEGER NOT NULL DEFAULT 0,
+                completed_stages INTEGER NOT NULL DEFAULT 0,
+                failed_stages INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS projects (
                 project_id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -958,6 +969,79 @@ def task_dependency_ready(payload: Any) -> bool:
         (dependency,),
     ).fetchone()
     return bool(row and str(row[0]).upper() == "COMPLETED")
+
+
+def refresh_pipeline_status(pipeline_id: str) -> dict[str, Any] | None:
+    """Derive and persist pipeline state entirely from its real task records."""
+    pipeline_id = str(pipeline_id or "").strip()
+    if not pipeline_id:
+        return None
+
+    row = store.db.execute(
+        "SELECT pipeline_id, total_stages, status FROM pipelines WHERE pipeline_id=?",
+        (pipeline_id,),
+    ).fetchone()
+    if not row:
+        return None
+
+    tasks = store.db.execute(
+        "SELECT status FROM tasks WHERE payload LIKE ? ORDER BY created_at ASC",
+        (f'%"pipelineId": "{pipeline_id}"%',),
+    ).fetchall()
+
+    statuses = [str(r[0]).upper() for r in tasks]
+    total = int(row[1] or len(statuses))
+    completed = sum(1 for s in statuses if s == "COMPLETED")
+    failed = sum(1 for s in statuses if s in {"FAILED", "ERROR", "CANCELLED"})
+    active = sum(1 for s in statuses if s in {"RUNNING", "QUEUED"})
+    pending = sum(1 for s in statuses if s == "PENDING_WORKER")
+
+    if total and completed >= total:
+        status = "COMPLETED"
+    elif failed:
+        status = "FAILED"
+    elif active:
+        status = "RUNNING"
+    elif pending:
+        status = "PENDING_WORKER"
+    else:
+        status = "UNKNOWN"
+
+    stamp = now()
+    store.db.execute(
+        """
+        UPDATE pipelines
+        SET status=?, total_stages=?, completed_stages=?, failed_stages=?, updated_at=?
+        WHERE pipeline_id=?
+        """,
+        (status, total, completed, failed, stamp, pipeline_id),
+    )
+    store.db.commit()
+    return {
+        "pipelineId": pipeline_id,
+        "status": status,
+        "totalStages": total,
+        "completedStages": completed,
+        "failedStages": failed,
+        "activeStages": active,
+        "pendingStages": pending,
+        "updatedAt": stamp,
+    }
+
+
+def refresh_pipelines_for_tasks(task_rows: list[tuple[Any, ...]]) -> None:
+    """Refresh all pipelines referenced by changed task payloads."""
+    pipeline_ids: set[str] = set()
+    for row in task_rows:
+        payload = row[0] if row else None
+        try:
+            data = json.loads(payload) if isinstance(payload, str) else payload
+        except Exception:
+            data = {}
+        if isinstance(data, dict) and data.get("pipelineId"):
+            pipeline_ids.add(str(data["pipelineId"]))
+    for pipeline_id in pipeline_ids:
+        refresh_pipeline_status(pipeline_id)
 
 
 def select_worker(required_capability: str) -> str | None:
@@ -3533,6 +3617,12 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         )
 
         store.db.commit()
+
+        task_payload_row = store.db.execute(
+            "SELECT payload FROM tasks WHERE task_id=?",
+            (task_id,),
+        ).fetchone()
+        refresh_pipelines_for_tasks([task_payload_row] if task_payload_row else [])
         assign_pending_tasks()
 
         return {
@@ -3577,6 +3667,11 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             (worker_id,),
         )
         store.db.commit()
+        task_payload_row = store.db.execute(
+            "SELECT payload FROM tasks WHERE task_id=?",
+            (task_id,),
+        ).fetchone()
+        refresh_pipelines_for_tasks([task_payload_row] if task_payload_row else [])
         store.event(None, "TASK_FAILED", {"taskId": task_id, "workerId": worker_id, "error": error_msg, "retryable": retryable, "status": new_status})
         if retryable:
             assign_pending_tasks()
@@ -4700,6 +4795,29 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             {"type": "gpu_deployment", "title": "Distributed Worker Node Allocation", "requiredCapability": "gpu"},
         ]
 
+        store.db.execute(
+            """
+            INSERT INTO pipelines(
+                pipeline_id, goal, architect_agent_id, status,
+                total_stages, completed_stages, failed_stages,
+                created_at, updated_at
+            )
+            VALUES(?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                pipeline_id,
+                goal,
+                architect_id,
+                "PENDING_WORKER",
+                len(subtasks),
+                0,
+                0,
+                stamp,
+                stamp,
+            ),
+        )
+        store.db.commit()
+
         created_tasks = []
         previous_task_id = None
         for index, st in enumerate(subtasks, 1):
@@ -4739,19 +4857,88 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         
         store.event(architect_id, "AUTONOMOUS_PIPELINE_INITIATED", {"pipelineId": pipeline_id, "goal": goal, "tasks": created_tasks})
         
-        pipeline_status = (
-            "RUNNING"
-            if any(task.get("status") == "QUEUED" for task in created_tasks)
-            else "PENDING_WORKER"
-        )
+        pipeline_state = refresh_pipeline_status(pipeline_id) or {
+            "pipelineId": pipeline_id,
+            "status": "PENDING_WORKER",
+            "totalStages": len(subtasks),
+            "completedStages": 0,
+            "failedStages": 0,
+        }
         return {
             "pipelineId": pipeline_id,
-            "status": pipeline_status,
+            "status": pipeline_state["status"],
             "goal": goal,
             "architectAgentId": architect_id,
             "tasks": created_tasks,
             "createdAt": stamp,
+            "pipelineState": pipeline_state,
         }
+
+    if method == "GetAutonomousPipeline":
+        pipeline_id = str(params.get("pipelineId", "")).strip()
+        if not pipeline_id:
+            raise ValueError("pipelineId is required")
+        state = refresh_pipeline_status(pipeline_id)
+        if not state:
+            raise ValueError(f"pipeline_not_found: {pipeline_id}")
+        row = store.db.execute(
+            "SELECT pipeline_id, goal, architect_agent_id, status, total_stages, completed_stages, failed_stages, created_at, updated_at "
+            "FROM pipelines WHERE pipeline_id=?",
+            (pipeline_id,),
+        ).fetchone()
+        tasks = store.db.execute(
+            "SELECT task_id, task_type, required_capability, assigned_worker_id, status, result, error, created_at, updated_at "
+            "FROM tasks WHERE payload LIKE ? ORDER BY created_at ASC",
+            (f'%"pipelineId": "{pipeline_id}"%',),
+        ).fetchall()
+        task_items = []
+        for task_row in tasks:
+            try:
+                task_result = json.loads(task_row[5] or "{}")
+            except Exception:
+                task_result = {}
+            task_items.append({
+                "taskId": task_row[0],
+                "taskType": task_row[1],
+                "requiredCapability": task_row[2],
+                "assignedWorkerId": task_row[3],
+                "status": task_row[4],
+                "result": task_result,
+                "error": task_row[6],
+                "createdAt": task_row[7],
+                "updatedAt": task_row[8],
+            })
+        return {
+            **state,
+            "goal": row[1],
+            "architectAgentId": row[2],
+            "createdAt": row[7],
+            "updatedAt": row[8],
+            "tasks": task_items,
+        }
+
+    if method == "ListAutonomousPipelines":
+        limit = min(50, max(1, int(params.get("limit", 20))))
+        rows = store.db.execute(
+            "SELECT pipeline_id FROM pipelines ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        pipelines = []
+        for pipeline_row in rows:
+            state = refresh_pipeline_status(pipeline_row[0])
+            if state:
+                meta = store.db.execute(
+                    "SELECT goal, architect_agent_id, created_at, updated_at FROM pipelines WHERE pipeline_id=?",
+                    (pipeline_row[0],),
+                ).fetchone()
+                pipelines.append({
+                    **state,
+                    "goal": meta[0],
+                    "architectAgentId": meta[1],
+                    "createdAt": meta[2],
+                    "updatedAt": meta[3],
+                })
+        return {"pipelines": pipelines, "count": len(pipelines)}
 
     if method == "QueryCognitiveGraph":
         # Build 2D/3D topological graph of the entire operating system state
