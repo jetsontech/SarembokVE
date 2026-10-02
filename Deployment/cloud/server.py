@@ -2009,7 +2009,8 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
 
     # Resolve specific subclause topic for audio / video search
     if is_music and music_sub and len(music_sub.group(1).strip()) > 2:
-        topic = music_sub.group(1).strip()    elif is_video and video_sub and len(video_sub.group(1).strip()) > 2:
+        topic = music_sub.group(1).strip()
+    elif is_video and video_sub and len(video_sub.group(1).strip()) > 2:
         topic = video_sub.group(1).strip()
     else:
         topic = re.sub(r"(?i)^(?:can you\s+)?(?:please\s+)?(?:play|show|open|stream|watch|listen to)\s+(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:video\s+about\s+|on\s+youtube\s+|youtube\s+)?", "", prompt).strip()
