@@ -29,9 +29,25 @@ if ($LASTEXITCODE -ne 0) {
     throw "Failed to install Playwright."
 }
 
-& $py -m playwright install chromium
-if ($LASTEXITCODE -ne 0) {
-    throw "Failed to install or verify Chromium for Playwright."
+$chromeCandidates = @(
+    (Join-Path $env:ProgramFiles "Google\Chrome\Application\chrome.exe"),
+    (Join-Path ${env:ProgramFiles(x86)} "Google\Chrome\Application\chrome.exe"),
+    (Join-Path $env:ProgramFiles "Microsoft\Edge\Application\msedge.exe"),
+    (Join-Path ${env:ProgramFiles(x86)} "Microsoft\Edge\Application\msedge.exe"),
+    (Join-Path $env:LOCALAPPDATA "Google\Chrome\Application\chrome.exe"),
+    (Join-Path $env:LOCALAPPDATA "Microsoft\Edge\Application\msedge.exe")
+)
+$systemBrowser = $chromeCandidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+
+if ($systemBrowser) {
+    $env:SAREMBOK_WORKER_BROWSER_EXECUTABLE = $systemBrowser
+    Write-Host "BROWSER   : using installed system browser $systemBrowser"
+} else {
+    Write-Host "BROWSER   : no Chrome/Edge found; installing Playwright Chromium..."
+    & $py -m playwright install chromium
+    if ($LASTEXITCODE -ne 0) {
+        throw "No system Chrome/Edge is installed and Playwright Chromium download failed."
+    }
 }
 
 & $py -c "import playwright; print('Playwright import: OK')"
