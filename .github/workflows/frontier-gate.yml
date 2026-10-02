@@ -106,6 +106,15 @@ jobs:
           assert token, "sessionToken missing"
           print("SESSION: OK")
 
+          live_req = urllib.request.Request(
+              base + "/api/live/token?mode=conversational",
+              headers={**headers, "Authorization": "Bearer " + token, "Accept": "application/json"},
+          )
+          with urllib.request.urlopen(live_req, timeout=30) as r_live:
+              live_data = json.loads(r_live.read().decode("utf-8"))
+          print("GEMINI LIVE TOKEN:", "OK", "model=", live_data.get("model"))
+          assert live_data.get("token"), "Gemini Live ephemeral token missing"
+
           text_value = ("Sarembok production speech smoke. " * 20).strip()
           qs = urllib.parse.urlencode({"text": text_value, "voice": "af_heart", "language": "en-us", "speed": "0.95"})
           req = urllib.request.Request(
