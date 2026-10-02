@@ -254,15 +254,15 @@ class SarembokWorker:
         while not self.stop_event.is_set():
             try:
                 # 1. Check for tasks queued for this worker or pending matching capabilities
-                task_list_queued = await self._send_rpc(ws, "ListTasks", {"status": "QUEUED"})
+                task_list_queued = await self._send_rpc(ws, "ListTasks", {"status": "QUEUED", "workerId": self.worker_id})
                 tasks_queued = task_list_queued.get("tasks", []) if isinstance(task_list_queued, dict) else []
                 
                 my_tasks = [t for t in tasks_queued if t.get("assignedWorkerId") == self.worker_id]
 
                 if not my_tasks:
-                    task_list_pending = await self._send_rpc(ws, "ListTasks", {"status": "PENDING_WORKER"})
+                    task_list_pending = await self._send_rpc(ws, "ListTasks", {"status": "PENDING_WORKER", "workerId": self.worker_id})
                     tasks_pending = task_list_pending.get("tasks", []) if isinstance(task_list_pending, dict) else []
-                    my_tasks = [t for t in tasks_pending if (not t.get("assignedWorkerId") or t.get("assignedWorkerId") == self.worker_id) and (t.get("requiredCapability", "compute") in self.capabilities)]
+                    my_tasks = [t for t in tasks_pending if (not t.get("assignedWorkerId") or t.get("assignedWorkerId") == self.worker_id) and (t.get("requiredCapability", "compute") in self.capabilities) and t.get("dependencyReady", True)]
 
                 for t in my_tasks:
                     task_id = t["taskId"]
