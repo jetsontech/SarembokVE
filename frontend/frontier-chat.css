@@ -37,3 +37,9 @@ body.mode-simple #global-bg-btn{display:none!important}
 body.mode-simple .srbk-mobile-dialogue-composer{display:none!important}
 body.mode-simple .live-conv-hud{max-width:900px!important;margin:0 auto!important;border:1px solid rgba(0,216,232,.12)!important;background:rgba(10,15,21,.86)!important;border-radius:14px!important}
 @media(max-width:700px){body.mode-simple .cyber-header{padding:7px 10px!important}body.mode-simple .header-brand-sub{display:none!important}body.mode-simple .hud-mode-btn span{display:none!important}body.mode-simple .hud-mode-btn{padding:7px 9px!important}body.mode-simple #hud-new-chat-btn span{display:none!important}body.mode-simple .dialogue-head{padding:6px 2px!important}body.mode-simple .dialogue-title{display:none!important}body.mode-simple #dialogue-history{padding:18px 10px 176px!important;gap:18px!important}body.mode-simple #dialogue-history .srbk-bubble.user{max-width:90%!important}body.mode-simple #global-input-bar{padding-left:8px!important;padding-right:8px!important}}
+
+
+/* Keep the conversation surface calm; open Live Voice from the header when needed. */
+body.mode-simple #live-audio-notice{display:none!important}
+body.mode-simple .live-conv-hud{display:none!important}
+body.mode-simple #dialogue-history .live-conv-hud{display:none!important}
