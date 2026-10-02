@@ -8,6 +8,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir websockets
 
 COPY Deployment/cloud/worker_client.py /app/worker_client.py
+COPY Deployment/cloud/worker_task_executor.py /app/worker_task_executor.py
 
 RUN useradd --create-home --uid 10001 sarembok \
     && chown -R sarembok:sarembok /app
