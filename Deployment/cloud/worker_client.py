@@ -108,7 +108,7 @@ class SarembokWorker:
         self.ws_url = ws_url
         self.auth_token = auth_token
         self.worker_id = worker_id or f"worker-{platform.node().lower()}-{uuid.uuid4().hex[:6]}"
-        self.capabilities = capabilities or ["compute", "inference", "meta_human"]
+        self.capabilities = capabilities or ["compute", "inference", "meta_human", "host_control", "desktop", "web_automation"]
         self.heartbeat_interval = heartbeat_interval
         self.poll_interval = poll_interval
         self.gpu_info = detect_gpu_info()
@@ -175,61 +175,7 @@ class SarembokWorker:
     def execute_task_payload(self, task_type: str, payload: dict[str, Any]) -> dict[str, Any]:
         """Deterministic task execution engine."""
         LOG.info("Executing task type='%s' payload=%s", task_type, payload)
-
-    def execute_host_action(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Execute a bounded action on the enrolled target machine and return verification evidence."""
-        action = str(payload.get("action", "")).strip().lower()
-        if action == "open_url":
-            url = str(payload.get("url", "")).strip()
-            if not url.startswith(("https://", "http://")):
-                return {"status": "ERROR", "error": "open_url requires http(s) URL"}
-            if platform.system() == "Windows":
-                subprocess.Popen(["cmd", "/c", "start", "", url], creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-            elif platform.system() == "Darwin":
-                subprocess.Popen(["open", url])
-            else:
-                subprocess.Popen(["xdg-open", url])
-            return {"status": "VERIFIED", "action": action, "url": url, "platform": platform.system()}
-
-        if action == "launch_app":
-            command = str(payload.get("command", "")).strip()
-            args = payload.get("args") or []
-            if not command:
-                return {"status": "ERROR", "error": "launch_app requires command"}
-            if not bool(payload.get("confirm")):
-                return {"status": "REQUIRES_CONFIRMATION", "error": "explicit confirmation required"}
-            proc = subprocess.Popen([command] + [str(x) for x in args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            return {"status": "VERIFIED", "action": action, "command": command, "args": args, "pid": proc.pid, "platform": platform.system()}
-
-        if action == "run_command":
-            if not bool(payload.get("confirm")):
-                return {"status": "REQUIRES_CONFIRMATION", "error": "explicit confirmation required"}
-            if os.getenv("SAREMBOK_WORKER_ALLOW_COMMANDS", "").strip().lower() not in {"1","true","yes","on"}:
-                return {"status": "DISABLED", "error": "host command execution is disabled by worker policy"}
-            command = str(payload.get("command", "")).strip()
-            if not command:
-                return {"status": "ERROR", "error": "run_command requires command"}
-            proc = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=20, check=False)
-            return {"status": "VERIFIED" if proc.returncode == 0 else "FAILED", "action": action, "command": command, "exitCode": proc.returncode, "stdout": proc.stdout[-5000:], "stderr": proc.stderr[-2000:], "platform": platform.system()}
-
-        if action == "open_file":
-            path = os.path.abspath(str(payload.get("path", "")).strip())
-            if not path or not os.path.exists(path):
-                return {"status": "ERROR", "error": "file_not_found", "path": path}
-            if platform.system() == "Windows":
-                os.startfile(path)
-            elif platform.system() == "Darwin":
-                subprocess.Popen(["open", path])
-            else:
-                subprocess.Popen(["xdg-open", path])
-            return {"status": "VERIFIED", "action": action, "path": path, "platform": platform.system()}
-
-        return {"status": "ERROR", "error": "unsupported_host_action", "action": action}
         
-        # 0. Host/desktop execution through a real enrolled target worker.
-        if task_type == "host_action":
-            return self.execute_host_action(payload)
-
         # 1. Arithmetic / Smoke tests
         if task_type in ("smoke_test", "arithmetic"):
             op = payload.get("operation", "add")
@@ -264,6 +210,57 @@ class SarembokWorker:
             "executedBy": self.worker_id,
             "gpuModel": self.gpu_info["gpuModel"],
         }
+
+    def execute_host_action(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Execute a bounded action on the enrolled target machine and return evidence."""
+        action = str(payload.get("action", "")).strip().lower()
+        if action == "open_url":
+            url = str(payload.get("url", "")).strip()
+            if not url.startswith(("https://", "http://")):
+                return {"status": "ERROR", "error": "open_url requires http(s) URL"}
+            if platform.system() == "Windows":
+                subprocess.Popen(["cmd", "/c", "start", "", url], creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            elif platform.system() == "Darwin":
+                subprocess.Popen(["open", url])
+            else:
+                subprocess.Popen(["xdg-open", url])
+            return {"status": "VERIFIED", "action": action, "url": url, "platform": platform.system()}
+
+        if action == "launch_app":
+            command = str(payload.get("command", "")).strip()
+            args = payload.get("args") or []
+            if not command:
+                return {"status": "ERROR", "error": "launch_app requires command"}
+            if not bool(payload.get("confirm")):
+                return {"status": "REQUIRES_CONFIRMATION", "error": "explicit confirmation required"}
+            proc = subprocess.Popen([command] + [str(x) for x in args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return {"status": "VERIFIED", "action": action, "command": command, "args": args, "pid": proc.pid, "platform": platform.system()}
+
+        if action == "run_command":
+            if not bool(payload.get("confirm")):
+                return {"status": "REQUIRES_CONFIRMATION", "error": "explicit confirmation required"}
+            if os.getenv("SAREMBOK_WORKER_ALLOW_COMMANDS", "").strip().lower() not in {"1", "true", "yes", "on"}:
+                return {"status": "DISABLED", "error": "host command execution is disabled by worker policy"}
+            command = str(payload.get("command", "")).strip()
+            if not command:
+                return {"status": "ERROR", "error": "run_command requires command"}
+            proc = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=20, check=False)
+            return {"status": "VERIFIED" if proc.returncode == 0 else "FAILED", "action": action, "command": command, "exitCode": proc.returncode, "stdout": proc.stdout[-5000:], "stderr": proc.stderr[-2000:], "platform": platform.system()}
+
+        if action == "open_file":
+            target = os.path.abspath(str(payload.get("path", "")).strip())
+            if not target or not os.path.exists(target):
+                return {"status": "ERROR", "error": "file_not_found", "path": target}
+            if platform.system() == "Windows":
+                os.startfile(target)
+            elif platform.system() == "Darwin":
+                subprocess.Popen(["open", target])
+            else:
+                subprocess.Popen(["xdg-open", target])
+            return {"status": "VERIFIED", "action": action, "path": target, "platform": platform.system()}
+
+        return {"status": "ERROR", "error": "unsupported_host_action", "action": action}
+
 
     async def task_execution_loop(self, ws: websockets.ClientConnection, single_task_mode: bool = False) -> None:
         LOG.info("Task execution listener active (poll_interval=%ss)", self.poll_interval)
