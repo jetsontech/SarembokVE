@@ -333,7 +333,7 @@ class WorkerTaskExecutor:
                         delta = int(action.get("deltaY", 800))
                         page.mouse.wheel(0, delta)
                     elif kind == "wait":
-                        page.wait_for_timeout(min(30000, max(0, int(action.get("milliseconds", 500))))
+                        page.wait_for_timeout(min(30000, max(0, int(action.get("milliseconds", 500)))))
                     elif kind in {"text", "get_text", "extract_text"}:
                         txt = page.locator(locator).inner_text() if locator else page.locator("body").inner_text()
                         observations.append({"type": "text", "text": txt[:20000]})
