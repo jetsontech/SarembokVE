@@ -305,6 +305,8 @@ class CloudStore:
                 task_type TEXT NOT NULL,
                 required_capability TEXT NOT NULL DEFAULT 'compute',
                 payload TEXT NOT NULL DEFAULT '{}',
+                result TEXT NOT NULL DEFAULT '{}',
+                error TEXT,
                 assigned_worker_id TEXT,
                 status TEXT NOT NULL,
                 created_at TEXT NOT NULL,
@@ -407,6 +409,14 @@ class CloudStore:
         if columns and "required_capability" not in columns:
             self.db.execute("ALTER TABLE tasks ADD COLUMN required_capability TEXT NOT NULL DEFAULT 'compute'")
             self.db.commit()
+        columns = [row[1] for row in self.db.execute("PRAGMA table_info(tasks)").fetchall()]
+        if columns and "result" not in columns:
+            self.db.execute("ALTER TABLE tasks ADD COLUMN result TEXT NOT NULL DEFAULT '{}'")
+            self.db.commit()
+        columns = [row[1] for row in self.db.execute("PRAGMA table_info(tasks)").fetchall()]
+        if columns and "error" not in columns:
+            self.db.execute("ALTER TABLE tasks ADD COLUMN error TEXT")
+            self.db.commit()
 
         memory_cols = [row[1] for row in self.db.execute("PRAGMA table_info(memories)").fetchall()]
         if memory_cols and "session_id" not in memory_cols:
@@ -431,21 +441,23 @@ class CloudStore:
         self.event(agent_id, "AGENT_CREATED", {"displayName": display_name})
         return {"agentId": agent_id, "displayName": display_name, "status": "created"}
 
-    def create_task(self, task_type: str, assigned_worker_id: str | None = None, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    def create_task(self, task_type: str, assigned_worker_id: str | None = None, payload: dict[str, Any] | None = None, required_capability: str = "compute") -> dict[str, Any]:
         task_id = f"task-{uuid.uuid4().hex[:10]}"
         stamp = now()
         status = "QUEUED" if assigned_worker_id else "PENDING_WORKER"
-        payload_json = json.dumps(payload or {})
+        payload_obj = payload or {}
+        capability = str(required_capability or "compute").strip() or "compute"
+        payload_json = json.dumps(payload_obj)
         self.db.execute(
             """
-            INSERT INTO tasks(task_id, task_type, required_capability, payload, assigned_worker_id, status, created_at, updated_at)
-            VALUES(?,?,?,?,?,?,?,?)
+            INSERT INTO tasks(task_id, task_type, required_capability, payload, result, error, assigned_worker_id, status, created_at, updated_at)
+            VALUES(?,?,?,?,?,?,?,?,?,?)
             """,
-            (task_id, task_type, "compute", payload_json, assigned_worker_id, status, stamp, stamp),
+            (task_id, task_type, capability, payload_json, "{}", None, assigned_worker_id, status, stamp, stamp),
         )
         self.db.commit()
-        self.event(None, "TASK_CREATED", {"taskId": task_id, "taskType": task_type, "status": status})
-        return {"taskId": task_id, "taskType": task_type, "assignedWorkerId": assigned_worker_id, "status": status, "payload": payload or {}, "createdAt": stamp}
+        self.event(None, "TASK_CREATED", {"taskId": task_id, "taskType": task_type, "requiredCapability": capability, "status": status})
+        return {"taskId": task_id, "taskType": task_type, "requiredCapability": capability, "assignedWorkerId": assigned_worker_id, "status": status, "payload": payload_obj, "createdAt": stamp}
 
     def agent_exists(self, agent_id: str) -> bool:
         return self.db.execute("SELECT 1 FROM agents WHERE agent_id=?", (agent_id,)).fetchone() is not None
@@ -3151,6 +3163,8 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
 
         task_id = str(params.get("taskId", "")).strip()
         worker_id = str(params.get("workerId", "")).strip()
+        result_payload = params.get("result", {})
+        error_payload = params.get("error")
 
         if not task_id:
             raise ValueError("taskId is required")
@@ -3187,12 +3201,14 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             UPDATE tasks
             SET
                 status='COMPLETED',
+                result=?,
+                error=?,
                 updated_at=?
             WHERE task_id=?
               AND assigned_worker_id=?
               AND status='RUNNING'
             """,
-            (stamp, task_id, worker_id),
+            (json.dumps(result_payload if isinstance(result_payload, dict) else {"value": result_payload}), str(error_payload) if error_payload else None, stamp, task_id, worker_id),
         )
 
         if store.db.execute("SELECT changes()").fetchone()[0] != 1:
@@ -4124,13 +4140,19 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             payload = json.loads(row[4]) if row[4] else {}
         except Exception:
             payload = {}
-        return {"taskId": row[0], "taskType": row[1], "assignedWorkerId": row[2], "status": row[3], "payload": payload, "createdAt": row[5], "updatedAt": row[6]}
+        result_data = {}
+        try:
+            result_data = json.loads(row[5]) if row[5] else {}
+        except Exception:
+            result_data = {}
+        return {"taskId": row[0], "taskType": row[1], "assignedWorkerId": row[2], "status": row[3], "payload": payload, "result": result_data, "createdAt": row[7], "updatedAt": row[8]}
 
     if method == "CreateTask":
         task_type = str(params.get("taskType", "general_compute"))
         assigned_worker = params.get("assignedWorkerId")
         payload = params.get("payload", {})
-        return store.create_task(task_type, str(assigned_worker) if assigned_worker else None, payload if isinstance(payload, dict) else {})
+        required_capability = str(params.get("requiredCapability", "compute")).strip() or "compute"
+        return store.create_task(task_type, str(assigned_worker) if assigned_worker else None, payload if isinstance(payload, dict) else {}, required_capability)
 
     if method == "CancelTask":
         task_id = str(params.get("taskId", ""))
