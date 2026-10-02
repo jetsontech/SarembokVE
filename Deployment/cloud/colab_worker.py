@@ -35,38 +35,40 @@ LOG = logging.getLogger("sarembok.colab")
 
 
 def get_colab_gpu() -> dict[str, Any]:
+    """Return verified GPU telemetry; never assume a T4 when probing fails."""
     gpu_info: dict[str, Any] = {
-        "gpuVendor": "NVIDIA",
-        "gpuModel": "Tesla T4",
-        "vramMb": 15360,
-        "cudaVersion": "12.2",
-        "availableMemoryMb": 14000,
-        "supportedModels": [
-            "meta-human-v1",
-            "sarembok-reasoner-7b",
-            "whisper-large-v3",
-            "llama-3.3-70b-instruct",
-        ],
+        "gpuVendor": "CPU",
+        "gpuModel": "CPU",
+        "vramMb": 0,
+        "cudaVersion": "N/A",
+        "availableMemoryMb": 0,
+        "supportedModels": [],
     }
 
-    # 1. Probe via PyTorch CUDA
     try:
         import torch  # type: ignore
 
         if torch.cuda.is_available():
             dev_name = torch.cuda.get_device_name(0)
             vram = int(torch.cuda.get_device_properties(0).total_memory / (1024 * 1024))
-            cuda_ver = str(torch.version.cuda or "12.0")
-            LOG.info("Verified physical GPU: %s (%s MB VRAM, CUDA %s)", dev_name, vram, cuda_ver)
-            gpu_info["gpuModel"] = dev_name
-            gpu_info["vramMb"] = vram
-            gpu_info["cudaVersion"] = cuda_ver
-            gpu_info["availableMemoryMb"] = int(vram * 0.9)
+            cuda_ver = str(torch.version.cuda or "N/A")
+            LOG.info("Verified physical GPU via PyTorch: %s (%s MB VRAM, CUDA %s)", dev_name, vram, cuda_ver)
+            gpu_info.update({
+                "gpuVendor": "NVIDIA",
+                "gpuModel": dev_name,
+                "vramMb": vram,
+                "cudaVersion": cuda_ver,
+                "availableMemoryMb": int(vram * 0.9),
+                "supportedModels": [
+                    "meta-human-v1",
+                    "sarembok-reasoner-7b",
+                    "whisper-large-v3",
+                ],
+            })
             return gpu_info
     except Exception as exc:
         LOG.warning("PyTorch CUDA probe skipped: %s", exc)
 
-    # 2. Probe via nvidia-smi CLI
     try:
         res = subprocess.run(
             ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"],
@@ -74,18 +76,30 @@ def get_colab_gpu() -> dict[str, Any]:
             stderr=subprocess.PIPE,
             text=True,
             timeout=5,
+            check=False,
         )
         if res.returncode == 0 and res.stdout.strip():
             parts = [p.strip() for p in res.stdout.strip().split(",")]
             if len(parts) >= 2:
-                gpu_info["gpuModel"] = parts[0]
-                gpu_info["vramMb"] = int(float(parts[1]))
-                gpu_info["availableMemoryMb"] = int(gpu_info["vramMb"] * 0.9)
-                LOG.info("Verified GPU via nvidia-smi: %s (%s MB VRAM)", parts[0], gpu_info["vramMb"])
+                vram = int(float(parts[1]))
+                gpu_info.update({
+                    "gpuVendor": "NVIDIA",
+                    "gpuModel": parts[0],
+                    "vramMb": vram,
+                    "cudaVersion": "N/A",
+                    "availableMemoryMb": int(vram * 0.9),
+                    "supportedModels": [
+                        "meta-human-v1",
+                        "sarembok-reasoner-7b",
+                        "whisper-large-v3",
+                    ],
+                })
+                LOG.info("Verified physical GPU via nvidia-smi: %s (%s MB VRAM)", parts[0], vram)
                 return gpu_info
     except Exception as exc:
         LOG.warning("nvidia-smi check skipped: %s", exc)
 
+    LOG.info("No verified NVIDIA GPU found for this Colab worker.")
     return gpu_info
 
 
