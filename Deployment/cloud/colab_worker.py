@@ -25,6 +25,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from worker_task_executor import WorkerTaskExecutor
+
 logging.basicConfig(
     level=os.getenv("SAREMBOK_LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s [%(levelname)s] [Sarembok-Colab] %(message)s",
@@ -88,48 +90,9 @@ def get_colab_gpu() -> dict[str, Any]:
 
 
 def execute_task_payload(task_type: str, payload: dict[str, Any], worker_id: str, gpu_info: dict[str, Any]) -> dict[str, Any]:
-    """Execute assigned compute, inference, or synthesis tasks."""
-    LOG.info("Executing task type='%s' payload=%s", task_type, payload)
-
-    # 1. Arithmetic / Smoke tests
-    if task_type in ("smoke_test", "arithmetic"):
-        op = payload.get("operation", "add")
-        a = float(payload.get("a", 0))
-        b = float(payload.get("b", 0))
-        if op == "add":
-            val = a + b
-        elif op == "multiply":
-            val = a * b
-        elif op == "subtract":
-            val = a - b
-        else:
-            val = a + b
-        return {
-            "result": val,
-            "operation": op,
-            "executedBy": worker_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-
-    # 2. MetaHuman expression / viseme task
-    if task_type == "meta_human":
-        emotion = payload.get("emotion", "neutral")
-        return {
-            "morphTargets": {"jawOpen": 0.45, "mouthSmile": 0.8},
-            "emotion": emotion,
-            "rendered": True,
-            "executedBy": worker_id,
-        }
-
-    # 3. General compute / inference
-    prompt = payload.get("prompt", "")
-    return {
-        "output": f"Processed on Tesla T4: {prompt or 'OK'}",
-        "tokens": 64,
-        "latencyMs": 14.2,
-        "executedBy": worker_id,
-        "gpuModel": gpu_info.get("gpuModel", "Tesla T4"),
-    }
+    """Execute a task through the shared concrete worker executor."""
+    executor = WorkerTaskExecutor(worker_id=worker_id, gpu_info=gpu_info)
+    return executor.execute(task_type, payload)
 
 
 class ColabWorkerDaemon:
@@ -158,7 +121,8 @@ class ColabWorkerDaemon:
         self.heartbeat_interval = heartbeat_interval
         self.poll_interval = poll_interval
         self.gpu = get_colab_gpu()
-        self.capabilities = ["compute", "gpu", "inference", "meta_human", "synthesis"]
+        self.executor = WorkerTaskExecutor(worker_id=self.worker_id, gpu_info=self.gpu)
+        self.capabilities = self.executor.capabilities()
         self.req_counter = 0
         self.pending_rpcs: dict[Any, asyncio.Future[Any]] = {}
         self.stop_event = asyncio.Event()
@@ -297,7 +261,7 @@ class ColabWorkerDaemon:
                         LOG.info("Claimed task '%s': status=%s", task_id, claim_res.get("status"))
 
                         # Execute payload
-                        result = execute_task_payload(task_type, payload, self.worker_id, self.gpu)
+                        result = await asyncio.to_thread(execute_task_payload, task_type, payload, self.worker_id, self.gpu)
 
                         # Mark Complete
                         comp_res = await self._call_rpc(
