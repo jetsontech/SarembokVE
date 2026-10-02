@@ -100,6 +100,7 @@ class SarembokWorker:
         self,
         ws_url: str,
         auth_token: str = "",
+        enrollment_token: str = "",
         worker_id: str | None = None,
         capabilities: list[str] | None = None,
         heartbeat_interval: int = 15,
@@ -107,6 +108,8 @@ class SarembokWorker:
     ):
         self.ws_url = ws_url
         self.auth_token = auth_token
+        self.enrollment_token = enrollment_token
+        self.worker_token = ""
         self.worker_id = worker_id or f"worker-{platform.node().lower()}-{uuid.uuid4().hex[:6]}"
         self.capabilities = capabilities or ["compute", "inference", "meta_human", "host_control", "desktop", "web_automation"]
         self.heartbeat_interval = heartbeat_interval
@@ -124,7 +127,13 @@ class SarembokWorker:
         self.req_counter += 1
         req_id = f"w-req-{self.req_counter}"
         p = dict(params or {})
-        if self.auth_token:
+        if method == "RegisterWorker":
+            if self.enrollment_token:
+                p["enrollmentToken"] = self.enrollment_token
+        elif self.worker_token:
+            p["workerToken"] = self.worker_token
+            p.setdefault("workerId", self.worker_id)
+        elif self.auth_token:
             p["authToken"] = self.auth_token
         payload = json.dumps({"jsonrpc": "2.0", "id": req_id, "method": method, "params": p})
         return req_id, payload
@@ -157,7 +166,12 @@ class SarembokWorker:
                 "status": "ONLINE",
             },
         )
-        LOG.info("Registration confirmed: status=%s", res.get("status"))
+        issued_token = str(res.get("workerToken") or "").strip() if isinstance(res, dict) else ""
+        if not issued_token:
+            raise RuntimeError("Worker enrollment succeeded but no one-time workerToken was issued")
+        self.worker_token = issued_token
+        self.enrollment_token = ""
+        LOG.info("Registration confirmed: status=%s workerTokenIssued=yes", res.get("status"))
 
     async def heartbeat_loop(self, ws: websockets.ClientConnection) -> None:
         LOG.info("Heartbeat loop started interval=%ss", self.heartbeat_interval)
@@ -384,7 +398,8 @@ class SarembokWorker:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Sarembok VE Compute Worker Daemon")
     parser.add_argument("--ws-url", default=os.getenv("SAREMBOK_WS_URL", "ws://127.0.0.1:9000"), help="WebSocket URL of Sarembok Cloud Runtime")
-    parser.add_argument("--auth-token", default=os.getenv("SAREMBOK_AUTH_TOKEN", ""), help="Authentication secret token")
+    parser.add_argument("--auth-token", default=os.getenv("SAREMBOK_AUTH_TOKEN", ""), help="Legacy operator token; normally unused for enrolled workers")
+    parser.add_argument("--enrollment-token", default=os.getenv("SAREMBOK_WORKER_ENROLLMENT_TOKEN", ""), help="One-time worker enrollment token issued by the Sarembok control plane")
     parser.add_argument("--worker-id", default=os.getenv("SAREMBOK_WORKER_ID", ""), help="Unique Worker ID")
     parser.add_argument("--heartbeat-interval", type=int, default=int(os.getenv("SAREMBOK_WORKER_HEARTBEAT_INTERVAL", "15")), help="Heartbeat interval in seconds")
     parser.add_argument("--poll-interval", type=int, default=2, help="Task poll interval in seconds")
@@ -397,6 +412,7 @@ async def main_async() -> None:
     worker = SarembokWorker(
         ws_url=args.ws_url,
         auth_token=args.auth_token,
+        enrollment_token=args.enrollment_token,
         worker_id=args.worker_id or None,
         heartbeat_interval=args.heartbeat_interval,
         poll_interval=args.poll_interval,
