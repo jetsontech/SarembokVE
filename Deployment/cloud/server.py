@@ -4073,11 +4073,51 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         tier = next((t for t in GPU_MARKETPLACE_TIERS if t["tierId"] == tier_id), None)
         if not tier:
             raise ValueError(f"unknown_gpu_tier: {tier_id}")
+
         total_price = round(tier["hourlyRate"] * duration_hours, 2)
         lease_id = f"lease-{tier_id}-{uuid.uuid4().hex[:8]}"
         stamp = now()
         from datetime import timedelta
         expires_at = (datetime.now(timezone.utc) + timedelta(hours=duration_hours)).isoformat()
+
+        provider_url = os.getenv("SAREMBOK_GPU_PROVIDER_URL", "").strip()
+        provider_key = os.getenv("SAREMBOK_GPU_PROVIDER_API_KEY", "").strip()
+
+        status = "PENDING_PROVIDER"
+        provider_result: dict[str, Any] = {
+            "provisioned": False,
+            "reason": "gpu_provider_not_configured",
+        }
+
+        if provider_url:
+            request = urllib.request.Request(
+                provider_url.rstrip("/") + "/provision",
+                data=json.dumps({
+                    "tierId": tier_id,
+                    "durationHours": duration_hours,
+                    "workload": workload,
+                    "renterId": renter_id,
+                    "leaseId": lease_id,
+                }).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    **({"Authorization": f"Bearer {provider_key}"} if provider_key else {}),
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=30) as resp:
+                    provider_result = json.loads(resp.read().decode("utf-8"))
+                if bool(provider_result.get("provisioned")) or str(provider_result.get("status", "")).upper() in {"READY", "PROVISIONED", "ACTIVE"}:
+                    status = "ACTIVE"
+                else:
+                    status = "PENDING_PROVIDER"
+            except Exception as exc:
+                provider_result = {
+                    "provisioned": False,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+                status = "PROVIDER_ERROR"
 
         store.db.execute(
             """
@@ -4090,29 +4130,36 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             (
                 lease_id, tier["tierId"], tier["tierName"], tier["vramGb"],
                 tier["hourlyRate"], duration_hours, total_price, workload,
-                "ACTIVE", renter_id, stamp, expires_at
+                status, renter_id, stamp, expires_at
             )
         )
         store.db.commit()
 
-        store.event(None, "GPU_RENTAL_LEASED", {
+        event_type = "GPU_RENTAL_PROVISIONED" if status == "ACTIVE" else "GPU_RENTAL_REQUESTED"
+        store.event(None, event_type, {
             "leaseId": lease_id,
             "tierId": tier_id,
-            "tierName": tier["tierName"],
             "durationHours": duration_hours,
             "totalPrice": total_price,
             "expiresAt": expires_at,
+            "status": status,
+            "provider": provider_result,
         })
 
         return {
-            "success": True,
+            "success": status == "ACTIVE",
             "leaseId": lease_id,
             "tier": tier,
             "durationHours": duration_hours,
             "totalPrice": total_price,
-            "status": "ACTIVE",
+            "status": status,
             "expiresAt": expires_at,
-            "message": f"Successfully reserved {tier['tierName']} for {duration_hours}h. Lease Token: {lease_id}",
+            "provider": provider_result,
+            "message": (
+                f"{tier['tierName']} provisioned and verified."
+                if status == "ACTIVE"
+                else "GPU rental request recorded; no active node is claimed until the configured provider reports provisioning."
+            ),
         }
 
     if method == "ListGpuRentals":
