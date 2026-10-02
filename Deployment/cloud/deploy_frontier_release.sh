@@ -55,6 +55,9 @@ printf '\n===== FRONTIER V2 LIVE VERIFIER =====\n'
 bash Deployment/cloud/verify_frontier_v2.sh
 bash Deployment/cloud/verify_frontier_e2e.sh
 
+printf '\n===== FRONTIER UI VERIFICATION =====\n'
+bash Deployment/cloud/verify_frontier_ui.sh
+
 printf '\n===== GEMINI LIVE TOKEN VERIFICATION =====\n'
 python3 - <<'PY'
 import json, urllib.request, urllib.error
