@@ -11,10 +11,10 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 }
 
 $venv = Join-Path $RepoRoot ".sarembok-worker-venv"
-if (-not (Test-Path (Join-Path $venv "Scriptspython.exe"))) {
+if (-not (Test-Path (Join-Path $venv "Scripts\python.exe"))) {
     python -m venv $venv
 }
-$py = Join-Path $venv "Scriptspython.exe"
+$py = Join-Path $venv "Scripts\python.exe"
 
 & $py -m pip install --upgrade pip
 & $py -m pip install "websockets>=15,<19"
