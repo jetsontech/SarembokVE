@@ -38,6 +38,9 @@ jobs:
       - name: Frontier control tests
         run: python -m unittest Deployment/cloud/test_frontier_controls.py
 
+      - name: Truth-boundary tests
+        run: python -m unittest Deployment/cloud/test_truth_boundaries.py
+
       - name: Worker execution and task routing tests
         run: |
           python -m unittest \
