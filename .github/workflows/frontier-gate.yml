@@ -190,7 +190,10 @@ jobs:
               ) as ws:
                   runtime = await rpc(ws, "runtime", "GetRuntimeInfo", {"sessionToken": token})
                   print("RUNTIME:", runtime)
-                  assert "result" in runtime and runtime["result"].get("llmConfigured") is True
+                  assert "result" in runtime, "GetRuntimeInfo RPC did not return a result"
+                  runtime_result = runtime["result"]
+                  configured_providers = ((runtime_result.get("compute") or {}).get("configuredModelProviders") or [])
+                  assert configured_providers, "runtime reports no configured model providers"
 
                   direct = await rpc(ws, "browser-direct", "BrowserNavigate", {
                       "sessionToken": token,
