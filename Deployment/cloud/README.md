@@ -81,6 +81,16 @@ SAREMBOK_WORKER_ALLOW_COMMANDS      Enables explicitly confirmed verification/ho
 
 Autonomous pipeline stages are capability-routed and dependency-gated: later stages are not dispatched until their predecessor has actually completed.
 
+GPU rental is provider-backed only when these production settings are configured:
+
+```text
+SAREMBOK_GPU_PROVIDER_URL        Provider endpoint; Sarembok POSTs /provision
+SAREMBOK_GPU_PROVIDER_API_KEY    Optional provider bearer credential
+```
+
+Without a configured provider, a rental request is persisted as `PENDING_PROVIDER`; it is never reported as an active GPU that does not exist.
+
+
 ## Hardening
 
 - Mandatory `SAREMBOK_AUTH_TOKEN` in production.
