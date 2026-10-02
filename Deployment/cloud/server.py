@@ -9,6 +9,7 @@ SIGTERM/SIGINT graceful shutdown.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import hmac
 import json
 import logging
@@ -997,8 +998,7 @@ def _is_model_identity_query(prompt: str) -> bool:
     markers = (
         "what model is this",
         "what model are you",
-        "what model do you use",
-        "what model is running",
+        "what model do you use",        "what model is running",
         "what model is active",
         "what model are you running",
     )
@@ -1997,7 +1997,6 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
     # Check for Music & Audio playback intent
     music_intents = ("play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio")
     is_music = any(mi in p_low for mi in music_intents) or any(g in p_low for g in ("lofi", "lo-fi", "synthwave", "ambient", "soundtrack", "beats"))
-
     # News, clips, sports, games, highlights, movies, lectures must prioritize video stream
     news_or_video_markers = (
         "news", "video", "clip", "movie", "trailer", "lecture", "interview", "documentary",
@@ -2998,7 +2997,6 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
 
         worker_token = secrets.token_urlsafe(48)
         worker_token_hash = hashlib.sha256(worker_token.encode("utf-8")).hexdigest()
-
         existing = store.db.execute(
             """
             SELECT active_tasks
@@ -3021,12 +3019,13 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
                 cuda_version,
                 available_memory_mb,
                 supported_models,
-                latency_ms,                status,
+                latency_ms,
+                status,
                 last_heartbeat,
                 active_tasks,
                 worker_token_hash
             )
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 worker_id,
@@ -3997,8 +3996,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         return {
             "success": True,
             "opencvVersion": OPENCV_VERSION,
-            "frameWidth": w,
-            "frameHeight": h,
+            "frameWidth": w,            "frameHeight": h,
             "faceCount": len(faces_data),
             "faces": faces_data,
             "brightness": round(brightness, 1),
@@ -4706,10 +4704,6 @@ def authenticate(request: dict[str, Any], method: str) -> None:
         return
 
     # Server-to-server/admin clients may continue using the master token.
-    params = request.get("params")
-    if not isinstance(params, dict):
-        raise PermissionError("authentication_required")
-
     supplied = params.get("authToken")
     if AUTH_TOKEN and isinstance(supplied, str) and hmac.compare_digest(supplied, AUTH_TOKEN):
         return
@@ -4998,68 +4992,3 @@ async def handler(websocket) -> None:
         if stream_tasks:
             await asyncio.gather(*stream_tasks, return_exceptions=True)
         LOG.info("connection_close peer=%s", peer)
-
-
-def process_http_response(connection: Any, request: Any, response: Any) -> Any:
-    path = getattr(request, "path", "") or ""
-    path_only = urllib.parse.urlsplit(path).path
-    if path_only in ("/api/session", "/session", "/api/live/token"):
-        response.headers["Content-Type"] = "application/json; charset=utf-8"
-        response.headers["Cache-Control"] = "no-store"
-    return response
-
-
-async def process_http_request(connection: Any, request: Any) -> Any:
-    # If the request is a WebSocket upgrade attempt, return None to continue handshake
-    headers = getattr(request, "headers", {})
-    upgrade = headers.get("Upgrade", "") if hasattr(headers, "get") else ""
-    if upgrade.lower() == "websocket":
-        return None
-
-    path = getattr(request, "path", None) or getattr(connection, "path", "/")
-    # websockets exposes the request target including the query string. Route
-    # decisions must use the path component so /api/tts?text=... reaches the
-    # runtime HTTP handler instead of falling through to the WebSocket 426.
-    path_only = urllib.parse.urlsplit(path).path
-    if path_only in ("/health", "/healthz"):
-        if hasattr(connection, "respond"):
-            return connection.respond(200, "OK\n")
-        return (200, [("Content-Type", "text/plain; charset=utf-8")], b"OK\n")
-    if path_only in ("/api/session", "/session"):
-        session_token = issue_browser_session()
-        body = json.dumps({
-            "sessionToken": session_token,
-            "expiresIn": BROWSER_SESSION_TTL_SECONDS,
-            "scope": sorted(BROWSER_ALLOWED_METHODS),
-        }, separators=(",", ":"))
-        if hasattr(connection, "respond"):
-            return connection.respond(200, body)
-        return (
-            200,
-            [
-                ("Content-Type", "application/json; charset=utf-8"),
-                ("Cache-Control", "no-store"),
-                ("Content-Length", str(len(body.encode("utf-8")))),
-            ],
-            body.encode("utf-8"),
-        )
-    def make_api_response(status: int, data: Any):
-        body = json.dumps(data, separators=(",", ":"))
-        body_bytes = body.encode("utf-8")
-        if hasattr(connection, "respond"):
-            resp = connection.respond(status, body)
-            try:
-                del resp.headers["Content-Type"]
-            except Exception:
-                pass
-            resp.headers["Content-Type"] = "application/json; charset=utf-8"
-            resp.headers["Access-Control-Allow-Origin"] = "*"
-            resp.headers["Cache-Control"] = "no-store"
-            return resp
-        return (
-            status,
-            [
-                ("Content-Type", "application/json; charset=utf-8"),
-                ("Access-Control-Allow-Origin", "*"),
-                ("Cache-Control", "no-store"),
-                ("Content-Length", str(len(body_bytes))),
