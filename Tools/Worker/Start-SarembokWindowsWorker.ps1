@@ -19,6 +19,17 @@ $py = Join-Path $venv "Scripts\python.exe"
 & $py -m pip install --upgrade pip
 & $py -m pip install "websockets>=15,<19"
 
+# Install the concrete browser executor once. Chromium is installed separately so
+# web_automation is a real capability, not an advertised stub.
+$playwrightCheck = & $py -c "import playwright; print('ok')" 2>$null
+if ($LASTEXITCODE -ne 0) {
+    & $py -m pip install "playwright>=1.55,<2"
+}
+$chromiumCheck = & $py -c "from pathlib import Path; import playwright; print(Path(playwright.__file__).parent)" 2>$null
+if ($LASTEXITCODE -eq 0) {
+    & $py -m playwright install chromium
+}
+
 if (-not $env:SAREMBOK_WORKER_ENROLLMENT_TOKEN) {
     $secure = Read-Host "Enter the current Sarembok worker enrollment token" -AsSecureString
     $env:SAREMBOK_WORKER_ENROLLMENT_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringUni(
@@ -40,7 +51,7 @@ Write-Host "===== SAREMBOK WINDOWS WORKER =====" -ForegroundColor Cyan
 Write-Host "WORKER ID : $env:SAREMBOK_WORKER_ID"
 Write-Host "ENDPOINT  : $env:SAREMBOK_WS_URL"
 Write-Host "ORIGIN    : $env:SAREMBOK_WORKER_ORIGIN"
-Write-Host "CAPS      : host_control, desktop, web_automation, compute, inference"
+Write-Host "CAPS      : auto-detected concrete local executors"
 Write-Host ""
 
 & $py "Deployment/cloud/worker_client.py"
