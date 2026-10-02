@@ -5,7 +5,7 @@ the browser with a locked conversational configuration. Audio stays on the
 browser <-> Gemini Live path; Sarembok remains the authenticated control plane
 for tools, identity, memory, and persistence.
 
-Gemini's current AuthTokenService requires the token request to use
+The ephemeral token request intentionally uses only the stable AuthToken fields supported by the deployed token service.\n\n# Removed stale statement: the token request to use
 liveConnectConstraints. The older bidiGenerateContentSetup field is not a
 valid ephemeral-token constraint and caused the production token path to fail.
 """
