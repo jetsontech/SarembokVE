@@ -263,13 +263,25 @@ class ColabWorkerDaemon:
                         # Execute payload
                         result = await asyncio.to_thread(execute_task_payload, task_type, payload, self.worker_id, self.gpu)
 
-                        # Mark Complete
-                        comp_res = await self._call_rpc(
-                            ws,
-                            "CompleteTask",
-                            {"taskId": task_id, "workerId": self.worker_id, "result": result},
-                        )
-                        LOG.info("Completed task '%s': status=%s", task_id, comp_res.get("status"))
+                        if result.get("status") in ("VERIFIED", "SUCCESS", "COMPLETED"):
+                            comp_res = await self._call_rpc(
+                                ws,
+                                "CompleteTask",
+                                {"taskId": task_id, "workerId": self.worker_id, "result": result},
+                            )
+                            LOG.info("Completed task '%s': status=%s", task_id, comp_res.get("status"))
+                        else:
+                            fail_res = await self._call_rpc(
+                                ws,
+                                "FailTask",
+                                {
+                                    "taskId": task_id,
+                                    "workerId": self.worker_id,
+                                    "error": str(result.get("error") or result.get("status") or "execution_not_completed"),
+                                    "retryable": bool(result.get("retryable", False)),
+                                },
+                            )
+                            LOG.info("Failed task '%s': status=%s", task_id, fail_res.get("status"))
                     except Exception as task_exc:
                         LOG.error("Task '%s' failed: %s", task_id, task_exc)
                         try:
