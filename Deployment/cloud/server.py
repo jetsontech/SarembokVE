@@ -1321,57 +1321,72 @@ RULES:
         return text_out,traces
     return "Web execution reached the maximum verified action steps without a final completion report.",traces
 def run_host_agent_loop(prompt_clean: str, system_prompt: str, session_id: str, model: str | None = None, max_steps: int = 6) -> tuple[str, list[dict[str, Any]]]:
-    """Create and wait for a real host-action task on an enrolled Sarembok worker."""
+    """Create and wait for a real host-action task on an enrolled worker."""
     tools_doc = """
 ==================== SAREMBOK HOST EXECUTION ====================
-A real target worker may control its own machine through these bounded actions:
-- host_action(open_url): open a web URL in the target's default browser.
+A real target worker may control its own machine through bounded actions:
+- host_action(open_url): open an HTTP(S) URL.
 - host_action(launch_app): launch an installed application; explicit confirmation is required.
-- host_action(open_file): open an existing file using the host OS.
+- host_action(open_file): open an existing file; the target OS opens it.
 - host_action(run_command): run a command only when host policy enables it and explicit confirmation is supplied.
-Return ACTION: host_action with JSON ARGUMENTS containing action and the required fields.
+Return ACTION: host_action with JSON ARGUMENTS.
 Never claim completion unless the task result reaches COMPLETED and result.status is VERIFIED or SUCCESS.
 ===============================================================
 """
     messages = [
-        {"role": "system", "content": system_prompt + "
-" + tools_doc},
+        {"role": "system", "content": system_prompt + "\n" + tools_doc},
         {"role": "user", "content": prompt_clean},
     ]
-    traces = []
-    confirm = bool(re.search(r"(?:confirm|confirmed|yes,? do it|go ahead)", prompt_clean, re.I))
+    traces: list[dict[str, Any]] = []
+    confirm = bool(re.search(r"\b(?:confirm|confirmed|yes,? do it|go ahead)\b", prompt_clean, re.I))
+
     for step in range(1, max_steps + 1):
         try:
-            res = PROVIDER_ROUTER.generate(system_prompt + "
-" + tools_doc, prompt_clean, messages, requested_model=model)
+            res = PROVIDER_ROUTER.generate(
+                system_prompt + "\n" + tools_doc,
+                prompt_clean,
+                messages,
+                requested_model=model,
+            )
             out = (res.text or "").strip()
         except Exception as exc:
             return f"Host execution stopped because the selected intelligence provider failed: {exc}", traces
-        match = re.search(r"ACTION:\s*host_action", out, re.I)
-        if not match:
-            final = re.search(r"FINAL_RESPONSE:\s*(.*)", out, re.I | re.S)
-            return (final.group(1).strip() if final else out), traces
-        args = {}
-        margs = re.search(r"ARGUMENTS:\s*(\{.*?\})", out, re.I | re.S)
-        if margs:
+
+        action_match = re.search(r"ACTION:\s*host_action", out, re.I)
+        if not action_match:
+            final_match = re.search(r"FINAL_RESPONSE:\s*(.*)", out, re.I | re.S)
+            return (final_match.group(1).strip() if final_match else out), traces
+
+        args: dict[str, Any] = {}
+        args_match = re.search(r"ARGUMENTS:\s*(\{.*?\})", out, re.I | re.S)
+        if args_match:
             try:
-                args = json.loads(margs.group(1))
+                args = json.loads(args_match.group(1))
             except Exception:
                 args = {}
+
         args["confirm"] = bool(args.get("confirm", confirm))
         action = str(args.get("action", "")).strip().lower()
         if action not in {"open_url", "launch_app", "open_file", "run_command"}:
             return "The requested host action is not supported by the enrolled Sarembok worker.", traces
+
         try:
             task = dispatch("CreateTask", {
                 "taskType": "host_action",
                 "requiredCapability": "host_control",
                 "payload": args,
             })
-            traces.append({"step": step, "tool": "host_action", "args": args, "task": task, "timestamp": now()})
+            traces.append({
+                "step": step,
+                "tool": "host_action",
+                "args": args,
+                "task": task,
+                "timestamp": now(),
+            })
             task_id = task.get("taskId")
             if not task_id:
                 return "Sarembok could not create the host execution task.", traces
+
             deadline = time.time() + 30
             while time.time() < deadline:
                 state = dispatch("GetTask", {"taskId": task_id})
@@ -1379,15 +1394,21 @@ Never claim completion unless the task result reaches COMPLETED and result.statu
                     traces[-1]["result"] = state
                     result_data = state.get("result") or {}
                     if state.get("status") == "COMPLETED" and result_data.get("status") in {"VERIFIED", "SUCCESS", "COMPLETED"}:
-                        return f"Verified: {action} completed on the enrolled {result_data.get('platform', 'target')} worker.", traces
+                        return (
+                            f"Verified: {action} completed on the enrolled "
+                            f"{result_data.get('platform', 'target')} worker.",
+                            traces,
+                        )
                     if result_data.get("status") == "REQUIRES_CONFIRMATION":
                         return "That host action requires explicit confirmation before execution.", traces
                     return f"Host action did not complete successfully: {json.dumps(result_data, ensure_ascii=False)}", traces
                 await asyncio.sleep(0.5)
+
             return "The host worker did not complete the action within the verification window.", traces
         except Exception as exc:
             traces.append({"step": step, "tool": "host_action", "error": str(exc), "timestamp": now()})
             return f"Host execution failed: {exc}", traces
+
     return "Host execution reached the maximum verified action steps.", traces
 
 
