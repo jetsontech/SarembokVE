@@ -617,83 +617,54 @@ def ensure_scheduler_schema() -> None:
 
 SOVEREIGN_WORKER_ID = "sarembok-edge-frontier-01"
 
+def _local_gpu_is_verified() -> tuple[bool, dict[str, Any]]:
+    """Return true only when an actual NVIDIA GPU is visible to this process."""
+    if os.getenv("SAREMBOK_SOVEREIGN_WORKER_ENABLED", "").strip().lower() not in {"1","true","yes","on"}:
+        return False, {"reason": "sovereign_worker_disabled"}
+    try:
+        import subprocess
+        proc = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total,driver_version", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=2, check=False,
+        )
+        if proc.returncode != 0 or not proc.stdout.strip():
+            return False, {"reason": "nvidia_gpu_not_visible"}
+        row = [x.strip() for x in proc.stdout.splitlines()[0].split(",")]
+        if len(row) < 3:
+            return False, {"reason": "nvidia_smi_unparseable"}
+        return True, {"gpuModel": row[0], "vramMb": int(float(row[1])) if row[1] else 0, "driverVersion": row[2]}
+    except Exception as exc:
+        return False, {"reason": "gpu_probe_failed", "detail": str(exc)}
 
-def ensure_sovereign_worker() -> None:
-    """Ensures the primary sovereign GPU compute worker is registered and actively heartbeated."""
+def ensure_sovereign_worker() -> bool:
+    """Register a sovereign worker only after the host proves real GPU hardware."""
+    verified, gpu = _local_gpu_is_verified()
+    if not verified:
+        store.db.execute("DELETE FROM workers WHERE worker_id=?", (SOVEREIGN_WORKER_ID,))
+        store.db.commit()
+        return False
     try:
         stamp = now()
-        caps = json.dumps([
-            "compute",
-            "gpu",
-            "inference",
-            "image_generation",
-            "flux_generator",
-            "synthesis",
-            "speech_synthesis",
-            "meta_human",
-            "vision_inference",
-            "deep_reasoning",
-        ])
-        models = json.dumps([
-            "flux-1-schnell",
-            "stable-diffusion-xl",
-            "dall-e-3",
-            "llama-3.3-70b",
-            "deepseek-v3",
-            "qwen-2.5-coder",
-            "gpt-4o-mini",
-        ])
-
-        row = store.db.execute("SELECT worker_id FROM workers WHERE worker_id=?", (SOVEREIGN_WORKER_ID,)).fetchone()
-        if not row:
+        caps = json.dumps(["compute","gpu","inference","image_generation","synthesis","speech_synthesis","vision_inference","deep_reasoning"])
+        models = json.dumps([])
+        existing = store.db.execute("SELECT worker_id FROM workers WHERE worker_id=?", (SOVEREIGN_WORKER_ID,)).fetchone()
+        values = (caps, "NVIDIA", gpu.get("gpuModel"), int(gpu.get("vramMb") or 0), str(gpu.get("driverVersion") or ""), int(gpu.get("vramMb") or 0), models, stamp)
+        if not existing:
             store.db.execute(
-                """
-                INSERT INTO workers (
-                    worker_id,
-                    capabilities,
-                    gpu_vendor,
-                    gpu_model,
-                    vram_mb,
-                    cuda_version,
-                    available_memory_mb,
-                    supported_models,
-                    latency_ms,
-                    status,
-                    last_heartbeat,
-                    active_tasks
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    SOVEREIGN_WORKER_ID,
-                    caps,
-                    "NVIDIA",
-                    "NVIDIA RTX 4090 Sovereign Tensor Core",
-                    24576,
-                    "12.4",
-                    24576,
-                    models,
-                    24.5,
-                    "ONLINE",
-                    stamp,
-                    0,
-                ),
+                """INSERT INTO workers(worker_id,capabilities,gpu_vendor,gpu_model,vram_mb,cuda_version,available_memory_mb,supported_models,latency_ms,status,last_heartbeat,active_tasks)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,0)""",
+                (SOVEREIGN_WORKER_ID,*values[:7],0.0,"ONLINE",stamp),
             )
         else:
             store.db.execute(
-                """
-                UPDATE workers
-                SET status='ONLINE',
-                    last_heartbeat=?,
-                    capabilities=?,
-                    supported_models=?,
-                    available_memory_mb=24576
-                WHERE worker_id=?
-                """,
-                (stamp, caps, models, SOVEREIGN_WORKER_ID),
+                """UPDATE workers SET status='ONLINE',last_heartbeat=?,capabilities=?,gpu_vendor=?,gpu_model=?,vram_mb=?,cuda_version=?,available_memory_mb=?,supported_models=? WHERE worker_id=?""",
+                (stamp,caps,"NVIDIA",gpu.get("gpuModel"),int(gpu.get("vramMb") or 0),str(gpu.get("driverVersion") or ""),int(gpu.get("vramMb") or 0),models,SOVEREIGN_WORKER_ID),
             )
         store.db.commit()
+        return True
     except Exception as exc:
-        LOG.warning("Failed to ensure sovereign worker: %s", exc)
+        LOG.warning("Failed to register verified sovereign worker: %s", exc)
+        return False
 
 
 GPU_MARKETPLACE_TIERS = [
@@ -2170,13 +2141,13 @@ def sarembok_process_dialogue(
         prune_reply = (
             f"### ⚡ WORKER REGISTRY PRUNED & CONSOLIDATED\n\n"
             f"- **Pruned Inactive Records:** {pruned_cnt} offline worker{'s' if pruned_cnt != 1 else ''} purged.\n"
-            f"- **Active Online Workers:** {workers_info.get('online', 1)} active sovereign GPU tensor node(s).\n"
-            f"- **Cluster Health:** 100% online capacity with 0 stale/offline workers remaining."
+            f"- **Active Online Workers:** {workers_info.get('online', 0)} verified worker(s).\n"
+            f"- **Cluster Health:** {workers_info.get('online', 0)} verified online worker(s); no hardware is fabricated."
         )
         _save_conversation(session_id, prompt_clean, prune_reply)
         return {
             "response": prune_reply,
-            "audioText": f"Successfully pruned {pruned_cnt} offline worker records. Compute cluster is operating at 100% online capacity.",
+            "audioText": f"Pruned {pruned_cnt} offline worker records. Current verified online worker count is {workers_info.get('online', 0)}.",
             "source": "runtime_authority",
             "model": "runtime-authority",
             "action": None,
@@ -4369,20 +4340,17 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         if action == "diagnostics":
             w_stats = get_worker_status_counts()
             mem_count = store.db.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
-            result_data = {
+            return {"action": action, "timestamp": stamp, "verified": True, "result": {
                 "status": "HEALTHY",
                 "activeWorkers": w_stats["onlineWorkers"],
                 "registeredWorkers": w_stats["registeredWorkers"],
                 "memoryRecords": mem_count,
                 "uptimeSeconds": int(time.time() - STARTED),
-            }
-        elif action == "sync_memory_graph":
+            }}
+        if action == "sync_memory_graph":
             mem_count = store.db.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
-            result_data = {"syncedNodes": mem_count, "indexStatus": "SYNCED"}
-        else:
-            result_data = {"status": "EXECUTED", "action": action}
-            
-        return {"action": action, "timestamp": stamp, "result": result_data}
+            return {"action": action, "timestamp": stamp, "verified": True, "result": {"syncedNodes": mem_count, "indexStatus": "SYNCED"}}
+        return {"action": action, "timestamp": stamp, "verified": False, "status": "UNSUPPORTED_ACTION", "message": "No system action is reported as executed unless Sarembok has a concrete executor for it."}
 
 
     # ==================== PROMETHEUS SUPER-ENGINE FACETS ====================
@@ -4472,27 +4440,15 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         task_type = str(params.get("taskType", "inference")).strip()
         payload = params.get("payload", {})
         ensure_sovereign_worker()
-        task_id = f"task-{uuid.uuid4().hex[:8]}"
-        stamp = now()
-        store.db.execute(
-            """
-            INSERT INTO tasks (task_id, task_type, required_capability, payload, assigned_worker_id, status, created_at, updated_at)
-            VALUES (?, ?, 'gpu', ?, ?, 'RUNNING', ?, ?)
-            """,
-            (task_id, task_type, json.dumps(payload), SOVEREIGN_WORKER_ID, stamp, stamp),
-        )
+        worker_id = select_worker("gpu") or select_worker("compute")
+        if not worker_id:
+            return {"status": "NO_VERIFIED_WORKER", "message": "No verified online compute worker is currently available; the task was not fabricated or marked RUNNING."}
+        task = store.create_task(task_type, worker_id, payload if isinstance(payload, dict) else {})
+        store.db.execute("UPDATE tasks SET required_capability='gpu', status='QUEUED', updated_at=? WHERE task_id=?", (now(), task["taskId"]))
         store.db.commit()
-        return {
-            "taskId": task_id,
-            "workerId": SOVEREIGN_WORKER_ID,
-            "status": "RUNNING",
-            "taskType": task_type,
-            "gpuModel": "NVIDIA RTX 4090 Sovereign Tensor Core",
-            "timestamp": stamp,
-        }
+        return {**task, "workerId": worker_id, "status": "QUEUED", "verified": True}
 
     if method == "Health":
-        ensure_sovereign_worker()
         worker_stats = get_worker_status_counts()
         session_count = store.db.execute("SELECT COUNT(*) FROM digital_human_sessions WHERE status!='TERMINATED'").fetchone()[0]
         return {

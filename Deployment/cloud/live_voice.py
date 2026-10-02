@@ -4,6 +4,10 @@ This module provisions short-lived Gemini Live ephemeral tokens and supplies
 the browser with a locked conversational configuration. Audio stays on the
 browser <-> Gemini Live path; Sarembok remains the authenticated control plane
 for tools, identity, memory, and persistence.
+
+Gemini's current AuthTokenService requires the token request to use
+liveConnectConstraints. The older bidiGenerateContentSetup field is not a
+valid ephemeral-token constraint and caused the production token path to fail.
 """
 
 from __future__ import annotations
@@ -61,7 +65,6 @@ def _tool_declarations() -> list[dict[str, Any]]:
         {
             "name": "get_provider_metrics",
             "description": "Read current Sarembok language-provider health and latency metrics.",
-            "behavior": "NON_BLOCKING",
             "parameters": {
                 "type": "OBJECT",
                 "properties": {},
@@ -70,7 +73,6 @@ def _tool_declarations() -> list[dict[str, Any]]:
         {
             "name": "list_workers",
             "description": "List real registered Sarembok workers. Optional capability and status filters can narrow the result.",
-            "behavior": "NON_BLOCKING",
             "parameters": {
                 "type": "OBJECT",
                 "properties": {
@@ -82,7 +84,6 @@ def _tool_declarations() -> list[dict[str, Any]]:
         {
             "name": "list_tasks",
             "description": "List current Sarembok tasks. Optional status or worker filters can narrow the result.",
-            "behavior": "NON_BLOCKING",
             "parameters": {
                 "type": "OBJECT",
                 "properties": {
@@ -104,25 +105,21 @@ def _tool_declarations() -> list[dict[str, Any]]:
         {
             "name": "browser_action",
             "description": "Execute a verified browser action such as navigate, click, fill, type, select, press, scroll, or wait. Do not claim completion unless the returned state verifies it.",
-            "behavior": "EXECUTE_VERIFIED",
             "parameters": {"type": "OBJECT", "properties": {"sessionId": {"type": "STRING"}, "action": {"type": "STRING"}, "url": {"type": "STRING"}, "selector": {"type": "STRING"}, "text": {"type": "STRING"}, "value": {"type": "STRING"}, "key": {"type": "STRING"}, "confirm": {"type": "BOOLEAN"}} , "required": ["sessionId","action"]},
         },
         {
             "name": "mcp_list_servers",
             "description": "List configured external MCP integrations and their live connection/tool status.",
-            "behavior": "READ_ONLY",
             "parameters": {"type": "OBJECT", "properties": {}},
         },
         {
             "name": "mcp_call",
             "description": "Call a tool on a configured external MCP server. Never claim the result until the tool returns.",
-            "behavior": "EXECUTE_VERIFIED",
             "parameters": {"type": "OBJECT", "properties": {"server": {"type": "STRING"}, "tool": {"type": "STRING"}, "arguments": {"type": "OBJECT"}}, "required": ["server","tool"]},
         },
         {
             "name": "search_memory",
             "description": "Search Sarembok persistent memory for information relevant to the current conversation.",
-            "behavior": "NON_BLOCKING",
             "parameters": {
                 "type": "OBJECT",
                 "properties": {
@@ -231,12 +228,14 @@ def _auth_token_request(api_key: str, mode: str) -> dict[str, Any]:
         "uses": 1,
         "expireTime": _iso_utc(expires),
         "newSessionExpireTime": _iso_utc(new_session_expires),
-        "bidiGenerateContentSetup": {
+        "liveConnectConstraints": {
             "model": f"models/{model}",
-            "generationConfig": {
-                "responseModalities": ["AUDIO"],
+            "config": {
+                "generationConfig": {
+                    "responseModalities": ["AUDIO"],
+                },
+                "sessionResumption": {},
             },
-            "sessionResumption": {},
         },
     }
 
