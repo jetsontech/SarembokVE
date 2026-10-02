@@ -45,7 +45,7 @@ $env:SAREMBOK_WS_URL = "wss://sarembok.com/ws"
 $env:SAREMBOK_WORKER_ORIGIN = "https://sarembok.com"
 $env:SAREMBOK_WORKER_HEARTBEAT_INTERVAL = "15"
 $env:SAREMBOK_WORKER_POLL_INTERVAL = "2"
-$env:SAREMBOK_WORKER_WORKSPACE = $RepoRoot
+$env:SAREMBOK_WORKER_WORKSPACE = (Join-Path $RepoRoot "Deployment")
 
 Write-Host ""
 Write-Host "===== SAREMBOK WINDOWS WORKER =====" -ForegroundColor Cyan
