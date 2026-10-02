@@ -3799,7 +3799,6 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         else:
             if not email:
                 email = f"user-{uuid.uuid4().hex[:8]}@{provider}.sarembok.com"
-            import hashlib
             user_id = f"usr-{hashlib.sha256(email.encode('utf-8')).hexdigest()[:12]}"
             if not name:
                 name = email.split("@")[0].capitalize()
