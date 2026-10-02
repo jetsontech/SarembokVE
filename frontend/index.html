@@ -6665,7 +6665,7 @@ button,
                         </div>
 
                         <div class="state-list" style="margin-bottom: 12px;">
-                            <div class="state-row"><span class="state-label">ONLINE AGENTS</span><span class="state-val cyan" id="deck-agents-online">24 / 24</span></div>
+                            <div class="state-row"><span class="state-label">ONLINE AGENTS</span><span class="state-val cyan" id="deck-agents-online">0 / 0</span></div>
                             <div class="state-row"><span class="state-label">QUEUE DEPTH</span><span class="state-val" id="deck-queue-depth">0 QUEUED</span></div>
                             <div class="state-row"><span class="state-label">COMPUTE WORKERS</span><span class="state-val amber">CPU POOL</span></div>
                         </div>
@@ -7057,15 +7057,12 @@ button,
                 <div class="tool-title">MULTI-AGENT FABRIC</div>
                 <div class="tool-sub">Registered autonomous agents reporting to Sarembok runtime authority.</div>
                 <div class="metric-tri-grid" style="margin-bottom:20px;">
-                    <div class="metric-mini-box"><div class="mini-label">ONLINE</div><div class="mini-val cyan" id="agents-count-online">24</div></div>
-                    <div class="metric-mini-box"><div class="mini-label">REGISTERED</div><div class="mini-val">24</div></div>
-                    <div class="metric-mini-box"><div class="mini-label">TASKS</div><div class="mini-val cyan">0</div></div>
+                    <div class="metric-mini-box"><div class="mini-label">ONLINE</div><div class="mini-val cyan" id="agents-count-online">0</div></div>
+                    <div class="metric-mini-box"><div class="mini-label">REGISTERED</div><div class="mini-val" id="agents-count-registered">0</div></div>
+                    <div class="metric-mini-box"><div class="mini-label">ACTIVE TASKS</div><div class="mini-val cyan" id="agents-count-tasks">0</div></div>
                 </div>
                 <div class="terminal-feed" id="agents-list-box">
-                    <div class="terminal-line cyan">sarembok-prime · ONLINE · Coordinator Agent</div>
-                    <div class="terminal-line">research-specialist · ONLINE · Web Intelligence</div>
-                    <div class="terminal-line">sqlite-wal-curator · ONLINE · Persistent Memory</div>
-                    <div class="terminal-line">playwright-worker · ONLINE · Headless Browser Engine</div>
+                    <div class="terminal-line">Loading live agent registry from Runtime Authority…</div>
                 </div>
             </div>
         </section>
@@ -7499,9 +7496,9 @@ button,
                     <!-- LIVE STATUS RIBBON -->
                     <div class="features-telemetry-ribbon">
                         <div class="feat-tele-item"><span class="feat-tele-dot green"></span> RUNTIME: <strong id="feat-status-runtime">ONLINE</strong></div>
-                        <div class="feat-tele-item">GPU NODES: <strong id="feat-status-gpu">1 ACTIVE TENSOR CORE</strong></div>
+                        <div class="feat-tele-item">GPU NODES: <strong id="feat-status-gpu">0 ACTIVE GPU NODES</strong></div>
                         <div class="feat-tele-item">MEMORY: <strong id="feat-status-mem">SQLITE-WAL (PERSISTENT)</strong></div>
-                        <div class="feat-tele-item">AGENTS: <strong id="feat-status-agents">24 REGISTERED</strong></div>
+                        <div class="feat-tele-item">AGENTS: <strong id="feat-status-agents">0 REGISTERED</strong></div>
                         <div class="feat-tele-item">MODELS: <strong>GEMINI · OPENROUTER · GROQ</strong></div>
                     </div>
 
@@ -7810,12 +7807,12 @@ button,
                                 <div class="feature-icon-badge">🤖</div>
                                 <div>
                                     <div class="feature-title-text">Multi-Agent Orchestration &amp; GPU Fleet</div>
-                                    <span class="cyber-card-badge cyan" style="font-size:9px; padding:1px 6px;">24 REGISTERED AGENTS</span>
+                                    <span class="cyber-card-badge cyan" id="feature-agent-count-label" style="font-size:9px; padding:1px 6px;">LIVE AGENT TELEMETRY</span>
                                 </div>
                             </div>
                         </div>
                         <div class="feature-card-desc">
-                            Distributed task coordination across sovereign GPU acceleration nodes and 24 specialized agent personas, managing scheduler queues and background lifecycles.
+                            Distributed task coordination across registered agent personas and live physical worker nodes, managing scheduler queues and background lifecycles.
                         </div>
                         <div class="feature-how-to">
                             <strong>How To Use It:</strong>
@@ -9412,13 +9409,14 @@ button,
             const scheduler = info.scheduler || {};
 
             const memCount = memory.entries ?? info.memoryCount ?? 2;
-            const agentsCount = agents.online ?? info.agentCount ?? 24;
+            const agentsCount = agents.online ?? info.onlineAgents ?? info.agentCount ?? 0;
+            const agentsRegistered = agents.registered ?? info.registeredAgents ?? 0;
 
             const memEl = document.getElementById("deck-mem-entries");
             if (memEl) memEl.textContent = `${memCount} STORED`;
 
             const agentsEl = document.getElementById("deck-agents-online");
-            if (agentsEl) agentsEl.textContent = `${agentsCount} / 24`;
+            if (agentsEl) agentsEl.textContent = `${agentsCount} / ${agentsRegistered}`;
 
             const queueEl = document.getElementById("deck-queue-depth");
             if (queueEl) queueEl.textContent = `${scheduler.queueDepth ?? 0} QUEUED`;
@@ -11859,6 +11857,51 @@ button,
             }
         }
 
+        async function loadAgentTelemetry() {
+            try {
+                const [agentRes, taskRes] = await Promise.all([
+                    sendRPC("ListAgents", {}),
+                    sendRPC("ListTasks", {})
+                ]);
+                const agents = Array.isArray(agentRes?.agents) ? agentRes.agents : [];
+                const tasks = Array.isArray(taskRes?.tasks) ? taskRes.tasks : [];
+                const registered = agents.length;
+                const online = agents.filter(a => String(a.status || "").toUpperCase() === "ONLINE").length;
+                const activeTasks = tasks.filter(t => ["QUEUED", "RUNNING", "PENDING_WORKER"].includes(String(t.status || "").toUpperCase())).length;
+
+                const onlineEl = document.getElementById("agents-count-online");
+                const registeredEl = document.getElementById("agents-count-registered");
+                const tasksEl = document.getElementById("agents-count-tasks");
+                const listEl = document.getElementById("agents-list-box");
+                const deckEl = document.getElementById("deck-agents-online");
+                const featureAgentsEl = document.getElementById("feat-status-agents");
+                const featureBadgeEl = document.getElementById("feature-agent-count-label");
+
+                if (onlineEl) onlineEl.textContent = String(online);
+                if (registeredEl) registeredEl.textContent = String(registered);
+                if (tasksEl) tasksEl.textContent = String(activeTasks);
+                if (deckEl) deckEl.textContent = `${online} / ${registered}`;
+                if (featureAgentsEl) featureAgentsEl.textContent = `${registered} REGISTERED`;
+                if (featureBadgeEl) featureBadgeEl.textContent = `${registered} REGISTERED AGENTS`;
+
+                if (listEl) {
+                    if (!agents.length) {
+                        listEl.innerHTML = '<div class="terminal-line">No agents registered in Runtime Authority.</div>';
+                    } else {
+                        listEl.innerHTML = agents.map(agent => {
+                            const status = String(agent.status || "UNKNOWN").toUpperCase();
+                            const cls = status === "ONLINE" ? "terminal-line cyan" : "terminal-line";
+                            const name = escapeHtml(agent.displayName || agent.agentId || "Unnamed Agent");
+                            const id = agent.agentId ? ` · ${escapeHtml(agent.agentId)}` : "";
+                            return `<div class="${cls}">${name} · ${status}${id}</div>`;
+                        }).join("");
+                    }
+                }
+            } catch (err) {
+                console.warn("loadAgentTelemetry error:", err);
+            }
+        }
+
         async function loadWorkerFleet() {
             try {
                 // 1. Fetch real worker telemetry
@@ -11866,7 +11909,16 @@ button,
                 const workers = res?.workers || [];
                 const onlineWorkers = workers.filter(w => w.status === 'ONLINE');
                 const onlineCount = onlineWorkers.length;
+                const onlineGpuWorkers = onlineWorkers.filter(w => {
+                    const caps = Array.isArray(w.capabilities) ? w.capabilities.map(String) : [];
+                    return Number(w.vramMb || 0) > 0 || caps.includes("gpu");
+                });
                 const onlineCountEl = document.getElementById("fleet-online-count");
+                const featureGpuEl = document.getElementById("feat-status-gpu");
+                if (featureGpuEl) {
+                    const n = onlineGpuWorkers.length;
+                    featureGpuEl.textContent = `${n} ACTIVE GPU NODE${n === 1 ? "" : "S"}`;
+                }
                 if (onlineCountEl) onlineCountEl.textContent = `${onlineCount} ACTIVE`;
 
                 let totalVram = 0;
@@ -11937,6 +11989,7 @@ button,
             // Load initial memories and workers
             setTimeout(() => {
                 loadMemoriesList();
+                loadAgentTelemetry();
                 loadWorkerFleet();
             }, 800);
         });
