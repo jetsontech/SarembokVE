@@ -13572,14 +13572,14 @@ button,
 
             if (save) {
                 try {
-                    localStorage.setItem('sarembok_ui_mode', mode);
+                    localStorage.setItem('sarembok_ui_mode_v2', mode);
                 } catch(e) {}
             }
         }
 
         function initUiMode() {
             try {
-                const saved = localStorage.getItem('sarembok_ui_mode');
+                const saved = localStorage.getItem('sarembok_ui_mode_v2');
                 if (saved === 'cockpit') {
                     setUiMode('cockpit', false);
                 } else {
