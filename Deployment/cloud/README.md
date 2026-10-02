@@ -55,6 +55,32 @@ This automatically runs:
 
 GPU worker nodes register dynamically with the runtime using the `RegisterWorker` JSON-RPC method, providing capabilities, GPU model, VRAM, and status.
 
+## Worker Task Execution
+
+Worker task types are executed by concrete capability-specific executors. The worker does not fabricate successful results.
+
+| Task type | Capability | Concrete executor |
+| --- | --- | --- |
+| `arithmetic`, `smoke_test`, `compute`, `general_compute` | `compute` | Local deterministic compute engine |
+| `host_action`, `desktop` | `host_control` / `desktop` | Enrolled host executor |
+| `web_automation` | `web_automation` | Playwright/Chromium |
+| `inference`, `architecture_synthesis`, `code_generation` | `inference` | Configured OpenAI-compatible/Ollama endpoint or local Transformers model |
+| `meta_human` | `meta_human` | Configured Sarembok/Unreal bridge |
+| `verification_suite` | `compute` | Explicitly authorized local test command |
+| `gpu_deployment` | `gpu` | Verified local NVIDIA hardware via `nvidia-smi` |
+
+Optional worker integrations are enabled only when their real backend is present:
+
+```text
+SAREMBOK_WORKER_INFERENCE_URL       OpenAI-compatible or Ollama inference endpoint
+SAREMBOK_WORKER_INFERENCE_API_KEY   Optional bearer credential for the inference endpoint
+SAREMBOK_WORKER_MODEL               Local Transformers model identifier
+SAREMBOK_UNREAL_BRIDGE_URL          Local Sarembok/Unreal bridge HTTP endpoint
+SAREMBOK_WORKER_ALLOW_COMMANDS      Enables explicitly confirmed verification/host commands
+```
+
+Autonomous pipeline stages are capability-routed and dependency-gated: later stages are not dispatched until their predecessor has actually completed.
+
 ## Hardening
 
 - Mandatory `SAREMBOK_AUTH_TOKEN` in production.
