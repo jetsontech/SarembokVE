@@ -26,6 +26,8 @@ from typing import Any
 
 import websockets
 
+from worker_task_executor import WorkerTaskExecutor
+
 logging.basicConfig(
     level=os.getenv("SAREMBOK_LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s [%(levelname)s] [Worker] %(message)s",
@@ -111,10 +113,15 @@ class SarembokWorker:
         self.enrollment_token = enrollment_token
         self.worker_token = ""
         self.worker_id = worker_id or f"worker-{platform.node().lower()}-{uuid.uuid4().hex[:6]}"
-        self.capabilities = capabilities or ["compute", "inference", "meta_human", "host_control", "desktop", "web_automation"]
         self.heartbeat_interval = heartbeat_interval
         self.poll_interval = poll_interval
         self.gpu_info = detect_gpu_info()
+        self.executor = WorkerTaskExecutor(
+            worker_id=self.worker_id,
+            gpu_info=self.gpu_info,
+            host_action=self.execute_host_action,
+        )
+        self.capabilities = capabilities or self.executor.capabilities()
         self.stop_event = asyncio.Event()
         self.req_counter = 0
         self.pending_rpcs: dict[str, asyncio.Future[Any]] = {}
@@ -187,37 +194,9 @@ class SarembokWorker:
                 break
 
     def execute_task_payload(self, task_type: str, payload: dict[str, Any]) -> dict[str, Any]:
-        """Deterministic task execution engine."""
+        """Execute a task through the shared concrete worker executor."""
         LOG.info("Executing task type='%s' payload=%s", task_type, payload)
-        
-        # 1. Arithmetic / Smoke tests
-        if task_type in ("smoke_test", "arithmetic"):
-            op = payload.get("operation", "add")
-            a = float(payload.get("a", 0))
-            b = float(payload.get("b", 0))
-            if op == "add":
-                val = a + b
-            elif op == "multiply":
-                val = a * b
-            elif op == "subtract":
-                val = a - b
-            else:
-                val = a + b
-            return {"result": val, "operation": op, "executedBy": self.worker_id, "timestamp": datetime.now(timezone.utc).isoformat()}
-
-        # 2. Enrolled host-control executor
-        if task_type == "host_action":
-            result = self.execute_host_action(payload)
-            result.setdefault("executedBy", self.worker_id)
-            result.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
-            return result
-
-        # Do not fabricate success for capabilities without a concrete executor.
-        return {
-            "status": "UNSUPPORTED",
-            "error": f"No concrete executor is installed for task type '{task_type}'",
-            "executedBy": self.worker_id,
-        }
+        return self.executor.execute(task_type, payload)
 
     def execute_host_action(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Execute a bounded action on the enrolled target machine and return evidence."""
@@ -301,10 +280,10 @@ class SarembokWorker:
                         LOG.info("Claimed task '%s': status=%s", task_id, claim_res.get("status"))
 
                         # Execute payload
-                        result = self.execute_task_payload(task_type, payload)
+                        result = await asyncio.to_thread(self.execute_task_payload, task_type, payload)
 
                         # Complete only real successes; non-executed actions are failed with evidence.
-                        if result.get("status") in ("VERIFIED", "SUCCESS", "COMPLETED") or task_type in ("smoke_test", "arithmetic"):
+                        if result.get("status") in ("VERIFIED", "SUCCESS", "COMPLETED"):
                             comp_res = await self._send_rpc(ws, "CompleteTask", {
                                 "taskId": task_id,
                                 "workerId": self.worker_id,
