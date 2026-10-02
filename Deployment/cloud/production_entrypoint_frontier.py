@@ -200,7 +200,7 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
     cached=_get_idempotent(subject,method,idem)
     if cached is not None: return cached
     if role=="WORKER" and method=="ExecuteComputeTask": raise PermissionError("direct_compute_execution_disabled_use_worker_task_protocol")
-    clean_params={k:v for k,v in params.items() if not k.startswith("_sarembok") and k not in {"enrollmentToken","workerToken","authToken","sessionToken"}}
+    stripped_secret_keys = {"workerToken","authToken","sessionToken"}\n    if method != "RegisterWorker":\n        stripped_secret_keys.add("enrollmentToken")\n    clean_params={k:v for k,v in params.items() if not k.startswith("_sarembok") and k not in stripped_secret_keys}
     if method=="AdminExecuteDirective" and role in {"ADMIN","MASTER","SYSTEM"}:
         clean_params["adminToken"] = _admin_token
         clean_params["adminPasscode"] = _admin_passcode
