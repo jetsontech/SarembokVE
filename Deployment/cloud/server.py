@@ -2730,7 +2730,6 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         if req_admin:
             adm_token = str(params.get("adminToken", "") or params.get("adminSessionToken", "")).strip()
             adm_pass = str(params.get("adminPasscode", "") or params.get("passcode", "")).strip()
-            import hmac as _hmac
             is_auth = (adm_token in ADMIN_TOKENS) or (adm_pass and any(_hmac.compare_digest(adm_pass, p) for p in ADMIN_ALLOWED_PASSCODES))
             if not is_auth:
                 raise ValueError("admin_authentication_required: Administrative passcode required to execute system tools.")
@@ -3771,7 +3770,6 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         passcode = str(params.get("passcode", "")).strip()
         if not passcode:
             return {"success": False, "error": "passcode_required"}
-        import hmac as _hmac
         if any(_hmac.compare_digest(passcode, valid_p) for valid_p in ADMIN_ALLOWED_PASSCODES):
             token = f"adm-{uuid.uuid4().hex}"
             ADMIN_TOKENS.add(token)
@@ -3918,7 +3916,6 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         # Enforce Admin Passcode / Token Gate
         adm_token = str(params.get("adminToken", "") or params.get("adminSessionToken", "")).strip()
         adm_pass = str(params.get("adminPasscode", "") or params.get("passcode", "")).strip()
-        import hmac as _hmac
         is_auth = (adm_token in ADMIN_TOKENS) or (adm_pass and any(_hmac.compare_digest(adm_pass, p) for p in ADMIN_ALLOWED_PASSCODES))
         if not is_auth:
             raise ValueError("admin_authentication_required: Administrative passcode required to execute system tools.")
