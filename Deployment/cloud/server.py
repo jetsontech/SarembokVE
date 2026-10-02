@@ -1320,7 +1320,7 @@ RULES:
         if final_match: return final_match.group(1).strip(),traces
         return text_out,traces
     return "Web execution reached the maximum verified action steps without a final completion report.",traces
-async def run_host_agent_loop(prompt_clean: str, system_prompt: str, session_id: str, model: str | None = None, max_steps: int = 6) -> tuple[str, list[dict[str, Any]]]:
+def run_host_agent_loop(prompt_clean: str, system_prompt: str, session_id: str, model: str | None = None, max_steps: int = 6) -> tuple[str, list[dict[str, Any]]]:
     """Create and wait for a real host-action task on an enrolled worker."""
     tools_doc = """
 ==================== SAREMBOK HOST EXECUTION ====================
@@ -1402,7 +1402,7 @@ Never claim completion unless the task result reaches COMPLETED and result.statu
                     if result_data.get("status") == "REQUIRES_CONFIRMATION":
                         return "That host action requires explicit confirmation before execution.", traces
                     return f"Host action did not complete successfully: {json.dumps(result_data, ensure_ascii=False)}", traces
-                await asyncio.sleep(0.5)
+                time.sleep(0.5)
 
             return "The host worker did not complete the action within the verification window.", traces
         except Exception as exc:
@@ -2415,7 +2415,7 @@ def sarembok_process_dialogue(
 
     # Unified host/application execution path for a real enrolled target machine.
     if _is_host_execution_intent(prompt_clean):
-        host_reply, host_traces = await run_host_agent_loop(
+        host_reply, host_traces = run_host_agent_loop(
             prompt_clean,
             system_prompt,
             session_id,
