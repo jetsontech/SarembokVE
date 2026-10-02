@@ -58,6 +58,15 @@ SAREMBOK_VOICE_URL = os.getenv("SAREMBOK_VOICE_URL", "http://sarembok-voice:9200
 SAREMBOK_VOICE_MAX_CHARS = max(100, int(os.getenv("SAREMBOK_VOICE_MAX_CHARS", "4000")))
 VOICE_REQUEST_TIMEOUT_SECONDS = max(30, int(os.getenv("SAREMBOK_VOICE_REQUEST_TIMEOUT_SECONDS", "120")))
 BROWSER_SESSION_TTL_SECONDS = max(300, int(os.getenv("SAREMBOK_BROWSER_SESSION_TTL_SECONDS", "3600")))
+WORKER_AUTH_METHODS = {
+    "RegisterWorker",
+    "Heartbeat",
+    "ListTasks",
+    "ClaimTask",
+    "CompleteTask",
+    "FailTask",
+}
+WORKER_ENROLLMENT_TOKEN = os.getenv("SAREMBOK_WORKER_ENROLLMENT_TOKEN", "").strip()
 BROWSER_ALLOWED_METHODS = {
     "SarembokChat",
     "RecordLiveTurn",
@@ -416,6 +425,11 @@ class CloudStore:
             """
         )
         self.db.commit()
+
+        worker_cols = [row[1] for row in self.db.execute("PRAGMA table_info(workers)").fetchall()]
+        if worker_cols and "worker_token_hash" not in worker_cols:
+            self.db.execute("ALTER TABLE workers ADD COLUMN worker_token_hash TEXT")
+            self.db.commit()
 
         # Ensure schema migrations for existing databases
         columns = [row[1] for row in self.db.execute("PRAGMA table_info(tasks)").fetchall()]
@@ -997,8 +1011,7 @@ STOP_WORDS_SEARCH = {
     "right", "now", "tell", "me", "how", "why", "when", "where", "who", "which", "there",
     "here", "can", "you", "the", "a", "an", "in", "to", "for", "of", "and", "or", "do",
     "does", "did", "have", "has", "had", "any", "some", "latest", "recent", "today", "news",
-    "this", "that", "these", "those", "it", "its", "i", "my", "we", "us", "our", "your",
-    "he", "him", "his", "she", "her", "they", "them", "their", "so", "be", "been", "being"
+    "this", "that", "these", "those", "it", "its", "i", "my", "we", "us", "our", "your",    "he", "him", "his", "she", "her", "they", "them", "their", "so", "be", "been", "being"
 }
 
 
@@ -1997,8 +2010,7 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
 
     # Resolve specific subclause topic for audio / video search
     if is_music and music_sub and len(music_sub.group(1).strip()) > 2:
-        topic = music_sub.group(1).strip()
-    elif is_video and video_sub and len(video_sub.group(1).strip()) > 2:
+        topic = music_sub.group(1).strip()    elif is_video and video_sub and len(video_sub.group(1).strip()) > 2:
         topic = video_sub.group(1).strip()
     else:
         topic = re.sub(r"(?i)^(?:can you\s+)?(?:please\s+)?(?:play|show|open|stream|watch|listen to)\s+(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:video\s+about\s+|on\s+youtube\s+|youtube\s+)?", "", prompt).strip()
@@ -2975,6 +2987,18 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         stamp = now()
         ensure_scheduler_schema()
 
+        if not WORKER_ENROLLMENT_TOKEN:
+            raise PermissionError("worker_enrollment_not_configured")
+        supplied_enrollment = params.get("enrollmentToken")
+        if (
+            not isinstance(supplied_enrollment, str)
+            or not hmac.compare_digest(supplied_enrollment, WORKER_ENROLLMENT_TOKEN)
+        ):
+            raise PermissionError("authentication_required")
+
+        worker_token = secrets.token_urlsafe(48)
+        worker_token_hash = hashlib.sha256(worker_token.encode("utf-8")).hexdigest()
+
         existing = store.db.execute(
             """
             SELECT active_tasks
@@ -2997,10 +3021,10 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
                 cuda_version,
                 available_memory_mb,
                 supported_models,
-                latency_ms,
-                status,
+                latency_ms,                status,
                 last_heartbeat,
-                active_tasks
+                active_tasks,
+                worker_token_hash
             )
             VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
             """,
@@ -3017,11 +3041,18 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
                 status,
                 stamp,
                 active_tasks,
+                worker_token_hash,
             ),
         )
 
         store.db.commit()
-        return {"workerId": worker_id, "registered": True, "status": status, "capabilities": json.loads(caps)}
+        return {
+            "workerId": worker_id,
+            "registered": True,
+            "status": status,
+            "capabilities": json.loads(caps),
+            "workerToken": worker_token,
+        }
 
     if method == "ListWorkers":
         evaluate_worker_liveness()
@@ -3997,7 +4028,6 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         tier = next((t for t in GPU_MARKETPLACE_TIERS if t["tierId"] == tier_id), None)
         if not tier:
             raise ValueError(f"unknown_gpu_tier: {tier_id}")
-
         total_price = round(tier["hourlyRate"] * duration_hours, 2)
         lease_id = f"lease-{tier_id}-{uuid.uuid4().hex[:8]}"
         stamp = now()
@@ -4640,6 +4670,41 @@ def browser_session_valid(token: Any) -> bool:
 
 
 def authenticate(request: dict[str, Any], method: str) -> None:
+    params = request.get("params")
+    if not isinstance(params, dict):
+        raise PermissionError("authentication_required")
+
+    # Worker RPCs use a separate enrollment/token boundary. Browser session
+    # credentials must never authorize worker registration or worker control.
+    if method in WORKER_AUTH_METHODS:
+        if method == "RegisterWorker":
+            supplied = params.get("enrollmentToken")
+            if (
+                not WORKER_ENROLLMENT_TOKEN
+                or not isinstance(supplied, str)
+                or not hmac.compare_digest(supplied, WORKER_ENROLLMENT_TOKEN)
+            ):
+                raise PermissionError("authentication_required")
+            return
+
+        worker_id = str(params.get("workerId", "")).strip()
+        supplied = params.get("workerToken")
+        if not worker_id or not isinstance(supplied, str) or not supplied:
+            raise PermissionError("authentication_required")
+
+        row = store.db.execute(
+            "SELECT worker_token_hash FROM workers WHERE worker_id=?",
+            (worker_id,),
+        ).fetchone()
+        token_hash = str(row[0] or "") if row else ""
+        if not token_hash:
+            raise PermissionError("authentication_required")
+
+        supplied_hash = hashlib.sha256(supplied.encode("utf-8")).hexdigest()
+        if not hmac.compare_digest(supplied_hash, token_hash):
+            raise PermissionError("authentication_required")
+        return
+
     # Server-to-server/admin clients may continue using the master token.
     params = request.get("params")
     if not isinstance(params, dict):
@@ -4998,270 +5063,3 @@ async def process_http_request(connection: Any, request: Any) -> Any:
                 ("Access-Control-Allow-Origin", "*"),
                 ("Cache-Control", "no-store"),
                 ("Content-Length", str(len(body_bytes))),
-            ],
-            body_bytes,
-        )
-
-    if path_only == "/api/live/token":
-        # Native Gemini Live audio uses a short-lived, single-use token. The
-        # browser never receives Sarembok's long-lived Gemini API key.
-        auth_header = headers.get("Authorization", "") if hasattr(headers, "get") else ""
-        bearer = auth_header[7:].strip() if isinstance(auth_header, str) and auth_header.lower().startswith("bearer ") else ""
-        authorized = browser_session_valid(bearer) or (
-            AUTH_TOKEN and bearer and hmac.compare_digest(bearer, AUTH_TOKEN)
-        )
-        if not authorized:
-            return make_api_response(401, {"error": "authentication_required"})
-
-        parsed = urllib.parse.urlparse(path)
-        query = urllib.parse.parse_qs(parsed.query)
-        mode = str(query.get("mode", ["conversational"])[0]).strip().lower()
-        if mode not in {"conversational", "agentic"}:
-            return make_api_response(400, {"error": "invalid_live_mode"})
-        try:
-            token_data = await asyncio.to_thread(provision_ephemeral_token, mode)
-            return make_api_response(200, token_data)
-        except Exception as exc:
-            LOG.warning("gemini_live_token_failed mode=%s error=%s", mode, exc)
-            return make_api_response(503, {"error": "gemini_live_unavailable", "detail": str(exc)})
-
-    if path_only == "/api/tts":
-        # Neural TTS is deliberately behind the runtime session boundary.
-        # The Kokoro container is private on the Docker network.
-        auth_header = headers.get("Authorization", "") if hasattr(headers, "get") else ""
-        bearer = auth_header[7:].strip() if isinstance(auth_header, str) and auth_header.lower().startswith("bearer ") else ""
-        if not (browser_session_valid(bearer) or (AUTH_TOKEN and bearer and hmac.compare_digest(bearer, AUTH_TOKEN))):
-            return make_api_response(401, {"error": "authentication_required"})
-
-        try:
-            parsed = urllib.parse.urlparse(path)
-            query = urllib.parse.parse_qs(parsed.query)
-            text_value = str(query.get("text", [""])[0]).strip()
-            voice = str(query.get("voice", [os.getenv("SAREMBOK_VOICE_DEFAULT", "af_heart")])[0]).strip()
-            language = str(query.get("language", ["en-us"])[0]).strip().lower() or "en-us"
-            speed_raw = str(query.get("speed", ["0.95"])[0]).strip()
-            speed = min(1.5, max(0.6, float(speed_raw)))
-            if not text_value:
-                return make_api_response(400, {"error": "text_required"})
-            if len(text_value) > SAREMBOK_VOICE_MAX_CHARS:
-                return make_api_response(413, {"error": "text_too_long", "maxChars": SAREMBOK_VOICE_MAX_CHARS})
-
-            voice_payload = json.dumps({
-                "text": text_value,
-                "voice": voice,
-                "language": language,
-                "speed": speed,
-            }).encode("utf-8")
-            req = urllib.request.Request(
-                f"{SAREMBOK_VOICE_URL}/tts",
-                data=voice_payload,
-                headers={"Content-Type": "application/json", "Accept": "audio/wav"},
-                method="POST",
-            )
-            # TTS synthesis is a blocking network/model call. Allow the CPU-only
-            # Kokoro service enough time to complete long utterances and queued
-            # requests while keeping the asyncio control plane non-blocking.
-            # directly on the runtime asyncio event loop: doing so stalls the WebSocket
-            # control plane for the entire Kokoro generation time and makes chat appear
-            # hung. Keep the control plane responsive by moving the blocking call to a
-            # worker thread.
-            def fetch_voice_audio():
-                with urllib.request.urlopen(req, timeout=VOICE_REQUEST_TIMEOUT_SECONDS) as resp:
-                    return resp.read()
-
-            audio = await asyncio.to_thread(fetch_voice_audio)
-
-            if not audio:
-                return make_api_response(502, {"error": "voice_service_returned_no_audio"})
-
-            # Return a real websockets HTTP Response with the WAV bytes in
-            # the constructor.  The previous implementation built a text
-            # response with connection.respond() and then mutated its body.
-            # That is fragile across websockets releases and was the wrong
-            # abstraction for binary audio.
-            from websockets.datastructures import Headers
-            from websockets.http11 import Response
-
-            return Response(
-                200,
-                "OK",
-                Headers([
-                    ("Content-Type", "audio/wav"),
-                    ("Cache-Control", "no-store"),
-                    ("Content-Length", str(len(audio))),
-                    ("Access-Control-Allow-Origin", "*"),
-                ]),
-                audio,
-            )
-        except urllib.error.HTTPError as exc:
-            try:
-                detail = exc.read().decode("utf-8", errors="replace")[:1000]
-            except Exception:
-                detail = str(exc)
-            return make_api_response(502, {"error": "voice_service_error", "detail": detail})
-        except Exception as exc:
-            LOG.warning("neural_tts_failed error=%s", exc)
-            return make_api_response(503, {"error": "neural_tts_unavailable", "detail": str(exc)})
-
-    if path == "/api/chat-sessions":
-        try:
-            rows = store.db.execute("SELECT session_id, title, created_at, updated_at FROM chat_sessions ORDER BY updated_at DESC LIMIT 50").fetchall()
-            sessions = [{"session_id": r[0], "title": r[1], "created_at": r[2], "updated_at": r[3]} for r in rows]
-            return make_api_response(200, {"sessions": sessions})
-        except Exception as exc:
-            return make_api_response(500, {"error": str(exc)})
-
-    if path.startswith("/api/chat-session-load"):
-        try:
-            parsed = urllib.parse.urlparse(path)
-            q = urllib.parse.parse_qs(parsed.query)
-            session_id = q.get("id", [""])[0]
-            row = store.db.execute("SELECT session_id, title, messages_json, created_at, updated_at FROM chat_sessions WHERE session_id = ?", (session_id,)).fetchone()
-            if row:
-                return make_api_response(200, {
-                    "session_id": row[0],
-                    "title": row[1],
-                    "messages": json.loads(row[2] or "[]"),
-                    "created_at": row[3],
-                    "updated_at": row[4]
-                })
-            return make_api_response(404, {"error": "Session not found."})
-        except Exception as exc:
-            return make_api_response(500, {"error": str(exc)})
-
-    if path == "/api/background-tasks":
-        try:
-            rows = store.db.execute("SELECT task_id, task_type, status, created_at, updated_at FROM tasks ORDER BY created_at DESC LIMIT 50").fetchall()
-            tasks = [{"task_id": r[0], "directive": r[1], "status": r[2], "created_at": r[3], "updated_at": r[4]} for r in rows]
-            return make_api_response(200, {"tasks": tasks})
-        except Exception as exc:
-            return make_api_response(500, {"error": str(exc)})
-
-    if path in ("/", "/index.html"):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        candidates = [
-            os.path.join(base_dir, "frontend", "index.html"),
-            os.path.join(base_dir, "..", "frontend", "index.html"),
-            os.path.join(base_dir, "..", "..", "frontend", "index.html"),
-            os.path.abspath(os.path.join(os.getcwd(), "frontend", "index.html")),
-            "/app/frontend/index.html",
-            "frontend/index.html",
-        ]
-        html_str = None
-        for cand in candidates:
-            if os.path.exists(cand):
-                try:
-                    with open(cand, "r", encoding="utf-8") as f:
-                        html_str = f.read()
-                    break
-                except Exception as exc:
-                    LOG.error("Failed to read frontend index.html: %s", exc)
-        if not html_str:
-            html_str = "<!DOCTYPE html><html><body><h1>Sarembok VE Cloud Runtime</h1><p>Status: ONLINE</p></body></html>\n"
-        if hasattr(connection, "respond"):
-            resp = connection.respond(200, html_str)
-            try:
-                del resp.headers["Content-Type"]
-            except Exception:
-                pass
-            resp.headers["Content-Type"] = "text/html; charset=utf-8"
-            resp.headers["Cache-Control"] = "no-cache"
-            return resp
-        return (200, [("Content-Type", "text/html; charset=utf-8")], html_str.encode("utf-8"))
-    return None
-
-
-async def worker_lifecycle_loop() -> None:
-    LOG.info("worker lifecycle monitor started interval=%ss", WORKER_LIFECYCLE_INTERVAL_SECONDS)
-    stop_evt = get_stop_event()
-    try:
-        while not stop_evt.is_set():
-            try:
-                async with get_db_lock():
-                    ensure_sovereign_worker()
-                    evaluate_worker_liveness()
-            except Exception as exc:
-                LOG.error("error in worker lifecycle loop: %s", exc)
-
-            try:
-                await asyncio.sleep(WORKER_LIFECYCLE_INTERVAL_SECONDS)
-            except asyncio.CancelledError:
-                break
-    finally:
-        LOG.info("worker lifecycle monitor stopped")
-
-
-async def serve() -> None:
-    global MONITOR_TASK
-    LOG.info("startup port=%s max_connections=%s auth_configured=%s db=%s", PORT, MAX_CONNECTIONS, bool(AUTH_TOKEN), DB_PATH)
-    ensure_scheduler_schema()
-    ensure_sovereign_worker()
-    MONITOR_TASK = asyncio.create_task(worker_lifecycle_loop())
-    try:
-        async with websockets.serve(
-            lambda ws: CONNECTIONS_guard(ws),
-            "0.0.0.0",
-            PORT,
-            max_size=MAX_REQUEST_BYTES,
-            # process_request handles /api/tts and performs synchronous Kokoro
-            # generation in a worker thread. The websockets HTTP handshake
-            # timeout defaults to 10s, which aborts legitimate TTS requests
-            # before CPU synthesis can finish and surfaces as a Caddy 502/EOF.
-            # Keep the control plane non-blocking while allowing neural TTS to
-            # complete for the full configured text limit.
-            open_timeout=90,
-            ping_interval=20,
-            ping_timeout=20,
-            close_timeout=5,
-            compression=None,
-            process_request=process_http_request,
-            process_response=process_http_response,
-        ) as server:
-            LOG.info("listening address=0.0.0.0:%s", PORT)
-            await get_stop_event().wait()
-            LOG.info("shutdown_requested")
-            server.close()
-            await server.wait_closed()
-    finally:
-        if MONITOR_TASK:
-            MONITOR_TASK.cancel()
-            try:
-                await MONITOR_TASK
-            except asyncio.CancelledError:
-                pass
-
-
-async def CONNECTIONS_guard(websocket) -> None:
-    sem = get_connections()
-    try:
-        await asyncio.wait_for(sem.acquire(), timeout=5)
-    except TimeoutError:
-        await websocket.close(code=1013, reason="server_busy")
-        return
-    try:
-        await handler(websocket)
-    finally:
-        sem.release()
-
-
-def request_shutdown() -> None:
-    LOG.info("shutdown_signal")
-    get_stop_event().set()
-
-
-async def main() -> None:
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        try:
-            loop.add_signal_handler(sig, request_shutdown)
-        except (NotImplementedError, RuntimeError):
-            signal.signal(sig, lambda *_: request_shutdown())
-    try:
-        await serve()
-    finally:
-        store.close()
-        LOG.info("shutdown_complete")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
