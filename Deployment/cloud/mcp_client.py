@@ -19,7 +19,8 @@ from typing import Any
 
 logger = logging.getLogger("sarembok.mcp_client")
 
-MCP_CLIENT_PROTOCOL_VERSION = "2024-11-05"
+MCP_CLIENT_PROTOCOL_VERSION = "2026-07-28"
+MCP_LEGACY_PROTOCOL_VERSION = "2024-11-05"
 DEFAULT_MCP_CONFIG_PATH = Path(__file__).parent / "mcp_servers.json"
 
 
@@ -87,19 +88,7 @@ class MCPClientManager:
     def _write_default_config(self) -> None:
         """Create a standard template for external MCP integrations."""
         default_config = {
-            "mcpServers": {
-                "brave-search": {
-                    "transport": "http",
-                    "url": "https://api.search.brave.com/res/v1/web/search",
-                    "description": "Frontier real-time web search MCP connector"
-                },
-                "sqlite": {
-                    "transport": "stdio",
-                    "command": "python",
-                    "args": ["-m", "sqlite3"],
-                    "description": "Local SQLite database querying and inspection MCP server"
-                }
-            }
+            "mcpServers": {}
         }
         try:
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -188,8 +177,13 @@ class MCPClientManager:
             "method": "initialize",
             "params": {
                 "protocolVersion": MCP_CLIENT_PROTOCOL_VERSION,
-                "clientInfo": {"name": "sarembok-mcp-client", "version": "1.0.0"},
-                "capabilities": {}
+                "clientInfo": {"name": "sarembok-mcp-client", "version": "2.0.0"},
+                "capabilities": {},
+                "_meta": {
+                    "io.modelcontextprotocol/protocolVersion": MCP_CLIENT_PROTOCOL_VERSION,
+                    "io.modelcontextprotocol/clientInfo": {"name": "sarembok-mcp-client", "version": "2.0.0"},
+                    "io.modelcontextprotocol/clientCapabilities": {}
+                }
             }
         }
         self._post_http_rpc(server.url, init_payload, server.headers, server.timeout_seconds)
@@ -250,17 +244,94 @@ class MCPClientManager:
                 proc.kill()
 
     def _post_http_rpc(self, url: str, payload: dict[str, Any], headers: dict[str, str], timeout: float) -> dict[str, Any]:
-        """Issue a JSON-RPC 2.0 POST request."""
-        data = json.dumps(payload).encode("utf-8")
+        """Issue a modern MCP Streamable HTTP request, with legacy fallback."""
+        method = str(payload.get("method", ""))
+        params = dict(payload.get("params") or {})
+        meta = dict(params.get("_meta") or {})
+        meta.setdefault("io.modelcontextprotocol/protocolVersion", MCP_CLIENT_PROTOCOL_VERSION)
+        meta.setdefault(
+            "io.modelcontextprotocol/clientInfo",
+            {"name": "sarembok-mcp-client", "version": "2.0.0"},
+        )
+        meta.setdefault("io.modelcontextprotocol/clientCapabilities", {})
+        params["_meta"] = meta
+        request_payload = dict(payload)
+        request_payload["params"] = params
+        data = json.dumps(request_payload).encode("utf-8")
+
         all_headers = {
             "Content-Type": "application/json",
-            "Accept": "application/json",
-            **headers
+            "Accept": "application/json, text/event-stream",
+            "MCP-Protocol-Version": MCP_CLIENT_PROTOCOL_VERSION,
+            "Mcp-Method": method,
+            **headers,
         }
+        if method == "tools/call":
+            name = str(params.get("name", "")).strip()
+            if name:
+                all_headers["Mcp-Name"] = name
+
         req = urllib.request.Request(url, data=data, headers=all_headers)
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            res_body = response.read().decode("utf-8")
-            return json.loads(res_body)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                content_type = (response.headers.get("content-type") or "").lower()
+                body = response.read().decode("utf-8", errors="replace")
+                if "text/event-stream" not in content_type:
+                    return json.loads(body)
+                return self._parse_sse_jsonrpc(body)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in {400, 404, 405}:
+                raise
+            # Backward-compatible retry for pre-2025 Streamable HTTP / HTTP+SSE servers.
+            try:
+                legacy_body = exc.read().decode("utf-8", errors="replace")
+            except Exception:
+                legacy_body = ""
+            logger.info("MCP modern transport rejected (%s); retrying legacy protocol", legacy_body[:300])
+            legacy_meta = {
+                "io.modelcontextprotocol/protocolVersion": MCP_LEGACY_PROTOCOL_VERSION,
+                "io.modelcontextprotocol/clientInfo": {"name": "sarembok-mcp-client", "version": "2.0.0"},
+                "io.modelcontextprotocol/clientCapabilities": {},
+            }
+            legacy_params = dict(payload.get("params") or {})
+            legacy_params["_meta"] = legacy_meta
+            legacy_payload = dict(payload)
+            legacy_payload["params"] = legacy_params
+            legacy_req = urllib.request.Request(
+                url,
+                data=json.dumps(legacy_payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json, text/event-stream",
+                    **headers,
+                },
+            )
+            with urllib.request.urlopen(legacy_req, timeout=timeout) as response:
+                content_type = (response.headers.get("content-type") or "").lower()
+                body = response.read().decode("utf-8", errors="replace")
+                if "text/event-stream" not in content_type:
+                    return json.loads(body)
+                return self._parse_sse_jsonrpc(body)
+
+    @staticmethod
+    def _parse_sse_jsonrpc(body: str) -> dict[str, Any]:
+        """Extract the last JSON-RPC response from an MCP SSE response stream."""
+        latest = None
+        for line in body.splitlines():
+            if not line.startswith("data:"):
+                continue
+            raw = line[5:].strip()
+            if not raw:
+                continue
+            try:
+                candidate = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(candidate, dict) and ("result" in candidate or "error" in candidate):
+                latest = candidate
+        if latest is None:
+            raise RuntimeError("MCP SSE response contained no JSON-RPC result")
+        return latest
 
     def call_external_tool(self, server_name: str, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """Execute a tool on an external MCP server via JSON-RPC 2.0 tools/call."""
