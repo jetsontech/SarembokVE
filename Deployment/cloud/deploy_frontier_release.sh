@@ -10,6 +10,16 @@ printf '\n===== SAREMBOKVE FRONTIER RELEASE DEPLOY =====\n'
 git fetch origin
 git checkout main
 git reset --hard origin/main
+
+# Production runtime runs as an unprivileged user and bind-mounts source files.
+# Normalize read permissions on those mounts; keep .env/credentials private.
+chmod a+r Deployment/cloud/*.py Deployment/cloud/mcp_servers.json
+if [ -d Deployment/cloud/skills ]; then
+  find Deployment/cloud/skills -type f -exec chmod a+r {} +
+fi
+if [ -d frontend ]; then
+  find frontend -type f -exec chmod a+r {} +
+fi
 mkdir -p Deployment/cloud
 [ -f "$ENV_FILE" ] || touch "$ENV_FILE"
 chmod 600 "$ENV_FILE"
