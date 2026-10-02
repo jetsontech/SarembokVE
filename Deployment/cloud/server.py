@@ -3701,10 +3701,10 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         store.db.execute(
             """
             UPDATE tasks
-            SET status=?, assigned_worker_id=?, updated_at=?
+            SET status=?, assigned_worker_id=?, error=?, updated_at=?
             WHERE task_id=? AND assigned_worker_id=?
             """,
-            (new_status, None if retryable else worker_id, stamp, task_id, worker_id),
+            (new_status, None if retryable else worker_id, error_msg, stamp, task_id, worker_id),
         )
         store.db.execute(
             "UPDATE workers SET active_tasks=MAX(active_tasks-1,0) WHERE worker_id=?",
