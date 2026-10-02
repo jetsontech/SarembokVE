@@ -637,6 +637,19 @@ def ensure_scheduler_schema() -> None:
         )
         store.db.commit()
 
+    columns = {
+        row[1]
+        for row in store.db.execute("PRAGMA table_info(workers)").fetchall()
+    }
+    if "worker_token_hash" not in columns:
+        store.db.execute(
+            """
+            ALTER TABLE workers
+            ADD COLUMN worker_token_hash TEXT
+            """
+        )
+        store.db.commit()
+
     # Truth Boundary: Remove any mock or unverified worker entries
     store.db.execute(
         "DELETE FROM workers WHERE worker_id LIKE 'worker-gpu-%' OR worker_id LIKE 'worker-edge-%' OR worker_id LIKE 'worker-scale-%'"
