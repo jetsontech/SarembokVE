@@ -10,8 +10,11 @@ import json
 import logging
 import os
 import sqlite3
+import subprocess
+import tempfile
 import time
 import uuid
+from pathlib import Path
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -74,19 +77,15 @@ class SwarmCompiler:
             """)
 
     def compile_project(self, goal: str) -> CompiledSwarmProject:
-        """
-        Executes an autonomous 4-stage multi-agent compilation pipeline:
-        Stage 1: [Architect-Prime] System contracts & schema definitions
-        Stage 2: [Synthesizer-Core] High-performance implementation code
-        Stage 3: [Adversary-Validator] Automated unit test & stress benchmark suite
-        Stage 4: [Deployer-Mesh] Production Docker / GPU deployment configuration
-        """
+        """Generate a project, execute its verification suite, and report observed state."""
         proj_id = f"proj-swarm-{uuid.uuid4().hex[:8]}"
         stamp = datetime.now(timezone.utc).isoformat()
         clean_goal = goal.strip()
+        if not clean_goal:
+            raise ValueError("goal is required")
 
-        # Generate custom files based on the goal
         files = self._synthesize_project_files(clean_goal)
+        verification = self._verify_generated_project(files)
 
         stages = [
             SwarmStage(
@@ -95,63 +94,192 @@ class SwarmCompiler:
                 agent_name="Architect-Prime",
                 role="System Blueprint & Contract Specification",
                 status="COMPLETED",
-                output_summary=f"Designed 3-tier modular architecture for '{clean_goal}'. Defined schema contracts, concurrency locks, and data structures.",
-                files_generated=[files[0]] if len(files) > 0 else []
+                output_summary=f"Generated architecture specification for '{clean_goal}'.",
+                files_generated=[files[0]] if len(files) > 0 else [],
             ),
             SwarmStage(
                 stage_id=f"stg-{uuid.uuid4().hex[:6]}",
                 agent_id="agent-synthesizer-core",
                 agent_name="Synthesizer-Core",
-                role="High-Performance Implementation Synthesis",
-                status="COMPLETED",
-                output_summary="Generated production-ready implementation with asynchronous event loops, zero-copy buffers, and error handling.",
-                files_generated=[files[1]] if len(files) > 1 else []
+                role="Implementation Synthesis",
+                status="COMPLETED" if verification["compile_ok"] else "FAILED",
+                output_summary=verification["compile_summary"],
+                files_generated=[files[1]] if len(files) > 1 else [],
             ),
             SwarmStage(
                 stage_id=f"stg-{uuid.uuid4().hex[:6]}",
                 agent_id="agent-adversary-validator",
                 agent_name="Adversary-Validator",
-                role="Automated Unit Test & Stress Verification",
-                status="COMPLETED",
-                output_summary="Constructed 100% code coverage test harness with adversarial concurrency edge-case validation. 10/10 assertions passed.",
-                files_generated=[files[2]] if len(files) > 2 else []
+                role="Automated Unit Test & Verification",
+                status="COMPLETED" if verification["tests_ok"] else "FAILED",
+                output_summary=verification["tests_summary"],
+                files_generated=[files[2]] if len(files) > 2 else [],
             ),
             SwarmStage(
                 stage_id=f"stg-{uuid.uuid4().hex[:6]}",
                 agent_id="agent-deployer-mesh",
                 agent_name="Deployer-Mesh",
-                role="Production Deployment & GPU Mesh Orchestration",
-                status="COMPLETED",
-                output_summary="Generated containerized runtime manifest and mapped compute execution to distributed GPU worker cluster.",
-                files_generated=[files[3]] if len(files) > 3 else []
-            )
+                role="Deployment Manifest Validation",
+                status="COMPLETED" if verification["deploy_manifest_ok"] else "FAILED",
+                output_summary=verification["deploy_summary"],
+                files_generated=[files[3]] if len(files) > 3 else [],
+            ),
         ]
+
+        overall_status = "COMPLETED" if verification["ok"] else "FAILED"
+        execution_result = json.dumps(verification, ensure_ascii=False)
 
         compiled = CompiledSwarmProject(
             project_id=proj_id,
             goal=clean_goal,
-            status="READY",
+            status=overall_status,
             created_at=stamp,
             stages=stages,
             all_files=files,
-            execution_result="Sandbox Validation: All modules compiled and passed 10/10 tests in 0.042s."
+            execution_result=execution_result,
         )
 
         with self.db:
-            self.db.execute("""
-                INSERT INTO swarm_compiled_projects VALUES (?,?,?,?,?,?,?)
-            """, (
-                compiled.project_id,
-                compiled.goal,
-                compiled.status,
-                compiled.created_at,
-                json.dumps([asdict(s) for s in compiled.stages]),
-                json.dumps([asdict(f) for f in compiled.all_files]),
-                compiled.execution_result
-            ))
+            self.db.execute(
+                "INSERT INTO swarm_compiled_projects VALUES (?,?,?,?,?,?,?)",
+                (
+                    compiled.project_id,
+                    compiled.goal,
+                    compiled.status,
+                    compiled.created_at,
+                    json.dumps([asdict(stage) for stage in compiled.stages]),
+                    json.dumps([asdict(file) for file in compiled.all_files]),
+                    compiled.execution_result,
+                ),
+            )
 
-        LOG.info("[SWARM_COMPILER] Compiled project %s with %d files", proj_id, len(files))
+        LOG.info(
+            "[SWARM_COMPILER] Project %s status=%s compile_ok=%s tests_ok=%s",
+            proj_id,
+            compiled.status,
+            verification["compile_ok"],
+            verification["tests_ok"],
+        )
         return compiled
+
+    def _verify_generated_project(self, files: List[SynthesizedFile]) -> Dict[str, Any]:
+        """Write generated files to a temporary workspace and verify actual execution."""
+        with tempfile.TemporaryDirectory(prefix="sarembok-swarm-") as tmp:
+            root = Path(tmp)
+
+            for generated in files:
+                target = root / generated.filename
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(generated.content, encoding="utf-8")
+
+            python_files = list(root.rglob("*.py"))
+            compile_errors: list[str] = []
+            for source in python_files:
+                proc = subprocess.run(
+                    ["python", "-m", "py_compile", str(source)],
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    check=False,
+                )
+                if proc.returncode != 0:
+                    compile_errors.append(
+                        f"{source.relative_to(root)}: {proc.stderr.strip()}"
+                    )
+
+            compile_ok = not compile_errors
+            compile_summary = (
+                f"Compiled {len(python_files)} Python file(s) successfully."
+                if compile_ok
+                else "Compilation failed: " + " | ".join(compile_errors[:5])
+            )
+
+            tests_ok = False
+            tests_summary = "No verification executed."
+            test_file = next((p for p in root.rglob("test_*.py")), None)
+
+            if compile_ok and test_file is not None:
+                pytest_probe = subprocess.run(
+                    ["python", "-c", "import pytest; print(pytest.__version__)"],
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                    check=False,
+                )
+                if pytest_probe.returncode == 0:
+                    test_proc = subprocess.run(
+                        ["python", "-m", "pytest", str(test_file.relative_to(root)), "-q"],
+                        cwd=root,
+                        capture_output=True,
+                        text=True,
+                        timeout=120,
+                        check=False,
+                    )
+                    tests_ok = test_proc.returncode == 0
+                    tests_summary = (
+                        "Pytest verification passed."
+                        if tests_ok
+                        else f"Pytest verification failed: {test_proc.stdout[-2000:]} {test_proc.stderr[-2000:]}"
+                    )
+                else:
+                    module_source = next((p for p in root.rglob("*_core.py")), None)
+                    if module_source is not None:
+                        module_name = module_source.stem
+                        engine_name = f"{module_name.capitalize()}Engine"
+                        smoke_code = (
+                            "import asyncio, importlib; "
+                            f"m=importlib.import_module('src.{module_name}'); "
+                            f"Engine=getattr(m, {engine_name!r}); "
+                            "e=Engine(); asyncio.run(e.start()); "
+                            "r=asyncio.run(e.process_workload({'action':'SMOKE'})); "
+                            "assert r.get('status') == 'SUCCESS'; print(r)"
+                        )
+                        smoke = subprocess.run(
+                            ["python", "-c", smoke_code],
+                            cwd=root,
+                            capture_output=True,
+                            text=True,
+                            timeout=30,
+                            check=False,
+                        )
+                        tests_ok = smoke.returncode == 0
+                        tests_summary = (
+                            "Pytest unavailable; direct runtime smoke execution passed."
+                            if tests_ok
+                            else f"Direct runtime smoke execution failed: {smoke.stdout[-2000:]} {smoke.stderr[-2000:]}"
+                        )
+                    else:
+                        tests_summary = "No generated implementation module was available for smoke execution."
+
+            deploy_manifest = next((p for p in root.rglob("Dockerfile")), None)
+            deploy_manifest_ok = False
+            deploy_summary = "Deployment manifest missing."
+            if deploy_manifest is not None:
+                docker_text = deploy_manifest.read_text(encoding="utf-8")
+                deploy_manifest_ok = (
+                    "FROM python:" in docker_text
+                    and "COPY . /app" in docker_text
+                    and "ENTRYPOINT" in docker_text
+                )
+                deploy_summary = (
+                    "Dockerfile statically validated; container deployment was not claimed."
+                    if deploy_manifest_ok
+                    else "Dockerfile validation failed."
+                )
+
+            ok = compile_ok and tests_ok and deploy_manifest_ok
+            return {
+                "ok": ok,
+                "compile_ok": compile_ok,
+                "tests_ok": tests_ok,
+                "deploy_manifest_ok": deploy_manifest_ok,
+                "compile_summary": compile_summary,
+                "tests_summary": tests_summary,
+                "deploy_summary": deploy_summary,
+                "summary": f"{compile_summary} {tests_summary} {deploy_summary}",
+            }
 
     def _synthesize_project_files(self, goal: str) -> List[SynthesizedFile]:
         """Synthesizes realistic, clean, production-grade files for the goal."""
@@ -229,7 +357,7 @@ class SwarmCompiler:
                 "FROM python:3.11-slim as runtime\n"
                 "WORKDIR /app\n"
                 "COPY . /app\n"
-                "RUN pip install --no-cache-dir pytest asyncio\n"
+                "RUN pip install --no-cache-dir pytest\n"
                 f"ENTRYPOINT [\"python\", \"-m\", \"src.{slug}_core\"]\n"
             )
         )
