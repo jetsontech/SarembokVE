@@ -15,6 +15,7 @@ import Deployment.cloud.server as server
 
 class TestTaskRouting(unittest.TestCase):
     def setUp(self):
+        server.ensure_scheduler_schema()
         server.store.db.execute("DELETE FROM tasks")
         server.store.db.execute("DELETE FROM workers")
         server.store.db.commit()
