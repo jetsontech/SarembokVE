@@ -2987,10 +2987,64 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
     if method == "GetCognitiveScorecard":
         agent_id = str(params.get("agentId", ""))
         require_agent(agent_id)
-        return {"agentId": agent_id, "overallReliability": 0.945, "perception": 0.96, "memory": 0.91, "reasoning": 0.94, "planning": 0.93, "policy": 0.99, "execution": 0.97, "recovery": 0.93, "conversation": 0.93}
+        total_events = store.db.execute(
+            "SELECT COUNT(*) FROM events WHERE agent_id=?",
+            (agent_id,),
+        ).fetchone()[0]
+        completed_tasks = store.db.execute(
+            """
+            SELECT COUNT(*) FROM tasks
+            WHERE status='COMPLETED'
+              AND (
+                    payload LIKE ?
+                    OR payload LIKE ?
+                  )
+            """,
+            (f'%"{agent_id}"%', f'%{agent_id}%'),
+        ).fetchone()[0]
+        failed_tasks = store.db.execute(
+            """
+            SELECT COUNT(*) FROM tasks
+            WHERE status='FAILED'
+              AND (
+                    payload LIKE ?
+                    OR payload LIKE ?
+                  )
+            """,
+            (f'%"{agent_id}"%', f'%{agent_id}%'),
+        ).fetchone()[0]
+        task_total = completed_tasks + failed_tasks
+        execution_reliability = (
+            round(completed_tasks / task_total, 4) if task_total else None
+        )
+        return {
+            "agentId": agent_id,
+            "status": "MEASURED",
+            "overallReliability": execution_reliability,
+            "executionReliability": execution_reliability,
+            "eventCount": total_events,
+            "completedTasks": completed_tasks,
+            "failedTasks": failed_tasks,
+            "unmeasuredDimensions": [
+                "perception",
+                "memory",
+                "reasoning",
+                "planning",
+                "policy",
+                "recovery",
+                "conversation",
+            ],
+            "note": "Only execution reliability is derived from persisted runtime evidence; other cognitive dimensions are not assigned synthetic scores.",
+        }
 
     if method == "QueryWorldModel":
-        return {"filter": str(params.get("filter", "all")), "entitiesCount": 0, "disagreementsCount": 0}
+        return {
+            "filter": str(params.get("filter", "all")),
+            "status": "EMPTY",
+            "entitiesCount": 0,
+            "disagreementsCount": 0,
+            "message": "No persisted world-model entities are currently registered.",
+        }
 
     if method == "CreateDelegation":
         delegation_id = f"del-{uuid.uuid4().hex[:12]}"
@@ -3008,7 +3062,16 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         agent_id = str(params.get("agentId", ""))
         require_agent(agent_id)
         count = store.db.execute("SELECT COUNT(*) FROM events WHERE agent_id=?", (agent_id,)).fetchone()[0]
-        return {"agentId": agent_id, "recordsCount": count, "status": "integrity_verified", "storage": "sqlite-wal"}
+        integrity = store.db.execute("PRAGMA integrity_check").fetchone()[0]
+        verified = str(integrity).lower() == "ok"
+        return {
+            "agentId": agent_id,
+            "recordsCount": count,
+            "status": "integrity_verified" if verified else "integrity_check_failed",
+            "integrityCheck": integrity,
+            "verified": verified,
+            "storage": "sqlite-wal",
+        }
 
     if method == "SendMessage":
         agent_id = str(params.get("agentId", ""))
@@ -3036,9 +3099,14 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
     if method == "RestoreState":
         agent_id = str(params.get("agentId", ""))
         require_agent(agent_id)
-        entries = int(params.get("walEntries", 0))
-        store.event(agent_id, "STATE_RESTORED", {"walEntriesReplayed": entries})
-        return {"agentId": agent_id, "restored": True, "walEntriesReplayed": entries, "stateConsistent": True}
+        return {
+            "agentId": agent_id,
+            "restored": False,
+            "status": "UNAVAILABLE",
+            "stateConsistent": False,
+            "reason": "Runtime state restoration from WAL/checkpoint is not implemented as a replay engine.",
+            "message": "No state was mutated or falsely reported as restored.",
+        }
 
     if method == "RegisterWorker":
         worker_id = str(params.get("workerId", "")).strip()
@@ -4518,13 +4586,29 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         assigned_worker = select_worker(
             required_capability="meta_human",
         )
+        status = "ACTIVE" if assigned_worker else "PENDING_WORKER"
         stamp = now()
         store.db.execute(
             "INSERT INTO digital_human_sessions VALUES(?,?,?,?,?,?,?,?)",
-            (session_id, agent_id, assigned_worker, metahuman_id, voice_profile, "ACTIVE", stamp, stamp),
+            (session_id, agent_id, assigned_worker, metahuman_id, voice_profile, status, stamp, stamp),
         )
         store.db.commit()
-        return {"sessionId": session_id, "agentId": agent_id, "assignedWorkerId": assigned_worker, "metahumanId": metahuman_id, "status": "ACTIVE"}
+        store.event(
+            agent_id,
+            "DIGITAL_HUMAN_SESSION_CREATED",
+            {
+                "sessionId": session_id,
+                "assignedWorkerId": assigned_worker,
+                "status": status,
+            },
+        )
+        return {
+            "sessionId": session_id,
+            "agentId": agent_id,
+            "assignedWorkerId": assigned_worker,
+            "metahumanId": metahuman_id,
+            "status": status,
+        }
 
     if method == "GetDigitalHumanSession":
         session_id = str(params.get("sessionId", ""))
