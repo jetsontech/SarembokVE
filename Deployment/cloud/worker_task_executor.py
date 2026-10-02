@@ -376,24 +376,120 @@ class WorkerTaskExecutor:
         return {"status": "COMPLETED", "bridge": response, "verified": True}
 
     def _verification_suite(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Run safe workspace verification by default; arbitrary commands remain opt-in."""
         command = str(payload.get("command") or payload.get("testCommand") or "").strip()
-        if not command:
-            return {"status": "ERROR", "error": "verification_suite requires a test command"}
-        if os.getenv("SAREMBOK_WORKER_ALLOW_COMMANDS", "").strip().lower() not in {"1", "true", "yes", "on"}:
-            return {"status": "DISABLED", "error": "worker command policy disables verification commands", "retryable": False}
-        if not bool(payload.get("confirm")):
-            return {"status": "REQUIRES_CONFIRMATION", "error": "verification_suite requires explicit confirmation", "retryable": False}
+        workspace = str(
+            payload.get("workspace")
+            or payload.get("path")
+            or os.getenv("SAREMBOK_WORKER_WORKSPACE", "")
+        ).strip()
+
+        if command:
+            if os.getenv("SAREMBOK_WORKER_ALLOW_COMMANDS", "").strip().lower() not in {"1", "true", "yes", "on"}:
+                return {
+                    "status": "DISABLED",
+                    "error": "worker command policy disables arbitrary verification commands",
+                    "retryable": False,
+                }
+            if not bool(payload.get("confirm")):
+                return {
+                    "status": "REQUIRES_CONFIRMATION",
+                    "error": "verification_suite arbitrary commands require explicit confirmation",
+                    "retryable": False,
+                }
+            timeout = min(600, max(5, int(payload.get("timeoutSeconds", 120))))
+            proc = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+            return {
+                "status": "COMPLETED" if proc.returncode == 0 else "FAILED",
+                "command": command,
+                "exitCode": proc.returncode,
+                "stdout": proc.stdout[-20000:],
+                "stderr": proc.stderr[-10000:],
+                "retryable": proc.returncode != 0,
+            }
+
+        if not workspace:
+            return {
+                "status": "UNAVAILABLE",
+                "error": "verification workspace is not configured",
+                "retryable": True,
+            }
+
+        workspace_path = os.path.abspath(workspace)
+        if not os.path.exists(workspace_path):
+            return {
+                "status": "ERROR",
+                "error": f"verification workspace does not exist: {workspace_path}",
+                "retryable": False,
+            }
 
         timeout = min(600, max(5, int(payload.get("timeoutSeconds", 120))))
-        proc = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=timeout, check=False)
-        return {
-            "status": "COMPLETED" if proc.returncode == 0 else "FAILED",
-            "command": command,
-            "exitCode": proc.returncode,
-            "stdout": proc.stdout[-20000:],
-            "stderr": proc.stderr[-10000:],
-            "retryable": proc.returncode != 0,
+        compile_proc = subprocess.run(
+            [os.fspath(__import__("sys").executable), "-m", "compileall", "-q", workspace_path],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+        if compile_proc.returncode != 0:
+            return {
+                "status": "FAILED",
+                "operation": "compileall",
+                "workspace": workspace_path,
+                "exitCode": compile_proc.returncode,
+                "stdout": compile_proc.stdout[-10000:],
+                "stderr": compile_proc.stderr[-10000:],
+                "retryable": False,
+            }
+
+        result = {
+            "status": "COMPLETED",
+            "operation": "compileall",
+            "workspace": workspace_path,
+            "exitCode": 0,
+            "compileOutput": compile_proc.stdout[-10000:],
         }
+
+        if bool(payload.get("runTests", False)):
+            pytest_probe = subprocess.run(
+                [os.fspath(__import__("sys").executable), "-c", "import pytest"],
+                cwd=workspace_path,
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
+            if pytest_probe.returncode == 0:
+                test_proc = subprocess.run(
+                    [os.fspath(__import__("sys").executable), "-m", "pytest", "-q"],
+                    cwd=workspace_path,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                    check=False,
+                )
+                result["tests"] = {
+                    "status": "PASSED" if test_proc.returncode == 0 else "FAILED",
+                    "exitCode": test_proc.returncode,
+                    "stdout": test_proc.stdout[-15000:],
+                    "stderr": test_proc.stderr[-10000:],
+                }
+                if test_proc.returncode != 0:
+                    result["status"] = "FAILED"
+            else:
+                result["tests"] = {
+                    "status": "UNAVAILABLE",
+                    "reason": "pytest is not installed in the worker environment",
+                }
+
+        return result
 
     def _gpu_deployment(self, payload: dict[str, Any]) -> dict[str, Any]:
         if not self._gpu_available():
