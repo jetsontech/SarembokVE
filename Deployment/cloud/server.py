@@ -1106,8 +1106,47 @@ def select_worker(required_capability: str) -> str | None:
     return candidates[0][3]
 
 
+def reconcile_blocked_task_assignments() -> int:
+    """Return dependency-blocked queued tasks to PENDING_WORKER before scheduling."""
+    rows = store.db.execute(
+        "SELECT task_id, payload, assigned_worker_id FROM tasks WHERE status='QUEUED'"
+    ).fetchall()
+    repaired = 0
+    for task_id, raw_payload, assigned_worker_id in rows:
+        try:
+            payload_obj = json.loads(raw_payload) if raw_payload else {}
+        except Exception:
+            payload_obj = {}
+        if task_dependency_ready(payload_obj):
+            continue
+        stamp = now()
+        cursor = store.db.execute(
+            """
+            UPDATE tasks
+            SET status='PENDING_WORKER', assigned_worker_id=NULL, updated_at=?
+            WHERE task_id=? AND status='QUEUED'
+            """,
+            (stamp, task_id),
+        )
+        if cursor.rowcount:
+            repaired += 1
+            store.event(
+                None,
+                "TASK_DEPENDENCY_BLOCKED",
+                {
+                    "taskId": task_id,
+                    "previousAssignedWorkerId": assigned_worker_id,
+                    "status": "PENDING_WORKER",
+                },
+            )
+    if repaired:
+        store.db.commit()
+    return repaired
+
+
 def assign_pending_tasks() -> int:
-    """Finds all tasks in PENDING_WORKER status and assigns them to eligible ONLINE workers."""
+    """Finds dependency-ready PENDING_WORKER tasks and assigns eligible ONLINE workers."""
+    reconcile_blocked_task_assignments()
     rows = store.db.execute(
         "SELECT task_id, required_capability FROM tasks WHERE status='PENDING_WORKER' ORDER BY created_at ASC"
     ).fetchall()
@@ -3689,6 +3728,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
 
     if method == "ListTasks":
         ensure_scheduler_schema()
+        reconcile_blocked_task_assignments()
         status_filter = str(params.get("status", "")).strip().upper()
         worker_filter = str(params.get("workerId", "")).strip()
         query = "SELECT task_id, task_type, required_capability, payload, assigned_worker_id, status, created_at, updated_at FROM tasks WHERE 1=1"
@@ -3703,6 +3743,14 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         rows = store.db.execute(query, q_params).fetchall()
         tasks_list = []
         for r in rows:
+            try:
+                payload_obj = json.loads(r[3]) if r[3] else {}
+            except Exception:
+                payload_obj = {}
+            dependency_ready = task_dependency_ready(payload_obj)
+            # Worker polling must never receive dependency-blocked work.
+            if worker_filter and not dependency_ready:
+                continue
             tasks_list.append({
                 "taskId": r[0],
                 "taskType": r[1],
@@ -3710,6 +3758,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
                 "payload": r[3],
                 "assignedWorkerId": r[4],
                 "status": r[5],
+                "dependencyReady": dependency_ready,
                 "createdAt": r[6],
                 "updatedAt": r[7],
             })
