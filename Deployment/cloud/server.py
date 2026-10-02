@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import hmac
+import hmac as _hmac
 import json
 import logging
 import os
@@ -2730,8 +2730,8 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         if req_admin:
             adm_token = str(params.get("adminToken", "") or params.get("adminSessionToken", "")).strip()
             adm_pass = str(params.get("adminPasscode", "") or params.get("passcode", "")).strip()
-            import hmac
-            is_auth = (adm_token in ADMIN_TOKENS) or (adm_pass and any(hmac.compare_digest(adm_pass, p) for p in ADMIN_ALLOWED_PASSCODES))
+            import hmac as _hmac
+            is_auth = (adm_token in ADMIN_TOKENS) or (adm_pass and any(_hmac.compare_digest(adm_pass, p) for p in ADMIN_ALLOWED_PASSCODES))
             if not is_auth:
                 raise ValueError("admin_authentication_required: Administrative passcode required to execute system tools.")
 
@@ -2992,7 +2992,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         supplied_enrollment = params.get("enrollmentToken")
         if (
             not isinstance(supplied_enrollment, str)
-            or not hmac.compare_digest(supplied_enrollment, WORKER_ENROLLMENT_TOKEN)
+            or not _hmac.compare_digest(supplied_enrollment, WORKER_ENROLLMENT_TOKEN)
         ):
             raise PermissionError("authentication_required")
 
@@ -3771,8 +3771,8 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         passcode = str(params.get("passcode", "")).strip()
         if not passcode:
             return {"success": False, "error": "passcode_required"}
-        import hmac
-        if any(hmac.compare_digest(passcode, valid_p) for valid_p in ADMIN_ALLOWED_PASSCODES):
+        import hmac as _hmac
+        if any(_hmac.compare_digest(passcode, valid_p) for valid_p in ADMIN_ALLOWED_PASSCODES):
             token = f"adm-{uuid.uuid4().hex}"
             ADMIN_TOKENS.add(token)
             user = {
@@ -3918,8 +3918,8 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         # Enforce Admin Passcode / Token Gate
         adm_token = str(params.get("adminToken", "") or params.get("adminSessionToken", "")).strip()
         adm_pass = str(params.get("adminPasscode", "") or params.get("passcode", "")).strip()
-        import hmac
-        is_auth = (adm_token in ADMIN_TOKENS) or (adm_pass and any(hmac.compare_digest(adm_pass, p) for p in ADMIN_ALLOWED_PASSCODES))
+        import hmac as _hmac
+        is_auth = (adm_token in ADMIN_TOKENS) or (adm_pass and any(_hmac.compare_digest(adm_pass, p) for p in ADMIN_ALLOWED_PASSCODES))
         if not is_auth:
             raise ValueError("admin_authentication_required: Administrative passcode required to execute system tools.")
 
@@ -4681,7 +4681,7 @@ def authenticate(request: dict[str, Any], method: str) -> None:
             if (
                 not WORKER_ENROLLMENT_TOKEN
                 or not isinstance(supplied, str)
-                or not hmac.compare_digest(supplied, WORKER_ENROLLMENT_TOKEN)
+                or not _hmac.compare_digest(supplied, WORKER_ENROLLMENT_TOKEN)
             ):
                 raise PermissionError("authentication_required")
             return
@@ -4700,13 +4700,13 @@ def authenticate(request: dict[str, Any], method: str) -> None:
             raise PermissionError("authentication_required")
 
         supplied_hash = hashlib.sha256(supplied.encode("utf-8")).hexdigest()
-        if not hmac.compare_digest(supplied_hash, token_hash):
+        if not _hmac.compare_digest(supplied_hash, token_hash):
             raise PermissionError("authentication_required")
         return
 
     # Server-to-server/admin clients may continue using the master token.
     supplied = params.get("authToken")
-    if AUTH_TOKEN and isinstance(supplied, str) and hmac.compare_digest(supplied, AUTH_TOKEN):
+    if AUTH_TOKEN and isinstance(supplied, str) and _hmac.compare_digest(supplied, AUTH_TOKEN):
         return
 
     # Browser clients receive a short-lived, scoped session token. The master
@@ -5068,7 +5068,7 @@ async def process_http_request(connection: Any, request: Any) -> Any:
         auth_header = headers.get("Authorization", "") if hasattr(headers, "get") else ""
         bearer = auth_header[7:].strip() if isinstance(auth_header, str) and auth_header.lower().startswith("bearer ") else ""
         authorized = browser_session_valid(bearer) or (
-            AUTH_TOKEN and bearer and hmac.compare_digest(bearer, AUTH_TOKEN)
+            AUTH_TOKEN and bearer and _hmac.compare_digest(bearer, AUTH_TOKEN)
         )
         if not authorized:
             return make_api_response(401, {"error": "authentication_required"})
@@ -5090,7 +5090,7 @@ async def process_http_request(connection: Any, request: Any) -> Any:
         # The Kokoro container is private on the Docker network.
         auth_header = headers.get("Authorization", "") if hasattr(headers, "get") else ""
         bearer = auth_header[7:].strip() if isinstance(auth_header, str) and auth_header.lower().startswith("bearer ") else ""
-        if not (browser_session_valid(bearer) or (AUTH_TOKEN and bearer and hmac.compare_digest(bearer, AUTH_TOKEN))):
+        if not (browser_session_valid(bearer) or (AUTH_TOKEN and bearer and _hmac.compare_digest(bearer, AUTH_TOKEN))):
             return make_api_response(401, {"error": "authentication_required"})
 
         try:
