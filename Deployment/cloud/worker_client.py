@@ -175,7 +175,61 @@ class SarembokWorker:
     def execute_task_payload(self, task_type: str, payload: dict[str, Any]) -> dict[str, Any]:
         """Deterministic task execution engine."""
         LOG.info("Executing task type='%s' payload=%s", task_type, payload)
+
+    def execute_host_action(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Execute a bounded action on the enrolled target machine and return verification evidence."""
+        action = str(payload.get("action", "")).strip().lower()
+        if action == "open_url":
+            url = str(payload.get("url", "")).strip()
+            if not url.startswith(("https://", "http://")):
+                return {"status": "ERROR", "error": "open_url requires http(s) URL"}
+            if platform.system() == "Windows":
+                subprocess.Popen(["cmd", "/c", "start", "", url], creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            elif platform.system() == "Darwin":
+                subprocess.Popen(["open", url])
+            else:
+                subprocess.Popen(["xdg-open", url])
+            return {"status": "VERIFIED", "action": action, "url": url, "platform": platform.system()}
+
+        if action == "launch_app":
+            command = str(payload.get("command", "")).strip()
+            args = payload.get("args") or []
+            if not command:
+                return {"status": "ERROR", "error": "launch_app requires command"}
+            if not bool(payload.get("confirm")):
+                return {"status": "REQUIRES_CONFIRMATION", "error": "explicit confirmation required"}
+            proc = subprocess.Popen([command] + [str(x) for x in args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return {"status": "VERIFIED", "action": action, "command": command, "args": args, "pid": proc.pid, "platform": platform.system()}
+
+        if action == "run_command":
+            if not bool(payload.get("confirm")):
+                return {"status": "REQUIRES_CONFIRMATION", "error": "explicit confirmation required"}
+            if os.getenv("SAREMBOK_WORKER_ALLOW_COMMANDS", "").strip().lower() not in {"1","true","yes","on"}:
+                return {"status": "DISABLED", "error": "host command execution is disabled by worker policy"}
+            command = str(payload.get("command", "")).strip()
+            if not command:
+                return {"status": "ERROR", "error": "run_command requires command"}
+            proc = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=20, check=False)
+            return {"status": "VERIFIED" if proc.returncode == 0 else "FAILED", "action": action, "command": command, "exitCode": proc.returncode, "stdout": proc.stdout[-5000:], "stderr": proc.stderr[-2000:], "platform": platform.system()}
+
+        if action == "open_file":
+            path = os.path.abspath(str(payload.get("path", "")).strip())
+            if not path or not os.path.exists(path):
+                return {"status": "ERROR", "error": "file_not_found", "path": path}
+            if platform.system() == "Windows":
+                os.startfile(path)
+            elif platform.system() == "Darwin":
+                subprocess.Popen(["open", path])
+            else:
+                subprocess.Popen(["xdg-open", path])
+            return {"status": "VERIFIED", "action": action, "path": path, "platform": platform.system()}
+
+        return {"status": "ERROR", "error": "unsupported_host_action", "action": action}
         
+        # 0. Host/desktop execution through a real enrolled target worker.
+        if task_type == "host_action":
+            return self.execute_host_action(payload)
+
         # 1. Arithmetic / Smoke tests
         if task_type in ("smoke_test", "arithmetic"):
             op = payload.get("operation", "add")
@@ -244,8 +298,13 @@ class SarembokWorker:
                         # Execute payload
                         result = self.execute_task_payload(task_type, payload)
 
-                        # Complete task
-                        comp_res = await self._send_rpc(ws, "CompleteTask", {"taskId": task_id, "workerId": self.worker_id})
+                        # Complete task with the actual worker result so the control plane can verify it.
+                        comp_res = await self._send_rpc(ws, "CompleteTask", {
+                            "taskId": task_id,
+                            "workerId": self.worker_id,
+                            "result": result,
+                            "error": None if result.get("status") in ("VERIFIED", "SUCCESS", "COMPLETED") else result.get("error"),
+                        })
                         LOG.info("Completed task '%s': status=%s", task_id, comp_res.get("status"))
 
                         if single_task_mode:
