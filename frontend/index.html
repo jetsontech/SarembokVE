@@ -13533,7 +13533,7 @@ button,
         /* ============================================================
            UI MODE TOGGLE & SIMPLE CHAT MANAGEMENT
            ============================================================ */
-        let currentUiMode = 'cockpit';
+        let currentUiMode = 'simple';
 
         function setUiMode(mode, save = true) {
             currentUiMode = mode;
@@ -13579,10 +13579,10 @@ button,
         function initUiMode() {
             try {
                 const saved = localStorage.getItem('sarembok_ui_mode');
-                if (saved === 'simple') {
-                    setUiMode('simple', false);
-                } else {
+                if (saved === 'cockpit') {
                     setUiMode('cockpit', false);
+                } else {
+                    setUiMode('simple', false);
                 }
             } catch(e) {
                 setUiMode('cockpit', false);
