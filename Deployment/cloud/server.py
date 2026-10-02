@@ -3081,7 +3081,14 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         store.db.execute("INSERT INTO messages VALUES(?,?,?,?)", (message_id, agent_id, content, now()))
         store.db.commit()
         store.event(agent_id, "MESSAGE", {"messageId": message_id})
-        return {"agentId": agent_id, "messageId": message_id, "delivered": True}
+        return {
+            "agentId": agent_id,
+            "messageId": message_id,
+            "persisted": True,
+            "delivery": "LOCAL_SQLITE_MESSAGE_STORE",
+            "delivered": False,
+            "note": "The message was persisted locally; no external recipient transport was invoked.",
+        }
 
     if method == "GetEvents":
         agent_id = str(params.get("agentId", ""))
@@ -4086,8 +4093,13 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "opencvInstalled": OPENCV_AVAILABLE,
             "version": OPENCV_VERSION,
             "detectorLoaded": OPENCV_DETECTOR is not None,
-            "modelName": "OpenCV YuNet ONNX (Face & Gaze Tracking)",
-            "capabilities": ["Face Detection", "Landmarks", "Gaze Tracking", "Motion Analysis", "Brightness Telemetry"],
+            "modelName": "OpenCV YuNet ONNX face detector",
+            "capabilities": [
+                "Face Detection",
+                "Facial Landmarks",
+                "Face-Center Gaze Proxy",
+                "Brightness Telemetry",
+            ],
         }
 
     if method == "ProcessVisionFrame":
@@ -4364,20 +4376,31 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         stamp = now()
         store.db.execute(
             "INSERT INTO checkpoints(checkpoint_id, label, agent_id, task_id, wal_index, status, payload, created_at) VALUES(?,?,?,?,?,?,?,?)",
-            (checkpoint_id, label, agent_id, task_id, wal_index, "VERIFIED", json.dumps(payload), stamp),
+            (checkpoint_id, label, agent_id, task_id, wal_index, "CREATED", json.dumps(payload), stamp),
         )
         store.db.commit()
-        store.event(agent_id, "CHECKPOINT_CREATED", {"checkpointId": checkpoint_id, "label": label, "status": "VERIFIED"})
-        return {"checkpointId": checkpoint_id, "label": label, "status": "VERIFIED", "createdAt": stamp}
+        store.event(agent_id, "CHECKPOINT_CREATED", {"checkpointId": checkpoint_id, "label": label, "status": "CREATED"})
+        return {
+            "checkpointId": checkpoint_id,
+            "label": label,
+            "status": "CREATED",
+            "verified": False,
+            "createdAt": stamp,
+            "note": "Checkpoint metadata was persisted; no external snapshot or WAL replay verification was performed.",
+        }
 
     if method == "RestoreCheckpoint":
         checkpoint_id = str(params.get("checkpointId", "")).strip()
         row = store.db.execute("SELECT checkpoint_id, label, agent_id, task_id, payload FROM checkpoints WHERE checkpoint_id=?", (checkpoint_id,)).fetchone()
         if not row:
             raise ValueError(f"checkpoint_not_found: {checkpoint_id}")
-        stamp = now()
-        store.event(row[2], "CHECKPOINT_RESTORED", {"checkpointId": checkpoint_id, "label": row[1]})
-        return {"checkpointId": checkpoint_id, "label": row[1], "restored": True, "status": "RESTORED", "timestamp": stamp}
+        return {
+            "checkpointId": checkpoint_id,
+            "label": row[1],
+            "restored": False,
+            "status": "UNAVAILABLE",
+            "reason": "Checkpoint replay is not implemented; the checkpoint record can be inspected but runtime state is not mutated.",
+        }
 
     if method == "ListGovernanceApprovals":
         status_filter = str(params.get("status", "")).strip().upper()
@@ -4785,7 +4808,14 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             }}
         if action == "sync_memory_graph":
             mem_count = store.db.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
-            return {"action": action, "timestamp": stamp, "verified": True, "result": {"syncedNodes": mem_count, "indexStatus": "SYNCED"}}
+            return {
+                "action": action,
+                "timestamp": stamp,
+                "verified": False,
+                "status": "UNAVAILABLE",
+                "result": {"memoryRecords": mem_count},
+                "message": "No separate memory-graph index or synchronization engine is configured; persisted SQLite memories were not relabeled as synchronized.",
+            }
         return {"action": action, "timestamp": stamp, "verified": False, "status": "UNSUPPORTED_ACTION", "message": "No system action is reported as executed unless Sarembok has a concrete executor for it."}
 
 
