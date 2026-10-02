@@ -359,7 +359,11 @@ class SarembokWorker:
         while not self.stop_event.is_set():
             try:
                 LOG.info("Connecting to Sarembok Cloud Runtime at %s...", self.ws_url)
-                async with websockets.connect(self.ws_url, ping_interval=20, ping_timeout=20) as ws:
+                worker_origin = os.getenv("SAREMBOK_WORKER_ORIGIN", "https://sarembok.com").strip() or None
+                connect_kwargs = {"ping_interval": 20, "ping_timeout": 20}
+                if worker_origin:
+                    connect_kwargs["origin"] = worker_origin
+                async with websockets.connect(self.ws_url, **connect_kwargs) as ws:
                     LOG.info("Connected. Initializing worker...")
                     retry_delay = 2
 
