@@ -3627,6 +3627,8 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         ).fetchone()
         refresh_pipelines_for_tasks([task_payload_row] if task_payload_row else [])
         assign_pending_tasks()
+        if task_payload_row:
+            refresh_pipelines_for_tasks([task_payload_row])
 
         return {
             "taskId": task_id,
@@ -4849,7 +4851,18 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             previous_task_id = t_res.get("taskId")
 
         assign_pending_tasks()
-            
+
+        # Replace pre-assignment task statuses in the response with current
+        # persisted states so the API never returns stale stage telemetry.
+        for task_item in created_tasks:
+            state_row = store.db.execute(
+                "SELECT status, assigned_worker_id FROM tasks WHERE task_id=?",
+                (task_item["taskId"],),
+            ).fetchone()
+            if state_row:
+                task_item["status"] = state_row[0]
+                task_item["assignedWorkerId"] = state_row[1]
+
         # 3. Record in Semantic Memory
         mem_id = f"mem-{uuid.uuid4().hex[:8]}"
         store.db.execute(
