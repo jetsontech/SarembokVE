@@ -900,6 +900,46 @@ def get_worker_status_counts() -> dict[str, int]:
     }
 
 
+TASK_CAPABILITY_BY_TYPE = {
+    "smoke_test": "compute",
+    "arithmetic": "compute",
+    "compute": "compute",
+    "general_compute": "compute",
+    "verification_suite": "compute",
+    "gpu_deployment": "gpu",
+    "inference": "inference",
+    "architecture_synthesis": "inference",
+    "code_generation": "inference",
+    "meta_human": "meta_human",
+    "host_action": "host_control",
+    "desktop": "desktop",
+    "web_automation": "web_automation",
+}
+
+
+def required_capability_for_task(task_type: str, requested: str | None = None) -> str:
+    explicit = str(requested or "").strip()
+    if explicit:
+        return explicit
+    return TASK_CAPABILITY_BY_TYPE.get(
+        str(task_type or "").strip().lower(),
+        "compute",
+    )
+
+
+def task_dependency_ready(payload: Any) -> bool:
+    if not isinstance(payload, dict):
+        return True
+    dependency = str(payload.get("dependsOnTaskId") or "").strip()
+    if not dependency:
+        return True
+    row = store.db.execute(
+        "SELECT status FROM tasks WHERE task_id=?",
+        (dependency,),
+    ).fetchone()
+    return bool(row and str(row[0]).upper() == "COMPLETED")
+
+
 def select_worker(required_capability: str) -> str | None:
     ensure_scheduler_schema()
     evaluate_worker_liveness()
@@ -969,6 +1009,16 @@ def assign_pending_tasks() -> int:
     for row in rows:
         task_id = row[0]
         req_cap = row[1] or "compute"
+        payload_row = store.db.execute(
+            "SELECT payload FROM tasks WHERE task_id=?",
+            (task_id,),
+        ).fetchone()
+        try:
+            payload_obj = json.loads(payload_row[0]) if payload_row and payload_row[0] else {}
+        except Exception:
+            payload_obj = {}
+        if not task_dependency_ready(payload_obj):
+            continue
         worker_id = select_worker(required_capability=req_cap)
         if worker_id:
             store.db.execute(
@@ -3151,11 +3201,10 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
             or "inference"
         ).strip()
 
-        req_cap = str(
-            params.get("requiredCapability")
-            or task.get("requiredCapability")
-            or "compute"
-        ).strip()
+        req_cap = required_capability_for_task(
+            task_type,
+            params.get("requiredCapability") or task.get("requiredCapability"),
+        )
 
         payload = params.get("payload")
 
@@ -3380,6 +3429,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         )
 
         store.db.commit()
+        assign_pending_tasks()
 
         return {
             "taskId": task_id,
@@ -4284,26 +4334,48 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
 
     if method == "GetTask":
         task_id = str(params.get("taskId", ""))
-        row = store.db.execute("SELECT task_id, task_type, assigned_worker_id, status, payload, created_at, updated_at FROM tasks WHERE task_id=?", (task_id,)).fetchone()
+        row = store.db.execute(
+            "SELECT task_id, task_type, required_capability, payload, result, error, "
+            "assigned_worker_id, status, created_at, updated_at FROM tasks WHERE task_id=?",
+            (task_id,),
+        ).fetchone()
         if not row:
             raise ValueError(f"task_not_found: {task_id}")
         try:
-            payload = json.loads(row[4]) if row[4] else {}
+            payload = json.loads(row[3]) if row[3] else {}
         except Exception:
             payload = {}
-        result_data = {}
         try:
-            result_data = json.loads(row[5]) if row[5] else {}
+            result_data = json.loads(row[4]) if row[4] else {}
         except Exception:
             result_data = {}
-        return {"taskId": row[0], "taskType": row[1], "assignedWorkerId": row[2], "status": row[3], "payload": payload, "result": result_data, "createdAt": row[7], "updatedAt": row[8]}
+        return {
+            "taskId": row[0],
+            "taskType": row[1],
+            "requiredCapability": row[2],
+            "payload": payload,
+            "result": result_data,
+            "error": row[5],
+            "assignedWorkerId": row[6],
+            "status": row[7],
+            "createdAt": row[8],
+            "updatedAt": row[9],
+        }
 
     if method == "CreateTask":
-        task_type = str(params.get("taskType", "general_compute"))
+        task_type = str(params.get("taskType", "general_compute")).strip() or "general_compute"
         assigned_worker = params.get("assignedWorkerId")
         payload = params.get("payload", {})
-        required_capability = str(params.get("requiredCapability", "compute")).strip() or "compute"
-        return store.create_task(task_type, str(assigned_worker) if assigned_worker else None, payload if isinstance(payload, dict) else {}, required_capability)
+        required_capability = required_capability_for_task(
+            task_type,
+            params.get("requiredCapability"),
+        )
+        return store.create_task(
+            task_type,
+            str(assigned_worker) if assigned_worker else None,
+            payload if isinstance(payload, dict) else {},
+            required_capability,
+        )
 
     if method == "CancelTask":
         task_id = str(params.get("taskId", ""))
@@ -4437,16 +4509,40 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         
         # 2. Decompose into Subtasks
         subtasks = [
-            {"type": "architecture_synthesis", "title": "System Architecture & Contract Definition"},
-            {"type": "code_generation", "title": "High-Performance Core Implementation"},
-            {"type": "verification_suite", "title": "Automated Test & Benchmark Suite"},
-            {"type": "gpu_deployment", "title": "Distributed Worker Node Allocation"}
+            {"type": "architecture_synthesis", "title": "System Architecture & Contract Definition", "requiredCapability": "inference"},
+            {"type": "code_generation", "title": "High-Performance Core Implementation", "requiredCapability": "inference"},
+            {"type": "verification_suite", "title": "Automated Test & Benchmark Suite", "requiredCapability": "compute"},
+            {"type": "gpu_deployment", "title": "Distributed Worker Node Allocation", "requiredCapability": "gpu"},
         ]
-        
+
         created_tasks = []
-        for st in subtasks:
-            t_res = store.create_task(st["type"], None, {"pipelineId": pipeline_id, "title": st["title"], "goal": goal})
-            created_tasks.append({"taskId": t_res.get("taskId"), "type": st["type"], "title": st["title"]})
+        previous_task_id = None
+        for index, st in enumerate(subtasks, 1):
+            task_payload = {
+                "pipelineId": pipeline_id,
+                "title": st["title"],
+                "goal": goal,
+                "stage": index,
+            }
+            if previous_task_id:
+                task_payload["dependsOnTaskId"] = previous_task_id
+            t_res = store.create_task(
+                st["type"],
+                None,
+                task_payload,
+                st["requiredCapability"],
+            )
+            created_tasks.append({
+                "taskId": t_res.get("taskId"),
+                "type": st["type"],
+                "title": st["title"],
+                "requiredCapability": st["requiredCapability"],
+                "dependsOnTaskId": previous_task_id,
+                "status": t_res.get("status"),
+            })
+            previous_task_id = t_res.get("taskId")
+
+        assign_pending_tasks()
             
         # 3. Record in Semantic Memory
         mem_id = f"mem-{uuid.uuid4().hex[:8]}"
@@ -4610,15 +4706,27 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         return get_visual_engine_status()
 
     if method == "ExecuteComputeTask":
-        task_type = str(params.get("taskType", "inference")).strip()
+        task_type = str(params.get("taskType", "inference")).strip() or "inference"
         payload = params.get("payload", {})
-        ensure_sovereign_worker()
-        worker_id = select_worker("gpu") or select_worker("compute")
+        required_capability = required_capability_for_task(
+            task_type,
+            params.get("requiredCapability"),
+        )
+        if required_capability == "gpu":
+            ensure_sovereign_worker()
+        worker_id = select_worker(required_capability)
         if not worker_id:
-            return {"status": "NO_VERIFIED_WORKER", "message": "No verified online compute worker is currently available; the task was not fabricated or marked RUNNING."}
-        task = store.create_task(task_type, worker_id, payload if isinstance(payload, dict) else {})
-        store.db.execute("UPDATE tasks SET required_capability='gpu', status='QUEUED', updated_at=? WHERE task_id=?", (now(), task["taskId"]))
-        store.db.commit()
+            return {
+                "status": "NO_VERIFIED_WORKER",
+                "requiredCapability": required_capability,
+                "message": "No verified online worker supports the requested task capability; the task was not marked RUNNING.",
+            }
+        task = store.create_task(
+            task_type,
+            worker_id,
+            payload if isinstance(payload, dict) else {},
+            required_capability,
+        )
         return {**task, "workerId": worker_id, "status": "QUEUED", "verified": True}
 
     if method == "Health":
