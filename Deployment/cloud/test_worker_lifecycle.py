@@ -37,6 +37,7 @@ temp_db.close()
 os.environ["SAREMBOK_DB_PATH"] = temp_db.name
 os.environ["SAREMBOK_WORKER_HEARTBEAT_TIMEOUT_SECONDS"] = "60"
 os.environ["SAREMBOK_WORKER_OFFLINE_TIMEOUT_SECONDS"] = "180"
+os.environ["SAREMBOK_WORKER_ENROLLMENT_TOKEN"] = "test-worker-enrollment"
 
 import Deployment.cloud.server as server
 from Deployment.cloud.server import (
@@ -52,7 +53,11 @@ from Deployment.cloud.server import (
 
 
 class TestWorkerLifecycle(unittest.TestCase):
+    ENROLLMENT_TOKEN = "test-worker-enrollment"
+
     def setUp(self) -> None:
+        server.WORKER_ENROLLMENT_TOKEN = self.ENROLLMENT_TOKEN
+        server.ensure_scheduler_schema()
         store.db.execute("DELETE FROM workers")
         store.db.execute("DELETE FROM events")
         store.db.execute("DELETE FROM tasks")
@@ -67,6 +72,7 @@ class TestWorkerLifecycle(unittest.TestCase):
     def test_01_registration(self) -> None:
         res = dispatch("RegisterWorker", {
             "workerId": "worker-test-1",
+            "enrollmentToken": self.ENROLLMENT_TOKEN,
             "capabilities": ["inference", "meta_human"],
             "gpuVendor": "NVIDIA",
             "gpuModel": "RTX 4090",
@@ -79,7 +85,7 @@ class TestWorkerLifecycle(unittest.TestCase):
         self.assertIn("inference", res["capabilities"])
 
     def test_02_heartbeat(self) -> None:
-        dispatch("RegisterWorker", {"workerId": "worker-test-2", "capabilities": ["inference"]})
+        dispatch("RegisterWorker", {"workerId": "worker-test-2", "capabilities": ["inference"], "enrollmentToken": self.ENROLLMENT_TOKEN})
         res = dispatch("Heartbeat", {"workerId": "worker-test-2", "status": "ONLINE"})
         self.assertEqual(res["workerId"], "worker-test-2")
         self.assertEqual(res["status"], "ONLINE")
