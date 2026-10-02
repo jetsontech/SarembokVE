@@ -3220,11 +3220,14 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
 
         task_id = f"task-{uuid.uuid4().hex[:10]}"
 
+        dependency_ready = task_dependency_ready(payload)
         status = (
             "QUEUED"
-            if assigned_worker
+            if assigned_worker and dependency_ready
             else "PENDING_WORKER"
         )
+        if not dependency_ready:
+            assigned_worker = None
 
         stamp = now()
 
@@ -3278,7 +3281,7 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
 
         row = store.db.execute(
             """
-            SELECT assigned_worker_id, status, required_capability
+            SELECT assigned_worker_id, status, required_capability, payload
             FROM tasks
             WHERE task_id=?
             """,
@@ -3290,7 +3293,13 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
                 f"task_not_found: {task_id}"
             )
 
-        assigned_worker, task_status, req_cap = row[0], row[1], row[2] or "compute"
+        assigned_worker, task_status, req_cap, raw_payload = row[0], row[1], row[2] or "compute", row[3]
+        try:
+            task_payload = json.loads(raw_payload) if raw_payload else {}
+        except Exception:
+            task_payload = {}
+        if not task_dependency_ready(task_payload):
+            raise ValueError("task_dependency_not_ready")
 
         if assigned_worker and assigned_worker != worker_id:
             raise ValueError("worker_mismatch")
@@ -3474,6 +3483,8 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         )
         store.db.commit()
         store.event(None, "TASK_FAILED", {"taskId": task_id, "workerId": worker_id, "error": error_msg, "retryable": retryable, "status": new_status})
+        if retryable:
+            assign_pending_tasks()
         return {
             "taskId": task_id,
             "workerId": worker_id,
@@ -4601,13 +4612,18 @@ def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         
         store.event(architect_id, "AUTONOMOUS_PIPELINE_INITIATED", {"pipelineId": pipeline_id, "goal": goal, "tasks": created_tasks})
         
+        pipeline_status = (
+            "RUNNING"
+            if any(task.get("status") == "QUEUED" for task in created_tasks)
+            else "PENDING_WORKER"
+        )
         return {
             "pipelineId": pipeline_id,
-            "status": "RUNNING",
+            "status": pipeline_status,
             "goal": goal,
             "architectAgentId": architect_id,
             "tasks": created_tasks,
-            "createdAt": stamp
+            "createdAt": stamp,
         }
 
     if method == "QueryCognitiveGraph":
