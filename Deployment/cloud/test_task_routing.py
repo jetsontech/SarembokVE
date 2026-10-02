@@ -65,6 +65,35 @@ class TestTaskRouting(unittest.TestCase):
         self.assertEqual(tasks[2]["dependsOnTaskId"], tasks[1]["taskId"])
         self.assertEqual(tasks[3]["dependsOnTaskId"], tasks[2]["taskId"])
 
+    def test_pipeline_state_finalizes_from_real_task_statuses(self):
+        res = server.dispatch("ExecuteAutonomousPipeline", {"goal": "test pipeline finalization"})
+        pipeline_id = res["pipelineId"]
+
+        rows = server.store.db.execute(
+            "SELECT task_id FROM tasks WHERE payload LIKE ? ORDER BY created_at ASC",
+            (f'%"pipelineId": "{pipeline_id}"%',),
+        ).fetchall()
+        self.assertEqual(len(rows), 4)
+
+        for task_row in rows:
+            server.store.db.execute(
+                "UPDATE tasks SET status='COMPLETED', result='{}' WHERE task_id=?",
+                (task_row[0],),
+            )
+        server.store.db.commit()
+
+        state = server.refresh_pipeline_status(pipeline_id)
+        self.assertEqual(state["status"], "COMPLETED")
+        self.assertEqual(state["completedStages"], 4)
+        self.assertEqual(state["failedStages"], 0)
+
+        fetched = server.dispatch(
+            "GetAutonomousPipeline",
+            {"pipelineId": pipeline_id},
+        )
+        self.assertEqual(fetched["status"], "COMPLETED")
+        self.assertEqual(len(fetched["tasks"]), 4)
+
 
 if __name__ == "__main__":
     unittest.main()
