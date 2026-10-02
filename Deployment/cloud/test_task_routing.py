@@ -65,6 +65,47 @@ class TestTaskRouting(unittest.TestCase):
         self.assertEqual(tasks[2]["dependsOnTaskId"], tasks[1]["taskId"])
         self.assertEqual(tasks[3]["dependsOnTaskId"], tasks[2]["taskId"])
 
+    def test_blocked_queued_task_is_repaired_and_hidden_from_worker(self):
+        worker = "routing-compute-worker"
+        server.store.db.execute(
+            "INSERT INTO workers(worker_id,capabilities,status,last_heartbeat,active_tasks) VALUES(?,?,?,?,0)",
+            (worker, '["compute"]', "ONLINE", server.now()),
+        )
+        dependency = server.store.create_task(
+            "architecture_synthesis",
+            None,
+            {"pipelineId": "pipe-test", "stage": 1},
+            "inference",
+        )
+        blocked = server.store.create_task(
+            "verification_suite",
+            None,
+            {
+                "pipelineId": "pipe-test",
+                "stage": 3,
+                "dependsOnTaskId": dependency["taskId"],
+            },
+            "compute",
+        )
+        server.store.db.execute(
+            "UPDATE tasks SET status='QUEUED', assigned_worker_id=? WHERE task_id=?",
+            (worker, blocked["taskId"]),
+        )
+        server.store.db.commit()
+
+        listed = server.dispatch(
+            "ListTasks",
+            {"status": "PENDING_WORKER", "workerId": worker},
+        )
+        self.assertNotIn(blocked["taskId"], {row["taskId"] for row in listed["tasks"]})
+
+        row = server.store.db.execute(
+            "SELECT status, assigned_worker_id FROM tasks WHERE task_id=?",
+            (blocked["taskId"],),
+        ).fetchone()
+        self.assertEqual(row[0], "PENDING_WORKER")
+        self.assertIsNone(row[1])
+
     def test_pipeline_state_finalizes_from_real_task_statuses(self):
         res = server.dispatch("ExecuteAutonomousPipeline", {"goal": "test pipeline finalization"})
         pipeline_id = res["pipelineId"]
