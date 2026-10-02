@@ -10394,6 +10394,9 @@ button,
                 lastSpeechEndTime = Date.now();
                 setAvatarSignal("IDLE");
                 setAudioDucking(false);
+                if (typeof window.setKokoroStatus === "function") {
+                    window.setKokoroStatus("Ready · " + kokoroVoice, false);
+                }
                 morphTargets.jawOpen = 0;
                 updateMorphMeters();
                 hideInterruptPill();
