@@ -154,6 +154,22 @@
             if (label) label.textContent = nativeLiveActive ? "LIVE VOICE: ACTIVE" : "LIVE VOICE";
         }
 
+        var liveConvBtn = document.getElementById("live-conv-btn");
+        if (liveConvBtn) {
+            liveConvBtn.classList.toggle("active", nativeLiveActive);
+            var liveConvText = document.getElementById("live-conv-btn-text");
+            if (liveConvText) {
+                liveConvText.textContent = nativeLiveActive
+                    ? "LIVE CONVERSATION: ACTIVE"
+                    : "LIVE CONVERSATION";
+            }
+        }
+
+        var liveConvHud = document.getElementById("live-conv-hud");
+        if (liveConvHud) {
+            liveConvHud.classList.toggle("active", nativeLiveActive);
+        }
+
         var modeButton = document.getElementById("live-mode-toggle-btn");
         if (modeButton) {
             modeButton.textContent =
@@ -655,6 +671,7 @@
                 "this.buffer=[];" +
                 "this.phase=0;" +
                 "this.ratio=sampleRate/16000;" +
+                "this.out=[];" +
                 "this.speechSeen=false;" +
                 "this.silenceMs=0;" +
                 "this.vadThreshold=0.012;" +
@@ -664,45 +681,42 @@
                 "const input=inputs[0]&&inputs[0][0];" +
                 "if(!input||!input.length)return true;" +
                 "for(let i=0;i<input.length;i++)this.buffer.push(input[i]);" +
-                "const out=[];" +
                 "while(this.phase+1<this.buffer.length){" +
                     "const i=Math.floor(this.phase),f=this.phase-i;" +
                     "const a=this.buffer[i]||0,b=this.buffer[i+1]||a;" +
-                    "out.push(a+(b-a)*f);this.phase+=this.ratio;" +
+                    "this.out.push(a+(b-a)*f);this.phase+=this.ratio;" +
                 "}" +
                 "const consume=Math.floor(this.phase);" +
                 "if(consume>0){this.buffer=this.buffer.slice(consume);this.phase-=consume;}" +
-                "if(out.length){" +
-                    "let cursor=0;" +
-                    "while(cursor+640<=out.length){" +
-                        "const pcm=new Int16Array(640);" +
-                        "let sum=0;" +
-                        "for(let n=0;n<640;n++){" +
-                            "let v=Math.max(-1,Math.min(1,out[cursor+n]));" +
-                            "pcm[n]=v<0?v*32768:v*32767;" +
-                            "sum+=v*v;" +
-                        "}" +
-                        "const rms=Math.sqrt(sum/640);" +
-                        "const speech=rms>=this.vadThreshold;" +
-                        "if(speech){" +
-                            "this.speechSeen=true;" +
-                            "this.silenceMs=0;" +
-                        "}else if(this.speechSeen){" +
-                            "this.silenceMs+=40;" +
-                        "}" +
-                        "this.port.postMessage({" +
-                            "pcm:pcm.buffer," +
-                            "speech:speech," +
-                            "speechEnded:(" +
-                                "this.speechSeen&&" +
-                                "this.silenceMs>=this.endSilenceMs" +
-                            ")" +
-                        "},[pcm.buffer]);" +
-                        "if(this.speechSeen&&this.silenceMs>=this.endSilenceMs){" +
-                            "this.speechSeen=false;" +
-                            "this.silenceMs=0;" +
-                        "}" +
-                        "cursor+=640;" +
+                "while(this.out.length>=640){" +
+                    "const chunk=this.out.slice(0,640);" +
+                    "this.out=this.out.slice(640);" +
+                    "const pcm=new Int16Array(640);" +
+                    "let sum=0;" +
+                    "for(let n=0;n<640;n++){" +
+                        "let v=Math.max(-1,Math.min(1,chunk[n]));" +
+                        "pcm[n]=v<0?v*32768:v*32767;" +
+                        "sum+=v*v;" +
+                    "}" +
+                    "const rms=Math.sqrt(sum/640);" +
+                    "const speech=rms>=this.vadThreshold;" +
+                    "if(speech){" +
+                        "this.speechSeen=true;" +
+                        "this.silenceMs=0;" +
+                    "}else if(this.speechSeen){" +
+                        "this.silenceMs+=40;" +
+                    "}" +
+                    "this.port.postMessage({" +
+                        "pcm:pcm.buffer," +
+                        "speech:speech," +
+                        "speechEnded:(" +
+                            "this.speechSeen&&" +
+                            "this.silenceMs>=this.endSilenceMs" +
+                        ")" +
+                    "},[pcm.buffer]);" +
+                    "if(this.speechSeen&&this.silenceMs>=this.endSilenceMs){" +
+                        "this.speechSeen=false;" +
+                        "this.silenceMs=0;" +
                     "}" +
                 "}" +
                 "return true;" +
@@ -1144,6 +1158,9 @@
 
     function toggleNativeLiveConversation() {
         if (nativeLiveActive) return stopNativeLive();
+        try {
+            if (typeof switchTab === "function") switchTab("dialogue");
+        } catch (_) {}
         return startNativeLive(nativeLiveMode);
     }
 
@@ -1175,8 +1192,7 @@
     window.toggleLiveConversation = toggleNativeLiveConversation;
     window.handleOrbClick = handleNativeOrbClick;
 
-    // Keep the standard "live" controls pointed at the native stack.
-    document.addEventListener("DOMContentLoaded", function () {
+    function initLiveVoiceControls() {
         var starter = document.querySelector(".simple-starter-card[onclick*='startSimpleVoice']");
         if (starter) starter.setAttribute("onclick", "startSarembokLiveVoice()");
 
@@ -1191,6 +1207,16 @@
             liveBtn.setAttribute("onclick", "toggleLiveConversation()");
             var label = liveBtn.querySelector("span");
             if (label) label.textContent = "LIVE VOICE";
+        }
+
+        var liveConvBtn = document.getElementById("live-conv-btn");
+        if (liveConvBtn) {
+            liveConvBtn.setAttribute("onclick", "toggleLiveConversation()");
+        }
+
+        var orb = document.getElementById("live-conv-orb");
+        if (orb) {
+            orb.setAttribute("onclick", "handleOrbClick()");
         }
 
         var kokoroBtn = document.getElementById("srbk-kokoro-btn");
@@ -1216,7 +1242,13 @@
 
         var kokoroTest = document.getElementById("srbk-kokoro-test");
         if (kokoroTest) kokoroTest.textContent = "▶ TEST FALLBACK VOICE";
-    });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initLiveVoiceControls);
+    } else {
+        initLiveVoiceControls();
+    }
 
     window.addEventListener("pagehide", function () {
         try { void stopNativeLive(); } catch (_) {}
