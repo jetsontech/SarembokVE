@@ -6186,7 +6186,7 @@ button,
 <script>
 </script>
 
-<link rel="stylesheet" href="/frontier-chat.css?v=20261002">
+<link rel="stylesheet" href="/frontier-chat.css?v=20261002-ui2">
 </head>
 <body>
 <form id="srbk-admin-passcode-form" style="display:none" onsubmit="return false;"></form>
@@ -13635,14 +13635,10 @@ button,
 
         function initUiMode() {
             try {
-                const saved = localStorage.getItem('sarembok_ui_mode_v2');
-                if (saved === 'cockpit') {
-                    setUiMode('cockpit', false);
-                } else {
-                    setUiMode('simple', false);
-                }
+                localStorage.setItem('sarembok_ui_mode_v2', 'simple');
+                setUiMode('simple', false);
             } catch(e) {
-                setUiMode('cockpit', false);
+                setUiMode('simple', false);
             }
         }
 
@@ -13779,9 +13775,8 @@ button,
             if (!listEl) return;
 
             try {
-                const res = await fetch("/api/background-tasks");
-                const data = await res.json();
-                const tasks = data.tasks || [];
+                const data = await sendRPC("ListTasks", {});
+                const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
                 if (countEl) countEl.textContent = tasks.length;
 
                 if (tasks.length === 0) {
@@ -13791,13 +13786,13 @@ button,
 
                 let html = "";
                 tasks.forEach(t => {
-                    const isCommitted = t.committed === 1;
-                    const statusText = isCommitted ? "COMMITTED" : "ROLLED BACK / HALTED";
-                    const badgeClass = isCommitted ? "good" : "warn";
+                    const state = String(t.status || "UNKNOWN").toUpperCase();
+                    const statusText = state;
+                    const badgeClass = state === "COMPLETED" ? "good" : (["FAILED","CANCELLED"].includes(state) ? "warn" : "running");
                     let payloadStr = t.payload;
                     try {
-                        const parsed = JSON.parse(t.payload);
-                        payloadStr = parsed.directive || parsed.text || parsed.error || JSON.stringify(parsed);
+                        const parsed = typeof t.payload === "string" ? JSON.parse(t.payload) : (t.payload || {});
+                        payloadStr = parsed.directive || parsed.text || parsed.prompt || parsed.error || JSON.stringify(parsed);
                     } catch (e) {}
 
                     html += `
@@ -15048,20 +15043,20 @@ function globalSendMessage(isBackground) {
 }
 
 function globalMicToggle() {
-    // Reuse existing mic toggle — mirror focus to directive-input first
+    // Primary visible mic: native Gemini Live owns the microphone for 2-way conversation.
+    const btn = document.getElementById('global-mic-btn');
+    if (typeof toggleLiveConversation === 'function') {
+        void toggleLiveConversation();
+        if (btn) setTimeout(() => {
+            const liveBtn = document.getElementById('dialogue-mic-btn');
+            const active = !!(liveBtn && (liveBtn.classList.contains('active') || liveBtn.classList.contains('recording')));
+            btn.classList.toggle('recording', active);
+        }, 150);
+        return;
+    }
     const real = document.getElementById('directive-input');
     if (real) real.focus();
     if (typeof toggleSpeechRecognition === 'function') toggleSpeechRecognition();
-    // Sync recording state visual to global mic btn
-    const btn = document.getElementById('global-mic-btn');
-    if (btn) {
-        const realBtn = document.getElementById('dialogue-mic-btn');
-        if (realBtn) {
-            setTimeout(() => {
-                btn.classList.toggle('recording', realBtn.classList.contains('recording'));
-            }, 100);
-        }
-    }
 }
 
 function globalCameraToggle() {
