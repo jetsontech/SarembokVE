@@ -23,6 +23,7 @@ DerivedDataCache/
 
 # Virtual Environment
 venv/
+.sarembok-worker-venv/
 __pycache__/
 *.backup*
 *.before-*

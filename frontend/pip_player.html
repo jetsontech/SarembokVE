@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sarembok Media · Always-On-Top PiP</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: #000000;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+        }
+        body.in-frame .pip-header {
+            display: none !important;
+        }
+        body.in-frame .pip-frame-wrap {
+            height: 100% !important;
+        }
+        .pip-header {
+            height: 32px;
+            background: #040916;
+            border-bottom: 1px solid rgba(0, 240, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        .pip-title {
+            color: #00f0ff;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 80%;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .pip-badge {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            background: #00ff88;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #00ff88;
+        }
+        .pip-close-btn {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+            font-size: 10px;
+            padding: 2px 7px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .pip-close-btn:hover {
+            background: #ef4444;
+            color: #ffffff;
+        }
+        .pip-frame-wrap {
+            flex: 1;
+            width: 100%;
+            height: calc(100% - 32px);
+            position: relative;
+            background: #000000;
+        }
+        iframe, video {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="pip-header">
+        <div class="pip-title">
+            <span class="pip-badge"></span>
+            <span id="pip-title-text">SAREMBOK MEDIA · ALWAYS-ON-TOP</span>
+        </div>
+        <button class="pip-close-btn" onclick="window.close()" title="Close Player">✕</button>
+    </div>
+    <div class="pip-frame-wrap" id="player-container"></div>
+    <script>
+        (function() {
+            if (window.self !== window.top) {
+                document.body.classList.add("in-frame");
+            }
+            const params = new URLSearchParams(window.location.search);
+            const v = params.get("v") || params.get("id");
+            const rawUrl = params.get("url");
+            const title = params.get("title");
+            if (title) {
+                try {
+                    document.getElementById("pip-title-text").textContent = decodeURIComponent(title).toUpperCase();
+                    document.title = decodeURIComponent(title) + " · Always-On-Top";
+                } catch(_) {}
+            }
+            const container = document.getElementById("player-container");
+            if (v) {
+                const origin = encodeURIComponent(window.location.origin);
+                const iframe = document.createElement("iframe");
+                iframe.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(v)}?autoplay=1&enablejsapi=1&origin=${origin}&rel=0`;
+                iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+                iframe.referrerPolicy = "strict-origin-when-cross-origin";
+                iframe.allowFullscreen = true;
+                container.appendChild(iframe);
+            } else if (rawUrl) {
+                const clean = decodeURIComponent(rawUrl);
+                if (clean.includes("youtube.com") || clean.includes("youtu.be")) {
+                    const match = clean.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+                    const ytId = match ? match[1] : "";
+                    if (ytId) {
+                        const origin = encodeURIComponent(window.location.origin);
+                        const iframe = document.createElement("iframe");
+                        iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&enablejsapi=1&origin=${origin}&rel=0`;
+                        iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+                        iframe.referrerPolicy = "strict-origin-when-cross-origin";
+                        iframe.allowFullscreen = true;
+                        container.appendChild(iframe);
+                        return;
+                    }
+                }
+                const video = document.createElement("video");
+                video.src = clean;
+                video.controls = true;
+                video.autoplay = true;
+                container.appendChild(video);
+            }
+        })();
+    </script>
+</body>
+</html>

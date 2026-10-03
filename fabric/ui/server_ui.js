@@ -16,7 +16,8 @@ const MIME_TYPES = {
     '.svg': 'image/svg+xml',
     '.json': 'application/json',
     '.js': 'text/javascript',
-    '.css': 'text/css'
+    '.css': 'text/css',
+    '.html': 'text/html'
 };
 
 // Zero-dependency SQLite interface: Use better-sqlite3 if present, otherwise native node:sqlite DatabaseSync
