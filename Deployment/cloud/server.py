@@ -54,6 +54,12 @@ from structured_response import build_structured_response
 from datetime import datetime, timezone
 from typing import Any
 
+from sarembok_distributed_tracing import tracer, Span
+from sarembok_event_bus import event_bus, CloudEvent
+from sarembok_cdc import cdc_pipeline, CDCOperation
+from sarembok_vector_store import vector_store
+from sarembok_reasoning_engine import reasoning_engine, DomainType
+
 import websockets
 
 PORT = int(os.getenv("SAREMBOK_PORT", "9000"))
@@ -2899,7 +2905,7 @@ def sarembok_process_dialogue(
 
 
 def _save_conversation(session_id: str, user_msg: str, assistant_msg: str) -> None:
-    """Save both sides of a conversation turn to persistent storage."""
+    """Save both sides of a conversation turn to persistent storage, emit CDC mutations, and index vectors."""
     stamp = now()
     try:
         store.db.execute("INSERT INTO conversations(session_id, role, content, created_at) VALUES(?,?,?,?)",
@@ -2907,11 +2913,120 @@ def _save_conversation(session_id: str, user_msg: str, assistant_msg: str) -> No
         store.db.execute("INSERT INTO conversations(session_id, role, content, created_at) VALUES(?,?,?,?)",
                          (session_id, "assistant", assistant_msg, stamp))
         store.db.commit()
+
+        # Real-time Change Data Capture (CDC) stream
+        try:
+            loop = None
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                pass
+            if loop and loop.is_running():
+                loop.create_task(cdc_pipeline.capture_insert("conversations", {"session_id": session_id, "role": "user", "content": user_msg, "created_at": stamp}))
+                loop.create_task(cdc_pipeline.capture_insert("conversations", {"session_id": session_id, "role": "assistant", "content": assistant_msg, "created_at": stamp}))
+        except Exception as cdc_err:
+            LOG.debug("CDC capture deferral: %s", cdc_err)
+
+        # Real-time Semantic Vector Indexing
+        try:
+            vector_store.insert(
+                collection="conversations",
+                record_id=f"conv_{secrets.token_hex(6)}",
+                document=f"User: {user_msg}\nAssistant: {assistant_msg}",
+                metadata={"session_id": session_id, "timestamp": stamp}
+            )
+        except Exception as vec_err:
+            LOG.debug("Vector indexing deferral: %s", vec_err)
+
     except Exception as e:
         LOG.warning("Failed to save conversation: %s", e)
 
 
 def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
+    with tracer.start_span(f"rpc.{method}", attributes={"rpc.method": method}):
+        return _dispatch_internal(method, params)
+
+
+def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
+    # Enterprise Distributed Tracing, Event Pub/Sub, CDC & Vector Endpoints
+    if method == "GetTraces":
+        limit = int(params.get("limit", 50))
+        trace_id = params.get("trace_id") or params.get("traceId")
+        name_filter = params.get("name")
+        status = params.get("status")
+        return {"traces": tracer.get_traces(limit=limit, trace_id=trace_id, name_filter=name_filter, status=status)}
+
+    if method == "PublishEvent":
+        topic = str(params.get("topic") or "sarembok.events").strip()
+        data = params.get("data")
+        source = str(params.get("source") or "sarembok.rpc").strip()
+        try:
+            loop = None
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                pass
+            if loop and loop.is_running():
+                future = asyncio.run_coroutine_threadsafe(
+                    event_bus.publish(topic=topic, event_or_data=data, source=source),
+                    loop
+                )
+                evt = future.result(timeout=5)
+                return {"published": True, "event": evt.to_dict()}
+            else:
+                evt = asyncio.run(event_bus.publish(topic=topic, event_or_data=data, source=source))
+                return {"published": True, "event": evt.to_dict()}
+        except Exception as err:
+            return {"published": False, "error": str(err)}
+
+    if method == "GetTopicEvents":
+        topic = str(params.get("topic") or "").strip()
+        limit = int(params.get("limit", 50))
+        return {"topic": topic, "events": event_bus.get_topic_events(topic=topic, limit=limit)}
+
+    if method == "GetCDCChanges":
+        table = params.get("table")
+        limit = int(params.get("limit", 50))
+        return {"changes": cdc_pipeline.get_change_log(table=table, limit=limit)}
+
+    if method == "QueryVectorStore":
+        collection = str(params.get("collection") or "knowledge_base").strip()
+        query = str(params.get("query") or "").strip()
+        top_k = int(params.get("top_k", 5))
+        min_score = float(params.get("min_score", 0.0))
+        metadata_filter = params.get("filter")
+        return {
+            "collection": collection,
+            "results": vector_store.query(
+                collection=collection,
+                query=query,
+                top_k=top_k,
+                min_score=min_score,
+                filter_metadata=metadata_filter
+            )
+        }
+
+    if method == "InsertVector":
+        collection = str(params.get("collection") or "knowledge_base").strip()
+        record_id = str(params.get("id") or f"vec_{secrets.token_hex(6)}").strip()
+        document = str(params.get("document") or "").strip()
+        metadata = params.get("metadata") or {}
+        rec = vector_store.insert(collection=collection, record_id=record_id, document=document, metadata=metadata)
+        return {"inserted": True, "record": rec.to_dict()}
+
+    if method == "ReasonAndAdapt":
+        query = str(params.get("query") or "").strip()
+        domains = reasoning_engine.classify_domains(query)
+        context = reasoning_engine.build_cross_domain_context(domains, query)
+        plan_steps = params.get("plan_steps") or []
+        verification = reasoning_engine.verify_plan(plan_steps, domains[0]) if plan_steps else None
+        return {
+            "query": query,
+            "classified_domains": domains,
+            "domain_context": context,
+            "verification": verification,
+        }
+
     if method in ("SearchYouTube", "ResolveMediaStream"):
         query = str(params.get("query") or params.get("topic") or "").strip()
         return resolve_youtube_search(query)
