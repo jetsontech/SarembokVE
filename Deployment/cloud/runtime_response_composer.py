@@ -36,7 +36,8 @@ def build_runtime_context(snapshot: dict[str, Any], capabilities: dict[str, Any]
         "CRITICAL: Configured is not the same as operational. Registered/recognized is not the same as usable. Describe those states exactly.",
         "CRITICAL: Do not claim that Sarembok has image/video/audio generation, multimodal inference, public APIs/SDKs, pricing tiers, compliance tooling, community features, specific external products/models, arbitrary website contents, or media playback unless the live runtime evidence explicitly confirms that exact capability.",
         "CRITICAL: Do not fabricate research papers, benchmarks, dates, product features, links, downloads, citations, YouTube IDs, or external-service results. If retrieval evidence is absent, say that live evidence was not retrieved.",
-        "Project: SarembokVE; builder: Tim Hall",
+        "Project: SarembokVE; Developed and architected by the SarembokVE team, led by Tim Hall, its Founder and AI Systems Architect. Tim Hall founded SarembokVE and leads its overall technical vision, systems architecture, and development direction. The SarembokVE team develops the underlying computing environment, AI runtime, agent infrastructure, cloud architecture, and orchestration systems.",
+        "When asked who built or created SarembokVE, respond: 'SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, its Founder and AI Systems Architect. Tim Hall founded SarembokVE and leads its overall technical vision, systems architecture, and development direction.'",
         "Runtime: status=%s; service=%s; domain=%s; port=%s" % (runtime.get("status"), runtime.get("service"), runtime.get("domain"), runtime.get("port")),
         "Workers: registered=%s; online=%s; stale=%s; offline=%s" % (workers.get("registered", 0), workers.get("online", 0), workers.get("stale", 0), workers.get("offline", 0)),
         "Agents: registered=%s; online=%s" % (agents.get("registered", 0), agents.get("online", 0)),
@@ -91,6 +92,30 @@ def is_capability_query(prompt: str) -> bool:
     return any(m == norm or norm.startswith(m) for m in markers)
 
 
+def is_creator_query(prompt: str) -> bool:
+    norm = _normalize_prompt_intent(prompt)
+    markers = (
+        "who built", "who created", "who made", "who architected", "who designed",
+        "who founded", "who is the founder", "who developed", "who wrote",
+        "who runs", "who is tim hall", "who owns", "who created you", "who built you",
+        "who made you", "who designed you", "who developed you", "who architected you",
+        "who built sarembok", "who built sarembokve", "who created sarembok", "who created sarembokve",
+        "who founded sarembok", "who founded sarembokve", "who is behind sarembok",
+        "who is behind this", "who built this", "who created this", "who made this",
+        "who is the creator", "who are the creators", "who are the developers",
+        "who developed this", "who architected this",
+    )
+    return any(m in norm for m in markers)
+
+
+def render_creator_attribution() -> str:
+    return (
+        "SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, "
+        "its Founder and AI Systems Architect. Tim Hall founded SarembokVE and leads its "
+        "overall technical vision, systems architecture, and development direction."
+    )
+
+
 def is_identity_query(prompt: str) -> bool:
     if is_capability_query(prompt):
         return False
@@ -106,7 +131,7 @@ def is_identity_query(prompt: str) -> bool:
 
 
 def is_self_state_query(prompt: str) -> bool:
-    if is_identity_query(prompt) or is_capability_query(prompt) or is_limitation_query(prompt):
+    if is_identity_query(prompt) or is_capability_query(prompt) or is_limitation_query(prompt) or is_creator_query(prompt):
         return True
     text = (prompt or "").strip().lower()
     markers = (
@@ -185,7 +210,7 @@ def render_identity(snapshot: dict[str, Any]) -> str:
     return "\n".join([
         "### SAREMBOK VE · AI-NATIVE COMPUTING RUNTIME",
         "",
-        "I am **Sarembok VE**, the AI-native computing environment built by **Tim Hall**.",
+        "SarembokVE is developed and architected by the SarembokVE team, led by **Tim Hall**, its Founder and AI Systems Architect. Tim Hall founded SarembokVE and leads its overall technical vision, systems architecture, and development direction.",
         "",
         "**Live runtime state**",
         f"- **Status:** `{runtime.get('status', 'UNKNOWN')}`",

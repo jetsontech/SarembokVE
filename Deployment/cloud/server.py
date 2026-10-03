@@ -36,11 +36,13 @@ from runtime_authority import snapshot as runtime_authority_snapshot
 from runtime_response_composer import (
     build_runtime_context,
     is_capability_query,
+    is_creator_query,
     is_identity_query,
     is_limitation_query,
     is_self_state_query,
     is_worker_prune_query,
     render_capabilities,
+    render_creator_attribution,
     render_identity,
     render_limitations,
     render_model_inventory,
@@ -2545,12 +2547,25 @@ def sarembok_process_dialogue(
             "metadata": {"provider": "runtime_authority", "model": "runtime-authority"}
         }
 
+    if is_creator_query(prompt_clean):
+        attr_reply = render_creator_attribution()
+        _save_conversation(session_id, prompt_clean, attr_reply)
+        return {
+            "response": attr_reply,
+            "audioText": attr_reply,
+            "source": "runtime_authority",
+            "model": "runtime-authority",
+            "action": None,
+            "structuredResponse": build_structured_response(attr_reply, provider="runtime_authority", model="runtime-authority"),
+            "metadata": {"provider": "runtime_authority", "model": "runtime-authority"}
+        }
+
     if is_identity_query(prompt_clean):
         id_reply = render_identity(authority_snapshot)
         _save_conversation(session_id, prompt_clean, id_reply)
         return {
             "response": id_reply,
-            "audioText": "Sarembok VE was built by Tim Hall. It is the AI-native computing environment and runtime you are interacting with.",
+            "audioText": "SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, its Founder and AI Systems Architect. Tim Hall founded SarembokVE and leads its overall technical vision, systems architecture, and development direction.",
             "source": "runtime_authority",
             "model": "runtime-authority",
             "action": None,
@@ -2588,6 +2603,7 @@ def sarembok_process_dialogue(
         "==================== SAREMBOK RESPONSE TRUTH BOUNDARY ====================",
         "Answer the user's actual question directly and preserve all material parts of the answer.",
         "Never invent Sarembok's creator, architecture, capabilities, providers, models, web results, media URLs, or generation results.",
+        "SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, its Founder and AI Systems Architect. Tim Hall founded SarembokVE and leads its overall technical vision, systems architecture, and development direction. When asked who built or created SarembokVE, state this truth clearly.",
         "Use Runtime Authority for Sarembok identity, capabilities, status, workers, memory, and provider facts.",
         "Use live retrieval/tool evidence for current web or repository content; if retrieval fails, say so instead of fabricating content.",
         "Do not claim image generation is available unless the live visual engine reports an operational provider/worker and an actual generation result exists.",
