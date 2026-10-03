@@ -2765,6 +2765,7 @@ def sarembok_process_dialogue(
         provider_latency_ms = provider_result.latency_ms
         provider_api = provider_result.api
         provider_usage = provider_result.usage
+        provider_task = getattr(provider_result, "task_category", "GENERAL")
 
         if image_frame:
             try:
@@ -2842,9 +2843,10 @@ def sarembok_process_dialogue(
             "audioText": _spoken_clean(reply),
             "source": source,
             "model": active_model,
+            "taskCategory": provider_task,
             "action": None,
             "structuredResponse": build_structured_response(reply, provider=source, model=active_model, latency_ms=provider_latency_ms),
-            "metadata": {"provider": source, "model": active_model, "latency_ms": provider_latency_ms, "provider_api": provider_api, "usage": provider_usage}
+            "metadata": {"provider": source, "model": active_model, "taskCategory": provider_task, "latency_ms": provider_latency_ms, "provider_api": provider_api, "usage": provider_usage}
         }
         if recalled_memories_payload:
             result["recalledMemories"] = recalled_memories_payload

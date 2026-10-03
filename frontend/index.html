@@ -530,6 +530,40 @@
             color: var(--amber);
             border: 1px solid rgba(245, 158, 11, 0.3);
         }
+        .cyber-card-badge.green {
+            background: rgba(16, 185, 129, 0.12);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .srbk-structured-meta {
+            margin-top: 8px;
+            padding-top: 6px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .srbk-meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10px;
+            font-family: var(--font-mono, monospace);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--cyan, #00f0ff);
+            background: rgba(0, 240, 255, 0.08);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            border-radius: 4px;
+            padding: 2px 8px;
+        }
+        .srbk-meta-chip.runtime {
+            color: #10b981;
+            background: rgba(16, 185, 129, 0.08);
+            border-color: rgba(16, 185, 129, 0.25);
+        }
 
         .cyber-card-body {
             flex: 1;
@@ -6534,7 +6568,7 @@ button,
                         <div class="ws-bubble-body">
                             <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
                                 <span class="cyber-card-badge cyan" style="font-size:10px; padding:2px 8px;">SOVEREIGN RUNTIME</span>
-                                <span class="cyber-card-badge amber" style="font-size:10px; padding:2px 8px;">GEMINI 3.8 FLASH</span>
+                                <span class="cyber-card-badge cyan" style="font-size:10px; padding:2px 8px;" id="ws-model-badge">DYNAMIC TASK ENGINE</span>
                             </div>
                             <h2 style="font-family:var(--font-display); font-size:18px; margin:0 0 8px 0; color:#ffffff;">
                                 Welcome to Sarembok V E
@@ -6973,11 +7007,12 @@ button,
                     <div class="dialogue-title">SAREMBOK · SOVEREIGN DIALOGUE &amp; SYNTHESIS</div>
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                         <select class="cyber-select" id="active-model-select" onchange="onModelChange(this.value)" title="Active AI Model Engine">
-                            <option value="gpt-4o-mini">GPT-4o Mini (Fast · Ultra-Responsive)</option>
+                            <option value="auto" selected>⚡ Auto (Dynamic Task-Optimized)</option>
+                            <option value="gemini-flash">Gemini 3.8 Flash (Massive Context · Fast)</option>
+                            <option value="qwen-2.5-coder">Qwen 2.5 Coder (Code & Architecture)</option>
                             <option value="llama-3.3-70b">Llama 3.3 70B (Deep Reasoning)</option>
                             <option value="deepseek-v3">DeepSeek V3 (Advanced Synthesis)</option>
-                            <option value="qwen-2.5-coder">Qwen 2.5 Coder (Code & Architecture)</option>
-                            <option value="gemini-flash">Gemini 3.8 Flash (Massive Context)</option>
+                            <option value="gpt-4o-mini">GPT-4o Mini (Ultra-Responsive)</option>
                         </select>
                         <select class="cyber-select" id="active-language-select" onchange="onLanguageChange(this.value)" title="Language">
                             <option value="en">English (EN)</option>
@@ -6993,7 +7028,7 @@ button,
                             <span class="admin-exec-dot"></span>
                             <span id="admin-exec-btn-text">ADMIN: OFF</span>
                         </button>
-                        <div class="cyber-card-badge cyan" id="dialogue-gpu-badge" title="Active Engine">ENGINE: RUNTIME-AUTHORITY</div>
+                        <div class="cyber-card-badge cyan" id="dialogue-gpu-badge" title="Active Engine">ENGINE: AUTO (DYNAMIC TASK ROUTING)</div>
                         <button class="dialogue-voice-chip" id="dialogue-voice-toggle-chip" onclick="toggleVoiceOutput()" title="Toggle voice narration">
                             <span class="voice-chip-dot"></span>
                             <span id="dialogue-voice-chip-text">VOICE: ON</span>
@@ -9386,11 +9421,33 @@ button,
                 : {};
             const provider = String(meta.provider || "").trim();
             const model = String(meta.model || "").trim();
-            if (provider || model) {
-                body += `<div class="srbk-structured-meta">${provider ? `<span>PROVIDER: ${escapeHtml(provider)}</span>` : ""}${model ? `<span>MODEL: ${escapeHtml(model)}</span>` : ""}</div>`;
+            const taskCategory = String(meta.taskCategory || "").trim();
+
+            if (provider === "runtime_authority" || model === "runtime-authority") {
+                body += `<div class="srbk-structured-meta"><span class="srbk-meta-chip runtime">⚡ SAREMBOK CORE RUNTIME · AUTHORITATIVE</span></div>`;
+            } else if (provider || model) {
+                let cleanProv = provider;
+                let cleanMod = model;
+                if (cleanMod.includes("/")) cleanMod = cleanMod.split("/").pop();
+                cleanMod = cleanMod.replace(/-/g, " ").toUpperCase();
+                const taskBadge = (taskCategory && taskCategory !== "MANUAL" && taskCategory !== "GENERAL") ? ` · ${escapeHtml(taskCategory)}` : "";
+                body += `<div class="srbk-structured-meta"><span class="srbk-meta-chip">⚡ ${escapeHtml(cleanProv)} · ${escapeHtml(cleanMod)}${taskBadge}</span></div>`;
             }
             return body || (text ? md(text) : "");
         }
+
+        window.onModelChange = function(val) {
+            const badge = document.getElementById("dialogue-gpu-badge");
+            if (!badge) return;
+            if (val === "auto") {
+                badge.textContent = "ENGINE: AUTO (DYNAMIC TASK ROUTING)";
+                badge.className = "cyber-card-badge cyan";
+            } else {
+                let cleanName = val.replace(/-/g, " ").toUpperCase();
+                badge.textContent = `ENGINE: ${cleanName} (MANUAL)`;
+                badge.className = "cyber-card-badge amber";
+            }
+        };
 
         function md(text) {
             if (!text) return "";
@@ -10142,7 +10199,7 @@ button,
             let streamedSpeechStarted = false;
 
             try {
-                const selectedModel = document.getElementById("active-model-select")?.value || "gemini-flash";
+                const selectedModel = document.getElementById("active-model-select")?.value || "auto";
                 const selectedLang = document.getElementById("active-language-select")?.value || "en";
                 const isAdm = Boolean(window.adminExecutionActive || text.startsWith("/admin") || text.startsWith("/exec") || text.startsWith("/sh") || text.startsWith("/py"));
                 const userKey = localStorage.getItem("sarembok_user_api_key") || "";
@@ -10218,10 +10275,23 @@ button,
                 if (engineBadge) {
                     const provider = String(result?.metadata?.provider || result?.source || "").trim();
                     const modelName = String(result?.metadata?.model || result?.model || "").trim();
-                    const label = provider && modelName && provider !== modelName
-                        ? provider + " / " + modelName
-                        : modelName || provider || "RUNTIME";
-                    engineBadge.textContent = "ENGINE: " + label.toUpperCase();
+                    const taskCat = String(result?.metadata?.taskCategory || result?.taskCategory || "").trim();
+
+                    if (provider === "runtime_authority" || modelName === "runtime-authority") {
+                        engineBadge.textContent = "ENGINE: SAREMBOK CORE RUNTIME";
+                        engineBadge.className = "cyber-card-badge green";
+                    } else {
+                        let cleanModel = modelName;
+                        if (cleanModel.includes("/")) cleanModel = cleanModel.split("/").pop();
+                        cleanModel = cleanModel.replace(/-/g, " ").toUpperCase();
+
+                        if (taskCat && taskCat !== "MANUAL" && taskCat !== "GENERAL") {
+                            engineBadge.textContent = `ENGINE: DYNAMIC · ${taskCat} (${cleanModel})`;
+                        } else {
+                            engineBadge.textContent = `ENGINE: ${cleanModel}`;
+                        }
+                        engineBadge.className = "cyber-card-badge cyan";
+                    }
                 }
                 if (result?.structuredResponse && typeof window.renderStructuredResponse === "function") {
                     content.innerHTML = renderStructuredResponse(result.structuredResponse) || md(finalText);

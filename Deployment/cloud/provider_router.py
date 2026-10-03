@@ -49,6 +49,7 @@ class ProviderResult:
     api: str
     usage: dict[str, Any] = field(default_factory=dict)
     ttft_ms: float | None = None
+    task_category: str = "GENERAL"
 
 
 class ProviderRouter:
@@ -125,10 +126,63 @@ class ProviderRouter:
             usage['_finish_reason'] = finish_reason
         return text, usage
 
+    @staticmethod
+    def classify_task_intent(prompt: str, image_frame: str | None = None) -> tuple[str, str]:
+        """Classify prompt into (task_category, recommended_model_alias).
+        Returns:
+            (category, model_alias)
+            category: 'CODE' | 'REASONING' | 'SYNTHESIS' | 'VISION' | 'FAST'
+            model_alias: 'qwen-2.5-coder' | 'llama-3.3-70b' | 'deepseek-v3' | 'gemini-flash'
+        """
+        if image_frame:
+            return 'VISION', 'gemini-flash'
+
+        text = (prompt or '').strip().lower()
+
+        # 1. Code & Architecture detection
+        code_markers = (
+            'def ', 'function', 'class ', 'import ', 'return ', 'const ', 'let ', 'var ',
+            'python', 'javascript', 'typescript', 'golang', 'rust', 'c++', 'c#', 'java',
+            'html', 'css', 'sql', 'regex', 'bash', 'shell', 'script', 'dockerfile',
+            'git ', 'github', 'endpoint', 'api', 'json', 'yaml', 'xml',
+            'refactor', 'debug', 'bug', 'syntax error', 'stack trace', 'exception',
+            'write a code', 'write code', 'code for', 'algorithm', 'function to',
+            'component', 'backend', 'frontend', 'database', 'query', 'unittest',
+            'pytest', 'pull request', 'merge', 'repo', 'repository'
+        )
+        if '```' in (prompt or '') or any(m in text for m in code_markers):
+            return 'CODE', 'qwen-2.5-coder'
+
+        # 2. Deep Reasoning & Math & Logic detection
+        reasoning_markers = (
+            'solve', 'proof', 'prove', 'derive', 'equation', 'integral', 'derivative',
+            'calculus', 'algebra', 'matrix', 'theorem', 'step-by-step reasoning',
+            'chain of thought', 'logic puzzle', 'riddle', 'probability', 'statistics',
+            'combinatorics', 'deduce', 'deduction', 'formal logic', 'mathematical',
+            'pros and cons analysis', 'decision matrix', 'root cause analysis',
+            'optimization problem', 'game theory', 'nash equilibrium'
+        )
+        if any(m in text for m in reasoning_markers):
+            return 'REASONING', 'llama-3.3-70b'
+
+        # 3. Advanced Synthesis, Creative & Long-form Writing
+        synthesis_markers = (
+            'write an essay', 'write a story', 'compose a poem', 'write a poem',
+            'dialogue between', 'screenplay', 'creative writing', 'philosophical',
+            'philosophy of', 'in-depth analysis', 'synthesize', 'literature review',
+            'critique', 'draft an email', 'speech for', 'biography of', 'novel',
+            'monologue', 'manifesto', 'comprehensive overview', 'historical context'
+        )
+        if any(m in text for m in synthesis_markers):
+            return 'SYNTHESIS', 'deepseek-v3'
+
+        # 4. Fast conversational / default
+        return 'FAST', 'gemini-flash'
+
     MODEL_ALIASES: dict[str, str] = {
         'gpt-4o-mini': 'openai/gpt-4o-mini',
-        'fast': 'openai/gpt-4o-mini',
-        'auto': 'openai/gpt-4o-mini',
+        'fast': 'google/gemini-3.8-flash',
+        'auto': 'google/gemini-3.8-flash',
         'llama-3.3-70b': 'meta-llama/llama-3.3-70b-instruct',
         'reasoning': 'meta-llama/llama-3.3-70b-instruct',
         'deepseek-v3': 'deepseek/deepseek-chat',
@@ -502,7 +556,14 @@ class ProviderRouter:
                 self._handle_http_error(spec, exc, attempts, deadline)
 
     def generate_stream(self, system_prompt: str, prompt: str, messages: list[dict[str, Any]], on_delta: Callable[[str], None], requested_model: str | None = None, image_frame: str | None = None, dynamic_key: str | None = None) -> ProviderResult:
-        providers = self.configured(requested_model=requested_model, dynamic_key=dynamic_key)
+        task_category = "MANUAL"
+        actual_model = requested_model
+        if not requested_model or requested_model.strip().lower() in ("auto", "dynamic", "default"):
+            task_category, auto_model = self.classify_task_intent(prompt, image_frame)
+            actual_model = auto_model
+            logger.info("dynamic_model_routing_stream task=%s routed_model=%s", task_category, actual_model)
+
+        providers = self.configured(requested_model=actual_model, dynamic_key=dynamic_key)
         if not providers:
             raise RuntimeError('no language-model provider configured')
         deadline = time.monotonic() + self.total_timeout
@@ -521,10 +582,10 @@ class ProviderRouter:
                     ttft_ms = round((time.monotonic() - started) * 1000, 1)
                     on_delta(text)
                 latency_ms = round((time.monotonic() - started) * 1000, 1)
-                record = {'provider': spec.name, 'model': spec.model, 'latency_ms': latency_ms, 'ttft_ms': ttft_ms, 'attempts': 1, 'api': api_name, 'ok': True, 'timestamp': time.time()}
+                record = {'provider': spec.name, 'model': spec.model, 'latency_ms': latency_ms, 'ttft_ms': ttft_ms, 'attempts': 1, 'api': api_name, 'ok': True, 'task_category': task_category, 'timestamp': time.time()}
                 self._history.append(record)
-                logger.info('provider_success provider=%s model=%s latency_ms=%s ttft_ms=%s api=%s finish_reason=%s', spec.name, spec.model, latency_ms, ttft_ms, api_name, usage.get('_finish_reason'))
-                return ProviderResult(text, spec.name, spec.model, latency_ms, 1, api_name, usage, ttft_ms)
+                logger.info('provider_success provider=%s model=%s task=%s latency_ms=%s ttft_ms=%s api=%s finish_reason=%s', spec.name, spec.model, task_category, latency_ms, ttft_ms, api_name, usage.get('_finish_reason'))
+                return ProviderResult(text, spec.name, spec.model, latency_ms, 1, api_name, usage, ttft_ms, task_category=task_category)
             except Exception as exc:
                 latency_ms = round((time.monotonic() - started) * 1000, 1)
                 error_message = str(exc)
@@ -537,7 +598,15 @@ class ProviderRouter:
         callback = _STREAM_CALLBACK.get()
         if callback is not None:
             return self.generate_stream(system_prompt, prompt, messages, callback, requested_model=requested_model, image_frame=image_frame, dynamic_key=dynamic_key)
-        providers = self.configured(requested_model=requested_model, dynamic_key=dynamic_key)
+
+        task_category = "MANUAL"
+        actual_model = requested_model
+        if not requested_model or requested_model.strip().lower() in ("auto", "dynamic", "default"):
+            task_category, auto_model = self.classify_task_intent(prompt, image_frame)
+            actual_model = auto_model
+            logger.info("dynamic_model_routing task=%s routed_model=%s", task_category, actual_model)
+
+        providers = self.configured(requested_model=actual_model, dynamic_key=dynamic_key)
         if not providers:
             raise RuntimeError('no language-model provider configured')
         deadline = time.monotonic() + self.total_timeout
@@ -551,9 +620,9 @@ class ProviderRouter:
             try:
                 text, usage, api_name = self._request(spec, system_prompt, prompt, messages, deadline, image_frame=image_frame)
                 latency_ms = round((time.monotonic() - started) * 1000, 1)
-                self._history.append({'provider': spec.name, 'model': spec.model, 'latency_ms': latency_ms, 'attempts': 1, 'api': api_name, 'ok': True, 'timestamp': time.time()})
-                logger.info('provider_success provider=%s model=%s latency_ms=%s api=%s finish_reason=%s', spec.name, spec.model, latency_ms, api_name, usage.get('_finish_reason'))
-                return ProviderResult(text, spec.name, spec.model, latency_ms, 1, api_name, usage)
+                self._history.append({'provider': spec.name, 'model': spec.model, 'latency_ms': latency_ms, 'attempts': 1, 'api': api_name, 'ok': True, 'task_category': task_category, 'timestamp': time.time()})
+                logger.info('provider_success provider=%s model=%s task=%s latency_ms=%s api=%s finish_reason=%s', spec.name, spec.model, task_category, latency_ms, api_name, usage.get('_finish_reason'))
+                return ProviderResult(text, spec.name, spec.model, latency_ms, 1, api_name, usage, task_category=task_category)
             except Exception as exc:
                 latency_ms = round((time.monotonic() - started) * 1000, 1)
                 error_message = str(exc)

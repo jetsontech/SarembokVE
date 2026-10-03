@@ -73,12 +73,14 @@ def _dispatch_chat_with_authority(params: dict) -> dict:
             "audioText": "Sarembok VE operates within defined architectural boundaries: containerized sandbox isolation, strict human-in-the-loop authorization for high-risk actions, and verified ground-truth telemetry.",
             "source": "runtime_authority",
             "model": "runtime-authority",
+            "taskCategory": "AUTHORITY",
             "action": None,
             "structuredResponse": cloud_server.build_structured_response(
                 response,
                 provider="runtime_authority",
                 model="runtime-authority",
             ),
+            "metadata": {"provider": "runtime_authority", "model": "runtime-authority", "taskCategory": "AUTHORITY"},
             "agentId": "sarembok-prime",
             "timestamp": cloud_server.now(),
         }
@@ -92,12 +94,14 @@ def _dispatch_chat_with_authority(params: dict) -> dict:
             "audioText": "I am Sarembok VE. I can stream media and audio, conduct live two-way voice conversations, retrieve real-time news and intelligence, synthesize code, and orchestrate multi-agent pipelines.",
             "source": "runtime_authority",
             "model": "runtime-authority",
+            "taskCategory": "AUTHORITY",
             "action": None,
             "structuredResponse": cloud_server.build_structured_response(
                 response,
                 provider="runtime_authority",
                 model="runtime-authority",
             ),
+            "metadata": {"provider": "runtime_authority", "model": "runtime-authority", "taskCategory": "AUTHORITY"},
             "agentId": "sarembok-prime",
             "timestamp": cloud_server.now(),
         }
@@ -111,12 +115,14 @@ def _dispatch_chat_with_authority(params: dict) -> dict:
             "audioText": "I am Sarembok VE, the sovereign computing environment and AI multimodal runtime.",
             "source": "runtime_authority",
             "model": "runtime-authority",
+            "taskCategory": "AUTHORITY",
             "action": None,
             "structuredResponse": cloud_server.build_structured_response(
                 response,
                 provider="runtime_authority",
                 model="runtime-authority",
             ),
+            "metadata": {"provider": "runtime_authority", "model": "runtime-authority", "taskCategory": "AUTHORITY"},
             "agentId": "sarembok-prime",
             "timestamp": cloud_server.now(),
         }
