@@ -2258,10 +2258,20 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
         rep = re.sub(r':::(?:video|music|youtube)[^\n]*\n[\s\S]*?:::\n?', '', rep).strip()
         rep = re.sub(r':::(?:video|music|youtube)[^\n]*', '', rep).strip()
         if resolved.get("verified") and resolved.get("videoId"):
+            clean_rep = re.sub(
+                r"(?i)(?:I(?:\s*['’]m| am)? not able to|I cannot|I do not have the ability to)\s+(?:play|stream)\s+(?:video|audio|media|content)[^.\n]*[.\n]?",
+                "",
+                rep
+            ).strip()
+            clean_rep = re.sub(r"(?i)However,\s+if you(?:'d| would) like[^.\n]*[.\n]?", "", clean_rep).strip()
+            clean_rep = re.sub(r"(?i)If you(?:'d| would) like,\s+I can look up[^.\n]*[.\n]?", "", clean_rep).strip()
+            clean_rep = re.sub(r"(?i)Just let me know how you(?:'d| would) like to proceed[!.]?", "", clean_rep).strip()
+            if not clean_rep:
+                clean_rep = f"Here is the verified stream for **{display_title}**. You can watch directly or pop it out into the floating picture-in-picture player to keep watching while chatting."
             if is_music:
-                rep = f":::music {display_title} · VERIFIED AUDIO STREAM\n{real_url}\n:::\n\n{rep}".strip()
+                rep = f":::music {display_title} · VERIFIED AUDIO STREAM\n{real_url}\n:::\n\n{clean_rep}".strip()
             else:
-                rep = f":::video {display_title} · VERIFIED VIDEO STREAM\n{real_url}\n:::\n\n{rep}".strip()
+                rep = f":::video {display_title} · VERIFIED VIDEO STREAM\n{real_url}\n:::\n\n{clean_rep}".strip()
         else:
             media_kind = "music" if is_music else "video"
             rep = f"No verified {media_kind} result matched \"{topic}\". I did not substitute a different item. Search results: {resolved.get('searchUrl', real_url)}\n\n{rep}".strip()
