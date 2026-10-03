@@ -1169,44 +1169,60 @@
 
         
         /* Floating Picture-in-Picture Video & Media Player */
+        /* Floating Picture-in-Picture Video & Media Player */
         #srbk-floating-pip-player {
             position: fixed;
             bottom: 24px;
             right: 24px;
-            width: 400px;
-            max-width: calc(100vw - 48px);
-            z-index: 990;
-            background: rgba(4, 9, 22, 0.96);
-            border: 1px solid rgba(0, 240, 255, 0.4);
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.85), 0 0 24px rgba(0, 240, 255, 0.25);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            width: 440px;
+            height: 290px;
+            min-width: 260px;
+            min-height: 180px;
+            max-width: calc(100vw - 20px);
+            max-height: calc(100vh - 20px);
+            z-index: 2147483647 !important;
+            background: rgba(4, 9, 22, 0.98);
+            border: 1px solid rgba(0, 240, 255, 0.6);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.95), 0 0 35px rgba(0, 240, 255, 0.45);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border-radius: 12px;
             overflow: hidden;
             display: none;
             flex-direction: column;
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s;
+            resize: both;
+            box-sizing: border-box;
         }
         #srbk-floating-pip-player.active {
             display: flex;
         }
         #srbk-floating-pip-player.minimized {
-            height: 42px;
+            height: 42px !important;
+            min-height: 42px !important;
+            resize: none !important;
         }
-        #srbk-floating-pip-player.minimized .srbk-pip-body {
-            display: none;
+        #srbk-floating-pip-player.minimized .srbk-pip-body,
+        #srbk-floating-pip-player.minimized .srbk-pip-resize-handle {
+            display: none !important;
+        }
+        #srbk-floating-pip-player.dragging iframe,
+        #srbk-floating-pip-player.resizing iframe {
+            pointer-events: none !important;
         }
         .srbk-pip-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 8px 12px;
-            background: rgba(0, 240, 255, 0.08);
-            border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+            background: rgba(0, 240, 255, 0.12);
+            border-bottom: 1px solid rgba(0, 240, 255, 0.25);
             cursor: move;
             user-select: none;
             -webkit-user-select: none;
             touch-action: none;
+            flex-shrink: 0;
+            height: 38px;
+            box-sizing: border-box;
         }
         .srbk-pip-title {
             font-family: var(--font-mono);
@@ -1217,7 +1233,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 220px;
+            max-width: 240px;
             display: flex;
             align-items: center;
             gap: 6px;
@@ -1246,13 +1262,36 @@
         .srbk-pip-body {
             position: relative;
             width: 100%;
-            aspect-ratio: 16 / 9;
+            flex: 1 1 auto;
+            min-height: 0;
             background: #000;
+            overflow: hidden;
+            display: flex;
+            align-items: stretch;
+            justify-content: stretch;
         }
         .srbk-pip-iframe {
             width: 100%;
             height: 100%;
             border: none;
+            display: block;
+            flex: 1;
+        }
+        .srbk-pip-resize-handle {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 18px;
+            height: 18px;
+            cursor: nwse-resize;
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
+            padding: 2px;
+            box-sizing: border-box;
+            z-index: 10;
+            touch-action: none;
+            pointer-events: auto;
         }
         
         /* Video Card Popout Action Buttons */
@@ -8097,6 +8136,9 @@ button,
         <div class="srbk-pip-body" id="srbk-pip-body-container">
             <!-- Iframe injected dynamically -->
         </div>
+        <div class="srbk-pip-resize-handle" id="srbk-pip-resize-handle" title="Drag to resize player">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M11 3L3 11M11 7L7 11M11 11L11 11" stroke="rgba(0,240,255,0.7)" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </div>
     </div>
 
     <!-- ==================== JAVASCRIPT ==================== -->
@@ -8365,8 +8407,51 @@ button,
             if (pipEl) pipEl.classList.remove("active");
             showToast("POP-OUT VIDEO CLOSED");
         }
+
+        let lastActiveInlineMedia = null;
+
+        async function playVideoInline(urlOrQuery, title = "") {
+            let media = resolvePlayableMedia(urlOrQuery, title);
+
+            if (media.needsResolve && media.resolveQuery) {
+                try {
+                    const result = await sendRPC("SearchYouTube", { query: media.resolveQuery });
+                    if (result?.videoId) {
+                        TOPIC_PRESETS[media.resolveQuery.toLowerCase()] = { id: result.videoId, title: (title || media.resolveQuery).toUpperCase() };
+                        media = resolvePlayableMedia(result.videoId, title);
+                    }
+                } catch (e) {
+                    console.warn('[Sarembok] Inline video resolve failed:', e);
+                }
+            }
+
+            lastActiveInlineMedia = media;
+            window.lastActiveInlineMedia = media;
+
+            // Find or create assistant bubble
+            let bubble = document.querySelector("#dialogue-history .srbk-bubble.assistant:last-child");
+            if (!bubble) {
+                bubble = createAssistantDialogue();
+            }
+
+            const contentEl = bubble ? bubble.querySelector(".srbk-content") : null;
+            if (contentEl) {
+                const target = media.ytId || media.raw || media.embedUrl;
+                const cardHtml = renderVideoCard(media.displayTitle, target);
+                if (contentEl.innerHTML.includes("Computing...") || !contentEl.textContent.trim()) {
+                    contentEl.innerHTML = cardHtml;
+                } else if (!contentEl.innerHTML.includes(target) && !contentEl.innerHTML.includes(media.displayTitle)) {
+                    contentEl.insertAdjacentHTML("beforeend", `<div style="margin-top:12px;">${cardHtml}</div>`);
+                }
+            }
+            scrollDialogue();
+            return media;
+        }
+
         window.popOutFloatingVideo = popOutFloatingVideo;
         window.closeFloatingPip = closeFloatingPip;
+        window.playVideoInline = playVideoInline;
+        window.lastActiveInlineMedia = null;
 
         function openDetachedPipWindow() {
             if (currentPipMedia) {
@@ -8416,6 +8501,7 @@ button,
                 pip.style.left = `${initialLeft}px`;
                 pip.style.top = `${initialTop}px`;
                 pip.style.transition = "none";
+                pip.classList.add("dragging");
                 return true;
             }
 
@@ -8443,6 +8529,7 @@ button,
                 const pip = document.getElementById("srbk-floating-pip-player");
                 if (pip) {
                     pip.style.transition = "";
+                    pip.classList.remove("dragging");
                 }
             }
 
@@ -8525,6 +8612,103 @@ button,
                 window.addEventListener("mouseup", () => {
                     onDragEnd();
                 });
+            }
+
+            if (document.readyState === "loading") {
+                document.addEventListener("DOMContentLoaded", attach);
+            } else {
+                attach();
+            }
+        })();
+
+        // Resizable floating PiP Player
+        (function initPipResize() {
+            let isResizing = false;
+            let startX = 0, startY = 0, startWidth = 0, startHeight = 0;
+
+            function onResizeStart(clientX, clientY) {
+                const pip = document.getElementById("srbk-floating-pip-player");
+                if (!pip) return false;
+                isResizing = true;
+                startX = clientX;
+                startY = clientY;
+                const rect = pip.getBoundingClientRect();
+                startWidth = rect.width;
+                startHeight = rect.height;
+                pip.classList.add("resizing");
+                return true;
+            }
+
+            function onResizeMove(clientX, clientY) {
+                if (!isResizing) return;
+                const pip = document.getElementById("srbk-floating-pip-player");
+                if (!pip) return;
+                const dx = clientX - startX;
+                const dy = clientY - startY;
+                const newW = Math.max(260, Math.min(window.innerWidth - 20, startWidth + dx));
+                const newH = Math.max(180, Math.min(window.innerHeight - 20, startHeight + dy));
+                pip.style.width = `${newW}px`;
+                pip.style.height = `${newH}px`;
+            }
+
+            function onResizeEnd() {
+                if (!isResizing) return;
+                isResizing = false;
+                const pip = document.getElementById("srbk-floating-pip-player");
+                if (pip) pip.classList.remove("resizing");
+            }
+
+            function attach() {
+                const handle = document.getElementById("srbk-pip-resize-handle");
+                if (!handle) return;
+                handle.style.touchAction = "none";
+
+                handle.addEventListener("pointerdown", (e) => {
+                    if (e.button && e.button !== 0) return;
+                    if (onResizeStart(e.clientX, e.clientY)) {
+                        try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+                        e.preventDefault();
+                    }
+                });
+
+                handle.addEventListener("pointermove", (e) => {
+                    if (isResizing) {
+                        onResizeMove(e.clientX, e.clientY);
+                        e.preventDefault();
+                    }
+                });
+
+                handle.addEventListener("pointerup", (e) => {
+                    if (isResizing) {
+                        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+                        onResizeEnd();
+                        e.preventDefault();
+                    }
+                });
+
+                handle.addEventListener("pointercancel", (e) => {
+                    if (isResizing) {
+                        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+                        onResizeEnd();
+                    }
+                });
+
+                handle.addEventListener("touchstart", (e) => {
+                    if (e.touches && e.touches.length > 0) {
+                        const t = e.touches[0];
+                        if (onResizeStart(t.clientX, t.clientY)) e.preventDefault();
+                    }
+                }, { passive: false });
+
+                window.addEventListener("touchmove", (e) => {
+                    if (isResizing && e.touches && e.touches.length > 0) {
+                        const t = e.touches[0];
+                        onResizeMove(t.clientX, t.clientY);
+                        e.preventDefault();
+                    }
+                }, { passive: false });
+
+                window.addEventListener("touchend", () => { if (isResizing) onResizeEnd(); });
             }
 
             if (document.readyState === "loading") {
@@ -15171,6 +15355,6 @@ document.getElementById('global-input-field').addEventListener('input', function
   document.addEventListener("DOMContentLoaded",sync);
 })();
 </script>
-    <script src="/live-voice.js?v=20261003-live-media-playback"></script>
+    <script src="/live-voice.js?v=20261003-pip-resize-inline"></script>
 </body>
 </html>

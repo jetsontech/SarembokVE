@@ -48,6 +48,7 @@
         mcp_list_servers: "ListMcpServers",
         mcp_call: "CallMcpTool",
         play_media: "ResolveMediaStream",
+        popout_media: "PopoutMedia",
         stop_media: "StopMedia"
     };
 
@@ -439,6 +440,23 @@
         var text = String(rawText).trim();
         if (text.length < 4) return;
 
+        // Check for pop out commands
+        if (/\b(?:pop(?:\s+it)?\s+out|popout|float(?:\s+the)?\s+video|picture\s+in\s+picture|pip)\b/i.test(text)) {
+            var now = Date.now();
+            if (now - lastLiveMediaTriggerTime > 2000) {
+                lastLiveMediaTriggerTime = now;
+                console.log("[LiveVoice] Spoken intent: pop out video");
+                var popTarget = lastLiveMediaTrigger;
+                if (window.lastActiveInlineMedia && (window.lastActiveInlineMedia.ytId || window.lastActiveInlineMedia.raw)) {
+                    popTarget = window.lastActiveInlineMedia.ytId || window.lastActiveInlineMedia.raw;
+                }
+                if (typeof window.popOutFloatingVideo === "function") {
+                    window.popOutFloatingVideo(popTarget || "video", popTarget || "Video");
+                }
+            }
+            return;
+        }
+
         // Check for stop media commands
         if (/\b(?:stop|close|dismiss|turn off)\s+(?:the\s+)?(?:video|pip|media|stream|music|song|player)\b/i.test(text)) {
             var now = Date.now();
@@ -472,12 +490,13 @@
 
         lastLiveMediaTrigger = candidate;
         lastLiveMediaTriggerTime = now;
-        console.log("[LiveVoice] Spoken media playback intent recognized:", candidate);
-        if (typeof window.popOutFloatingVideo === "function") {
+        console.log("[LiveVoice] Spoken media playback intent recognized (inline):", candidate);
+        // Play INLINE in the conversation stream by default
+        if (typeof window.playVideoInline === "function") {
             try {
-                window.popOutFloatingVideo(candidate, candidate);
+                window.playVideoInline(candidate, candidate);
             } catch (err) {
-                console.warn("[LiveVoice] popOutFloatingVideo invocation failed:", err);
+                console.warn("[LiveVoice] playVideoInline invocation failed:", err);
             }
         }
     }
@@ -506,38 +525,55 @@
                 } catch (err) {
                     result = { error: String(err.message || err) };
                 }
+            } else if (name === "popout_media" || name === "pop_out_media") {
+                var popQuery = String(args.query || lastLiveMediaTrigger || "").trim();
+                if (window.lastActiveInlineMedia && (window.lastActiveInlineMedia.ytId || window.lastActiveInlineMedia.raw)) {
+                    popQuery = window.lastActiveInlineMedia.ytId || window.lastActiveInlineMedia.raw;
+                }
+                if (typeof window.popOutFloatingVideo === "function") {
+                    try {
+                        window.popOutFloatingVideo(popQuery, popQuery);
+                    } catch (e) {
+                        console.warn("[LiveVoice] popOutFloatingVideo invocation failed:", e);
+                    }
+                }
+                result = {
+                    status: "popped_out",
+                    message: "The video has popped out into the resizable floating player sitting on top of all windows."
+                };
             } else if (name === "play_media") {
                 var mediaQuery = String(args.query || args.topic || "").trim();
                 var mediaType = String(args.media_type || "video").trim();
                 lastLiveMediaTrigger = mediaQuery;
                 lastLiveMediaTriggerTime = Date.now();
-                if (typeof window.popOutFloatingVideo === "function") {
+                // Play INLINE in the conversation bubble by default
+                if (typeof window.playVideoInline === "function") {
                     try {
-                        window.popOutFloatingVideo(mediaQuery, mediaQuery);
+                        window.playVideoInline(mediaQuery, mediaQuery);
                     } catch (e) {
-                        console.warn("[LiveVoice] popOutFloatingVideo invocation failed:", e);
+                        console.warn("[LiveVoice] playVideoInline invocation failed:", e);
                     }
                 }
                 try {
                     result = await srbkSendRPC("ResolveMediaStream", { query: mediaQuery, media_type: mediaType });
                     if (!result || !result.url) {
                         result = {
-                            status: "playing",
+                            status: "playing_inline",
                             query: mediaQuery,
-                            player: "floating_pip",
-                            message: "Media is now playing in the floating picture-in-picture player on screen."
+                            player: "inline_chat",
+                            message: "Media is now playing inline in the conversation chat. The user can watch inline or click 'Pop Out' to float it over all windows."
                         };
                     } else {
-                        result.status = "playing";
-                        result.player = "floating_pip";
-                        result.message = "Media is now playing in the floating picture-in-picture player on screen.";
+                        result.status = "playing_inline";
+                        result.player = "inline_chat";
+                        result.message = "Media is now playing inline in the conversation chat. The user can watch inline or click 'Pop Out' to float it over all windows.";
                     }
                 } catch (_) {
                     result = {
-                        status: "playing",
+                        status: "playing_inline",
                         query: mediaQuery,
-                        player: "floating_pip",
-                        message: "Media is now playing in the floating picture-in-picture player on screen."
+                        player: "inline_chat",
+                        message: "Media is now playing inline in the conversation chat."
                     };
                 }
             } else if (!rpcMethod) {

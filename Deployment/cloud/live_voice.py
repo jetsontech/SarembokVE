@@ -132,7 +132,7 @@ def _tool_declarations() -> list[dict[str, Any]]:
         },
         {
             "name": "play_media",
-            "description": "Play or stream a requested video, song, music, news broadcast, or media clip in the user's floating picture-in-picture player on screen. Use this whenever the user asks to play, watch, or listen to a video, music, song, or broadcast (e.g. 'play a glorilla video', 'play bbc news', 'play lofi music').",
+            "description": "Play or stream a requested video, song, music, news broadcast, or media clip inline in the conversation dialogue on screen. Use this whenever the user asks to play, watch, or listen to a video, music, song, or broadcast (e.g. 'play a glorilla video', 'play bbc news', 'play lofi music').",
             "parameters": {
                 "type": "OBJECT",
                 "properties": {
@@ -149,8 +149,21 @@ def _tool_declarations() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "popout_media",
+            "description": "Pop out the currently playing or requested video into the floating resizable picture-in-picture player sitting on top of all windows. Use this when the user asks to 'pop it out', 'pop out the video', 'float the video', or 'picture in picture'.",
+            "parameters": {
+                "type": "OBJECT",
+                "properties": {
+                    "query": {
+                        "type": "STRING",
+                        "description": "Optional specific video title or query if popping out a new specific video.",
+                    },
+                },
+            },
+        },
+        {
             "name": "stop_media",
-            "description": "Stop or close any currently playing video, song, music, or media in the user's floating picture-in-picture player on screen.",
+            "description": "Stop or close any currently playing video, song, music, or media in the user's floating picture-in-picture player or inline chat.",
             "parameters": {
                 "type": "OBJECT",
                 "properties": {},
@@ -173,10 +186,12 @@ def _system_instruction(mode: str) -> str:
         "browser actions, external application integrations, or media playback. "
         "For website or application actions, use browser_session_open, browser_inspect, "
         "and browser_action rather than saying you cannot browse or click. "
+        "Videos play inline in the conversation dialogue by default unless the user asks to pop it out. "
         "When the user asks to play a video, song, music, news broadcast, or media clip "
         "(such as 'play a glorilla video', 'play BBC news', or 'play lofi music'), "
-        "ALWAYS call the play_media tool with the query to launch it in their floating player, "
-        "rather than saying you cannot play videos or media. "
+        "call the play_media tool to play it inline in the chat. "
+        "When the user asks to 'pop it out', 'float the video', or 'picture in picture', "
+        "call the popout_media tool so it floats on top of all windows in a resizable player. "
         "When the user asks to stop, close, or dismiss the video or media player, call the stop_media tool. "
         "If a tool is needed, call it promptly and continue the conversation "
         "naturally while it runs. Never claim an action completed until the "
