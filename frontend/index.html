@@ -8183,9 +8183,8 @@ button,
                 <span class="boot-badge-dot"></span> 🎬 POP-OUT VIDEO PLAYER
             </span>
             <div class="srbk-pip-controls">
-                <button class="srbk-pip-btn" onclick="openDocPipWindow(currentPipMedia)" style="color:#00f0ff; border-color:rgba(0,240,255,0.4);" title="Float above all desktop windows and applications (OS Picture-in-Picture)">🗗 FLOAT OVER ALL APPS</button>
+                <button class="srbk-pip-btn" onclick="openDetachedPipWindow()" style="color:#00f0ff; border-color:rgba(0,240,255,0.4);" title="Open in dedicated detached window">↗ WINDOW</button>
                 <button class="srbk-pip-btn" onclick="toggleMinimizePip()" title="Minimize / Expand">_</button>
-                <button class="srbk-pip-btn" onclick="openDetachedPipWindow()" title="Pop Out into Detached Window">↗</button>
                 <button class="srbk-pip-btn" onclick="closeFloatingPip()" style="color:#ef4444;" title="Close Video">✕</button>
             </div>
         </div>
@@ -8416,6 +8415,16 @@ button,
         async function openDocPipWindow(media) {
             if (!media) media = currentPipMedia;
             if (!media) return false;
+
+            const isYouTube = !!(media.ytId || (media.embedUrl && (media.embedUrl.includes("youtube") || media.embedUrl.includes("youtu.be"))));
+            if (isYouTube) {
+                // YouTube embed player actively blocks Document PiP (about:blank context) with Error 153.
+                // Open a dedicated detached popup window instead where YouTube plays smoothly.
+                showToast("OPENING DETACHED WINDOW ↗ (YOUTUBE RESTRICTION)");
+                openDetachedPipWindow();
+                return true;
+            }
+
             if (!('documentPictureInPicture' in window) || typeof window.documentPictureInPicture.requestWindow !== 'function') {
                 return false;
             }
@@ -8539,7 +8548,7 @@ button,
         }
         window.openDocPipWindow = openDocPipWindow;
 
-        async function popOutFloatingVideo(urlOrQuery, title = "", preferOsPip = true) {
+        async function popOutFloatingVideo(urlOrQuery, title = "", preferOsPip = false) {
             let media = resolvePlayableMedia(urlOrQuery, title);
 
             // If unresolved, try backend RPC first
@@ -8555,8 +8564,10 @@ button,
 
             currentPipMedia = media;
 
-            // Try opening OS-level always-on-top window first if preferOsPip
-            if (preferOsPip) {
+            const isYouTube = !!(media.ytId || (media.embedUrl && (media.embedUrl.includes("youtube") || media.embedUrl.includes("youtu.be"))));
+
+            // Only attempt OS-level Document PiP if explicitly requested and NOT YouTube
+            if (preferOsPip && !isYouTube) {
                 try {
                     const opened = await openDocPipWindow(media);
                     if (opened) return;
@@ -8658,7 +8669,10 @@ button,
 
         function openDetachedPipWindow() {
             if (currentPipMedia) {
-                const url = currentPipMedia.embedUrl;
+                let url = currentPipMedia.embedUrl;
+                if (currentPipMedia.ytId) {
+                    url = `https://www.youtube.com/embed/${currentPipMedia.ytId}?autoplay=1&rel=0`;
+                }
                 window.open(url, "SarembokMediaPopout", "width=640,height=380,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
                 closeFloatingPip();
             }
@@ -8675,7 +8689,11 @@ button,
                     }
                 } catch (e) { console.warn('[Sarembok] Window resolve failed:', e); }
             }
-            window.open(media.embedUrl, "SarembokMediaPopout", "width=640,height=380,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
+            let url = media.embedUrl;
+            if (media.ytId) {
+                url = `https://www.youtube.com/embed/${media.ytId}?autoplay=1&rel=0`;
+            }
+            window.open(url, "SarembokMediaPopout", "width=640,height=380,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
         }
 
         function setAudioDucking() {} /* no-op, music deck removed */
@@ -15646,6 +15664,6 @@ document.getElementById('global-input-field').addEventListener('input', function
   document.addEventListener("DOMContentLoaded",sync);
 })();
 </script>
-    <script src="/live-voice.js?v=20261003-os-pip-resizer"></script>
+    <script src="/live-voice.js?v=20261003-pip-fix153"></script>
 </body>
 </html>
