@@ -8365,6 +8365,8 @@ button,
             if (pipEl) pipEl.classList.remove("active");
             showToast("POP-OUT VIDEO CLOSED");
         }
+        window.popOutFloatingVideo = popOutFloatingVideo;
+        window.closeFloatingPip = closeFloatingPip;
 
         function openDetachedPipWindow() {
             if (currentPipMedia) {
@@ -15169,6 +15171,6 @@ document.getElementById('global-input-field').addEventListener('input', function
   document.addEventListener("DOMContentLoaded",sync);
 })();
 </script>
-    <script src="/live-voice.js?v=20261003-worklet-stream-fix"></script>
+    <script src="/live-voice.js?v=20261003-live-media-playback"></script>
 </body>
 </html>

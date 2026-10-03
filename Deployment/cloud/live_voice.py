@@ -130,6 +130,32 @@ def _tool_declarations() -> list[dict[str, Any]]:
                 "required": ["query"],
             },
         },
+        {
+            "name": "play_media",
+            "description": "Play or stream a requested video, song, music, news broadcast, or media clip in the user's floating picture-in-picture player on screen. Use this whenever the user asks to play, watch, or listen to a video, music, song, or broadcast (e.g. 'play a glorilla video', 'play bbc news', 'play lofi music').",
+            "parameters": {
+                "type": "OBJECT",
+                "properties": {
+                    "query": {
+                        "type": "STRING",
+                        "description": "The title, artist, topic, or search phrase for the video or music track (e.g. 'GloRilla TGIF', 'BBC News', 'lofi hip hop').",
+                    },
+                    "media_type": {
+                        "type": "STRING",
+                        "description": "The type of media: 'video' or 'music'.",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+        {
+            "name": "stop_media",
+            "description": "Stop or close any currently playing video, song, music, or media in the user's floating picture-in-picture player on screen.",
+            "parameters": {
+                "type": "OBJECT",
+                "properties": {},
+            },
+        },
     ]
 
 
@@ -144,10 +170,15 @@ def _system_instruction(mode: str) -> str:
         "results, capabilities, hardware, integrations, or actions. Use the "
         "provided Sarembok tools whenever the user asks about live runtime "
         "state, workers, tasks, provider health, persistent memory, websites, "
-        "browser actions, or external application integrations. For website or "
-        "application actions, use browser_session_open, browser_inspect, and "
-        "browser_action rather than saying you cannot browse or click. If a "
-        "tool is needed, call it promptly and continue the conversation "
+        "browser actions, external application integrations, or media playback. "
+        "For website or application actions, use browser_session_open, browser_inspect, "
+        "and browser_action rather than saying you cannot browse or click. "
+        "When the user asks to play a video, song, music, news broadcast, or media clip "
+        "(such as 'play a glorilla video', 'play BBC news', or 'play lofi music'), "
+        "ALWAYS call the play_media tool with the query to launch it in their floating player, "
+        "rather than saying you cannot play videos or media. "
+        "When the user asks to stop, close, or dismiss the video or media player, call the stop_media tool. "
+        "If a tool is needed, call it promptly and continue the conversation "
         "naturally while it runs. Never claim an action completed until the "
         "tool result verifies it. You may acknowledge a request briefly "
         "before a tool result arrives. When interrupted, stop cleanly and "

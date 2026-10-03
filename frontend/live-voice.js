@@ -46,7 +46,9 @@
         browser_action: "BrowserAction",
         browser_session_close: "BrowserSessionClose",
         mcp_list_servers: "ListMcpServers",
-        mcp_call: "CallMcpTool"
+        mcp_call: "CallMcpTool",
+        play_media: "ResolveMediaStream",
+        stop_media: "StopMedia"
     };
 
     function srbkSendRPC(method, params, onDelta) {
@@ -429,6 +431,57 @@
         return true;
     }
 
+    var lastLiveMediaTrigger = "";
+    var lastLiveMediaTriggerTime = 0;
+
+    function detectAndTriggerLiveMediaIntent(rawText) {
+        if (!rawText) return;
+        var text = String(rawText).trim();
+        if (text.length < 4) return;
+
+        // Check for stop media commands
+        if (/\b(?:stop|close|dismiss|turn off)\s+(?:the\s+)?(?:video|pip|media|stream|music|song|player)\b/i.test(text)) {
+            var now = Date.now();
+            if (now - lastLiveMediaTriggerTime > 2500) {
+                lastLiveMediaTriggerTime = now;
+                console.log("[LiveVoice] Spoken intent: stop media");
+                if (typeof window.closeFloatingPip === "function") {
+                    window.closeFloatingPip();
+                }
+            }
+            return;
+        }
+
+        // Match phrases like:
+        // "play bbc news"
+        // "play a glorilla video"
+        // "play glorilla"
+        // "play some lofi"
+        // "watch a video about quantum computing"
+        var match = text.match(/(?:^|\b)(?:please\s+)?(?:can you\s+)?(?:could you\s+)?(?:play|stream|watch|put on)\s+(?:a\s+|the\s+|some\s+)?(?:video\s+(?:of|for|about)\s+|song\s+(?:of|for|by)\s+|music\s+(?:by|from)\s+)?([^,.;?!]+)/i);
+        if (!match || !match[1]) return;
+
+        var candidate = match[1].replace(/\b(?:video|song|track|audio|on youtube|in video|please|for me|now)\b/gi, "").trim();
+        if (!candidate || candidate.length < 2) return;
+        if (/^(?:chess|a game|games|role|roles|dumb|dead|around|along|with|fair|nice|hard|tag)$/i.test(candidate)) return;
+
+        var now = Date.now();
+        if (candidate.toLowerCase() === lastLiveMediaTrigger.toLowerCase() && (now - lastLiveMediaTriggerTime < 8000)) {
+            return;
+        }
+
+        lastLiveMediaTrigger = candidate;
+        lastLiveMediaTriggerTime = now;
+        console.log("[LiveVoice] Spoken media playback intent recognized:", candidate);
+        if (typeof window.popOutFloatingVideo === "function") {
+            try {
+                window.popOutFloatingVideo(candidate, candidate);
+            } catch (err) {
+                console.warn("[LiveVoice] popOutFloatingVideo invocation failed:", err);
+            }
+        }
+    }
+
     async function executeNativeToolCall(functionCalls) {
         if (!Array.isArray(functionCalls) || !functionCalls.length) return;
 
@@ -441,7 +494,53 @@
             var args = call.args || call.arguments || {};
             var result;
 
-            if (!rpcMethod) {
+            if (name === "stop_media") {
+                try {
+                    if (typeof window.closeFloatingPip === "function") {
+                        window.closeFloatingPip();
+                    }
+                    result = {
+                        status: "stopped",
+                        message: "Video playback stopped and floating picture-in-picture player closed."
+                    };
+                } catch (err) {
+                    result = { error: String(err.message || err) };
+                }
+            } else if (name === "play_media") {
+                var mediaQuery = String(args.query || args.topic || "").trim();
+                var mediaType = String(args.media_type || "video").trim();
+                lastLiveMediaTrigger = mediaQuery;
+                lastLiveMediaTriggerTime = Date.now();
+                if (typeof window.popOutFloatingVideo === "function") {
+                    try {
+                        window.popOutFloatingVideo(mediaQuery, mediaQuery);
+                    } catch (e) {
+                        console.warn("[LiveVoice] popOutFloatingVideo invocation failed:", e);
+                    }
+                }
+                try {
+                    result = await srbkSendRPC("ResolveMediaStream", { query: mediaQuery, media_type: mediaType });
+                    if (!result || !result.url) {
+                        result = {
+                            status: "playing",
+                            query: mediaQuery,
+                            player: "floating_pip",
+                            message: "Media is now playing in the floating picture-in-picture player on screen."
+                        };
+                    } else {
+                        result.status = "playing";
+                        result.player = "floating_pip";
+                        result.message = "Media is now playing in the floating picture-in-picture player on screen.";
+                    }
+                } catch (_) {
+                    result = {
+                        status: "playing",
+                        query: mediaQuery,
+                        player: "floating_pip",
+                        message: "Media is now playing in the floating picture-in-picture player on screen."
+                    };
+                }
+            } else if (!rpcMethod) {
                 result = { error: "unregistered_live_tool", tool: name };
             } else {
                 try {
@@ -546,6 +645,7 @@
                 "HEARING YOU",
                 nativeTurnUserText || "Listening"
             );
+            detectAndTriggerLiveMediaIntent(nativeTurnUserText);
         }
 
         if (serverContent.interimInputTranscription) {
@@ -633,6 +733,7 @@
             if (!extendedStillWorking) {
                 var completedUser = nativeTurnUserText;
                 var completedAssistant = nativeTurnAssistantText;
+                detectAndTriggerLiveMediaIntent(completedUser);
 
                 if (completedUser || completedAssistant) {
                     nativeHistory.push({
