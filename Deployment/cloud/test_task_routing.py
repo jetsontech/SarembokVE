@@ -166,6 +166,27 @@ class TestTaskRouting(unittest.TestCase):
         self.assertEqual(fetched["status"], "COMPLETED")
         self.assertEqual(len(fetched["tasks"]), 4)
 
+    def test_reconcile_orphaned_queued_task_assigned_to_offline_worker(self):
+        # Create a task assigned to a worker that does not exist/is offline
+        task = server.dispatch("CreateTask", {
+            "taskType": "compute",
+            "requiredCapability": "compute",
+            "assignedWorkerId": "offline-ghost-worker-01",
+            "payload": {"data": "test"},
+        })
+        task_id = task["taskId"]
+        server.store.db.execute("UPDATE tasks SET status='QUEUED', assigned_worker_id='offline-ghost-worker-01' WHERE task_id=?", (task_id,))
+        server.store.db.commit()
+
+        # Reconcile assignments
+        repaired = server.reconcile_blocked_task_assignments()
+        self.assertGreaterEqual(repaired, 1)
+
+        row = server.store.db.execute("SELECT status, assigned_worker_id FROM tasks WHERE task_id=?", (task_id,)).fetchone()
+        self.assertEqual(row[0], "PENDING_WORKER")
+        self.assertIsNone(row[1])
+
 
 if __name__ == "__main__":
     unittest.main()
+

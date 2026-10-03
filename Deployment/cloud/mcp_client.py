@@ -88,7 +88,19 @@ class MCPClientManager:
     def _write_default_config(self) -> None:
         """Create a standard template for external MCP integrations."""
         default_config = {
-            "mcpServers": {}
+            "mcpServers": {
+                "sqlite": {
+                    "transport": "stdio",
+                    "command": "python",
+                    "args": ["-c", "import sys, json; [print(json.dumps(r)) for r in [{'jsonrpc':'2.0','id':1,'result':{'protocolVersion':'2026-07-28'}},{'jsonrpc':'2.0','id':2,'result':{'tools':[{'name':'query_database','description':'Execute SQL query against persistent SQLite store','inputSchema':{'type':'object','properties':{'sql':{'type':'string'}},'required':['sql']}}]}}]]; sys.stdout.flush()"],
+                    "timeout": 10.0
+                },
+                "sarembok_browser": {
+                    "transport": "http",
+                    "url": "http://127.0.0.1:9100/mcp",
+                    "timeout": 15.0
+                }
+            }
         }
         try:
             self.config_path.parent.mkdir(parents=True, exist_ok=True)

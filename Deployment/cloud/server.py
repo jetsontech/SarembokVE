@@ -1107,38 +1107,67 @@ def select_worker(required_capability: str) -> str | None:
 
 
 def reconcile_blocked_task_assignments() -> int:
-    """Return dependency-blocked queued tasks to PENDING_WORKER before scheduling."""
+    """Return dependency-blocked or orphaned queued tasks to PENDING_WORKER before scheduling."""
+    evaluate_worker_liveness()
+    online_worker_rows = store.db.execute(
+        "SELECT worker_id FROM workers WHERE status='ONLINE'"
+    ).fetchall()
+    online_workers = {r[0] for r in online_worker_rows}
+
     rows = store.db.execute(
         "SELECT task_id, payload, assigned_worker_id FROM tasks WHERE status='QUEUED'"
     ).fetchall()
     repaired = 0
+    stamp = now()
     for task_id, raw_payload, assigned_worker_id in rows:
         try:
             payload_obj = json.loads(raw_payload) if raw_payload else {}
         except Exception:
             payload_obj = {}
-        if task_dependency_ready(payload_obj):
-            continue
-        stamp = now()
-        cursor = store.db.execute(
-            """
-            UPDATE tasks
-            SET status='PENDING_WORKER', assigned_worker_id=NULL, updated_at=?
-            WHERE task_id=? AND status='QUEUED'
-            """,
-            (stamp, task_id),
-        )
-        if cursor.rowcount:
-            repaired += 1
-            store.event(
-                None,
-                "TASK_DEPENDENCY_BLOCKED",
-                {
-                    "taskId": task_id,
-                    "previousAssignedWorkerId": assigned_worker_id,
-                    "status": "PENDING_WORKER",
-                },
+
+        if not task_dependency_ready(payload_obj):
+            cursor = store.db.execute(
+                """
+                UPDATE tasks
+                SET status='PENDING_WORKER', assigned_worker_id=NULL, updated_at=?
+                WHERE task_id=? AND status='QUEUED'
+                """,
+                (stamp, task_id),
             )
+            if cursor.rowcount:
+                repaired += 1
+                store.event(
+                    None,
+                    "TASK_DEPENDENCY_BLOCKED",
+                    {
+                        "taskId": task_id,
+                        "previousAssignedWorkerId": assigned_worker_id,
+                        "status": "PENDING_WORKER",
+                    },
+                )
+            continue
+
+        if assigned_worker_id and assigned_worker_id not in online_workers:
+            cursor = store.db.execute(
+                """
+                UPDATE tasks
+                SET status='PENDING_WORKER', assigned_worker_id=NULL, updated_at=?
+                WHERE task_id=? AND status='QUEUED'
+                """,
+                (stamp, task_id),
+            )
+            if cursor.rowcount:
+                repaired += 1
+                store.event(
+                    None,
+                    "TASK_WORKER_OFFLINE_RECOVERED",
+                    {
+                        "taskId": task_id,
+                        "offlineWorkerId": assigned_worker_id,
+                        "status": "PENDING_WORKER",
+                    },
+                )
+
     if repaired:
         store.db.commit()
     return repaired
@@ -2277,9 +2306,9 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
             except Exception:
                 rep = "Image generation is not currently operational in this Sarembok runtime."
         elif is_video:
-            rep = f"No verified video result matched **{topic.upper()}**. I did not substitute a different video. Search results: {resolved.get("searchUrl", real_url)}"
+            rep = f"No verified video result matched **{topic.upper()}**. I did not substitute a different video. Search results: {resolved.get('searchUrl', real_url)}"
         elif is_music:
-            rep = f"No verified music result matched **{topic.upper()}**. I did not substitute a different track. Search results: {resolved.get("searchUrl", real_url)}"
+            rep = f"No verified music result matched **{topic.upper()}**. I did not substitute a different track. Search results: {resolved.get('searchUrl', real_url)}"
         else:
             rep = "Cyber audio & multimodal synthesis initialized. Active streaming channels and interface components are ready."
 

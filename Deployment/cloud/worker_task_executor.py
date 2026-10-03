@@ -346,30 +346,45 @@ class WorkerTaskExecutor:
                     kind = str(action.get("type") or action.get("action") or "").strip().lower()
                     locator = str(action.get("selector") or action.get("locator") or "").strip()
 
+                    loc = page.locator(locator) if locator else None
+
                     if kind == "navigate":
                         target = str(action.get("url") or "").strip()
                         if not target.startswith(("http://", "https://")):
                             raise ValueError("navigate requires http(s) URL")
                         page.goto(target, wait_until="domcontentloaded")
                     elif kind == "click":
-                        page.locator(locator).click()
+                        if loc is None:
+                            raise ValueError("click action requires selector")
+                        target_loc = loc.first if loc.count() > 1 else loc
+                        target_loc.click(timeout=min(15000, timeout_ms))
                     elif kind in {"fill", "type"}:
+                        if loc is None:
+                            raise ValueError(f"{kind} action requires selector")
+                        target_loc = loc.first if loc.count() > 1 else loc
                         value = str(action.get("value") or action.get("text") or "")
                         if kind == "fill":
-                            page.locator(locator).fill(value)
+                            target_loc.fill(value, timeout=min(15000, timeout_ms))
                         else:
-                            page.locator(locator).press_sequentially(value)
+                            target_loc.press_sequentially(value, timeout=min(15000, timeout_ms))
                     elif kind == "select":
-                        page.locator(locator).select_option(str(action.get("value") or ""))
+                        if loc is None:
+                            raise ValueError("select action requires selector")
+                        target_loc = loc.first if loc.count() > 1 else loc
+                        target_loc.select_option(str(action.get("value") or ""), timeout=min(15000, timeout_ms))
                     elif kind == "press":
-                        page.locator(locator).press(str(action.get("key") or "Enter"))
+                        if loc is None:
+                            raise ValueError("press action requires selector")
+                        target_loc = loc.first if loc.count() > 1 else loc
+                        target_loc.press(str(action.get("key") or "Enter"), timeout=min(15000, timeout_ms))
                     elif kind == "scroll":
                         delta = int(action.get("deltaY", 800))
                         page.mouse.wheel(0, delta)
                     elif kind == "wait":
                         page.wait_for_timeout(min(30000, max(0, int(action.get("milliseconds", 500)))))
                     elif kind in {"text", "get_text", "extract_text"}:
-                        txt = page.locator(locator).inner_text() if locator else page.locator("body").inner_text()
+                        target_loc = loc if loc is not None else page.locator("body")
+                        txt = target_loc.first.inner_text(timeout=min(15000, timeout_ms)) if target_loc.count() > 1 else target_loc.inner_text(timeout=min(15000, timeout_ms))
                         observations.append({"type": "text", "text": txt[:20000]})
                     elif kind == "screenshot":
                         target = str(action.get("path") or screenshot_path).strip()
