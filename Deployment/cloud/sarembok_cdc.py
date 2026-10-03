@@ -97,6 +97,22 @@ class CDCPipeline:
                 event_type=f"sarembok.cdc.{table}.{op}",
                 subject=table,
             )
+
+            # Automated Semantic Vector Indexing for text-bearing mutations
+            if after and op in (CDCOperation.CREATE, CDCOperation.UPDATE):
+                text_content = after.get("content") or after.get("prompt") or after.get("goal") or after.get("document") or after.get("text")
+                if text_content and isinstance(text_content, str) and len(text_content.strip()) > 5:
+                    try:
+                        from sarembok_vector_store import vector_store
+                        vector_store.insert(
+                            collection=table,
+                            record_id=f"cdc_{table}_{record.tx_id}",
+                            document=text_content.strip(),
+                            metadata={"cdc_table": table, "cdc_op": op, "cdc_tx": record.tx_id}
+                        )
+                    except Exception as err:
+                        LOG.debug("Automatic CDC vector indexer notice: %s", err)
+
             LOG.debug("CDC emitted %s on %s (tx: %s)", op, table, record.tx_id)
             return record
 

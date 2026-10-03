@@ -59,6 +59,8 @@ from sarembok_event_bus import event_bus, CloudEvent
 from sarembok_cdc import cdc_pipeline, CDCOperation
 from sarembok_vector_store import vector_store
 from sarembok_reasoning_engine import reasoning_engine, DomainType
+from sarembok_api_connectors import connector_registry
+from sarembok_semantic_search import search_engine
 
 import websockets
 
@@ -3026,6 +3028,61 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "domain_context": context,
             "verification": verification,
         }
+
+    if method == "IngestDocument":
+        doc_id = str(params.get("id") or f"doc_{secrets.token_hex(6)}").strip()
+        content = str(params.get("content") or "").strip()
+        collection = str(params.get("collection") or "knowledge_base").strip()
+        metadata = params.get("metadata") or {}
+        chunk_size = int(params.get("chunk_size", 500))
+        chunks = search_engine.ingest_document(doc_id, content, collection=collection, metadata=metadata, chunk_size=chunk_size)
+        return {"ingested": True, "documentId": doc_id, "chunks": len(chunks), "chunkIds": chunks}
+
+    if method == "HybridSearch":
+        query = str(params.get("query") or "").strip()
+        collection = str(params.get("collection") or "knowledge_base").strip()
+        top_k = int(params.get("top_k", 5))
+        filter_meta = params.get("filter")
+        results = search_engine.hybrid_search(query, collection=collection, top_k=top_k, filter_metadata=filter_meta)
+        return {"query": query, "collection": collection, "results": results}
+
+    if method == "RegisterConnector":
+        c_type = str(params.get("type") or "webhook").strip().lower()
+        name = str(params.get("name") or f"conn_{secrets.token_hex(4)}").strip()
+        if c_type == "webhook":
+            url = str(params.get("url") or "").strip()
+            secret = params.get("secret")
+            token = params.get("token")
+            connector_registry.register_webhook(name, url, secret_key=secret, auth_token=token)
+            return {"registered": True, "name": name, "type": "webhook", "url": url}
+        elif c_type == "database":
+            uri = str(params.get("uri") or params.get("path") or ":memory:").strip()
+            connector_registry.register_database(name, uri)
+            return {"registered": True, "name": name, "type": "database", "uri": uri}
+        elif c_type == "storage":
+            url = str(params.get("url") or "").strip()
+            local_dir = params.get("localDir")
+            connector_registry.register_storage(name, endpoint_url=url, local_dir=local_dir)
+            return {"registered": True, "name": name, "type": "storage"}
+        else:
+            raise ValueError(f"Unsupported connector type: {c_type}")
+
+    if method == "ListConnectors":
+        return {"connectors": connector_registry.list_connectors()}
+
+    if method == "ListMCPConnectors":
+        try:
+            from mcp_client import get_mcp_client_manager
+        except ImportError:
+            from Deployment.cloud.mcp_client import get_mcp_client_manager
+        mgr = get_mcp_client_manager()
+        for name in list(mgr.servers.keys()):
+            if name != "sarembok_browser":
+                try:
+                    mgr.sync_server_tools(name)
+                except Exception:
+                    pass
+        return {"servers": mgr.list_servers()}
 
     if method in ("SearchYouTube", "ResolveMediaStream"):
         query = str(params.get("query") or params.get("topic") or "").strip()

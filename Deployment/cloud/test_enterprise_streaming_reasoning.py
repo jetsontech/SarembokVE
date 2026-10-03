@@ -236,6 +236,118 @@ class TestServerRPCEndpoints(unittest.TestCase):
         self.assertIn("domain_context", res)
         self.assertTrue(res["verification"]["valid"])
 
+    def test_rpc_ingest_and_hybrid_search(self) -> None:
+        ingest_res = dispatch("IngestDocument", {
+            "id": "kb_ue5_doc",
+            "content": "Unreal Engine 5 Pixel Streaming requires NVENC hardware encoding. It streams 3D MetaHumans via WebRTC directly to browser clients with low latency.",
+            "collection": "knowledge_base",
+            "metadata": {"category": "simulation"},
+        })
+        self.assertTrue(ingest_res.get("ingested"))
+        self.assertTrue(ingest_res.get("chunks") >= 1)
+
+        search_res = dispatch("HybridSearch", {
+            "query": "MetaHuman NVENC WebRTC",
+            "collection": "knowledge_base",
+            "top_k": 1,
+        })
+        self.assertIn("results", search_res)
+        self.assertTrue(len(search_res["results"]) >= 1)
+        self.assertIn("Pixel Streaming", search_res["results"][0]["document"])
+
+    def test_rpc_connectors_and_mcp_listing(self) -> None:
+        reg_db = dispatch("RegisterConnector", {
+            "type": "database",
+            "name": "primary_sqlite",
+            "uri": ":memory:",
+        })
+        self.assertTrue(reg_db.get("registered"))
+
+        list_conn = dispatch("ListConnectors", {})
+        self.assertTrue(any(c["name"] == "primary_sqlite" for c in list_conn["connectors"]))
+
+        mcp_res = dispatch("ListMCPConnectors", {})
+        self.assertIn("servers", mcp_res)
+        server_names = {s["name"] for s in mcp_res["servers"]}
+        self.assertTrue(server_names.issuperset({"sqlite", "vector_database", "cloud_storage", "cloud_infrastructure", "github", "slack", "notion", "google_workspace"}))
+
+
+class TestAPIConnectors(unittest.TestCase):
+    def test_database_connector(self) -> None:
+        from sarembok_api_connectors import DatabaseConnector
+        db = DatabaseConnector(":memory:")
+        db.execute_query("CREATE TABLE test_kv (k TEXT PRIMARY KEY, v TEXT)")
+        db.execute_query("INSERT INTO test_kv VALUES (?, ?)", ("hello", "world"))
+        rows = db.execute_query("SELECT * FROM test_kv")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["v"], "world")
+
+    def test_cloud_storage_connector(self) -> None:
+        from sarembok_api_connectors import CloudStorageConnector, ConnectorConfig
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg = ConnectorConfig(name="test_s3", connector_type="storage", metadata={"local_dir": tmpdir})
+            conn = CloudStorageConnector(cfg)
+            res = conn.put_object("artifacts/report.txt", b"Sarembok Architecture Verified")
+            self.assertTrue(res.get("ok"))
+            data = conn.get_object("artifacts/report.txt")
+            self.assertEqual(data, b"Sarembok Architecture Verified")
+
+
+class TestAutomatedCDCVectorIndexing(unittest.IsolatedAsyncioTestCase):
+    async def test_cdc_emits_and_indexes_vector_store(self) -> None:
+        from sarembok_cdc import cdc_pipeline
+        from sarembok_vector_store import vector_store
+
+        rec = await cdc_pipeline.capture_insert(
+            table="conversations",
+            row={"content": "User: Deploy automated change data capture pipelines to Kafka.", "session_id": "sess_1"}
+        )
+        self.assertIsNotNone(rec)
+
+        # Verify automatic vector indexer ingested the text content
+        results = vector_store.query(
+            collection="conversations",
+            query="automated change data capture Kafka",
+            top_k=1
+        )
+        self.assertTrue(len(results) >= 1)
+        self.assertIn("change data capture", results[0]["document"])
+
+
+class TestEssentialMCPServers(unittest.TestCase):
+    def test_all_essential_mcp_servers_sync_and_call(self) -> None:
+        from mcp_client import get_mcp_client_manager
+        mgr = get_mcp_client_manager()
+        essential_servers = [
+            "sqlite",
+            "vector_database",
+            "cloud_storage",
+            "cloud_infrastructure",
+            "github",
+            "slack",
+            "notion",
+            "google_workspace",
+        ]
+        for s_name in essential_servers:
+            tools = mgr.sync_server_tools(s_name)
+            self.assertTrue(len(tools) >= 1, f"Server {s_name} returned 0 tools")
+
+        # Test tool call against cloud_infrastructure
+        health = mgr.call_external_tool("cloud_infrastructure", "get_system_health", {})
+        self.assertFalse(health.get("isError"))
+        self.assertIn("HEALTHY", health["content"][0]["text"])
+
+        # Test tool call against github
+        gh = mgr.call_external_tool("github", "search_repositories", {"query": "SarembokVE"})
+        self.assertFalse(gh.get("isError"))
+        self.assertIn("SarembokVE", gh["content"][0]["text"])
+
+        # Test tool call against slack
+        slk = mgr.call_external_tool("slack", "send_slack_message", {"channel": "#general", "text": "Deploying"})
+        self.assertFalse(slk.get("isError"))
+        self.assertIn("delivered", slk["content"][0]["text"])
+
 
 if __name__ == "__main__":
     unittest.main()
