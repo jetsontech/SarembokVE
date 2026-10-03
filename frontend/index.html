@@ -1202,7 +1202,7 @@
             resize: none !important;
         }
         #srbk-floating-pip-player.minimized .srbk-pip-body,
-        #srbk-floating-pip-player.minimized .srbk-pip-resize-handle {
+        #srbk-floating-pip-player.minimized .srbk-pip-resizer {
             display: none !important;
         }
         #srbk-floating-pip-player.dragging iframe,
@@ -1233,7 +1233,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 240px;
+            max-width: 200px;
             display: flex;
             align-items: center;
             gap: 6px;
@@ -1277,21 +1277,68 @@
             display: block;
             flex: 1;
         }
-        .srbk-pip-resize-handle {
+        #srbk-floating-pip-player.resizing,
+        #srbk-floating-pip-player.dragging {
+            user-select: none !important;
+        }
+        #srbk-floating-pip-player.resizing iframe,
+        #srbk-floating-pip-player.dragging iframe {
+            pointer-events: none !important;
+        }
+        .srbk-pip-resizer {
             position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 18px;
-            height: 18px;
-            cursor: nwse-resize;
-            display: flex;
-            align-items: flex-end;
-            justify-content: flex-end;
-            padding: 2px;
-            box-sizing: border-box;
-            z-index: 10;
+            z-index: 100;
             touch-action: none;
-            pointer-events: auto;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .srbk-resizer-nw { top: -6px; left: -6px; width: 20px; height: 20px; cursor: nwse-resize; }
+        .srbk-resizer-ne { top: -6px; right: -6px; width: 20px; height: 20px; cursor: nesw-resize; }
+        .srbk-resizer-sw { bottom: -6px; left: -6px; width: 20px; height: 20px; cursor: nesw-resize; }
+        .srbk-resizer-se { bottom: -6px; right: -6px; width: 20px; height: 20px; cursor: nwse-resize; }
+        .srbk-resizer-n  { top: -5px; left: 18px; right: 18px; height: 10px; cursor: ns-resize; }
+        .srbk-resizer-s  { bottom: -5px; left: 18px; right: 18px; height: 10px; cursor: ns-resize; }
+        .srbk-resizer-w  { left: -5px; top: 18px; bottom: 18px; width: 10px; cursor: ew-resize; }
+        .srbk-resizer-e  { right: -5px; top: 18px; bottom: 18px; width: 10px; cursor: ew-resize; }
+        .srbk-resizer-nw::after {
+            content: '';
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            width: 8px;
+            height: 8px;
+            border-top: 2px solid var(--cyan);
+            border-left: 2px solid var(--cyan);
+        }
+        .srbk-resizer-ne::after {
+            content: '';
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 8px;
+            height: 8px;
+            border-top: 2px solid var(--cyan);
+            border-right: 2px solid var(--cyan);
+        }
+        .srbk-resizer-sw::after {
+            content: '';
+            position: absolute;
+            bottom: 6px;
+            left: 6px;
+            width: 8px;
+            height: 8px;
+            border-bottom: 2px solid var(--cyan);
+            border-left: 2px solid var(--cyan);
+        }
+        .srbk-resizer-se::after {
+            content: '';
+            position: absolute;
+            bottom: 6px;
+            right: 6px;
+            width: 8px;
+            height: 8px;
+            border-bottom: 2px solid var(--cyan);
+            border-right: 2px solid var(--cyan);
         }
         
         /* Video Card Popout Action Buttons */
@@ -8123,11 +8170,20 @@ button,
     
     <!-- Floating Picture-in-Picture / Pop-Out Video Deck -->
     <div id="srbk-floating-pip-player">
+        <div class="srbk-pip-resizer srbk-resizer-nw" data-dir="nw" title="Drag to resize"></div>
+        <div class="srbk-pip-resizer srbk-resizer-ne" data-dir="ne" title="Drag to resize"></div>
+        <div class="srbk-pip-resizer srbk-resizer-sw" data-dir="sw" title="Drag to resize"></div>
+        <div class="srbk-pip-resizer srbk-resizer-se" data-dir="se" title="Drag to resize"></div>
+        <div class="srbk-pip-resizer srbk-resizer-n" data-dir="n" title="Drag to resize"></div>
+        <div class="srbk-pip-resizer srbk-resizer-s" data-dir="s" title="Drag to resize"></div>
+        <div class="srbk-pip-resizer srbk-resizer-w" data-dir="w" title="Drag to resize"></div>
+        <div class="srbk-pip-resizer srbk-resizer-e" data-dir="e" title="Drag to resize"></div>
         <div class="srbk-pip-header" id="srbk-pip-drag-handle">
             <span class="srbk-pip-title" id="srbk-pip-title-text">
                 <span class="boot-badge-dot"></span> 🎬 POP-OUT VIDEO PLAYER
             </span>
             <div class="srbk-pip-controls">
+                <button class="srbk-pip-btn" onclick="openDocPipWindow(currentPipMedia)" style="color:#00f0ff; border-color:rgba(0,240,255,0.4);" title="Float above all desktop windows and applications (OS Picture-in-Picture)">🗗 FLOAT OVER ALL APPS</button>
                 <button class="srbk-pip-btn" onclick="toggleMinimizePip()" title="Minimize / Expand">_</button>
                 <button class="srbk-pip-btn" onclick="openDetachedPipWindow()" title="Pop Out into Detached Window">↗</button>
                 <button class="srbk-pip-btn" onclick="closeFloatingPip()" style="color:#ef4444;" title="Close Video">✕</button>
@@ -8135,9 +8191,6 @@ button,
         </div>
         <div class="srbk-pip-body" id="srbk-pip-body-container">
             <!-- Iframe injected dynamically -->
-        </div>
-        <div class="srbk-pip-resize-handle" id="srbk-pip-resize-handle" title="Drag to resize player">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M11 3L3 11M11 7L7 11M11 11L11 11" stroke="rgba(0,240,255,0.7)" stroke-width="1.6" stroke-linecap="round"/></svg>
         </div>
     </div>
 
@@ -8358,7 +8411,135 @@ button,
             return match ? match[1] : (/^[a-zA-Z0-9_-]{11}$/.test(url.trim()) ? url.trim() : null);
         }
 
-        async function popOutFloatingVideo(urlOrQuery, title = "") {
+        let activeDocPipWindow = null;
+
+        async function openDocPipWindow(media) {
+            if (!media) media = currentPipMedia;
+            if (!media) return false;
+            if (!('documentPictureInPicture' in window) || typeof window.documentPictureInPicture.requestWindow !== 'function') {
+                return false;
+            }
+            if (activeDocPipWindow) {
+                try { activeDocPipWindow.close(); } catch (_) {}
+                activeDocPipWindow = null;
+            }
+            try {
+                const pipWindow = await window.documentPictureInPicture.requestWindow({
+                    width: 540,
+                    height: 330,
+                });
+                activeDocPipWindow = pipWindow;
+                currentPipMedia = media;
+
+                pipWindow.document.title = (media.displayTitle || "Sarembok Media") + " · Always-On-Top";
+
+                const style = pipWindow.document.createElement("style");
+                style.textContent = `
+                    html, body {
+                        margin: 0;
+                        padding: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: #040916;
+                        overflow: hidden;
+                        display: flex;
+                        flex-direction: column;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+                    }
+                    .pip-bar {
+                        height: 34px;
+                        background: rgba(0, 240, 255, 0.14);
+                        border-bottom: 1px solid rgba(0, 240, 255, 0.35);
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        padding: 0 10px;
+                        color: #00f0ff;
+                        font-size: 11px;
+                        font-weight: 600;
+                        letter-spacing: 0.05em;
+                        user-select: none;
+                        flex-shrink: 0;
+                        box-sizing: border-box;
+                    }
+                    .pip-title {
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        max-width: 380px;
+                    }
+                    .pip-actions {
+                        display: flex;
+                        gap: 6px;
+                    }
+                    .pip-btn {
+                        background: transparent;
+                        border: 1px solid rgba(0, 240, 255, 0.35);
+                        color: #00f0ff;
+                        border-radius: 4px;
+                        font-size: 10px;
+                        cursor: pointer;
+                        padding: 2px 8px;
+                    }
+                    .pip-btn:hover {
+                        background: rgba(0, 240, 255, 0.25);
+                    }
+                    .pip-container {
+                        flex: 1;
+                        width: 100%;
+                        height: calc(100% - 34px);
+                        background: #000;
+                        position: relative;
+                    }
+                    iframe, video {
+                        width: 100%;
+                        height: 100%;
+                        border: none;
+                        display: block;
+                    }
+                `;
+                pipWindow.document.head.appendChild(style);
+
+                const bar = pipWindow.document.createElement("div");
+                bar.className = "pip-bar";
+                bar.innerHTML = `
+                    <span class="pip-title">🎬 ${escapeHtml(media.displayTitle || "Video")}</span>
+                    <div class="pip-actions">
+                        <button class="pip-btn" id="pip-close-btn" title="Close PiP">✕ Close</button>
+                    </div>
+                `;
+                pipWindow.document.body.appendChild(bar);
+
+                const container = pipWindow.document.createElement("div");
+                container.className = "pip-container";
+
+                if (media.embedUrl.includes("youtube") || media.embedUrl.includes("embed")) {
+                    container.innerHTML = `<iframe src="${media.embedUrl}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
+                } else {
+                    container.innerHTML = `<video controls autoplay src="${escapeHtml(media.embedUrl)}"></video>`;
+                }
+                pipWindow.document.body.appendChild(container);
+
+                pipWindow.document.getElementById("pip-close-btn").addEventListener("click", () => {
+                    pipWindow.close();
+                });
+
+                pipWindow.addEventListener("pagehide", () => {
+                    activeDocPipWindow = null;
+                    showToast("OS PICTURE-IN-PICTURE CLOSED");
+                });
+
+                closeFloatingPip();
+                showToast(`FLOAT OVER ALL APPS: ${media.displayTitle.toUpperCase()}`);
+                return true;
+            } catch (err) {
+                console.warn("[Sarembok] openDocPipWindow failed, using in-page player:", err);
+                return false;
+            }
+        }
+        window.openDocPipWindow = openDocPipWindow;
+
+        async function popOutFloatingVideo(urlOrQuery, title = "", preferOsPip = true) {
             let media = resolvePlayableMedia(urlOrQuery, title);
 
             // If unresolved, try backend RPC first
@@ -8374,6 +8555,15 @@ button,
 
             currentPipMedia = media;
 
+            // Try opening OS-level always-on-top window first if preferOsPip
+            if (preferOsPip) {
+                try {
+                    const opened = await openDocPipWindow(media);
+                    if (opened) return;
+                } catch (_) {}
+            }
+
+            // In-page floating player
             const pipEl = document.getElementById("srbk-floating-pip-player");
             const titleEl = document.getElementById("srbk-pip-title-text");
             const bodyEl = document.getElementById("srbk-pip-body-container");
@@ -8389,6 +8579,19 @@ button,
             } else {
                 bodyEl.innerHTML = `<video controls autoplay src="${escapeHtml(media.embedUrl)}" style="width:100%; height:100%; object-fit:contain;"></video>`;
             }
+
+            // Set explicit pixel coordinates so resizing and dragging in ANY direction works smoothly
+            const initialW = Math.min(480, window.innerWidth - 32);
+            const initialH = Math.min(310, window.innerHeight - 32);
+            const initialLeft = Math.max(16, window.innerWidth - initialW - 24);
+            const initialTop = Math.max(16, window.innerHeight - initialH - 24);
+
+            pipEl.style.width = `${initialW}px`;
+            pipEl.style.height = `${initialH}px`;
+            pipEl.style.left = `${initialLeft}px`;
+            pipEl.style.top = `${initialTop}px`;
+            pipEl.style.right = "auto";
+            pipEl.style.bottom = "auto";
 
             pipEl.classList.remove("minimized");
             pipEl.classList.add("active");
@@ -8621,21 +8824,47 @@ button,
             }
         })();
 
-        // Resizable floating PiP Player
+        // 8-Directional Resizable Floating PiP Player
         (function initPipResize() {
             let isResizing = false;
-            let startX = 0, startY = 0, startWidth = 0, startHeight = 0;
+            let activeDir = "";
+            let startX = 0, startY = 0;
+            let startWidth = 0, startHeight = 0;
+            let startLeft = 0, startTop = 0;
+            let activePointerId = null;
 
-            function onResizeStart(clientX, clientY) {
+            function onResizeStart(e, dir) {
+                if (e.button && e.button !== 0) return false;
                 const pip = document.getElementById("srbk-floating-pip-player");
                 if (!pip) return false;
-                isResizing = true;
-                startX = clientX;
-                startY = clientY;
+
                 const rect = pip.getBoundingClientRect();
+                isResizing = true;
+                activeDir = dir || (e.target && e.target.dataset && e.target.dataset.dir) || "se";
+                startX = e.clientX;
+                startY = e.clientY;
                 startWidth = rect.width;
                 startHeight = rect.height;
+                startLeft = rect.left;
+                startTop = rect.top;
+
+                // Explicit pixel coordinates prevent pinning to bottom/right
+                pip.style.right = "auto";
+                pip.style.bottom = "auto";
+                pip.style.left = `${startLeft}px`;
+                pip.style.top = `${startTop}px`;
+                pip.style.width = `${startWidth}px`;
+                pip.style.height = `${startHeight}px`;
+                pip.style.transition = "none";
                 pip.classList.add("resizing");
+
+                if (e.pointerId !== undefined && e.target && e.target.setPointerCapture) {
+                    try {
+                        e.target.setPointerCapture(e.pointerId);
+                        activePointerId = e.pointerId;
+                    } catch (_) {}
+                }
+                if (e.preventDefault) e.preventDefault();
                 return true;
             }
 
@@ -8643,62 +8872,122 @@ button,
                 if (!isResizing) return;
                 const pip = document.getElementById("srbk-floating-pip-player");
                 if (!pip) return;
+
                 const dx = clientX - startX;
                 const dy = clientY - startY;
-                const newW = Math.max(260, Math.min(window.innerWidth - 20, startWidth + dx));
-                const newH = Math.max(180, Math.min(window.innerHeight - 20, startHeight + dy));
-                pip.style.width = `${newW}px`;
-                pip.style.height = `${newH}px`;
+
+                const minW = 240;
+                const minH = 150;
+
+                let newW = startWidth;
+                let newH = startHeight;
+                let newLeft = startLeft;
+                let newTop = startTop;
+
+                // Horizontal resize
+                if (activeDir.includes("e")) {
+                    newW = Math.max(minW, Math.min(window.innerWidth - startLeft - 8, startWidth + dx));
+                } else if (activeDir.includes("w")) {
+                    let proposedW = startWidth - dx;
+                    let proposedLeft = startLeft + dx;
+                    if (proposedLeft < 4) {
+                        proposedW = startLeft + startWidth - 4;
+                        proposedLeft = 4;
+                    }
+                    if (proposedW < minW) {
+                        proposedLeft = startLeft + (startWidth - minW);
+                        proposedW = minW;
+                    }
+                    newW = proposedW;
+                    newLeft = proposedLeft;
+                }
+
+                // Vertical resize
+                if (activeDir.includes("s")) {
+                    newH = Math.max(minH, Math.min(window.innerHeight - startTop - 8, startHeight + dy));
+                } else if (activeDir.includes("n")) {
+                    let proposedH = startHeight - dy;
+                    let proposedTop = startTop + dy;
+                    if (proposedTop < 4) {
+                        proposedH = startTop + startHeight - 4;
+                        proposedTop = 4;
+                    }
+                    if (proposedH < minH) {
+                        proposedTop = startTop + (startHeight - minH);
+                        proposedH = minH;
+                    }
+                    newH = proposedH;
+                    newTop = proposedTop;
+                }
+
+                pip.style.width = `${Math.round(newW)}px`;
+                pip.style.height = `${Math.round(newH)}px`;
+                pip.style.left = `${Math.round(newLeft)}px`;
+                pip.style.top = `${Math.round(newTop)}px`;
             }
 
-            function onResizeEnd() {
+            function onResizeEnd(e) {
                 if (!isResizing) return;
                 isResizing = false;
+                activeDir = "";
                 const pip = document.getElementById("srbk-floating-pip-player");
-                if (pip) pip.classList.remove("resizing");
+                if (pip) {
+                    pip.classList.remove("resizing");
+                    pip.style.transition = "";
+                }
+                if (e && e.target && activePointerId !== null && e.target.releasePointerCapture) {
+                    try { e.target.releasePointerCapture(activePointerId); } catch (_) {}
+                }
+                activePointerId = null;
             }
 
             function attach() {
-                const handle = document.getElementById("srbk-pip-resize-handle");
-                if (!handle) return;
-                handle.style.touchAction = "none";
+                const resizers = document.querySelectorAll(".srbk-pip-resizer");
+                resizers.forEach((handle) => {
+                    handle.style.touchAction = "none";
+                    const dir = handle.dataset.dir || "se";
 
-                handle.addEventListener("pointerdown", (e) => {
-                    if (e.button && e.button !== 0) return;
-                    if (onResizeStart(e.clientX, e.clientY)) {
-                        try { handle.setPointerCapture(e.pointerId); } catch (_) {}
-                        e.preventDefault();
-                    }
+                    handle.addEventListener("pointerdown", (e) => {
+                        onResizeStart(e, dir);
+                    });
+
+                    handle.addEventListener("pointermove", (e) => {
+                        if (isResizing) {
+                            onResizeMove(e.clientX, e.clientY);
+                            e.preventDefault();
+                        }
+                    });
+
+                    handle.addEventListener("pointerup", (e) => {
+                        if (isResizing) {
+                            onResizeEnd(e);
+                            e.preventDefault();
+                        }
+                    });
+
+                    handle.addEventListener("pointercancel", (e) => {
+                        if (isResizing) {
+                            onResizeEnd(e);
+                        }
+                    });
+
+                    handle.addEventListener("touchstart", (e) => {
+                        if (e.touches && e.touches.length > 0) {
+                            const t = e.touches[0];
+                            onResizeStart({ clientX: t.clientX, clientY: t.clientY, target: handle, button: 0, preventDefault: () => e.preventDefault() }, dir);
+                        }
+                    }, { passive: false });
                 });
 
-                handle.addEventListener("pointermove", (e) => {
+                window.addEventListener("pointermove", (e) => {
                     if (isResizing) {
                         onResizeMove(e.clientX, e.clientY);
-                        e.preventDefault();
                     }
                 });
 
-                handle.addEventListener("pointerup", (e) => {
-                    if (isResizing) {
-                        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
-                        onResizeEnd();
-                        e.preventDefault();
-                    }
+                window.addEventListener("pointerup", (e) => {
+                    if (isResizing) onResizeEnd(e);
                 });
-
-                handle.addEventListener("pointercancel", (e) => {
-                    if (isResizing) {
-                        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
-                        onResizeEnd();
-                    }
-                });
-
-                handle.addEventListener("touchstart", (e) => {
-                    if (e.touches && e.touches.length > 0) {
-                        const t = e.touches[0];
-                        if (onResizeStart(t.clientX, t.clientY)) e.preventDefault();
-                    }
-                }, { passive: false });
 
                 window.addEventListener("touchmove", (e) => {
                     if (isResizing && e.touches && e.touches.length > 0) {
@@ -8708,7 +8997,9 @@ button,
                     }
                 }, { passive: false });
 
-                window.addEventListener("touchend", () => { if (isResizing) onResizeEnd(); });
+                window.addEventListener("touchend", () => {
+                    if (isResizing) onResizeEnd();
+                });
             }
 
             if (document.readyState === "loading") {
@@ -15355,6 +15646,6 @@ document.getElementById('global-input-field').addEventListener('input', function
   document.addEventListener("DOMContentLoaded",sync);
 })();
 </script>
-    <script src="/live-voice.js?v=20261003-pip-resize-inline"></script>
+    <script src="/live-voice.js?v=20261003-os-pip-resizer"></script>
 </body>
 </html>
