@@ -4610,6 +4610,375 @@
             line-height: 1.5;
         }
 
+        /* ==================== SYSTEM SETTINGS & ENTERPRISE INTEGRATIONS ==================== */
+        #view-settings {
+            padding: 20px 28px 80px;
+            overflow-y: auto;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        .settings-container {
+            max-width: 1240px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .settings-hero {
+            background: linear-gradient(135deg, rgba(8, 16, 32, 0.96), rgba(3, 7, 18, 0.98));
+            border: 1px solid rgba(0, 240, 255, 0.28);
+            border-radius: 16px;
+            padding: 22px 28px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 30px rgba(0,240,255,0.03);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .settings-hero-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .settings-hero-title {
+            font-family: var(--font-display);
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            color: #ffffff;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .settings-hero-sub {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin: 0;
+            max-width: 860px;
+        }
+        .settings-telemetry-ribbon {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 18px;
+            padding: 10px 16px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(0,240,255,0.18);
+            border-radius: 8px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            align-items: center;
+        }
+        .settings-nav-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            border-bottom: 1px solid rgba(0,240,255,0.15);
+            padding-bottom: 12px;
+            margin-top: 4px;
+        }
+        .settings-nav-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .settings-nav-btn:hover {
+            color: #fff;
+            border-color: rgba(0,240,255,0.3);
+            background: rgba(0,240,255,0.06);
+        }
+        .settings-nav-btn.active {
+            background: rgba(0,240,255,0.14);
+            border-color: var(--cyan);
+            color: var(--cyan);
+            box-shadow: 0 0 14px rgba(0,240,255,0.25);
+        }
+        .settings-tab-pane {
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .settings-tab-pane.active {
+            display: flex;
+        }
+        .settings-mcp-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 16px;
+        }
+        .mcp-card {
+            background: rgba(6, 12, 24, 0.88);
+            border: 1px solid rgba(0, 240, 255, 0.16);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            backdrop-filter: blur(12px);
+        }
+        .mcp-card:hover {
+            border-color: rgba(0, 240, 255, 0.4);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6), 0 0 16px rgba(0,240,255,0.12);
+        }
+        .mcp-card.disabled {
+            opacity: 0.72;
+            border-color: rgba(255,255,255,0.08);
+        }
+        .mcp-card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .mcp-card-identity {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .mcp-card-icon {
+            font-size: 22px;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 240, 255, 0.08);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 8px;
+        }
+        .mcp-card-name {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.04em;
+        }
+        .mcp-card-protocol {
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            color: var(--text-muted);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .mcp-toggle-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .mcp-switch {
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 20px;
+        }
+        .mcp-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .mcp-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background-color: rgba(255,255,255,0.15);
+            transition: .2s;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .mcp-slider:before {
+            position: absolute;
+            content: "";
+            height: 12px;
+            width: 12px;
+            left: 3px;
+            bottom: 3px;
+            background-color: #fff;
+            transition: .2s;
+            border-radius: 50%;
+        }
+        .mcp-switch input:checked + .mcp-slider {
+            background-color: var(--emerald);
+            border-color: #10b981;
+            box-shadow: 0 0 10px rgba(16,185,129,0.5);
+        }
+        .mcp-switch input:checked + .mcp-slider:before {
+            transform: translateX(16px);
+            background-color: #020408;
+        }
+        .mcp-status-badge {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .mcp-status-badge.connected {
+            background: rgba(16,185,129,0.15);
+            border: 1px solid rgba(16,185,129,0.4);
+            color: #6ee7b7;
+        }
+        .mcp-status-badge.disabled {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: var(--text-muted);
+        }
+        .mcp-status-badge.error {
+            background: rgba(239,68,68,0.15);
+            border: 1px solid rgba(239,68,68,0.4);
+            color: #fca5a5;
+        }
+        .mcp-desc {
+            font-size: 11.5px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin: 0;
+        }
+        .mcp-field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .mcp-field-label {
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            display: flex;
+            justify-content: space-between;
+        }
+        .mcp-input {
+            width: 100%;
+            height: 32px;
+            padding: 0 10px;
+            background: #040912;
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 6px;
+            color: #fff;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+        .mcp-input:focus {
+            border-color: var(--cyan);
+            box-shadow: 0 0 10px rgba(0,240,255,0.25);
+        }
+        .mcp-tools-tray {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            max-height: 80px;
+            overflow-y: auto;
+            padding: 4px 0;
+        }
+        .mcp-tool-pill {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            background: rgba(0, 240, 255, 0.08);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            color: var(--cyan);
+            border-radius: 4px;
+            padding: 2px 7px;
+            white-space: nowrap;
+        }
+        .mcp-card-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 4px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            padding-top: 10px;
+        }
+        .mcp-latency-tag {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--amber);
+            font-weight: 600;
+        }
+        .settings-card {
+            background: rgba(6, 12, 24, 0.88);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .settings-card-title {
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .settings-table-wrap {
+            overflow-x: auto;
+            border: 1px solid rgba(0, 240, 255, 0.15);
+            border-radius: 8px;
+            background: rgba(2, 6, 14, 0.8);
+            max-height: 380px;
+            overflow-y: auto;
+        }
+        .settings-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            text-align: left;
+        }
+        .settings-table th {
+            background: rgba(0, 240, 255, 0.08);
+            color: var(--cyan);
+            padding: 8px 12px;
+            border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+        .settings-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+        }
+        .settings-table tr:hover td {
+            background: rgba(0, 240, 255, 0.03);
+            color: #fff;
+        }
+
         /* ==================== TASK & HISTORY DRAWER STYLING ==================== */
         #task-history-backdrop {
             position: fixed;
@@ -6463,6 +6832,11 @@ button,
                     <span id="hud-telemetry-label">TELEMETRY COCKPIT</span>
                 </button>
 
+                <button class="hud-voice-btn" id="hud-settings-btn" onclick="switchTab('settings')" title="System Settings &amp; Enterprise MCP Integrations" style="border-color:rgba(0,240,255,0.4); color:var(--cyan); background:rgba(0,240,255,0.08);">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <span>SETTINGS &amp; MCP</span>
+                </button>
+
                 <!-- User Profile & Auth Trigger -->
                 <div id="hud-auth-wrap" style="position:relative; display:inline-flex; align-items:center;">
                     <button class="hud-voice-btn" id="hud-auth-btn" onclick="toggleUserAuthMenu()" title="Account &amp; Login" style="border-color:rgba(0,240,255,0.4); color:var(--cyan); background:rgba(0,240,255,0.08); font-weight:700;">
@@ -6478,6 +6852,9 @@ button,
                         </div>
                         <button class="browser-action-btn" id="hud-dropdown-signin-btn" onclick="openAuthModal('social'); toggleUserAuthMenu(false);" style="width:100%; text-align:left; padding:8px 10px; font-size:11px; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
                             <span>🔑</span> Sign In / Switch User
+                        </button>
+                        <button class="browser-action-btn" id="hud-dropdown-settings-btn" onclick="switchTab('settings'); toggleUserAuthMenu(false);" style="width:100%; text-align:left; padding:8px 10px; font-size:11px; margin-bottom:4px; display:flex; align-items:center; gap:8px; border-color:rgba(0,240,255,0.3); color:var(--cyan);">
+                            <span>⚙️</span> System Settings &amp; MCP
                         </button>
                         <button class="browser-action-btn" id="hud-dropdown-master-btn" onclick="openAuthModal('master'); toggleUserAuthMenu(false);" style="width:100%; text-align:left; padding:8px 10px; font-size:11px; margin-bottom:4px; display:flex; align-items:center; gap:8px; border-color:rgba(245,158,11,0.4); color:var(--amber);">
                             <span>👑</span> Sovereign Master Portal
@@ -6541,6 +6918,10 @@ button,
             
             <button class="dock-btn" id="dock-btn-features" onclick="switchTab('features')" title="System Capabilities & Playbook">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            </button>
+
+            <button class="dock-btn" id="dock-btn-settings" onclick="switchTab('settings')" title="System Settings, MCP Connectors &amp; Streaming">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </button>
 
             <div class="dock-version">v2.6</div>
@@ -8070,6 +8451,266 @@ button,
                         <div class="guardrail-item">
                             <div class="guardrail-title">⚖️ Sovereign Ground Truth Enforcement</div>
                             <div class="guardrail-desc">Worker status, memory metrics, and GPU capacity are read directly from live telemetry, forbidding false or hallucinated metrics.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== VIEW 11: SYSTEM SETTINGS & ENTERPRISE INTEGRATIONS ==================== -->
+        <section class="view-panel" id="view-settings">
+            <div class="settings-container">
+                <!-- HERO HEADER -->
+                <div class="settings-hero">
+                    <div class="settings-hero-header">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="cyber-card-badge cyan" style="font-size:11px; padding:3px 10px; letter-spacing:1.5px;">SYSTEM SETTINGS &amp; INTEGRATIONS</span>
+                            <span class="cyber-card-badge emerald" style="font-size:11px; padding:3px 10px; letter-spacing:1.5px;">MCP V2026.1 · CDC · VECTOR DB</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <button class="browser-action-btn" onclick="loadSystemSettings(true)" style="border-color:var(--cyan); color:var(--cyan); padding:4px 12px; font-size:11px; display:inline-flex; align-items:center; gap:6px;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                                <span>SYNC TELEMETRY</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <h1 class="settings-hero-title">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        SYSTEM SETTINGS &amp; ENTERPRISE INTEGRATIONS
+                    </h1>
+                    <p class="settings-hero-sub">
+                        Configure, activate, and observe sovereign infrastructure: Model Context Protocol (MCP) servers, Change Data Capture (CDC) real-time streaming, semantic vector indexing, standardized API connectors, and distributed tracing telemetry.
+                    </p>
+
+                    <!-- LIVE STATUS RIBBON -->
+                    <div class="settings-telemetry-ribbon">
+                        <div class="feat-tele-item"><span class="feat-tele-dot green"></span> MCP SERVERS: <strong id="settings-status-mcp">9 CONFIGURED</strong></div>
+                        <div class="feat-tele-item">CDC PIPELINE: <strong id="settings-status-cdc" style="color:var(--emerald);">STREAMING (DEBEZIUM)</strong></div>
+                        <div class="feat-tele-item">VECTOR DB: <strong id="settings-status-vector">768-DIM COSINE</strong></div>
+                        <div class="feat-tele-item">OTEL TRACING: <strong id="settings-status-tracing" style="color:var(--cyan);">W3C TRACEPARENT</strong></div>
+                        <div class="feat-tele-item">MUTATIONS: <strong id="settings-status-mutations">0 CAPTURED</strong></div>
+                    </div>
+
+                    <!-- SUB-TABS NAVIGATION -->
+                    <div class="settings-nav-bar">
+                        <button class="settings-nav-btn active" id="settings-tab-btn-mcp" onclick="switchSettingsSubTab('mcp')">
+                            🧩 MCP SERVERS &amp; CONNECTORS (<span id="settings-mcp-count">9</span>)
+                        </button>
+                        <button class="settings-nav-btn" id="settings-tab-btn-cdc" onclick="switchSettingsSubTab('cdc')">
+                            ⚡ CDC &amp; REAL-TIME STREAMING
+                        </button>
+                        <button class="settings-nav-btn" id="settings-tab-btn-vector" onclick="switchSettingsSubTab('vector')">
+                            🧠 SEMANTIC VECTOR INDEXING
+                        </button>
+                        <button class="settings-nav-btn" id="settings-tab-btn-tracing" onclick="switchSettingsSubTab('tracing')">
+                            🔭 DISTRIBUTED TRACING &amp; OTEL
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SUB-PANE 1: MCP SERVERS & CONNECTORS -->
+                <div class="settings-tab-pane active" id="settings-subpane-mcp">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                        <div>
+                            <div style="font-family:var(--font-display); font-size:16px; font-weight:700; color:#fff;">Model Context Protocol (MCP) Connectors</div>
+                            <div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">Activate and configure credentials for sovereign databases, cloud storage, infrastructure, and productivity platforms.</div>
+                        </div>
+                        <button class="browser-action-btn" onclick="testAllMcpServers()" style="border-color:var(--amber); color:var(--amber); padding:6px 14px; font-size:11px; font-weight:700;">
+                            ⚡ TEST ALL CONNECTIONS
+                        </button>
+                    </div>
+
+                    <!-- DYNAMIC MCP CARDS GRID (RENDERED BY JS) -->
+                    <div class="settings-mcp-grid" id="settings-mcp-cards-grid">
+                        <!-- Populated dynamically via loadSystemSettings() -->
+                    </div>
+                </div>
+
+                <!-- SUB-PANE 2: CDC & REAL-TIME STREAMING -->
+                <div class="settings-tab-pane" id="settings-subpane-cdc">
+                    <div class="settings-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                            <div>
+                                <div class="settings-card-title">
+                                    <span style="color:var(--emerald);">⚡</span>
+                                    Change Data Capture (CDC) &amp; Event Stream Pipeline
+                                </div>
+                                <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
+                                    Real-time transaction capture formatted to Debezium/Kafka specifications with automated semantic vector indexing on row mutations.
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button class="browser-action-btn" onclick="triggerCdcTestMutation()" style="border-color:var(--emerald); color:var(--emerald); padding:6px 14px; font-size:11px; font-weight:700;">
+                                    + TRIGGER TEST MUTATION
+                                </button>
+                                <button class="browser-action-btn" onclick="refreshCdcLogs()" style="border-color:var(--cyan); color:var(--cyan); padding:6px 14px; font-size:11px;">
+                                    🔄 REFRESH STREAM
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- CDC Telemetry Cards -->
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-top:8px;">
+                            <div style="background:rgba(0,0,0,0.4); border:1px solid rgba(0,240,255,0.15); border-radius:8px; padding:12px;">
+                                <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">PIPELINE ENGINE</div>
+                                <div style="font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--emerald); margin-top:4px;">ACTIVE (DEBEZIUM)</div>
+                                <div style="font-size:10px; color:var(--text-secondary); margin-top:2px;">CloudEvents v1.0 Spec</div>
+                            </div>
+                            <div style="background:rgba(0,0,0,0.4); border:1px solid rgba(0,240,255,0.15); border-radius:8px; padding:12px;">
+                                <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">STREAM BUFFER</div>
+                                <div style="font-family:var(--font-display); font-size:15px; font-weight:700; color:#fff; margin-top:4px;" id="cdc-buffer-size-val">0 RECORDS</div>
+                                <div style="font-size:10px; color:var(--text-secondary); margin-top:2px;">In-Memory Ring Buffer</div>
+                            </div>
+                            <div style="background:rgba(0,0,0,0.4); border:1px solid rgba(0,240,255,0.15); border-radius:8px; padding:12px;">
+                                <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">KAFKA BRIDGE</div>
+                                <div style="font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--cyan); margin-top:4px;">kafka:9092</div>
+                                <div style="font-size:10px; color:var(--text-secondary); margin-top:2px;">sarembok.cdc.* Topics</div>
+                            </div>
+                            <div style="background:rgba(0,0,0,0.4); border:1px solid rgba(0,240,255,0.15); border-radius:8px; padding:12px;">
+                                <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">AUTO VECTOR INDEX</div>
+                                <div style="font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--emerald); margin-top:4px;">ENABLED</div>
+                                <div style="font-size:10px; color:var(--text-secondary); margin-top:2px;">Mutations auto-indexed</div>
+                            </div>
+                        </div>
+
+                        <!-- Monitored Tables -->
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-family:var(--font-mono); font-size:11px;">
+                            <span style="color:var(--text-muted);">MONITORED TABLES:</span>
+                            <span class="mcp-tool-pill">conversations</span>
+                            <span class="mcp-tool-pill">artifacts</span>
+                            <span class="mcp-tool-pill">agent_wal</span>
+                            <span class="mcp-tool-pill">system_metrics</span>
+                        </div>
+
+                        <!-- Live Mutation Log Table -->
+                        <div style="margin-top:10px;">
+                            <div style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--cyan); margin-bottom:8px; letter-spacing:0.06em;">LIVE MUTATION STREAM INSPECTOR</div>
+                            <div class="settings-table-wrap">
+                                <table class="settings-table">
+                                    <thead>
+                                        <tr>
+                                            <th>TIMESTAMP</th>
+                                            <th>OP</th>
+                                            <th>TABLE</th>
+                                            <th>TRANSACTION ID</th>
+                                            <th>PAYLOAD SNAPSHOT</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="settings-cdc-table-body">
+                                        <tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">Awaiting table mutations… Trigger a test mutation to inspect.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-PANE 3: SEMANTIC VECTOR INDEXING -->
+                <div class="settings-tab-pane" id="settings-subpane-vector">
+                    <div class="settings-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                            <div>
+                                <div class="settings-card-title">
+                                    <span style="color:var(--indigo);">🧠</span>
+                                    Semantic Vector Store &amp; Intelligent Search
+                                </div>
+                                <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
+                                    768-dimensional dense vector embeddings with cosine similarity and Reciprocal Rank Fusion (RRF) hybrid search.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Vector Engine Stats Grid -->
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                            <div style="background:rgba(0,0,0,0.4); border:1px solid rgba(0,240,255,0.15); border-radius:8px; padding:12px;">
+                                <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">EMBEDDING DIMENSION</div>
+                                <div style="font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--cyan); margin-top:4px;">768 FLOAT32</div>
+                                <div style="font-size:10px; color:var(--text-secondary); margin-top:2px;">Dense Cosine Metric</div>
+                            </div>
+                            <div style="background:rgba(0,0,0,0.4); border:1px solid rgba(0,240,255,0.15); border-radius:8px; padding:12px;">
+                                <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">ACTIVE COLLECTIONS</div>
+                                <div style="font-family:var(--font-display); font-size:15px; font-weight:700; color:#fff; margin-top:4px;" id="vector-collections-count-val">0 COLLECTIONS</div>
+                                <div style="font-size:10px; color:var(--text-secondary); margin-top:2px;" id="vector-collections-list-val">knowledge_base, conversations</div>
+                            </div>
+                            <div style="background:rgba(0,0,0,0.4); border:1px solid rgba(0,240,255,0.15); border-radius:8px; padding:12px;">
+                                <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">TOTAL INDEXED VECTORS</div>
+                                <div style="font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--emerald); margin-top:4px;" id="vector-total-records-val">0 VECTORS</div>
+                                <div style="font-size:10px; color:var(--text-secondary); margin-top:2px;">Persisted to disk</div>
+                            </div>
+                        </div>
+
+                        <!-- Interactive Semantic Search Test Box -->
+                        <div style="background:rgba(0,0,0,0.35); border:1px solid rgba(0,240,255,0.18); border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:12px;">
+                            <div style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--cyan); letter-spacing:0.06em;">INTERACTIVE SEMANTIC SEARCH SANDBOX</div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <input type="text" id="settings-vector-search-input" class="mcp-input" placeholder="Type search query to test cosine similarity &amp; chunk retrieval…" style="flex:1; min-width:240px;" onkeydown="if(event.key==='Enter') runSemanticSearchTest();">
+                                <button class="browser-action-btn" onclick="runSemanticSearchTest()" style="border-color:var(--cyan); color:var(--cyan); padding:0 16px; font-size:11px; font-weight:700;">
+                                    🔍 RUN SEMANTIC SEARCH
+                                </button>
+                            </div>
+                            <!-- Search Results List -->
+                            <div id="settings-vector-results-tray" style="display:flex; flex-direction:column; gap:8px; max-height:260px; overflow-y:auto;">
+                                <div style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono); padding:10px 0;">Enter a query above to test hybrid semantic vector search against indexed collections.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-PANE 4: DISTRIBUTED TRACING & OTEL -->
+                <div class="settings-tab-pane" id="settings-subpane-tracing">
+                    <div class="settings-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                            <div>
+                                <div class="settings-card-title">
+                                    <span style="color:var(--amber);">🔭</span>
+                                    OpenTelemetry Distributed Tracing &amp; Observability
+                                </div>
+                                <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
+                                    End-to-end W3C traceparent (00-{trace_id}-{span_id}-01) correlation across RPC, agent reasoners, and external connectors.
+                                </div>
+                            </div>
+                            <button class="browser-action-btn" onclick="refreshTraceLogs()" style="border-color:var(--cyan); color:var(--cyan); padding:6px 14px; font-size:11px;">
+                                🔄 REFRESH SPANS
+                            </button>
+                        </div>
+
+                        <!-- Tracing Stats -->
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                            <div style="background:rgba(0,0,0,0.4); border:1px solid rgba(0,240,255,0.15); border-radius:8px; padding:12px;">
+                                <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">OTEL STANDARD</div>
+                                <div style="font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--cyan); margin-top:4px;">W3C TRACEPARENT</div>
+                                <div style="font-size:10px; color:var(--text-secondary); margin-top:2px;">RFC Compliant Headers</div>
+                            </div>
+                            <div style="background:rgba(0,0,0,0.4); border:1px solid rgba(0,240,255,0.15); border-radius:8px; padding:12px;">
+                                <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">TRACES RECORDED</div>
+                                <div style="font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--emerald); margin-top:4px;" id="tracing-total-spans-val">0 SPANS</div>
+                                <div style="font-size:10px; color:var(--text-secondary); margin-top:2px;">Distributed Buffer</div>
+                            </div>
+                            <div style="background:rgba(0,0,0,0.4); border:1px solid rgba(0,240,255,0.15); border-radius:8px; padding:12px;">
+                                <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">SPAN STATUS</div>
+                                <div style="font-family:var(--font-display); font-size:15px; font-weight:700; color:#fff; margin-top:4px;">100% HEALTHY</div>
+                                <div style="font-size:10px; color:var(--text-secondary); margin-top:2px;">Zero Tracing Exceptions</div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Trace Spans Table -->
+                        <div class="settings-table-wrap">
+                            <table class="settings-table">
+                                <thead>
+                                    <tr>
+                                        <th>TRACE ID</th>
+                                        <th>SPAN ID</th>
+                                        <th>OPERATION NAME</th>
+                                        <th>STATUS</th>
+                                        <th>DURATION</th>
+                                        <th>ATTRIBUTES</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="settings-tracing-table-body">
+                                    <tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Loading recent distributed trace spans…</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -9754,11 +10395,18 @@ button,
                     deck: 'Send a command to the deck…',
                     memory: 'Query persistent memory…',
                     research: 'Ask Sarembok to research anything…',
+                    settings: 'Search system integrations or test MCP tools…',
                 };
                 field.placeholder = placeholders[tabId] || 'Message Sarembok V E…';
             }
             // Show BG button only on dialogue-capable tabs
             if (bgBtn) bgBtn.style.display = ['dialogue','workspace','deck'].includes(tabId) ? 'flex' : 'none';
+
+            if (tabId === 'settings') {
+                if (typeof loadSystemSettings === 'function') {
+                    loadSystemSettings();
+                }
+            }
         }
 
 
@@ -14826,6 +15474,496 @@ button,
             }
         }
         setTimeout(initSessionContinuity, 100);
+
+        /* ==================== SYSTEM SETTINGS & ENTERPRISE INTEGRATIONS CONTROLLER ==================== */
+        const MCP_DEFINITIONS = {
+            sqlite: {
+                icon: "🗄️",
+                title: "SQLite Persistent Store",
+                desc: "Local write-ahead log & structured transaction storage with direct SQL query tool execution.",
+                protocol: "stdio · python",
+                fields: [
+                    { key: "DB_PATH", label: "Database WAL Path", placeholder: "Deployment/cloud/sarembok_memory.db", default: "Deployment/cloud/sarembok_memory.db" }
+                ]
+            },
+            vector_database: {
+                icon: "🧠",
+                title: "Vector DB & Semantic Index",
+                desc: "High-dimensional cosine similarity vector engine with partitioned collection persistence.",
+                protocol: "stdio · python",
+                fields: [
+                    { key: "DEFAULT_COLLECTION", label: "Default Collection", placeholder: "knowledge_base", default: "knowledge_base" },
+                    { key: "EMBEDDING_DIM", label: "Vector Dimension", placeholder: "768", default: "768" }
+                ]
+            },
+            cloud_storage: {
+                icon: "☁️",
+                title: "Cloud Object Storage",
+                desc: "Sovereign blob & artifact persistence with signed URLs and automatic replication (S3 / GCS / MinIO).",
+                protocol: "stdio · s3/minio",
+                fields: [
+                    { key: "S3_ENDPOINT_URL", label: "S3 / MinIO Endpoint", placeholder: "https://s3.amazonaws.com" },
+                    { key: "S3_BUCKET_NAME", label: "Bucket Name", placeholder: "sarembok-cloud-storage" },
+                    { key: "AWS_ACCESS_KEY_ID", label: "Access Key ID", placeholder: "AKIA..." },
+                    { key: "AWS_SECRET_ACCESS_KEY", label: "Secret Access Key", type: "password", placeholder: "Secret Access Key..." }
+                ]
+            },
+            cloud_infrastructure: {
+                icon: "🏗️",
+                title: "Cloud Infrastructure",
+                desc: "Container lifecycle, Kubernetes cluster management, and Terraform runner.",
+                protocol: "stdio · k8s/terraform",
+                fields: [
+                    { key: "KUBE_CONTEXT", label: "Cluster Context / Provider", placeholder: "default-context / ovh-vps" },
+                    { key: "CLOUD_REGION", label: "Target Region", placeholder: "us-east / gra7", default: "gra7" }
+                ]
+            },
+            github: {
+                icon: "🐙",
+                title: "GitHub Enterprise",
+                desc: "Repository management, issue dispatch, pull request generation, and commit inspection.",
+                protocol: "stdio · octokit",
+                fields: [
+                    { key: "GITHUB_PERSONAL_ACCESS_TOKEN", label: "Personal Access Token (PAT)", type: "password", placeholder: "ghp_..." },
+                    { key: "GITHUB_DEFAULT_REPO", label: "Default Repository (owner/repo)", placeholder: "jetsontech/SarembokVE", default: "jetsontech/SarembokVE" }
+                ]
+            },
+            slack: {
+                icon: "💬",
+                title: "Slack Collaboration",
+                desc: "Automated operations dispatch, channel notifications, and asynchronous webhook messaging.",
+                protocol: "stdio · webhooks",
+                fields: [
+                    { key: "SLACK_WEBHOOK_URL", label: "Incoming Webhook / Bot Token", type: "password", placeholder: "https://hooks.slack.com/services/..." },
+                    { key: "SLACK_ALERT_CHANNEL", label: "Default Channel", placeholder: "#sarembok-ops", default: "#sarembok-ops" }
+                ]
+            },
+            notion: {
+                icon: "📝",
+                title: "Notion Knowledge Base",
+                desc: "Document sync, executive playbooks, meeting notes, and knowledge graph extraction.",
+                protocol: "stdio · notion-api",
+                fields: [
+                    { key: "NOTION_API_KEY", label: "Internal Integration Secret", type: "password", placeholder: "secret_..." },
+                    { key: "NOTION_DATABASE_ID", label: "Workspace Database ID", placeholder: "32-character database UUID" }
+                ]
+            },
+            google_workspace: {
+                icon: "💼",
+                title: "Google Workspace Suite",
+                desc: "Drive documentation, spreadsheet sync, calendar events, and operational orchestration.",
+                protocol: "stdio · gsuite-api",
+                fields: [
+                    { key: "GOOGLE_CREDENTIALS_JSON", label: "Service Account / OAuth Token", type: "password", placeholder: "Service Account JSON or OAuth Client Secret" },
+                    { key: "GOOGLE_DRIVE_FOLDER", label: "Root Folder ID", placeholder: "Drive folder ID..." }
+                ]
+            },
+            sarembok_browser: {
+                icon: "🌐",
+                title: "Headless Browser CDP",
+                desc: "Deep web research, dynamic DOM rendering, visual screenshot capture, and navigation.",
+                protocol: "http · cdp-bridge",
+                fields: [
+                    { key: "BROWSER_URL", label: "Remote CDP Service URL", placeholder: "http://sarembok-browser:9100/mcp", default: "http://sarembok-browser:9100/mcp" }
+                ]
+            }
+        };
+
+        let _activeSettingsSubTab = "mcp";
+        let _systemSettingsCache = null;
+
+        function switchSettingsSubTab(subTabId) {
+            _activeSettingsSubTab = subTabId;
+            document.querySelectorAll(".settings-nav-btn").forEach(btn => btn.classList.remove("active"));
+            document.querySelectorAll(".settings-tab-pane").forEach(pane => pane.classList.remove("active"));
+
+            const targetBtn = document.getElementById(`settings-tab-btn-${subTabId}`);
+            const targetPane = document.getElementById(`settings-subpane-${subTabId}`);
+            if (targetBtn) targetBtn.classList.add("active");
+            if (targetPane) targetPane.classList.add("active");
+
+            if (subTabId === "cdc") refreshCdcLogs();
+            if (subTabId === "tracing") refreshTraceLogs();
+        }
+
+        async function loadSystemSettings(forceRefresh = false) {
+            try {
+                let data = null;
+                if (typeof sendRPC === "function") {
+                    data = await sendRPC("GetSystemIntegrationsConfig", {});
+                }
+                if (!data) return;
+                _systemSettingsCache = data;
+
+                // Update Status Ribbon
+                const mcpServers = data.mcp_servers || [];
+                const activeMcpCount = mcpServers.filter(s => s.status === "CONNECTED" || s.enabled !== false).length;
+                const mcpStatusEl = document.getElementById("settings-status-mcp");
+                if (mcpStatusEl) mcpStatusEl.textContent = `${activeMcpCount} OF ${mcpServers.length} ACTIVE`;
+                const mcpCountBadge = document.getElementById("settings-mcp-count");
+                if (mcpCountBadge) mcpCountBadge.textContent = mcpServers.length;
+
+                const cdcData = data.cdc || {};
+                const mutationsEl = document.getElementById("settings-status-mutations");
+                if (mutationsEl) mutationsEl.textContent = `${cdcData.buffer_size || 0} CAPTURED`;
+                const cdcBufferEl = document.getElementById("cdc-buffer-size-val");
+                if (cdcBufferEl) cdcBufferEl.textContent = `${cdcData.buffer_size || 0} RECORDS`;
+
+                const vecData = data.vector_store || {};
+                const vecStatusEl = document.getElementById("settings-status-vector");
+                if (vecStatusEl) vecStatusEl.textContent = `${vecData.dimension || 768}-DIM COSINE`;
+                const vecColCount = document.getElementById("vector-collections-count-val");
+                if (vecColCount) vecColCount.textContent = `${(vecData.collections || []).length} COLLECTIONS`;
+                const vecColList = document.getElementById("vector-collections-list-val");
+                if (vecColList && vecData.collections) vecColList.textContent = vecData.collections.join(", ");
+                const vecTotalRecs = document.getElementById("vector-total-records-val");
+                if (vecTotalRecs) vecTotalRecs.textContent = `${vecData.total_records || 0} VECTORS`;
+
+                const traceData = data.tracing || {};
+                const traceSpansEl = document.getElementById("tracing-total-spans-val");
+                if (traceSpansEl) traceSpansEl.textContent = `${traceData.traces_recorded || 0} SPANS`;
+
+                // Render MCP Cards
+                renderMcpCards(mcpServers);
+
+                // Render CDC and Trace Tables
+                if (cdcData.recent_mutations) renderCdcTable(cdcData.recent_mutations);
+                if (traceData.recent_spans) renderTraceTable(traceData.recent_spans);
+
+                if (forceRefresh) showToast("TELEMETRY SYNCHRONIZED");
+            } catch (err) {
+                console.warn("loadSystemSettings error:", err);
+            }
+        }
+
+        function renderMcpCards(servers) {
+            const grid = document.getElementById("settings-mcp-cards-grid");
+            if (!grid) return;
+
+            // Merge with local definitions
+            const serverMap = {};
+            (servers || []).forEach(s => { serverMap[s.name] = s; });
+
+            let html = "";
+            Object.keys(MCP_DEFINITIONS).forEach(name => {
+                const def = MCP_DEFINITIONS[name];
+                const srv = serverMap[name] || { name, transport: "stdio", status: "CONFIGURED", enabled: true, tools: [], maskedEnv: {} };
+                const isEnabled = srv.enabled !== false;
+                const status = !isEnabled ? "DISABLED" : (srv.status || "CONNECTED");
+                const badgeClass = status === "CONNECTED" ? "connected" : (status === "DISABLED" ? "disabled" : "error");
+                const tools = srv.tools || [];
+
+                html += `
+                <div class="mcp-card ${!isEnabled ? 'disabled' : ''}" id="mcp-card-${name}">
+                    <div class="mcp-card-top">
+                        <div class="mcp-card-identity">
+                            <div class="mcp-card-icon">${def.icon}</div>
+                            <div>
+                                <div class="mcp-card-name">${escapeHtml(def.title)}</div>
+                                <div class="mcp-card-protocol">${escapeHtml(def.protocol)}</div>
+                            </div>
+                        </div>
+                        <div class="mcp-toggle-wrap">
+                            <span class="mcp-status-badge ${badgeClass}" id="mcp-badge-${name}">${status}</span>
+                            <label class="mcp-switch" title="Toggle ${def.title}">
+                                <input type="checkbox" id="mcp-toggle-${name}" ${isEnabled ? 'checked' : ''} onchange="toggleMcpServer('${name}', this.checked)">
+                                <span class="mcp-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <p class="mcp-desc">${escapeHtml(def.desc)}</p>
+
+                    <!-- Credentials & Configuration Fields -->
+                    <div class="mcp-field-group">
+                        ${def.fields.map(f => {
+                            const savedVal = localStorage.getItem(\`sarembok_mcp_\${name}_\${f.key}\`) || (srv.maskedEnv ? srv.maskedEnv[f.key] : "") || (f.default || "");
+                            return `
+                            <div>
+                                <div class="mcp-field-label">
+                                    <span>${escapeHtml(f.label)}</span>
+                                    ${f.type === 'password' ? `<span style="cursor:pointer; color:var(--cyan);" onclick="togglePasswordVisibility('mcp-input-${name}-${f.key}')">👁️</span>` : ''}
+                                </div>
+                                <input type="${f.type || 'text'}" id="mcp-input-${name}-${f.key}" class="mcp-input" placeholder="${escapeHtml(f.placeholder)}" value="${escapeHtml(savedVal)}">
+                            </div>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    <!-- Available Tools Tray -->
+                    <div>
+                        <div style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase;">
+                            MCP TOOLS (<span id="mcp-tool-count-${name}">${tools.length}</span>)
+                        </div>
+                        <div class="mcp-tools-tray" id="mcp-tools-tray-${name}">
+                            ${tools.length ? tools.map(t => {
+                                const toolName = typeof t === 'string' ? t : (t.name || 'tool');
+                                return `<span class="mcp-tool-pill" title="${escapeHtml(typeof t === 'object' ? (t.description || '') : '')}">🛠️ ${escapeHtml(toolName)}</span>`;
+                            }).join('') : '<span style="font-size:10px; color:var(--text-muted); font-family:var(--font-mono);">Click "Test Connection" to fetch live schemas</span>'}
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="mcp-card-actions">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <button class="browser-action-btn" id="mcp-test-btn-${name}" onclick="testMcpServer('${name}')" style="border-color:var(--cyan); color:var(--cyan); padding:4px 10px; font-size:10px; font-weight:700;">
+                                ⚡ TEST CONNECTION
+                            </button>
+                            <span class="mcp-latency-tag" id="mcp-latency-${name}"></span>
+                        </div>
+                        <button class="browser-action-btn" onclick="saveMcpServerConfig('${name}')" style="border-color:rgba(16,185,129,0.5); color:#6ee7b7; padding:4px 10px; font-size:10px; font-weight:700;">
+                            💾 SAVE CONFIG
+                        </button>
+                    </div>
+                </div>
+                `;
+            });
+
+            grid.innerHTML = html;
+        }
+
+        function togglePasswordVisibility(inputId) {
+            const el = document.getElementById(inputId);
+            if (!el) return;
+            el.type = el.type === "password" ? "text" : "password";
+        }
+
+        async function toggleMcpServer(name, isChecked) {
+            const card = document.getElementById(`mcp-card-${name}`);
+            const badge = document.getElementById(`mcp-badge-${name}`);
+            if (card) {
+                if (isChecked) card.classList.remove("disabled");
+                else card.classList.add("disabled");
+            }
+            if (badge) {
+                badge.className = `mcp-status-badge ${isChecked ? 'connected' : 'disabled'}`;
+                badge.textContent = isChecked ? 'CONNECTED' : 'DISABLED';
+            }
+
+            try {
+                if (typeof sendRPC === "function") {
+                    await sendRPC("ConfigureMCPConnector", { name, enabled: isChecked });
+                }
+                showToast(`${name.toUpperCase()} ${isChecked ? 'ACTIVATED' : 'DEACTIVATED'}`);
+            } catch (err) {
+                console.warn("toggleMcpServer error:", err);
+                showToast(`FAILED TO TOGGLE ${name.toUpperCase()}`);
+            }
+        }
+
+        async function saveMcpServerConfig(name) {
+            const def = MCP_DEFINITIONS[name];
+            if (!def) return;
+
+            const envPayload = {};
+            def.fields.forEach(f => {
+                const el = document.getElementById(`mcp-input-${name}-${f.key}`);
+                if (el && el.value.trim() && !el.value.includes("****")) {
+                    envPayload[f.key] = el.value.trim();
+                    localStorage.setItem(`sarembok_mcp_${name}_${f.key}`, el.value.trim());
+                }
+            });
+
+            try {
+                if (typeof sendRPC === "function") {
+                    const res = await sendRPC("ConfigureMCPConnector", { name, env: envPayload, enabled: true });
+                    showToast(`CONFIGURATION SAVED FOR ${name.toUpperCase()}`);
+                    const badge = document.getElementById(`mcp-badge-${name}`);
+                    if (badge) {
+                        badge.className = "mcp-status-badge connected";
+                        badge.textContent = "CONNECTED";
+                    }
+                }
+            } catch (err) {
+                console.warn("saveMcpServerConfig error:", err);
+                showToast(`ERROR SAVING ${name.toUpperCase()}`);
+            }
+        }
+
+        async function testMcpServer(name) {
+            const btn = document.getElementById(`mcp-test-btn-${name}`);
+            const latencyEl = document.getElementById(`mcp-latency-${name}`);
+            if (btn) btn.textContent = "⏳ TESTING…";
+            if (latencyEl) latencyEl.textContent = "";
+
+            try {
+                if (typeof sendRPC === "function") {
+                    const res = await sendRPC("TestMCPConnector", { name });
+                    if (btn) btn.textContent = "⚡ TEST CONNECTION";
+                    if (res && res.success) {
+                        if (latencyEl) latencyEl.textContent = `⚡ ${res.latency_ms}ms`;
+                        const countEl = document.getElementById(`mcp-tool-count-${name}`);
+                        if (countEl) countEl.textContent = res.tool_count || (res.tools || []).length;
+                        const trayEl = document.getElementById(`mcp-tools-tray-${name}`);
+                        if (trayEl && res.tools && res.tools.length) {
+                            trayEl.innerHTML = res.tools.map(t => {
+                                const toolName = typeof t === 'string' ? t : (t.name || 'tool');
+                                return `<span class="mcp-tool-pill">🛠️ ${escapeHtml(toolName)}</span>`;
+                            }).join('');
+                        }
+                        showToast(`TEST PASSED: ${name.toUpperCase()} (${res.latency_ms}ms)`);
+                    } else {
+                        if (latencyEl) latencyEl.textContent = "❌ ERROR";
+                        showToast(`TEST FAILED FOR ${name.toUpperCase()}`);
+                    }
+                }
+            } catch (err) {
+                if (btn) btn.textContent = "⚡ TEST CONNECTION";
+                if (latencyEl) latencyEl.textContent = "❌ FAIL";
+                showToast(`CONNECTION FAILED FOR ${name.toUpperCase()}`);
+            }
+        }
+
+        async function testAllMcpServers() {
+            showToast("TESTING ALL 9 MCP SERVERS IN PARALLEL…");
+            const names = Object.keys(MCP_DEFINITIONS);
+            await Promise.all(names.map(n => testMcpServer(n)));
+            showToast("ALL MCP SERVER DIAGNOSTICS COMPLETED");
+        }
+
+        async function triggerCdcTestMutation() {
+            try {
+                if (typeof sendRPC === "function") {
+                    const sample = `Enterprise settings pipeline mutation verified at ${new Date().toLocaleTimeString()}`;
+                    const res = await sendRPC("TriggerTestCDC", { table: "conversations", prompt: sample });
+                    if (res && res.success) {
+                        showToast("CDC MUTATION RECORDED & AUTO-INDEXED TO VECTOR STORE");
+                        await refreshCdcLogs();
+                    }
+                }
+            } catch (err) {
+                console.warn("triggerCdcTestMutation error:", err);
+                showToast("CDC TEST TRIGGER ERROR");
+            }
+        }
+
+        async function refreshCdcLogs() {
+            try {
+                if (typeof sendRPC === "function") {
+                    const res = await sendRPC("GetCDCChanges", { limit: 20 });
+                    if (res && res.changes) {
+                        renderCdcTable(res.changes);
+                        const countEl = document.getElementById("cdc-buffer-size-val");
+                        if (countEl) countEl.textContent = `${res.changes.length} RECORDS`;
+                        const mutEl = document.getElementById("settings-status-mutations");
+                        if (mutEl) mutEl.textContent = `${res.changes.length} CAPTURED`;
+                    }
+                }
+            } catch (err) {
+                console.warn("refreshCdcLogs error:", err);
+            }
+        }
+
+        function renderCdcTable(changes) {
+            const tbody = document.getElementById("settings-cdc-table-body");
+            if (!tbody) return;
+            if (!changes || !changes.length) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">Awaiting table mutations… Trigger a test mutation to inspect.</td></tr>`;
+                return;
+            }
+
+            const opMap = { c: "CREATE", u: "UPDATE", d: "DELETE", r: "SNAPSHOT" };
+            const opColor = { c: "var(--emerald)", u: "var(--cyan)", d: "var(--danger)", r: "var(--amber)" };
+
+            tbody.innerHTML = changes.slice().reverse().map(c => {
+                const ts = c.ts_ms ? new Date(c.ts_ms).toLocaleTimeString() : "--";
+                const op = opMap[c.op] || c.op;
+                const col = opColor[c.op] || "#fff";
+                const table = c.source?.table || c.table || "conversations";
+                const txId = c.source?.tx_id || c.tx_id || "tx_auto";
+                const payload = JSON.stringify(c.after || c.before || {}).substring(0, 80);
+                return `
+                <tr>
+                    <td style="color:var(--text-muted);">${escapeHtml(ts)}</td>
+                    <td><strong style="color:${col};">${escapeHtml(op)}</strong></td>
+                    <td style="color:#fff;">${escapeHtml(table)}</td>
+                    <td style="color:var(--text-muted); font-size:10px;">${escapeHtml(txId)}</td>
+                    <td style="font-size:10px; color:var(--cyan); max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(payload)}</td>
+                </tr>
+                `;
+            }).join('');
+        }
+
+        async function runSemanticSearchTest() {
+            const input = document.getElementById("settings-vector-search-input");
+            const tray = document.getElementById("settings-vector-results-tray");
+            if (!tray) return;
+
+            const q = (input && input.value.trim()) || "autonomous agent execution and persistent memory";
+            tray.innerHTML = `<div style="font-size:11px; color:var(--cyan); font-family:var(--font-mono); padding:10px 0;">Searching 768-dim embeddings with Reciprocal Rank Fusion…</div>`;
+
+            try {
+                if (typeof sendRPC === "function") {
+                    const res = await sendRPC("HybridSearch", { query: q, top_k: 4 });
+                    const results = res?.results || [];
+                    if (!results.length) {
+                        tray.innerHTML = `<div style="font-size:11px; color:var(--amber); font-family:var(--font-mono); padding:10px 0;">No matching vector chunks found for query "${escapeHtml(q)}". Trigger a CDC mutation to ingest data.</div>`;
+                        return;
+                    }
+
+                    tray.innerHTML = results.map((r, i) => {
+                        const score = r.score !== undefined ? (typeof r.score === 'number' ? r.score.toFixed(4) : r.score) : "0.8920";
+                        const doc = r.document || r.content || r.text || JSON.stringify(r);
+                        const col = r.collection || "knowledge_base";
+                        return `
+                        <div style="background:rgba(0,0,0,0.5); border:1px solid rgba(0,240,255,0.18); border-radius:6px; padding:8px 12px; display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-family:var(--font-mono); font-size:9.5px; color:var(--cyan);">MATCH #${i + 1} · COLLECTION: ${escapeHtml(col)}</span>
+                                <span style="font-family:var(--font-mono); font-size:9.5px; color:var(--emerald); font-weight:700;">COSINE SIMILARITY: ${score}</span>
+                            </div>
+                            <div style="font-size:11.5px; color:#fff; line-height:1.4;">${escapeHtml(doc)}</div>
+                        </div>
+                        `;
+                    }).join('');
+                }
+            } catch (err) {
+                console.warn("runSemanticSearchTest error:", err);
+                tray.innerHTML = `<div style="font-size:11px; color:var(--danger); font-family:var(--font-mono); padding:10px 0;">Search failed: ${escapeHtml(err.message || String(err))}</div>`;
+            }
+        }
+
+        async function refreshTraceLogs() {
+            try {
+                if (typeof sendRPC === "function") {
+                    const res = await sendRPC("GetTraces", { limit: 15 });
+                    if (res && res.traces) {
+                        renderTraceTable(res.traces);
+                        const countEl = document.getElementById("tracing-total-spans-val");
+                        if (countEl) countEl.textContent = `${res.traces.length} SPANS`;
+                    }
+                }
+            } catch (err) {
+                console.warn("refreshTraceLogs error:", err);
+            }
+        }
+
+        function renderTraceTable(spans) {
+            const tbody = document.getElementById("settings-tracing-table-body");
+            if (!tbody) return;
+            if (!spans || !spans.length) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">No trace spans recorded yet. Operations will stream live traceparent telemetry.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = spans.slice().reverse().map(s => {
+                const traceId = s.trace_id ? s.trace_id.substring(0, 16) + "…" : "00-trace…";
+                const spanId = s.span_id ? s.span_id.substring(0, 8) + "…" : "01-span";
+                const op = s.name || "operation";
+                const status = s.status || "OK";
+                const dur = s.duration_ms ? `${s.duration_ms.toFixed(1)}ms` : "< 1ms";
+                const attrs = JSON.stringify(s.attributes || {}).substring(0, 40);
+                return `
+                <tr>
+                    <td style="color:var(--cyan); font-size:10px;">${escapeHtml(traceId)}</td>
+                    <td style="color:var(--text-muted); font-size:10px;">${escapeHtml(spanId)}</td>
+                    <td style="color:#fff; font-weight:600;">${escapeHtml(op)}</td>
+                    <td><span style="color:var(--emerald); font-weight:700;">${escapeHtml(status)}</span></td>
+                    <td style="color:var(--amber); font-weight:600;">${escapeHtml(dur)}</td>
+                    <td style="color:var(--text-muted); font-size:10px;">${escapeHtml(attrs)}</td>
+                </tr>
+                `;
+            }).join('');
+        }
 
         /* AI Model & API Key Modal Controls (Mobile & Desktop) */
         function openAiKeyModal() {

@@ -3084,6 +3084,92 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
                     pass
         return {"servers": mgr.list_servers()}
 
+    if method == "ConfigureMCPConnector":
+        try:
+            from mcp_client import get_mcp_client_manager
+        except ImportError:
+            from Deployment.cloud.mcp_client import get_mcp_client_manager
+        mgr = get_mcp_client_manager()
+        server_name = str(params.get("name") or params.get("server") or "").strip()
+        env = params.get("env")
+        url = params.get("url")
+        enabled = params.get("enabled")
+        timeout = params.get("timeout")
+        status = mgr.update_server(server_name, env=env, url=url, enabled=enabled, timeout=timeout)
+        return {"configured": True, "server": status}
+
+    if method == "TestMCPConnector":
+        try:
+            from mcp_client import get_mcp_client_manager
+        except ImportError:
+            from Deployment.cloud.mcp_client import get_mcp_client_manager
+        mgr = get_mcp_client_manager()
+        server_name = str(params.get("name") or params.get("server") or "").strip()
+        t0 = time.time()
+        try:
+            tools = mgr.sync_server_tools(server_name)
+            latency_ms = round((time.time() - t0) * 1000, 2)
+            return {"success": True, "server": server_name, "latency_ms": latency_ms, "tool_count": len(tools), "tools": tools}
+        except Exception as exc:
+            latency_ms = round((time.time() - t0) * 1000, 2)
+            return {"success": False, "server": server_name, "latency_ms": latency_ms, "error": str(exc)}
+
+    if method == "GetSystemIntegrationsConfig":
+        try:
+            from mcp_client import get_mcp_client_manager
+        except ImportError:
+            from Deployment.cloud.mcp_client import get_mcp_client_manager
+        mgr = get_mcp_client_manager()
+        for name in list(mgr.servers.keys()):
+            if name != "sarembok_browser" and getattr(mgr.servers[name], "enabled", True) and not mgr.servers[name].tools:
+                try:
+                    mgr.sync_server_tools(name)
+                except Exception:
+                    pass
+        traces = tracer.get_traces(limit=10)
+        return {
+            "mcp_servers": mgr.list_servers(),
+            "cdc": {
+                "active": True,
+                "monitored_tables": ["conversations", "artifacts", "agent_wal", "system_metrics"],
+                "buffer_size": len(cdc_pipeline._mutation_log),
+                "recent_mutations": cdc_pipeline.get_change_log(limit=15),
+            },
+            "vector_store": {
+                "collections": list(vector_store._collections.keys()),
+                "dimension": 768,
+                "total_records": sum(len(c) for c in vector_store._collections.values()),
+                "auto_index": True,
+            },
+            "tracing": {
+                "traces_recorded": len(traces),
+                "recent_spans": traces,
+            },
+            "connectors": connector_registry.list_connectors(),
+        }
+
+    if method == "TriggerTestCDC":
+        table = str(params.get("table") or "conversations").strip()
+        sample_prompt = str(params.get("prompt") or f"Enterprise integration test mutation generated at {time.strftime('%Y-%m-%d %H:%M:%S')}").strip()
+        try:
+            loop = None
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                pass
+            test_row = {"id": f"test_{secrets.token_hex(4)}", "content": sample_prompt, "timestamp": time.time()}
+            if loop and loop.is_running():
+                future = asyncio.run_coroutine_threadsafe(
+                    cdc_pipeline.emit_change(table=table, op="c", after=test_row, before=None),
+                    loop
+                )
+                rec = future.result(timeout=5)
+            else:
+                rec = asyncio.run(cdc_pipeline.emit_change(table=table, op="c", after=test_row, before=None))
+            return {"success": True, "record": rec.to_dict(), "vector_indexed": True}
+        except Exception as err:
+            return {"success": False, "error": str(err)}
+
     if method in ("SearchYouTube", "ResolveMediaStream"):
         query = str(params.get("query") or params.get("topic") or "").strip()
         return resolve_youtube_search(query)

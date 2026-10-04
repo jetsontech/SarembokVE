@@ -38,6 +38,7 @@ class ExternalMcpServer:
     tools: list[dict[str, Any]] = field(default_factory=list)
     last_error: str = ""
     last_synced: float = 0.0
+    enabled: bool = True
 
 
 class MCPClientManager:
@@ -79,11 +80,41 @@ class MCPClientManager:
                     url=os.path.expandvars(cfg.get("url", "")),
                     headers=cfg.get("headers", {}),
                     timeout_seconds=float(cfg.get("timeout", 15.0)),
+                    enabled=bool(cfg.get("enabled", True)),
                 )
                 self.servers[name] = server
             logger.info("Loaded %d external MCP server configs from %s", len(self.servers), self.config_path)
         except Exception as exc:
             logger.warning("Failed to load MCP server configuration: %s", exc)
+
+    def save_configuration(self) -> None:
+        """Persist current server definitions to self.config_path."""
+        try:
+            cfg_dict: dict[str, Any] = {"mcpServers": {}}
+            for name, server in self.servers.items():
+                srv_dict: dict[str, Any] = {
+                    "transport": server.transport,
+                    "timeout": server.timeout_seconds,
+                    "enabled": getattr(server, "enabled", True),
+                }
+                if server.command:
+                    srv_dict["command"] = server.command
+                if server.args:
+                    srv_dict["args"] = server.args
+                if server.env:
+                    srv_dict["env"] = server.env
+                if server.url:
+                    srv_dict["url"] = server.url
+                if server.headers:
+                    srv_dict["headers"] = server.headers
+                cfg_dict["mcpServers"][name] = srv_dict
+
+            self.config_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.config_path, "w", encoding="utf-8") as f:
+                json.dump(cfg_dict, f, indent=2)
+            logger.info("Saved %d MCP server configs to %s", len(self.servers), self.config_path)
+        except Exception as exc:
+            logger.warning("Failed to save MCP configuration to %s: %s", self.config_path, exc)
 
     def _write_default_config(self) -> None:
         """Create a standard template for external MCP integrations."""
@@ -118,6 +149,7 @@ class MCPClientManager:
         args: list[str] | None = None,
         headers: dict[str, str] | None = None,
         timeout: float = 15.0,
+        enabled: bool = True,
     ) -> dict[str, Any]:
         """Dynamically add or update an external MCP server."""
         server = ExternalMcpServer(
@@ -128,9 +160,48 @@ class MCPClientManager:
             args=args or [],
             headers=headers or {},
             timeout_seconds=timeout,
+            enabled=enabled,
         )
         self.servers[name] = server
-        self.sync_server_tools(name)
+        self.save_configuration()
+        if enabled:
+            self.sync_server_tools(name)
+        return self.get_server_status(name)
+
+    def update_server(
+        self,
+        name: str,
+        env: dict[str, str] | None = None,
+        url: str | None = None,
+        headers: dict[str, str] | None = None,
+        enabled: bool | None = None,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
+        """Update an existing server's configuration, persist to disk, and re-sync."""
+        server = self.servers.get(name)
+        if not server:
+            raise ValueError(f"MCP server '{name}' not found")
+        if env is not None:
+            server.env.update(env)
+        if url is not None:
+            server.url = url
+        if headers is not None:
+            server.headers.update(headers)
+        if enabled is not None:
+            server.enabled = bool(enabled)
+            if not server.enabled:
+                server.status = "DISABLED"
+        if timeout is not None:
+            server.timeout_seconds = float(timeout)
+
+        self.save_configuration()
+
+        if getattr(server, "enabled", True) and name != "sarembok_browser":
+            try:
+                self.sync_server_tools(name)
+            except Exception as exc:
+                logger.warning("Error re-syncing server %s after update: %s", name, exc)
+
         return self.get_server_status(name)
 
     def get_server_status(self, name: str) -> dict[str, Any]:
@@ -138,14 +209,20 @@ class MCPClientManager:
         server = self.servers.get(name)
         if not server:
             return {"name": name, "status": "NOT_FOUND"}
+        is_enabled = getattr(server, "enabled", True)
         return {
             "name": server.name,
             "transport": server.transport,
-            "status": server.status,
+            "status": "DISABLED" if not is_enabled else server.status,
+            "enabled": is_enabled,
+            "url": server.url,
+            "envKeys": list(server.env.keys()),
+            "maskedEnv": {k: (v[:4] + "****" + v[-4:]) if len(v) > 8 else ("****" if v else "") for k, v in server.env.items()},
             "toolCount": len(server.tools),
-            "tools": [t.get("name") for t in server.tools],
+            "tools": server.tools,
             "lastError": server.last_error,
             "lastSynced": server.last_synced,
+            "timeout": server.timeout_seconds,
         }
 
     def list_servers(self) -> list[dict[str, Any]]:
