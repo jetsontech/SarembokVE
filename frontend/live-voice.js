@@ -49,7 +49,8 @@
         mcp_call: "CallMcpTool",
         play_media: "ResolveMediaStream",
         popout_media: "PopoutMedia",
-        stop_media: "StopMedia"
+        stop_media: "StopMedia",
+        generate_flyer: "GenerateFlyer"
     };
 
     function srbkSendRPC(method, params, onDelta) {
@@ -361,8 +362,20 @@
         }
     }
 
+    function sanitizeAssistantText(text) {
+        if (!text) return "";
+        var clean = String(text);
+        // Strip any Gemini thinking preamble or internal prompt reflection
+        clean = clean.replace(/^\s*\*\*\s*You are Gemini[\s\S]*?\bUTC\.?\s*/gi, "");
+        clean = clean.replace(/"""[\s\S]*?"""/g, "");
+        clean = clean.replace(/The user isn't asking about my identity[\s\S]*?I must strictly enforce[^\.\n]*[\.\n]?/gi, "");
+        clean = clean.replace(/I must strictly enforce the identity as Sarembok VE\.?/gi, "");
+        clean = clean.replace(/The previous turn contains hallucinations[^\.\n]*[\.\n]?/gi, "");
+        return clean.trim();
+    }
+
     function updateNativeAssistantBubble(text) {
-        var value = String(text || "").trim();
+        var value = sanitizeAssistantText(text);
         if (!value) return;
 
         if (!nativeAssistantBubble) {
@@ -376,12 +389,17 @@
         if (nativeAssistantBubble) {
             var content = nativeAssistantBubble.querySelector(".srbk-content");
             if (content) {
+                var renderVal = value;
+                // Auto-close unclosed design/mockup blocks for real-time live preview while streaming
+                if (/:::(?:mockup|design|product|prototype)/i.test(renderVal) && (renderVal.match(/:::/g) || []).length % 2 === 1) {
+                    renderVal += "\n:::\n";
+                }
                 try {
                     content.innerHTML = typeof md === "function"
-                        ? md(value)
-                        : value.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        ? md(renderVal)
+                        : renderVal.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                 } catch (_) {
-                    content.textContent = value;
+                    content.textContent = renderVal;
                 }
             }
             try {
@@ -748,6 +766,21 @@
                         message: "Media is now playing inline in the conversation chat."
                     };
                 }
+            } else if (name === "generate_flyer") {
+                var flyerTitle = String(args.title || "Promotional Flyer").trim();
+                var flyerHtml = String(args.html || "").trim();
+                var flyerSummary = String(args.summary || ("Here is the visual promotional flyer for " + flyerTitle + ".")).trim();
+
+                var mockupBlock = "\n\n:::mockup " + flyerTitle + "\n```html\n" + flyerHtml + "\n```\n:::\n";
+                nativeTurnAssistantText = (nativeTurnAssistantText ? nativeTurnAssistantText + "\n" : "") + mockupBlock;
+                updateNativeAssistantBubble(nativeTurnAssistantText);
+
+                result = {
+                    status: "rendered",
+                    title: flyerTitle,
+                    summary: flyerSummary,
+                    message: "The visual flyer for " + flyerTitle + " has been rendered interactively on screen in the design studio."
+                };
             } else if (!rpcMethod) {
                 result = { error: "unregistered_live_tool", tool: name };
             } else {
@@ -868,18 +901,23 @@
         }
 
         if (serverContent.outputTranscription) {
-            var outputText = serverContent.outputTranscription.text || "";
-            nativeTurnAssistantText = mergeTranscript(
-                nativeTurnAssistantText,
-                outputText
-            );
-            updateNativeAssistantBubble(nativeTurnAssistantText);
+            var outputText = sanitizeAssistantText(serverContent.outputTranscription.text || "");
+            if (outputText) {
+                nativeTurnAssistantText = mergeTranscript(
+                    nativeTurnAssistantText,
+                    outputText
+                );
+                updateNativeAssistantBubble(nativeTurnAssistantText);
+            }
         }
 
         var modelTurn = serverContent.modelTurn || {};
         var parts = modelTurn.parts || [];
         for (var i = 0; i < parts.length; i++) {
             var part = parts[i] || {};
+            // Strict filter: internal reasoning / chain-of-thought parts must NEVER be shown or spoken
+            if (part.thought) continue;
+
             var inlineData = part.inlineData || part.inline_data;
             if (inlineData && inlineData.data) {
                 try {
@@ -913,11 +951,14 @@
                 }
             }
             if (part.text) {
-                nativeTurnAssistantText = mergeTranscript(
-                    nativeTurnAssistantText,
-                    part.text
-                );
-                updateNativeAssistantBubble(nativeTurnAssistantText);
+                var cleanPart = sanitizeAssistantText(part.text);
+                if (cleanPart) {
+                    nativeTurnAssistantText = mergeTranscript(
+                        nativeTurnAssistantText,
+                        cleanPart
+                    );
+                    updateNativeAssistantBubble(nativeTurnAssistantText);
+                }
             }
         }
 
