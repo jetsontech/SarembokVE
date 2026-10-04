@@ -993,10 +993,21 @@
         // ====== SEND MESSAGE / STREAMING RESPONSE ======
         async function sendMessage(){
             const input=document.getElementById('chat-input'),text=input.value.trim();if(!text)return;
-            if(typeof window.consoleVoiceUnlock==='function')void window.consoleVoiceUnlock();if(typeof window.consoleVoiceInterrupt==='function')window.consoleVoiceInterrupt();
-            input.value='';input.focus();appendMessage('user','You',text);const thinkingEl=showThinking();let streamedText='',assistantContent=null,assistantSender=null,speechBuffer='',speechStarted=false;
-            const updateStreamUi=(delta)=>{streamedText+=String(delta||'');if(!assistantContent){thinkingEl.innerHTML='<div class="msg-sender agent" id="streaming-assistant-sender">Sarembok</div><div class="msg-body" id="streaming-assistant-content"></div>';assistantSender=thinkingEl.querySelector('#streaming-assistant-sender');assistantContent=thinkingEl.querySelector('#streaming-assistant-content');}assistantContent.innerHTML=formatReply(streamedText);const scroll=document.getElementById('conversation-scroll');scroll.scrollTop=scroll.scrollHeight;
-                if(window.consoleVoiceEnabled&&delta){speechBuffer+=String(delta);while(true){const match=/([.!?])\s+/.exec(speechBuffer);if(!match)break;const end=match.index+1,unit=speechBuffer.slice(0,end).trim();speechBuffer=speechBuffer.slice(end).trimStart();if(unit){speechStarted=true;window.consoleVoiceEnqueue(unit);}}if(speechBuffer.length>=110){const matches=[...speechBuffer.matchAll(/[,;:]\s+|—\s+/g)].filter(m=>m.index>=65&&m.index<=190);if(matches.length){const cut=matches[matches.length-1].index+matches[matches.length-1][0].length,unit=speechBuffer.slice(0,cut).trim();speechBuffer=speechBuffer.slice(cut).trimStart();if(unit){speechStarted=true;window.consoleVoiceEnqueue(unit);}}}}};
+            input.value='';input.focus();
+            if(typeof window.consoleVoiceInterrupt==='function')window.consoleVoiceInterrupt();
+
+            // Unified Live Conversation voice engine
+            if (typeof window.ensureNativeLiveSession === "function" && typeof window.sendNativeLiveText === "function") {
+                const liveOk = await window.ensureNativeLiveSession();
+                if (liveOk) {
+                    appendMessage('user','You',text);
+                    const sent = window.sendNativeLiveText(text);
+                    if (sent) return;
+                }
+            }
+
+            appendMessage('user','You',text);const thinkingEl=showThinking();let streamedText='',assistantContent=null,assistantSender=null;
+            const updateStreamUi=(delta)=>{streamedText+=String(delta||'');if(!assistantContent){thinkingEl.innerHTML='<div class="msg-sender agent" id="streaming-assistant-sender">Sarembok</div><div class="msg-body" id="streaming-assistant-content"></div>';assistantSender=thinkingEl.querySelector('#streaming-assistant-sender');assistantContent=thinkingEl.querySelector('#streaming-assistant-content');}assistantContent.innerHTML=formatReply(streamedText);const scroll=document.getElementById('conversation-scroll');scroll.scrollTop=scroll.scrollHeight;};
             try{const result=await sendRPC('SarembokChat',{prompt:text,sessionId:sessionId,stream:true},updateStreamUi);const finalText=String(result?.response||result?.audioText||streamedText||'Response received.');
                 let assistantGroup=thinkingEl;
                 if(!assistantContent){thinkingEl.remove();assistantGroup=appendMessage('agent','Sarembok',finalText,result?.model,result?.recalledMemories);}else{assistantContent.innerHTML=formatReply(finalText);if(assistantSender&&(result?.model||result?.metadata?.model)){
@@ -1005,7 +1016,6 @@
  const tag=provider&&model&&provider!==model?provider+' / '+model:model||provider;
  assistantSender.innerHTML='Sarembok <span class="msg-model-tag">'+esc(tag)+'</span>';
 }}
-                if(window.consoleVoiceEnabled){if(speechStarted){if(speechBuffer.trim())window.consoleVoiceEnqueue(speechBuffer.trim());}else window.consoleVoiceEnqueue(finalText);}
                 const mediaUrl=String(result?.videoUrl||extractMediaUrl(finalText)||'').trim();
                 if(mediaUrl)appendInlineMedia(assistantGroup,mediaUrl,'Response media');
                 fetchMemories();fetchRuntimeInfo();document.getElementById('conversation-scroll').scrollTop=document.getElementById('conversation-scroll').scrollHeight;
@@ -1165,16 +1175,13 @@
         window.setAvatarSignal=function(){};window.setAudioDucking=function(){};window.addTerminalLine=function(){};
     </script>
 <script>
-(function(){'use strict';let audioCtx=null,nextAudioTime=0,generation=0,processing=false;const queue=[],activeSources=new Set(),VOICE='af_heart',LANGUAGE='en-us',SPEED='0.95';window.consoleVoiceEnabled=true;
-async function unlock(){try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw new Error('Web Audio unavailable');if(!audioCtx||audioCtx.state==='closed')audioCtx=new AC({latencyHint:'interactive'});if(audioCtx.state!=='running')await audioCtx.resume();if(audioCtx.state!=='running')throw new Error('AudioContext '+audioCtx.state);return true;}catch(e){const s=document.getElementById('console-voice-state');if(s)s.textContent='AUDIO BLOCKED · TAP VOICE';return false;}}
-function normalize(t){return String(t||'').replace(/```[\s\S]*?```/g,' ').replace(/`([^`]+)`/g,'$1').replace(/!\[[^\]]*\]\([^)]*\)/g,' ').replace(/\[[^\]]*\]\([^)]*\)/g,' ').replace(/https?:\/\/\S+/g,' ').replace(/[*_#>~|]/g,' ').replace(/\s+/g,' ').trim();}
-async function fetchWav(t,signal){let token=window.sessionToken||'';const qs=new URLSearchParams({text:normalize(t),voice:VOICE,language:LANGUAGE,speed:SPEED});let r=await fetch('/api/tts?'+qs.toString(),{method:'GET',cache:'no-store',signal,headers:{Authorization:'Bearer '+token,Accept:'audio/wav'}});if(r.status===401){if(typeof window.initSession==='function')await window.initSession();r=await fetch('/api/tts?'+qs.toString(),{method:'GET',cache:'no-store',signal,headers:{Authorization:'Bearer '+(window.sessionToken||''),Accept:'audio/wav'}});}if(!r.ok)throw new Error('TTS HTTP '+r.status);const type=(r.headers.get('content-type')||'').toLowerCase();if(!type.includes('audio/'))throw new Error('TTS returned non-audio');return r.arrayBuffer();}
-function scheduleWav(ab){if(!audioCtx||audioCtx.state!=='running')return;const g=generation;audioCtx.decodeAudioData(ab.slice(0)).then(buffer=>{if(g!==generation)return;const source=audioCtx.createBufferSource();source.buffer=buffer;source.connect(audioCtx.destination);const start=Math.max(nextAudioTime,audioCtx.currentTime+0.035);nextAudioTime=start+buffer.duration;activeSources.add(source);source.onended=()=>{activeSources.delete(source);try{source.disconnect();}catch(_){} };source.start(start);}).catch(()=>{});}
-async function process(){if(processing)return;processing=true;try{while(queue.length){const item=queue.shift();if(item.generation!==generation)continue;try{const wav=await item.promise;if(item.generation!==generation)continue;scheduleWav(wav);}catch(e){if(item.generation===generation)console.warn('[console-voice]',e);}}}finally{processing=false;if(queue.length)void process();}}
-window.consoleVoiceEnqueue=function(text){const spoken=normalize(text);if(!spoken||!window.consoleVoiceEnabled)return;const g=generation,controller=new AbortController(),promise=fetchWav(spoken,controller.signal);queue.push({promise,generation:g,controller});void process();};
-window.consoleVoiceInterrupt=function(){generation++;queue.splice(0).forEach(x=>{try{x.controller.abort();}catch(_){}});nextAudioTime=audioCtx?audioCtx.currentTime:0;activeSources.forEach(s=>{try{s.stop(0);}catch(_){}try{s.disconnect();}catch(_){} });activeSources.clear();};
-window.consoleVoiceUnlock=unlock;document.addEventListener('visibilitychange',()=>{if(!document.hidden&&window.consoleVoiceEnabled)void unlock();});window.addEventListener('pointerdown',()=>void unlock(),{passive:true});window.addEventListener('touchstart',()=>void unlock(),{passive:true});window.addEventListener('pagehide',()=>{try{window.consoleVoiceInterrupt();}catch(_){}});})();
+(function(){'use strict';
+window.consoleVoiceEnabled=false;
+window.consoleVoiceEnqueue=function(text){return;};
+window.consoleVoiceInterrupt=function(){};
+window.consoleVoiceUnlock=function(){return Promise.resolve(true);};
+})();
 </script>
-<script src="/live-voice.js?v=20261004-unify-live-v3"></script>
+<script src="/live-voice.js?v=20261004-unify-live-v4"></script>
 </body>
 </html>

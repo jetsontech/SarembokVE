@@ -1522,6 +1522,20 @@
         );
     }
 
+    async function ensureNativeLiveSession(mode) {
+        if (isNativeLiveActive()) return true;
+        if (!nativeLiveActive) {
+            await startNativeLive(mode || nativeLiveMode || "conversational");
+        } else if (nativeStartPromise) {
+            await nativeStartPromise;
+        }
+        for (var i = 0; i < 50; i++) {
+            if (nativeLiveSocket && nativeLiveSocket.readyState === WebSocket.OPEN) return true;
+            await new Promise(function (r) { setTimeout(r, 100); });
+        }
+        return Boolean(nativeLiveSocket && nativeLiveSocket.readyState === WebSocket.OPEN);
+    }
+
     // Public API.
     window.startSarembokLiveVoice = startSarembokLiveVoice;
     window.startSarembokLiveAgent = function () {
@@ -1531,6 +1545,7 @@
     window.toggleSarembokLiveMode = toggleSarembokLiveMode;
     window.nativeLiveActive = false;
     window.isNativeLiveActive = isNativeLiveActive;
+    window.ensureNativeLiveSession = ensureNativeLiveSession;
     window.sendNativeLiveText = sendNativeLiveText;
     window.clearNativeOutputAudio = clearNativeOutputAudio;
 
