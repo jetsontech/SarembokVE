@@ -198,6 +198,25 @@
                 else if (state.indexOf("CONNECTING") >= 0) setAvatarSignal("ATTENTION");
             }
         } catch (_) {}
+
+        window.liveConversationActive = nativeLiveActive;
+        try {
+            if (typeof liveConversationActive !== "undefined") {
+                liveConversationActive = nativeLiveActive;
+            }
+        } catch (_) {}
+
+        var input = document.getElementById("directive-input");
+        if (input) {
+            if (nativeLiveActive) {
+                var voiceName = (nativeLiveConfig && nativeLiveConfig.setup && nativeLiveConfig.setup.generationConfig && nativeLiveConfig.setup.generationConfig.speechConfig && nativeLiveConfig.setup.generationConfig.speechConfig.voiceConfig && nativeLiveConfig.setup.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig && nativeLiveConfig.setup.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName) || "Kore";
+                input.placeholder = "Message Sarembok (Live Voice Active · " + voiceName + ")...";
+                input.classList.add("live-active");
+            } else {
+                input.placeholder = "Message Sarembok V E, attach files, or tap mic...";
+                input.classList.remove("live-active");
+            }
+        }
     }
 
     function logNativeLive(message, level) {
@@ -432,6 +451,130 @@
         return true;
     }
 
+    function isNativeLiveActive() {
+        return Boolean(nativeLiveActive && nativeLiveSocket && nativeLiveSocket.readyState === WebSocket.OPEN);
+    }
+
+    function populateHistoryFromDialogue() {
+        if (nativeHistory.length > 0) return;
+        try {
+            var dialogueContainer = document.getElementById("dialogue-history");
+            if (!dialogueContainer) return;
+            var bubbles = dialogueContainer.querySelectorAll(".srbk-bubble");
+            var currentPair = {};
+            for (var i = 0; i < bubbles.length; i++) {
+                var b = bubbles[i];
+                var content = b.querySelector(".srbk-content");
+                var text = content ? content.textContent.trim() : "";
+                if (!text || text === "Computing..." || text.startsWith("Execution notice:")) continue;
+                if (b.classList.contains("user")) {
+                    if (currentPair.user && currentPair.assistant) {
+                        nativeHistory.push(currentPair);
+                        currentPair = {};
+                    }
+                    currentPair.user = text;
+                } else if (b.classList.contains("assistant")) {
+                    if (currentPair.user) {
+                        currentPair.assistant = text;
+                        nativeHistory.push(currentPair);
+                        currentPair = {};
+                    }
+                }
+            }
+            if (currentPair.user && currentPair.assistant) {
+                nativeHistory.push(currentPair);
+            }
+            if (nativeHistory.length > 8) {
+                nativeHistory = nativeHistory.slice(-8);
+            }
+        } catch (e) {
+            console.warn("[LiveVoice] Error loading initial dialogue history:", e);
+        }
+    }
+
+    async function sendNativeLiveText(text, attachments, imageFrame) {
+        var rawText = String(text || "").trim();
+        if (!rawText && (!attachments || !attachments.length) && !imageFrame) return false;
+        if (!isNativeLiveActive()) return false;
+
+        // Barge-in: stop active output speech immediately
+        clearNativeOutputAudio();
+
+        // Reset previous turn state
+        resetNativeTurn();
+        nativeTurnUserText = rawText;
+
+        // Render user bubble in the dialogue history
+        try {
+            if (typeof appendUserDialogue === "function") {
+                nativeUserBubble = appendUserDialogue(rawText, imageFrame, attachments);
+            }
+        } catch (_) {}
+
+        // Render assistant bubble in the dialogue history
+        try {
+            if (typeof createAssistantDialogue === "function") {
+                nativeAssistantBubble = createAssistantDialogue();
+            }
+        } catch (_) {}
+
+        // Prepare clientContent parts
+        var parts = [];
+
+        // Prepend any attached text files
+        var fileContext = "";
+        if (Array.isArray(attachments) && attachments.length > 0) {
+            for (var i = 0; i < attachments.length; i++) {
+                var att = attachments[i];
+                if (att && att.content && !String(att.content).startsWith("data:image")) {
+                    fileContext += "[ATTACHED FILE: " + (att.filename || att.name || "file") + "]\n" + att.content + "\n[END ATTACHED FILE]\n\n";
+                }
+            }
+        }
+
+        var fullText = (fileContext + rawText).trim();
+        if (fullText) {
+            parts.push({ text: fullText });
+        }
+
+        if (imageFrame) {
+            var cleanBase64 = String(imageFrame).replace(/^data:image\/[a-z]+;base64,/, "");
+            if (cleanBase64) {
+                parts.push({
+                    inlineData: {
+                        mimeType: "image/jpeg",
+                        data: cleanBase64
+                    }
+                });
+            }
+        }
+
+        setNativeLiveStatus(
+            "WORKING (GEMINI LIVE)",
+            "Generating Live voice response..."
+        );
+
+        var sent = sendNativeClientJson({
+            clientContent: {
+                turns: [
+                    {
+                        role: "user",
+                        parts: parts
+                    }
+                ],
+                turnComplete: true
+            }
+        });
+
+        if (!sent) {
+            logNativeLive("Failed to send directive to Gemini Live socket", "amber");
+            return false;
+        }
+
+        detectAndTriggerLiveMediaIntent(rawText);
+        return true;
+    }
+
     var lastLiveMediaTrigger = "";
     var lastLiveMediaTriggerTime = 0;
 
@@ -628,6 +771,7 @@
 
         if (setupComplete) {
             nativeSetupComplete = true;
+            populateHistoryFromDialogue();
             var historyMessage = buildInitialHistoryContent();
             if (historyMessage) {
                 sendNativeClientJson(historyMessage);
@@ -635,7 +779,9 @@
 
             setNativeLiveStatus(
                 "LISTENING (GEMINI LIVE)",
-                "Native audio-to-audio conversation · speak naturally"
+                nativeLiveMediaStream
+                    ? "Native audio-to-audio conversation · speak or type naturally"
+                    : "Native Gemini Live audio active · type message to converse"
             );
             logNativeLive("native audio session established", "emerald");
             return;
@@ -873,26 +1019,28 @@
             await nativeOutputContext.resume();
         }
 
-        if (!nativeInputContext) {
-            nativeInputContext = new AudioContext({
-                latencyHint: "interactive"
-            });
-        }
-        if (nativeInputContext.state !== "running") {
-            await nativeInputContext.resume();
-        }
+        if (nativeLiveMediaStream) {
+            if (!nativeInputContext) {
+                nativeInputContext = new AudioContext({
+                    latencyHint: "interactive"
+                });
+            }
+            if (nativeInputContext.state !== "running") {
+                await nativeInputContext.resume();
+            }
 
-        if (!nativeWorkletUrl) {
-            var blob = new Blob(
-                [makeInputWorkletSource()],
-                { type: "application/javascript" }
-            );
-            nativeWorkletUrl = URL.createObjectURL(blob);
-        }
+            if (!nativeWorkletUrl) {
+                var blob = new Blob(
+                    [makeInputWorkletSource()],
+                    { type: "application/javascript" }
+                );
+                nativeWorkletUrl = URL.createObjectURL(blob);
+            }
 
-        if (!nativeWorkletLoaded) {
-            await nativeInputContext.audioWorklet.addModule(nativeWorkletUrl);
-            nativeWorkletLoaded = true;
+            if (!nativeWorkletLoaded) {
+                await nativeInputContext.audioWorklet.addModule(nativeWorkletUrl);
+                nativeWorkletLoaded = true;
+            }
         }
     }
 
@@ -1052,15 +1200,21 @@
 
                 // Request microphone permission and wake the audio hardware while
                 // the token request happens, minimizing perceived startup delay.
-                var mediaPromise = navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        channelCount: 1,
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    },
-                    video: false
-                });
+                // If microphone is unavailable or denied, operate gracefully in Text & Spoken Audio mode.
+                var mediaPromise = (navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+                    ? navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            channelCount: 1,
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        },
+                        video: false
+                    }).catch(function (micErr) {
+                        console.warn("[LiveVoice] Microphone capture unavailable, operating in Text & Spoken Audio mode:", micErr);
+                        return null;
+                    })
+                    : Promise.resolve(null);
 
                 var tokenPromise = fetchLiveToken(nativeLiveMode);
 
@@ -1071,8 +1225,8 @@
                 await ensureAudioContexts();
                 nativeLiveConfig = await tokenPromise;
 
-                nativeOutputContext.resume().catch(function () {});
-                nativeInputContext.resume().catch(function () {});
+                if (nativeOutputContext) nativeOutputContext.resume().catch(function () {});
+                if (nativeInputContext) nativeInputContext.resume().catch(function () {});
 
                 if (nativeInputWorklet) {
                     try { nativeInputWorklet.disconnect(); } catch (_) {}
@@ -1083,60 +1237,62 @@
                     nativeMicSource = null;
                 }
 
-                nativeMicSource = nativeInputContext.createMediaStreamSource(
-                    nativeLiveMediaStream
-                );
+                if (nativeLiveMediaStream && nativeInputContext) {
+                    nativeMicSource = nativeInputContext.createMediaStreamSource(
+                        nativeLiveMediaStream
+                    );
 
-                nativeInputWorklet = new AudioWorkletNode(
-                    nativeInputContext,
-                    "sarembok-live-input",
-                    { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 1 }
-                );
+                    nativeInputWorklet = new AudioWorkletNode(
+                        nativeInputContext,
+                        "sarembok-live-input",
+                        { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 1 }
+                    );
 
-                nativeInputWorklet.port.onmessage = function (event) {
-                    if (!nativeSetupComplete) return;
-                    if (
-                        !nativeLiveSocket ||
-                        nativeLiveSocket.readyState !== WebSocket.OPEN
-                    ) return;
+                    nativeInputWorklet.port.onmessage = function (event) {
+                        if (!nativeSetupComplete) return;
+                        if (
+                            !nativeLiveSocket ||
+                            nativeLiveSocket.readyState !== WebSocket.OPEN
+                        ) return;
 
-                    var payload = event.data || {};
-                    var pcmBuffer = payload.pcm;
+                        var payload = event.data || {};
+                        var pcmBuffer = payload.pcm;
 
-                    if (!pcmBuffer) return;
+                        if (!pcmBuffer) return;
 
-                    var bytes = new Uint8Array(pcmBuffer);
-                    if (!bytes.length) return;
-
-                    nativeLiveSocket.send(JSON.stringify({
-                        realtimeInput: {
-                            audio: {
-                                mimeType: "audio/pcm;rate=16000",
-                                data: base64FromBytes(bytes)
-                            }
-                        }
-                    }));
-
-                    if (payload.speechEnded) {
-                        console.log(
-                            "[GEMINI-LIVE TIMING] audioStreamEnd",
-                            performance.now().toFixed(1)
-                        );
+                        var bytes = new Uint8Array(pcmBuffer);
+                        if (!bytes.length) return;
 
                         nativeLiveSocket.send(JSON.stringify({
                             realtimeInput: {
-                                audioStreamEnd: true
+                                audio: {
+                                    mimeType: "audio/pcm;rate=16000",
+                                    data: base64FromBytes(bytes)
+                                }
                             }
                         }));
-                    }
-                };
 
-                nativeMicSource.connect(nativeInputWorklet);
+                        if (payload.speechEnded) {
+                            console.log(
+                                "[GEMINI-LIVE TIMING] audioStreamEnd",
+                                performance.now().toFixed(1)
+                            );
 
-                var silentGain = nativeInputContext.createGain();
-                silentGain.gain.value = 0;
-                nativeInputWorklet.connect(silentGain);
-                silentGain.connect(nativeInputContext.destination);
+                            nativeLiveSocket.send(JSON.stringify({
+                                realtimeInput: {
+                                    audioStreamEnd: true
+                                }
+                            }));
+                        }
+                    };
+
+                    nativeMicSource.connect(nativeInputWorklet);
+
+                    var silentGain = nativeInputContext.createGain();
+                    silentGain.gain.value = 0;
+                    nativeInputWorklet.connect(silentGain);
+                    silentGain.connect(nativeInputContext.destination);
+                }
 
                 clearNativeOutputAudio();
                 await connectNativeGemini(nativeLiveConfig);
@@ -1322,6 +1478,9 @@
     };
     window.toggleNativeLiveConversation = toggleNativeLiveConversation;
     window.toggleSarembokLiveMode = toggleSarembokLiveMode;
+    window.isNativeLiveActive = isNativeLiveActive;
+    window.sendNativeLiveText = sendNativeLiveText;
+    window.clearNativeOutputAudio = clearNativeOutputAudio;
 
     // Override only the legacy public entry points. The old SpeechRecognition /
     // Kokoro functions remain available as fallback implementation code but are

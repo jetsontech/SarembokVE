@@ -2297,6 +2297,15 @@
             border-color: var(--cyan);
             box-shadow: 0 0 16px rgba(0, 240, 255, 0.25);
         }
+        .dialogue-input.live-active {
+            border-color: rgba(16, 185, 129, 0.55);
+            background: rgba(6, 32, 22, 0.5);
+            box-shadow: 0 0 16px rgba(16, 185, 129, 0.22);
+        }
+        .dialogue-input.live-active:focus {
+            border-color: #10b981;
+            box-shadow: 0 0 22px rgba(16, 185, 129, 0.4);
+        }
         .dialogue-exec-btn {
             background: var(--cyan);
             color: #000;
@@ -11701,6 +11710,45 @@ button,
                 return;
             }
 
+            // Quick live voice toggles via chat input
+            if (text === "/live" || text === "/voice") {
+                if (typeof window.toggleLiveConversation === "function") {
+                    window.toggleLiveConversation();
+                }
+                return;
+            }
+            if (text.startsWith("/live ") || text.startsWith("/voice ")) {
+                text = text.replace(/^\/(?:live|voice)\s+/i, "").trim();
+                if (typeof window.isNativeLiveActive === "function" && !window.isNativeLiveActive()) {
+                    if (typeof window.toggleLiveConversation === "function") {
+                        await window.toggleLiveConversation();
+                        for (let i = 0; i < 30; i++) {
+                            if (window.isNativeLiveActive && window.isNativeLiveActive()) break;
+                            await new Promise(r => setTimeout(r, 100));
+                        }
+                    }
+                }
+            }
+
+            // UNIFIED LIVE CONVERSATION & AUDIO ROUTING:
+            // When native Gemini Live is active, route directive directly to the open Live session!
+            // Both typing and speaking share the exact same Gemini Live conversational engine,
+            // the exact same 24kHz native audio stream, and the exact same conversation context.
+            if (typeof window.isNativeLiveActive === "function" && window.isNativeLiveActive() && typeof window.sendNativeLiveText === "function") {
+                let frameToSend = activeVisionFrame;
+                if (!frameToSend && visionMode && opencvActive) {
+                    frameToSend = captureCurrentOpenCVFrame();
+                }
+                clearVisionFrame();
+                const sent = await window.sendNativeLiveText(text, attachmentsToSend, frameToSend);
+                if (sent) {
+                    if (btn) btn.disabled = false;
+                    if (bgBtn) bgBtn.disabled = false;
+                    scrollDialogue();
+                    return;
+                }
+            }
+
             if (btn) btn.disabled = true;
             if (bgBtn) bgBtn.disabled = true;
 
@@ -14690,6 +14738,9 @@ button,
 
         function interruptSpeech() {
             console.log("[barge-in] interruptSpeech called.");
+            if (typeof window.clearNativeOutputAudio === "function") {
+                try { window.clearNativeOutputAudio(); } catch (_) {}
+            }
             currentTurnId++; // Invalidate active AI generation
             ttsPlaybackGeneration++; // Invalidate every in-flight browser TTS operation
             liveSpeechQueue = [];
