@@ -263,6 +263,16 @@
         if (!bytes || bytes.byteLength < 2) return;
         if (!nativeOutputContext) return;
 
+        // Hard mutual exclusion: instantly silence any active Kokoro or legacy speech synthesis
+        try {
+            if (typeof window.interruptKokoroSpeech === "function") {
+                window.interruptKokoroSpeech();
+            } else if (window.activeNeuralAudio && typeof window.activeNeuralAudio.pause === "function") {
+                window.activeNeuralAudio.pause();
+                window.activeNeuralAudio = null;
+            }
+        } catch (_) {}
+
         var usable = bytes.byteLength - (bytes.byteLength % 2);
         var pcm = new Int16Array(bytes.buffer, bytes.byteOffset, usable / 2);
         if (!pcm.length) return;
@@ -452,7 +462,7 @@
     }
 
     function isNativeLiveActive() {
-        return Boolean(nativeLiveActive && nativeLiveSocket && nativeLiveSocket.readyState === WebSocket.OPEN);
+        return Boolean(nativeLiveActive && (nativeLiveSocket && (nativeLiveSocket.readyState === WebSocket.OPEN || nativeLiveSocket.readyState === WebSocket.CONNECTING)));
     }
 
     function populateHistoryFromDialogue() {
@@ -495,7 +505,26 @@
     async function sendNativeLiveText(text, attachments, imageFrame) {
         var rawText = String(text || "").trim();
         if (!rawText && (!attachments || !attachments.length) && !imageFrame) return false;
-        if (!isNativeLiveActive()) return false;
+        if (!nativeLiveActive) return false;
+
+        // If the socket is currently connecting, wait up to 3 seconds for it to open
+        if (nativeLiveSocket && nativeLiveSocket.readyState === WebSocket.CONNECTING) {
+            for (var waitIter = 0; waitIter < 30; waitIter++) {
+                await new Promise(function (r) { setTimeout(r, 100); });
+                if (nativeLiveSocket && nativeLiveSocket.readyState === WebSocket.OPEN) break;
+            }
+        }
+        if (!nativeLiveSocket || nativeLiveSocket.readyState !== WebSocket.OPEN) {
+            console.warn("[LiveVoice] sendNativeLiveText: socket not open (readyState=" + (nativeLiveSocket ? nativeLiveSocket.readyState : "none") + ")");
+            return false;
+        }
+
+        // Silence Kokoro audio immediately
+        try {
+            if (typeof window.interruptKokoroSpeech === "function") {
+                window.interruptKokoroSpeech();
+            }
+        } catch (_) {}
 
         // Barge-in: stop active output speech immediately
         clearNativeOutputAudio();
@@ -1193,6 +1222,17 @@
                 } catch (_) {}
 
                 nativeLiveActive = true;
+                window.nativeLiveActive = true;
+                window.liveConversationActive = true;
+                try {
+                    if (typeof window.interruptKokoroSpeech === "function") window.interruptKokoroSpeech();
+                    var inp = document.getElementById("directive-input");
+                    if (inp) {
+                        inp.classList.add("live-active");
+                        if (!inp.dataset.normalPlaceholder) inp.dataset.normalPlaceholder = inp.placeholder;
+                        inp.placeholder = "Talk or type directive to Gemini Live (Unified Engine)...";
+                    }
+                } catch (_) {}
                 setNativeLiveStatus(
                     "CONNECTING (GEMINI LIVE)",
                     "Opening native real-time audio channel…"
@@ -1368,6 +1408,17 @@
     async function stopNativeLive() {
         nativeLiveStopping = true;
         nativeLiveActive = false;
+        window.nativeLiveActive = false;
+        window.liveConversationActive = false;
+        try {
+            var inp = document.getElementById("directive-input");
+            if (inp) {
+                inp.classList.remove("live-active");
+                if (inp.dataset.normalPlaceholder) {
+                    inp.placeholder = inp.dataset.normalPlaceholder;
+                }
+            }
+        } catch (_) {}
 
         if (nativeReconnectTimer) {
             clearTimeout(nativeReconnectTimer);
@@ -1478,6 +1529,7 @@
     };
     window.toggleNativeLiveConversation = toggleNativeLiveConversation;
     window.toggleSarembokLiveMode = toggleSarembokLiveMode;
+    window.nativeLiveActive = false;
     window.isNativeLiveActive = isNativeLiveActive;
     window.sendNativeLiveText = sendNativeLiveText;
     window.clearNativeOutputAudio = clearNativeOutputAudio;

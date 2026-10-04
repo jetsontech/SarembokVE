@@ -11684,11 +11684,19 @@ button,
         /* ============================================================
            DIALOGUE DIRECTIVE EXECUTION (STREAMING ENABLED)
            ============================================================ */
+        function isLiveAudioActive() {
+            return Boolean(
+                window.nativeLiveActive ||
+                (typeof window.isNativeLiveActive === "function" && window.isNativeLiveActive()) ||
+                window.liveConversationActive
+            );
+        }
+        window.isLiveAudioActive = isLiveAudioActive;
+
         async function sendDirective(isBackground = false) {
             const _sh = document.getElementById('simple-chat-hero'); if (_sh) _sh.classList.remove('visible');
             // Capture the browser's real user gesture before any RPC/network await.
             void unlockAudioEngine();
-            interruptSpeech();
             const input = document.getElementById("directive-input");
             const btn = document.getElementById("execute-button");
             const bgBtn = document.getElementById("execute-bg-button");
@@ -11734,7 +11742,8 @@ button,
             // When native Gemini Live is active, route directive directly to the open Live session!
             // Both typing and speaking share the exact same Gemini Live conversational engine,
             // the exact same 24kHz native audio stream, and the exact same conversation context.
-            if (typeof window.isNativeLiveActive === "function" && window.isNativeLiveActive() && typeof window.sendNativeLiveText === "function") {
+            const liveEngaged = isLiveAudioActive();
+            if (liveEngaged && typeof window.sendNativeLiveText === "function") {
                 let frameToSend = activeVisionFrame;
                 if (!frameToSend && visionMode && opencvActive) {
                     frameToSend = captureCurrentOpenCVFrame();
@@ -11748,6 +11757,8 @@ button,
                     return;
                 }
             }
+
+            interruptSpeech();
 
             if (btn) btn.disabled = true;
             if (bgBtn) bgBtn.disabled = true;
@@ -11798,7 +11809,7 @@ button,
                         // Start neural voice from completed sentences while the LLM is
                         // still generating. This removes the "wait for full answer"
                         // behavior and creates natural text + speech overlap.
-                        if (voiceEnabled && !liveConversationActive && chunk) {
+                        if (voiceEnabled && !isLiveAudioActive() && chunk) {
                             speechBuffer += chunk;
                             let match;
 
@@ -11909,7 +11920,7 @@ button,
                     content.appendChild(shotCard);
                 }
 
-                if (voiceEnabled && myTurnId === currentTurnId && !liveConversationActive) {
+                if (voiceEnabled && myTurnId === currentTurnId && !isLiveAudioActive()) {
                     if (streamedSpeechStarted) {
                         if (speechBuffer.trim()) enqueueLiveSpeech(speechBuffer.trim());
                     } else if (finalText) {
@@ -12516,6 +12527,12 @@ button,
             );
 
             if (!clean) return;
+
+            if (isLiveAudioActive()) {
+                console.log("[tts] speakText suppressed: Gemini Live audio engine is active");
+                if (typeof onCompleteCallback === "function") onCompleteCallback();
+                return;
+            }
 
             pauseRecognitionForSpeech();
             isSpeakingTurn = true;
@@ -14736,37 +14753,42 @@ button,
             hideInterruptPill();
         }
 
+        function interruptKokoroSpeech() {
+            ttsPlaybackGeneration++;
+            liveSpeechQueue = [];
+            isProcessingSpeechQueue = false;
+            currentAssistantSpokenText = "";
+            if (activeTtsAbortController) {
+                try { activeTtsAbortController.abort(); } catch (_) {}
+                activeTtsAbortController = null;
+            }
+            activeTtsRequestId = 0;
+            if (activeNeuralAudio) {
+                try { activeNeuralAudio.pause(); } catch (_) {}
+                activeNeuralAudio = null;
+            }
+            if (activeNeuralAudioSource) {
+                try { activeNeuralAudioSource.stop(0); } catch (_) {}
+                activeNeuralAudioSource = null;
+            }
+            if (window.speechSynthesis) {
+                try { window.speechSynthesis.cancel(); } catch (_) {}
+            }
+        }
+        window.interruptKokoroSpeech = interruptKokoroSpeech;
+
         function interruptSpeech() {
             console.log("[barge-in] interruptSpeech called.");
             if (typeof window.clearNativeOutputAudio === "function") {
                 try { window.clearNativeOutputAudio(); } catch (_) {}
             }
+            interruptKokoroSpeech();
             currentTurnId++; // Invalidate active AI generation
-            ttsPlaybackGeneration++; // Invalidate every in-flight browser TTS operation
-            liveSpeechQueue = [];
-            isProcessingSpeechQueue = false;
-            currentAssistantSpokenText = "";
             clearTimeout(liveSilenceTimer);
             liveTranscriptBuffer = "";
             if (vegaRefAudio) {
                 try { vegaRefAudio.pause(); vegaRefAudio.currentTime = 0; } catch (e) {}
                 vegaRefAudio = null;
-            }
-            if (activeTtsAbortController) {
-                try { activeTtsAbortController.abort(); } catch (e) {}
-                activeTtsAbortController = null;
-            }
-            activeTtsRequestId = 0;
-            if (activeNeuralAudio) {
-                try { activeNeuralAudio.pause(); activeNeuralAudio.currentTime = 0; } catch (e) {}
-                activeNeuralAudio = null;
-            }
-            if (activeNeuralAudioSource) {
-                try { activeNeuralAudioSource.stop(0); } catch (e) {}
-                activeNeuralAudioSource = null;
-            }
-            if (window.speechSynthesis) {
-                window.speechSynthesis.cancel();
             }
             setAudioDucking(false);
             isSpeakingTurn = false;
@@ -14793,6 +14815,10 @@ button,
         }
 
         function enqueueLiveSpeech(text) {
+            if (isLiveAudioActive()) {
+                console.log("[tts] Kokoro speech suppressed: Gemini Live audio is active");
+                return;
+            }
             if (!text || !text.trim()) return;
             liveSpeechQueue.push(text.trim());
             processLiveSpeechQueue();
@@ -14867,6 +14893,11 @@ button,
 
         function processLiveSpeechQueue() {
             if (isProcessingSpeechQueue || liveSpeechQueue.length === 0) return;
+            if (isLiveAudioActive()) {
+                liveSpeechQueue = [];
+                isProcessingSpeechQueue = false;
+                return;
+            }
             if (!liveConversationActive && !voiceEnabled) {
                 liveSpeechQueue = [];
                 isProcessingSpeechQueue = false;
@@ -17891,6 +17922,6 @@ document.getElementById('global-input-field').addEventListener('input', function
   document.addEventListener("DOMContentLoaded",sync);
 })();
 </script>
-    <script src="/live-voice.js?v=20261003-pip-fix153"></script>
+    <script src="/live-voice.js?v=20261004-unify-live-v3"></script>
 </body>
 </html>
