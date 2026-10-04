@@ -6588,7 +6588,7 @@ html[data-theme="dark"] .srbk-theme-switch {
        VIDEO / RICH MEDIA — FIT THE CHAT STAGE
        -------------------------------------------------------- */
 
-    #dialogue-history iframe,
+    #dialogue-history iframe:not(.srbk-mockup-iframe),
     #dialogue-history video {
         display: block !important;
         width: 100% !important;
@@ -6597,7 +6597,7 @@ html[data-theme="dark"] .srbk-theme-switch {
         border: 0 !important;
     }
 
-    #dialogue-history iframe {
+    #dialogue-history iframe:not(.srbk-mockup-iframe) {
         aspect-ratio: 16 / 9 !important;
         height: auto !important;
         min-height: 180px !important;
@@ -17817,6 +17817,6 @@ document.getElementById('global-input-field').addEventListener('input', function
   document.addEventListener("DOMContentLoaded",sync);
 })();
 </script>
-    <script src="/live-voice.js?v=20261004-unify-live-v6"></script>
+    <script src="/live-voice.js?v=20261004-unify-live-v7"></script>
 </body>
 </html>
