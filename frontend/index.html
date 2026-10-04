@@ -10237,15 +10237,29 @@ button,
         window.closeImageLightbox = closeImageLightbox;
 
         function renderMockupCard(title, body) {
-            const raw = String(body || "").trim();
+            let raw = String(body || "").trim();
             const cardTitle = (title || "").trim() || "INTERACTIVE UI/UX PROTOTYPE";
             const mockupId = "mockup_" + Math.random().toString(36).substring(2, 9);
 
-            let htmlContent = raw;
-            const codeBlockMatch = raw.match(/```(?:html|xml)?\n([\s\S]*?)```/i);
-            if (codeBlockMatch) {
-                htmlContent = codeBlockMatch[1].trim();
+            let htmlContent = "";
+
+            // Check if already transformed into srbk-code-block by markdown parser
+            const srbkCodeMatch = raw.match(/<pre><code>([\s\S]*?)<\/code><\/pre>/i);
+            if (srbkCodeMatch) {
+                const tmp = document.createElement("textarea");
+                tmp.innerHTML = srbkCodeMatch[1];
+                htmlContent = tmp.value.trim();
+            } else {
+                const codeBlockMatch = raw.match(/```(?:html|xml)?\n([\s\S]*?)```/i);
+                if (codeBlockMatch) {
+                    htmlContent = codeBlockMatch[1].trim();
+                } else {
+                    htmlContent = raw;
+                }
             }
+
+            // Strip any remaining markdown fence artifacts
+            htmlContent = htmlContent.replace(/^```(?:html|xml)?\s*/i, "").replace(/\s*```$/i, "").trim();
 
             if (!htmlContent.toLowerCase().includes("<html") && !htmlContent.toLowerCase().includes("<!doctype")) {
                 htmlContent = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>body{margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#f8fafc;}</style></head><body>" + htmlContent + "</body></html>";
@@ -10343,7 +10357,9 @@ button,
             const codeEl = document.getElementById(mockupId + "_raw_code");
             if (codeEl) {
                 navigator.clipboard.writeText(codeEl.textContent || "");
-                alert("Prototype HTML copied to clipboard!");
+                if (typeof showToast === "function") {
+                    showToast("PROTOTYPE HTML COPIED TO CLIPBOARD");
+                }
             }
         }
         window.copyMockupCode = copyMockupCode;
@@ -10964,71 +10980,71 @@ button,
             s = s.replace(/([.!?])\s+-\s+(?=\*\*|[A-Za-z])/g, "$1\n- ");
             s = s.replace(/\s+(?=\d+\.\s+\*\*)/g, "\n");
 
-            // 1. Code blocks
-            s = s.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
-                return `<div class="srbk-code-block"><div class="srbk-code-head"><span>${lang || "CODE"}</span><div style="display:flex;gap:6px;align-items:center;"><button class="srbk-copy-btn srbk-dl-btn" type="button" onclick="downloadCode(this)" title="Download code snippet as a file">⬇ SAVE</button><button class="srbk-copy-btn" type="button" onclick="copyCode(this)">COPY</button></div></div><pre><code>${escapeHtml(code.trim())}</code></pre></div>`;
+            // 1. Interactive UI/UX Mockups & Prototypes (:::mockup ... ::: or :::design ... :::)
+            s = s.replace(/:::(?:mockup|design|prototype)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
+                return renderMockupCard(title, body);
             });
 
-            // 2. Music Player & Cyber Synth (:::music ... :::)
+            // 2. Industrial Product Design & Hardware Studio (:::product ... ::: or :::blueprint ... :::)
+            s = s.replace(/:::(?:product|blueprint|hardware)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
+                return renderProductCard(title, body);
+            });
+
+            // 3. Interactive File Downloads & Artifact Cards (:::file ... ::: or :::download ... :::)
+            s = s.replace(/:::(?:file|download|artifact)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
+                return renderFileCard(title, body);
+            });
+
+            // 4. Music Player & Cyber Synth (:::music ... :::)
             s = s.replace(/:::music(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 return renderMusicCard(title, body);
             });
 
-            // 3. Parallel Multi-Task Matrix (:::tasks ... :::)
+            // 5. Parallel Multi-Task Matrix (:::tasks ... :::)
             s = s.replace(/:::tasks(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 return renderTaskMatrix(title, body);
             });
 
-            // 4. Frontier Generative Image Synthesis (:::image ... ::: or :::art ... :::)
+            // 6. Frontier Generative Image Synthesis (:::image ... ::: or :::art ... :::)
             s = s.replace(/:::(?:image|art|render|photo)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 return renderImageCard(title, body);
             });
 
-            // 5. Videos & YouTube Embeds (:::video ... ::: or :::youtube ... :::)
+            // 7. Videos & YouTube Embeds (:::video ... ::: or :::youtube ... :::)
             s = s.replace(/:::(?:video|youtube)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 return renderVideoCard(title, body);
             });
 
-            // 6. Audio & Podcasts (:::audio ... :::)
+            // 8. Audio & Podcasts (:::audio ... :::)
             s = s.replace(/:::audio(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 return renderAudioCard(title, body);
             });
 
-            // 7. Research Documents, Specs & PDFs (:::doc ... ::: or :::pdf ... :::)
+            // 9. Research Documents, Specs & PDFs (:::doc ... ::: or :::pdf ... :::)
             s = s.replace(/:::(?:doc|pdf|paper)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 return renderDocCard(title, body);
             });
 
-            // 8. Interactive Flashcards & Cyber Cards (:::card ... :::)
+            // 10. Interactive Flashcards & Cyber Cards (:::card ... :::)
             s = s.replace(/:::card(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 const cardTitle = (title || "").trim() || "STUDY FLASHCARD";
                 return `<div class="srbk-flashcard"><div class="srbk-card-head"><span class="srbk-card-badge"><span class="boot-badge-dot"></span> 🎴 FLASHCARD</span><span class="srbk-card-title">${escapeHtml(cardTitle)}</span></div><div class="srbk-card-body">${md(body)}</div></div>`;
             });
 
-            // 9. Click-to-Reveal Solutions & Explanations (:::reveal ... :::)
+            // 11. Click-to-Reveal Solutions & Explanations (:::reveal ... :::)
             s = s.replace(/:::reveal(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, label, body) => {
                 const btnLabel = (label || "").trim() || "Reveal Answer & Step-by-Step Solution";
                 return `<details class="srbk-card-reveal"><summary class="srbk-card-reveal-btn"><span>💡</span> <span>${escapeHtml(btnLabel)}</span> <span style="font-size:9px; opacity:0.7;">▼</span></summary><div class="srbk-card-answer">${md(body)}</div></details>`;
             });
 
-            // 10. Standalone YouTube links on their own line
+            // 12. Standalone YouTube links on their own line
             s = s.replace(/(?:^|\n)(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?[^\s]+|youtu\.be\/[\w-]+))\b/gi, (match, url) => {
                 return "\n" + renderVideoCard("", url);
             });
 
-            // 11. Interactive UI/UX Mockups & Prototypes (:::mockup ... ::: or :::design ... :::)
-            s = s.replace(/:::(?:mockup|design|prototype)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
-                return renderMockupCard(title, body);
-            });
-
-            // 12. Industrial Product Design & Hardware Studio (:::product ... ::: or :::blueprint ... :::)
-            s = s.replace(/:::(?:product|blueprint|hardware)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
-                return renderProductCard(title, body);
-            });
-
-            // 13. Interactive File Downloads & Artifact Cards (:::file ... ::: or :::download ... :::)
-            s = s.replace(/:::(?:file|download|artifact)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
-                return renderFileCard(title, body);
+            // 13. General Code blocks (after custom containers so code inside containers is preserved)
+            s = s.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
+                return `<div class="srbk-code-block"><div class="srbk-code-head"><span>${lang || "CODE"}</span><div style="display:flex;gap:6px;align-items:center;"><button class="srbk-copy-btn srbk-dl-btn" type="button" onclick="downloadCode(this)" title="Download code snippet as a file">⬇ SAVE</button><button class="srbk-copy-btn" type="button" onclick="copyCode(this)">COPY</button></div></div><pre><code>${escapeHtml(code.trim())}</code></pre></div>`;
             });
 
             // SAREMBOK_COLLAPSED_TABLE_RECOVERY_20260914
@@ -17801,6 +17817,6 @@ document.getElementById('global-input-field').addEventListener('input', function
   document.addEventListener("DOMContentLoaded",sync);
 })();
 </script>
-    <script src="/live-voice.js?v=20261004-unify-live-v5"></script>
+    <script src="/live-voice.js?v=20261004-unify-live-v6"></script>
 </body>
 </html>
