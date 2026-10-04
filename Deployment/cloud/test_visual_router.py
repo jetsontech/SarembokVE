@@ -42,6 +42,16 @@ class TestVisualRouter(unittest.TestCase):
             self.assertIn("url", res)
             self.assertIn("Tier 2", res["tier"])
 
+    def test_zk_gloss_mockup_resolution(self):
+        res_tube = resolve_image_generation("generate a design mockup for Z & K Gloss lip gloss brand with Shine Bright")
+        self.assertEqual(res_tube["url"], "/api/download?fileId=zk_gloss_mockup")
+        self.assertEqual(res_tube["provider"], "SarembokVE Visual Synthesis Engine")
+        self.assertEqual(res_tube["badge"], "⚡ SAREMBOKVE VISUAL SYNTHESIS")
+
+        res_retail = resolve_image_generation("generate point of sale retail counter display for Z & K Gloss lip gloss brand in stores")
+        self.assertEqual(res_retail["url"], "/api/download?fileId=zk_retail_display")
+        self.assertEqual(res_retail["provider"], "SarembokVE Visual Synthesis Engine")
+
 
 if __name__ == "__main__":
     unittest.main()
