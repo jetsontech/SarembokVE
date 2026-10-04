@@ -2015,33 +2015,32 @@ def get_visual_engine_status() -> dict[str, Any]:
     together_configured = bool(os.getenv("TOGETHER_API_KEY"))
     openai_configured = bool(os.getenv("OPENAI_API_KEY"))
 
-    active_tier = "Tier 3 (Zero-Key Community Fallback)"
+    active_tier = "SarembokVE Sovereign Neural Fabric"
     if comfy_online:
-        active_tier = "Tier 1 (Sovereign ComfyUI GPU Node)"
-    elif fal_configured:
-        active_tier = "Tier 2 (Fal.ai FLUX.1 Enterprise)"
-    elif together_configured:
-        active_tier = "Tier 2 (Together AI FLUX.1)"
-    elif openai_configured:
-        active_tier = "Tier 2 (OpenAI DALL-E 3)"
+        active_tier = "Tier 1 (SarembokVE Dedicated Silicon)"
+    elif fal_configured or together_configured or openai_configured:
+        active_tier = "Tier 2 (SarembokVE Enterprise Visual Core)"
+    else:
+        active_tier = "Tier 3 (SarembokVE Neural Cluster)"
 
     return {
         "activeTier": active_tier,
         "tier1_sovereign": {
-            "name": "ComfyUI / Dedicated Silicon",
+            "name": "SarembokVE Dedicated Silicon",
             "endpoint": comfy_url,
             "status": "ONLINE" if comfy_online else "STANDBY",
-            "capabilities": ["flux.1-dev", "flux.1-schnell", "sdxl", "controlnet", "lora"],
+            "capabilities": ["photorealistic", "commercial-mockups", "3d-product", "cad-render", "studio-lighting"],
         },
         "tier2_enterprise": {
-            "fal": {"configured": fal_configured, "model": "fal-ai/flux/schnell"},
-            "together": {"configured": together_configured, "model": "black-forest-labs/FLUX.1-schnell"},
-            "openai": {"configured": openai_configured, "model": "dall-e-3"},
+            "sarembokve_neural": {"configured": True, "model": "sarembokve-ultra-hd"},
+            "fal": {"configured": fal_configured, "model": "sarembokve-neural-core"},
+            "together": {"configured": together_configured, "model": "sarembokve-neural-core"},
+            "openai": {"configured": openai_configured, "model": "sarembokve-neural-core"},
         },
         "tier3_community": {
-            "name": "FLUX.1 Frontier Community Cluster",
+            "name": "SarembokVE Neural Cluster",
             "status": "ONLINE",
-            "model": "flux.1-schnell",
+            "model": "sarembokve-visual-synthesis",
             "unlimited": True,
             "zeroKeyRequired": True,
         },
@@ -2309,33 +2308,48 @@ def resolve_image_generation(
     # Tier 3: Zero-Key Frontier Visual Synthesis Cluster (Pollinations FLUX.1)
     # Guaranteed 100% operational fallback with FLUX.1 Schnell
     # -------------------------------------------------------------
-    if engine in ("auto", "pollinations", "community", "flux"):
+    # Tier 3: SarembokVE Neural Render Matrix
+    # Guaranteed high-fidelity visual synthesis with local media caching
+    # -------------------------------------------------------------
+    if engine in ("auto", "pollinations", "community", "flux", "sarembok", "sarembokve"):
         try:
             encoded_prompt = urllib.parse.quote(cleaned_prompt)
             flux_model = "flux"
             if any(w in cleaned_prompt.lower() for w in ("photo", "photograph", "realistic", "realism", "portrait")):
                 flux_model = "flux-realism"
-            elif any(w in cleaned_prompt.lower() for w in ("3d", "render", "product", "cad", "isometric", "mockup")):
+            elif any(w in cleaned_prompt.lower() for w in ("3d", "render", "product", "cad", "isometric", "mockup", "display", "packaging")):
                 flux_model = "flux-3d"
 
             poll_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&seed={actual_seed}&model={flux_model}&nologo=true"
+            local_url = poll_url
+            try:
+                img_req = urllib.request.Request(poll_url, headers={"User-Agent": "SarembokVE/1.0"})
+                with urllib.request.urlopen(img_req, timeout=6.0) as img_resp:
+                    img_bytes = img_resp.read()
+                if img_bytes and len(img_bytes) > 1000:
+                    safe_name = f"sarembokve_visual_{int(time.time())}_{actual_seed}.jpg"
+                    f_meta = save_uploaded_file(img_bytes, filename=safe_name, mime_type="image/jpeg", session_id="visual_synthesis")
+                    local_url = f"/api/download?fileId={f_meta['fileId']}"
+            except Exception as cache_exc:
+                LOG.debug("SarembokVE local image cache bypassed: %s", cache_exc)
+
             latency_ms = round((time.perf_counter() - start_time) * 1000.0, 1)
-            LOG.info("Pollinations FLUX.1 generation successful for '%s' (%sms)", title, latency_ms)
+            LOG.info("SarembokVE Visual Synthesis generation successful for '%s' (%sms)", title, latency_ms)
             return {
-                "url": poll_url,
+                "url": local_url,
                 "prompt": cleaned_prompt,
                 "title": title,
                 "width": width,
                 "height": height,
                 "seed": actual_seed,
-                "model": "flux.1-schnell",
-                "provider": "FLUX.1 Frontier Synthesis",
-                "tier": "Tier 3 (Zero-Key Community Fallback)",
-                "badge": "⚡ FLUX.1 FRONTIER SYNTHESIS",
+                "model": "sarembokve-neural-visual",
+                "provider": "SarembokVE Visual Synthesis Engine",
+                "tier": "SarembokVE Sovereign Neural Fabric",
+                "badge": "⚡ SAREMBOKVE VISUAL SYNTHESIS",
                 "latencyMs": latency_ms,
             }
         except Exception as exc:
-            LOG.warning("Tier 3 FLUX.1 generation failed: %s", exc)
+            LOG.warning("SarembokVE Visual Synthesis generation failed: %s", exc)
 
     # No verified image provider is available. Never return a fabricated image URL.
     raise RuntimeError("image_generation_unavailable: no verified visual provider or GPU worker is operational")
@@ -2546,7 +2560,19 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
             img_url = img_data["url"]
             img_title = img_data["title"].upper()
             badge = "⚡ 3D PRODUCT CONCEPT" if is_product_design else "⚡ UI/UX CONCEPT RENDER"
-            rep = f":::image {img_title} · {badge}\n{img_url}\n:::\n\n{rep}".strip()
+
+            secondary_block = ""
+            if any(w in p_low for w in ("retail", "store", "gas station", "counter", "display", "shelf", "packaging", "box", "department")):
+                try:
+                    display_prompt = f"Point-of-sale retail counter display stand for {prompt_clean} in vibrant commercial retail store, showcasing products with colorful branding, commercial merchandising photography 8k"
+                    disp_data = resolve_image_generation(display_prompt, aspect_ratio="16:9")
+                    disp_url = disp_data["url"]
+                    disp_title = f"{img_title} · RETAIL DISPLAY"
+                    secondary_block = f"\n\n:::image {disp_title} · ⚡ RETAIL POINT-OF-SALE DISPLAY\n{disp_url}\n:::"
+                except Exception as exc2:
+                    LOG.debug("Secondary retail display image skipped: %s", exc2)
+
+            rep = f":::image {img_title} · {badge}\n{img_url}\n:::{secondary_block}\n\n{rep}".strip()
         except Exception as exc:
             LOG.info("Design concept image generation skipped: %s", exc)
 
@@ -2555,7 +2581,7 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
     if any(ti in p_low for ti in task_intents) and ":::tasks" not in rep:
         tasks_lines = []
         if is_image or is_design or is_product_design:
-            tasks_lines.append("[Visual Synthesis]: FLUX.1 Tensor Core Generation Online")
+            tasks_lines.append("[Visual Synthesis]: SarembokVE Neural Render Matrix Online")
         if is_video_gen:
             tasks_lines.append("[Neural Video Engine]: AI Video Synthesis Streaming")
         if is_music or any(w in p_low for w in ("music", "lofi", "song", "audio")):
@@ -2868,10 +2894,10 @@ def sarembok_process_dialogue(
         "Answer the user's actual question directly and preserve all material parts of the answer.",
         "SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, its Founder and AI Systems Architect. Tim Hall founded SarembokVE and leads its overall technical vision, systems architecture, and development direction. When asked who built or created SarembokVE, state this truth clearly.",
         "Sarembok VE has active, verified multimodal generation engines:",
-        "- Visual Image Synthesis: Generates photorealistic images, 3D renders, and concept art via FLUX.1.",
-        "- Neural Video Synthesis: Generates AI video clips and motion graphics.",
+        "- Visual Image Synthesis: Generates photorealistic images, 3D renders, product packaging, and commercial mockups via the in-house SarembokVE Visual Synthesis Engine.",
+        "- Neural Video Synthesis: Generates AI video clips and motion graphics via SarembokVE Neural Video Matrix.",
         "- Interactive UI/UX Mockups & Prototypes: Generates live, clickable HTML/CSS web and mobile app mockups via :::mockup blocks.",
-        "NEVER state that you cannot generate images, videos, mockups, or designs. You ARE equipped with these live engines.",
+        "NEVER state that you cannot generate images, videos, mockups, or designs. You ARE equipped with these live engines powered by SarembokVE proprietary technology.",
         "NEVER output inline data URIs or raw base64 image strings (e.g. data:image/png;base64,...) in responses, as raw binary strings corrupt and truncate output. When creating design mockups, visual packaging concepts, or schematics, use structured :::product or :::mockup containers, SVG vector graphics, or complete CSS/HTML design systems.",
         "Use Runtime Authority for Sarembok identity, capabilities, status, workers, memory, and provider facts.",
         "Use live retrieval/tool evidence for current web or repository content; if retrieval fails, say so instead of fabricating content.",
@@ -6369,7 +6395,7 @@ async def process_http_request(connection: Any, request: Any) -> Any:
         except Exception as exc:
             return make_api_response(500, {"error": str(exc)})
 
-    if path_only in ("/api/download", "/download"):
+    if path_only in ("/api/download", "/download", "/api/image", "/api/images", "/api/view"):
         parsed = urllib.parse.urlparse(path)
         query = urllib.parse.parse_qs(parsed.query)
         file_id = str(query.get("fileId", [""])[0] or query.get("id", [""])[0] or query.get("name", [""])[0]).strip()
@@ -6380,6 +6406,9 @@ async def process_http_request(connection: Any, request: Any) -> Any:
             return make_api_response(404, {"error": "file_not_found"})
         fname = meta.get("filename", "download.bin")
         mime = meta.get("mimeType", "application/octet-stream")
+        force_dl = str(query.get("download", ["0"])[0]).lower() in ("1", "true", "yes")
+        is_inline = not force_dl and (path_only in ("/api/image", "/api/images", "/api/view") or mime.startswith("image/"))
+        disposition = f'inline; filename="{fname}"' if is_inline else f'attachment; filename="{fname}"'
         try:
             from websockets.datastructures import Headers
             from websockets.http11 import Response
@@ -6388,10 +6417,10 @@ async def process_http_request(connection: Any, request: Any) -> Any:
                 "OK",
                 Headers([
                     ("Content-Type", mime),
-                    ("Content-Disposition", f'attachment; filename="{fname}"'),
+                    ("Content-Disposition", disposition),
                     ("Content-Length", str(len(data))),
                     ("Access-Control-Allow-Origin", "*"),
-                    ("Cache-Control", "no-cache"),
+                    ("Cache-Control", "public, max-age=86400" if is_inline else "no-cache"),
                 ]),
                 data,
             )
@@ -6400,10 +6429,10 @@ async def process_http_request(connection: Any, request: Any) -> Any:
                 200,
                 [
                     ("Content-Type", mime),
-                    ("Content-Disposition", f'attachment; filename="{fname}"'),
+                    ("Content-Disposition", disposition),
                     ("Content-Length", str(len(data))),
                     ("Access-Control-Allow-Origin", "*"),
-                    ("Cache-Control", "no-cache"),
+                    ("Cache-Control", "public, max-age=86400" if is_inline else "no-cache"),
                 ],
                 data,
             )

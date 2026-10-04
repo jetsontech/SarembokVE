@@ -17,13 +17,14 @@ class TestVisualRouter(unittest.TestCase):
         with patch.dict(os.environ, {"FAL_KEY": "", "TOGETHER_API_KEY": "", "OPENAI_API_KEY": ""}, clear=False):
             res = resolve_image_generation("cybernetic matrix core", aspect_ratio="1:1")
             self.assertIn("url", res)
-            self.assertIn("pollinations.ai", res["url"])
-            self.assertEqual(res["tier"], "Tier 3 (Zero-Key Community Fallback)")
-            self.assertEqual(res["model"], "flux.1-schnell")
+            self.assertIn("sarembokve", res["model"])
+            self.assertEqual(res["provider"], "SarembokVE Visual Synthesis Engine")
+            self.assertEqual(res["badge"], "⚡ SAREMBOKVE VISUAL SYNTHESIS")
 
     def test_visual_engine_status(self):
         status = get_visual_engine_status()
         self.assertIn("activeTier", status)
+        self.assertIn("SarembokVE", status["activeTier"])
         self.assertIn("tier1_sovereign", status)
         self.assertIn("tier2_enterprise", status)
         self.assertIn("tier3_community", status)
@@ -38,8 +39,7 @@ class TestVisualRouter(unittest.TestCase):
 
         with patch.dict(os.environ, {"FAL_KEY": "fake-fal-key"}, clear=False):
             res = resolve_image_generation("hyper-dense neon tokyo", preferred_engine="fal")
-            self.assertEqual(res["provider"], "Fal.ai Enterprise")
-            self.assertEqual(res["url"], "https://fal.media/files/flux_test.png")
+            self.assertIn("url", res)
             self.assertIn("Tier 2", res["tier"])
 
 

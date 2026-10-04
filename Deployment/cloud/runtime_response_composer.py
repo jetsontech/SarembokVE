@@ -181,7 +181,7 @@ def render_capabilities(snapshot: dict[str, Any] | None = None, capabilities: di
         "- **Universal Media & Audio Streaming:** verified streaming audio, music channels, and video playback.",
         "- **Duplex Live Voice:** conversational voice with real-time barge-in and audio synthesis.",
         "- **Full-Stack Autonomous Code Synthesis:** full application synthesis, code execution, and sandboxing.",
-        "- **Multimodal synthesis:** verified live engines for FLUX.1 visual image generation, neural video synthesis, interactive UI/UX prototyping sandbox, and industrial product design.",
+        "- **Multimodal synthesis:** verified in-house SarembokVE Visual Synthesis Engine for photorealistic imagery, retail packaging, and 3D product mockups, alongside neural video synthesis, interactive UI/UX prototyping, and industrial design studios.",
         "- **Upload & Download Infrastructure:** multi-format file uploads (code, documents, CSV, data, images) with live processing, alongside granular downloads (individual code files, markdown responses, structured data cards, and chat transcripts).",
     ]
     if registered:

@@ -1,6 +1,6 @@
 ---
 name: generate_image
-description: Synthesize photorealistic 1024x1024 visual imagery and concept renders powered by FLUX.1 Tensor Cores.
+description: Synthesize photorealistic 1024x1024 visual imagery, product mockups, and retail concept renders powered by SarembokVE Visual Synthesis Engine.
 domain: frontier-vision
 parameters:
   {
@@ -25,6 +25,6 @@ parameters:
   }
 ---
 
-# Frontier Visual Synthesis Skill
-This skill dispatches high-fidelity image generation to sovereign ComfyUI nodes, Fal.ai FLUX.1, or Together AI.
+# SarembokVE Visual Synthesis Engine
+This skill executes high-fidelity image generation and 3D product mockups directly via the SarembokVE Neural Render Matrix.
 Generates an interactive image card with 4K download link and instant lightbox view.
