@@ -11104,10 +11104,12 @@ button,
             // 10. Inline code
             s = s.replace(/`([^`]+)`/g, (_, c) => `<code>${escapeHtml(c)}</code>`);
 
-            // 11. Images
-            s = s.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s\)]+)\)/g, (_, alt, url) => {
+            // 11. Images (HTTP / HTTPS / valid Data URIs)
+            s = s.replace(/!\[([^\]]*)\]\(((?:https?:\/\/|data:image\/(?:png|jpeg|jpg|webp|gif|svg\+xml);base64,[A-Za-z0-9+/=]{20,}))\)/g, (_, alt, url) => {
                 return `<div class="srbk-img-wrap"><img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" class="srbk-img"><div class="srbk-img-caption">${escapeHtml(alt || "IMAGE CAPTURE")}</div></div>`;
             });
+            // Clean up any broken/truncated base64 image hallucinations
+            s = s.replace(/!\[([^\]]*)\]\(data:image\/[^\)]*$/gm, '');
 
             // 12. Links
             s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, (_, text, url) => {
