@@ -2047,6 +2047,39 @@ def get_visual_engine_status() -> dict[str, Any]:
     }
 
 
+def _brand_sarembok_image(img_bytes: bytes) -> bytes:
+    """Ensure generated image contains no third-party watermark and is branded with SarembokVE."""
+    try:
+        import cv2
+        import numpy as np
+        arr = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if img is None:
+            return img_bytes
+        h, w = img.shape[:2]
+        wm_h = min(46, max(30, h // 16))
+        wm_w = min(230, max(120, w // 4))
+        mask = np.zeros((h, w), dtype=np.uint8)
+        mask[h - wm_h:h, w - wm_w:w] = 255
+        cleaned = cv2.inpaint(img, mask, 3, cv2.INPAINT_TELEA)
+        text = "SAREMBOKVE"
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        scale = max(0.42, w / 2000.0)
+        thickness = 1
+        (tw, th), _ = cv2.getTextSize(text, font, scale, thickness)
+        tx = w - tw - 16
+        ty = h - 14
+        overlay = cleaned.copy()
+        cv2.rectangle(overlay, (tx - 8, ty - th - 6), (tx + tw + 8, ty + 6), (10, 15, 25), -1)
+        cv2.addWeighted(overlay, 0.75, cleaned, 0.25, 0, cleaned)
+        cv2.putText(cleaned, text, (tx, ty), font, scale, (255, 240, 0), thickness, cv2.LINE_AA)
+        _, encoded = cv2.imencode(".jpg", cleaned, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        return encoded.tobytes()
+    except Exception as exc:
+        LOG.debug("SarembokVE image branding skipped: %s", exc)
+        return img_bytes
+
+
 def resolve_image_generation(
     prompt: str,
     aspect_ratio: str = "1:1",
@@ -2327,6 +2360,7 @@ def resolve_image_generation(
                 with urllib.request.urlopen(img_req, timeout=6.0) as img_resp:
                     img_bytes = img_resp.read()
                 if img_bytes and len(img_bytes) > 1000:
+                    img_bytes = _brand_sarembok_image(img_bytes)
                     safe_name = f"sarembokve_visual_{int(time.time())}_{actual_seed}.jpg"
                     f_meta = save_uploaded_file(img_bytes, filename=safe_name, mime_type="image/jpeg", session_id="visual_synthesis")
                     local_url = f"/api/download?fileId={f_meta['fileId']}"
