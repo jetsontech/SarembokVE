@@ -148,6 +148,22 @@ BROWSER_ALLOWED_METHODS = {
     "ListUserChatSessions",
     "SaveUserChatSession",
     "DeleteUserChatSession",
+    "ListMCPConnectors",
+    "ConfigureMCPConnector",
+    "TestMCPConnector",
+    "GetSystemIntegrationsConfig",
+    "TriggerTestCDC",
+    "GetCDCChanges",
+    "GetTraces",
+    "QueryVectorStore",
+    "InsertVector",
+    "HybridSearch",
+    "IngestDocument",
+    "ReasonAndAdapt",
+    "ListConnectors",
+    "RegisterConnector",
+    "PublishEvent",
+    "GetTopicEvents",
 }
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
