@@ -15677,7 +15677,7 @@ button,
                     <!-- Credentials & Configuration Fields -->
                     <div class="mcp-field-group">
                         ${def.fields.map(f => {
-                            const savedVal = localStorage.getItem(\`sarembok_mcp_\${name}_\${f.key}\`) || (srv.maskedEnv ? srv.maskedEnv[f.key] : "") || (f.default || "");
+                            const savedVal = localStorage.getItem('sarembok_mcp_' + name + '_' + f.key) || (srv.maskedEnv ? srv.maskedEnv[f.key] : "") || (f.default || "");
                             return `
                             <div>
                                 <div class="mcp-field-label">

@@ -1,7 +1,7 @@
 param(
     [string]$ServerIP = "15.204.173.205",
     [string]$User = "ubuntu",
-    [string]$KeyPath = "$env:USERPROFILE\.ssh\sarembok_vps"
+    [string]$KeyPath = "$env:USERPROFILE\.ssh\sarembok_agent"
 )
 
 $ErrorActionPreference = "Stop"
