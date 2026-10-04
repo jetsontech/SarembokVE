@@ -68,10 +68,11 @@ def is_limitation_query(prompt: str) -> bool:
     norm = _normalize_prompt_intent(prompt)
     markers = (
         "what cant it do", "what cant you do", "what can it not do", "what can you not do",
+        "what is it not able to do", "what are you not able to do", "what are you not capable of", "what is it not capable of",
         "what are the limitations", "what are your limitations", "what limitations", "limitations",
         "system limitations", "runtime limitations", "what are the constraints", "constraints",
         "what are the boundaries", "operational boundaries", "what does it not support",
-        "what do you not support", "what are you not capable of", "what is it not capable of",
+        "what do you not support",
     )
     return any(m in norm for m in markers)
 
@@ -181,6 +182,7 @@ def render_capabilities(snapshot: dict[str, Any] | None = None, capabilities: di
         "- **Duplex Live Voice:** conversational voice with real-time barge-in and audio synthesis.",
         "- **Full-Stack Autonomous Code Synthesis:** full application synthesis, code execution, and sandboxing.",
         "- **Multimodal synthesis:** verified live engines for FLUX.1 visual image generation, neural video synthesis, interactive UI/UX prototyping sandbox, and industrial product design.",
+        "- **Upload & Download Infrastructure:** multi-format file uploads (code, documents, CSV, data, images) with live processing, alongside granular downloads (individual code files, markdown responses, structured data cards, and chat transcripts).",
     ]
     if registered:
         lines.extend(["", "**Registered enabled methods**", *[f"- `{name}`" for name in registered]])
@@ -195,12 +197,12 @@ def render_limitations(snapshot: dict[str, Any] | None = None) -> str:
     return "\n".join([
         "### SAREMBOK VE · ARCHITECTURAL BOUNDARIES",
         "",
-        "- Runtime state is reported from Runtime Authority rather than invented.",
-        "- High-impact administrative operations remain subject to authentication and runtime policy controls.",
-        "- Worker/GPU capacity depends on live registered workers and fresh heartbeats.",
+        "- Containerized Sandbox Isolation: Runtime state is reported from Runtime Authority rather than invented.",
+        "- Cryptographic Authorization & Human Guardrails: High-impact administrative operations remain subject to authentication and runtime policy controls.",
+        "- Sovereign Ground Truth vs. Speculative Hallucination: External websites and research claims require retrieval evidence; the assistant must not fill missing evidence with guesses.",
+        "- Physical World Actuation: Worker/GPU capacity depends on live registered workers and fresh heartbeats.",
         "- External providers, MCP servers, browser integrations, and generation services are operational only when configured and reachable.",
         "- Local/private networks and host resources are not implicitly available through the public runtime.",
-        "- External websites and research claims require retrieval evidence; the assistant must not fill missing evidence with guesses.",
     ])
 
 

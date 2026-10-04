@@ -29,6 +29,18 @@ sarembok.com, www.sarembok.com {
     handle /api/tts {
         reverse_proxy sarembok-runtime:9000
     }
+
+    handle /api/upload {
+        reverse_proxy sarembok-runtime:9000
+    }
+
+    handle /api/download {
+        reverse_proxy sarembok-runtime:9000
+    }
+
+    handle /api/files {
+        reverse_proxy sarembok-runtime:9000
+    }
     handle /api {
         respond "Not Found" 404
     }

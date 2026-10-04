@@ -9,6 +9,7 @@ SIGTERM/SIGINT graceful shutdown.
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import hmac as _hmac
 import json
@@ -18,6 +19,7 @@ import re
 import secrets
 import signal
 import sqlite3
+import tempfile
 import time
 import urllib.request
 import urllib.error
@@ -85,6 +87,99 @@ WORKER_AUTH_METHODS = {
     "FailTask",
 }
 WORKER_ENROLLMENT_TOKEN = os.getenv("SAREMBOK_WORKER_ENROLLMENT_TOKEN", "").strip()
+
+UPLOAD_DIR = os.getenv("SAREMBOK_UPLOAD_DIR", "/data/uploads" if os.path.exists("/data") else os.path.join(tempfile.gettempdir(), "sarembok_uploads"))
+try:
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+except Exception:
+    pass
+_FILE_REGISTRY: dict[str, dict[str, Any]] = {}
+
+def sanitize_filename(filename: str) -> str:
+    filename = os.path.basename((filename or "").strip())
+    filename = re.sub(r'[^a-zA-Z0-9_\-\.\s]', '_', filename)
+    return filename or "uploaded_file.bin"
+
+def save_uploaded_file(filename: str, content: str | bytes, mime_type: str = "application/octet-stream") -> dict[str, Any]:
+    clean_name = sanitize_filename(filename)
+    file_id = f"file-{uuid.uuid4().hex[:10]}"
+    
+    if isinstance(content, str):
+        if content.startswith("data:") and ";base64," in content:
+            header, b64_data = content.split(";base64,", 1)
+            raw_bytes = base64.b64decode(b64_data)
+            if not mime_type or mime_type == "application/octet-stream":
+                mime_type = header[5:]
+        else:
+            try:
+                raw_bytes = base64.b64decode(content, validate=True)
+            except Exception:
+                raw_bytes = content.encode("utf-8", errors="replace")
+    else:
+        raw_bytes = bytes(content)
+        
+    target_path = os.path.join(UPLOAD_DIR, f"{file_id}_{clean_name}")
+    try:
+        with open(target_path, "wb") as f:
+            f.write(raw_bytes)
+    except Exception as exc:
+        LOG.warning("Failed to write uploaded file to %s: %s", target_path, exc)
+        
+    size = len(raw_bytes)
+    text_preview = None
+    try:
+        text_preview = raw_bytes[:4000].decode("utf-8")
+    except Exception:
+        pass
+        
+    meta = {
+        "fileId": file_id,
+        "filename": clean_name,
+        "mimeType": mime_type,
+        "size": size,
+        "path": target_path,
+        "url": f"/api/download?fileId={file_id}",
+        "downloadUrl": f"/api/download?fileId={file_id}",
+        "createdAt": now(),
+        "hasText": text_preview is not None,
+        "textPreview": text_preview,
+    }
+    _FILE_REGISTRY[file_id] = meta
+    return meta
+
+def get_uploaded_file(file_id: str) -> tuple[dict[str, Any] | None, bytes | None]:
+    meta = _FILE_REGISTRY.get(file_id)
+    if not meta:
+        try:
+            for fname in os.listdir(UPLOAD_DIR):
+                if fname.startswith(f"{file_id}_"):
+                    real_name = fname[len(file_id) + 1:]
+                    fpath = os.path.join(UPLOAD_DIR, fname)
+                    with open(fpath, "rb") as f:
+                        data = f.read()
+                    meta = {
+                        "fileId": file_id,
+                        "filename": real_name,
+                        "mimeType": "application/octet-stream",
+                        "size": len(data),
+                        "path": fpath,
+                        "downloadUrl": f"/api/download?fileId={file_id}",
+                    }
+                    _FILE_REGISTRY[file_id] = meta
+                    return meta, data
+        except Exception:
+            pass
+        return None, None
+    fpath = meta.get("path")
+    if fpath and os.path.isfile(fpath):
+        try:
+            with open(fpath, "rb") as f:
+                data = f.read()
+            return meta, data
+        except Exception as exc:
+            LOG.warning("Failed to read file %s: %s", fpath, exc)
+    return meta, None
+
 BROWSER_ALLOWED_METHODS = {
     "SarembokChat",
     "RecordLiveTurn",
@@ -92,6 +187,9 @@ BROWSER_ALLOWED_METHODS = {
     "SynthesizeSpeechStream",
     "GetRuntimeInfo",
     "GetProviderMetrics",
+    "UploadFile",
+    "DownloadFile",
+    "ListFiles",
     "BrowserNavigate",
     "BrowserScreenshot",
     "BrowserRender",
@@ -3398,6 +3496,23 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
         req_conv = bool(params.get("conversational", False))
         req_admin = bool(params.get("admin", False))
         req_frame = str(params.get("imageFrame") or params.get("image_frame") or params.get("frame") or "").strip() or None
+        attachments = params.get("attachments") or params.get("files") or []
+        if isinstance(attachments, list) and attachments:
+            file_context_blocks = []
+            for att in attachments:
+                if isinstance(att, dict):
+                    fname = str(att.get("filename") or att.get("name") or "file.txt")
+                    fcontent = str(att.get("content") or att.get("text") or "")
+                    fsize = att.get("size")
+                    ftype = att.get("type") or att.get("mimeType") or "text/plain"
+                    if fcontent and not fcontent.startswith("data:image"):
+                        file_context_blocks.append(f"[ATTACHED FILE: {fname} ({ftype}, {fsize or len(fcontent)} bytes)]\n{fcontent}\n[END ATTACHED FILE]")
+                    if not req_frame and ("image" in ftype or fname.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))):
+                        if fcontent.startswith("data:image"):
+                            req_frame = fcontent
+            if file_context_blocks:
+                prompt = "\n\n".join(file_context_blocks) + "\n\n" + prompt
+
         if req_admin:
             adm_token = str(params.get("adminToken", "") or params.get("adminSessionToken", "")).strip()
             adm_pass = str(params.get("adminPasscode", "") or params.get("passcode", "")).strip()
@@ -3427,6 +3542,35 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
         res["agentId"] = "sarembok-prime"
         res["timestamp"] = now()
         return res
+
+    if method == "UploadFile":
+        filename = str(params.get("filename", "")).strip() or "uploaded_file.bin"
+        content = params.get("content", "")
+        mime_type = str(params.get("mimeType", "")).strip() or "application/octet-stream"
+        if not content:
+            raise ValueError("content is required for UploadFile")
+        meta = save_uploaded_file(filename, content, mime_type)
+        return {"ok": True, "file": meta, "fileId": meta["fileId"], "downloadUrl": meta["downloadUrl"], "size": meta["size"]}
+
+    if method == "DownloadFile":
+        file_id = str(params.get("fileId", "") or params.get("id", "")).strip()
+        filename = str(params.get("filename", "")).strip()
+        meta, data = get_uploaded_file(file_id or filename)
+        if not meta or data is None:
+            return {"ok": False, "error": "file_not_found"}
+        b64_content = base64.b64encode(data).decode("utf-8")
+        return {
+            "ok": True,
+            "fileId": meta.get("fileId"),
+            "filename": meta.get("filename"),
+            "mimeType": meta.get("mimeType", "application/octet-stream"),
+            "size": len(data),
+            "content": b64_content,
+        }
+
+    if method == "ListFiles":
+        files_list = sorted(list(_FILE_REGISTRY.values()), key=lambda x: x.get("createdAt", ""), reverse=True)
+        return {"ok": True, "files": files_list, "count": len(files_list)}
 
     if method == "RecordLiveTurn":
         session_id = str(params.get("sessionId", "default")).strip() or "default"
@@ -6224,6 +6368,49 @@ async def process_http_request(connection: Any, request: Any) -> Any:
             return make_api_response(200, {"tasks": tasks})
         except Exception as exc:
             return make_api_response(500, {"error": str(exc)})
+
+    if path_only in ("/api/download", "/download"):
+        parsed = urllib.parse.urlparse(path)
+        query = urllib.parse.parse_qs(parsed.query)
+        file_id = str(query.get("fileId", [""])[0] or query.get("id", [""])[0] or query.get("name", [""])[0]).strip()
+        if not file_id:
+            return make_api_response(400, {"error": "fileId_required"})
+        meta, data = get_uploaded_file(file_id)
+        if not meta or data is None:
+            return make_api_response(404, {"error": "file_not_found"})
+        fname = meta.get("filename", "download.bin")
+        mime = meta.get("mimeType", "application/octet-stream")
+        try:
+            from websockets.datastructures import Headers
+            from websockets.http11 import Response
+            return Response(
+                200,
+                "OK",
+                Headers([
+                    ("Content-Type", mime),
+                    ("Content-Disposition", f'attachment; filename="{fname}"'),
+                    ("Content-Length", str(len(data))),
+                    ("Access-Control-Allow-Origin", "*"),
+                    ("Cache-Control", "no-cache"),
+                ]),
+                data,
+            )
+        except Exception:
+            return (
+                200,
+                [
+                    ("Content-Type", mime),
+                    ("Content-Disposition", f'attachment; filename="{fname}"'),
+                    ("Content-Length", str(len(data))),
+                    ("Access-Control-Allow-Origin", "*"),
+                    ("Cache-Control", "no-cache"),
+                ],
+                data,
+            )
+
+    if path_only in ("/api/files", "/files"):
+        files_list = sorted(list(_FILE_REGISTRY.values()), key=lambda x: x.get("createdAt", ""), reverse=True)
+        return make_api_response(200, {"ok": True, "files": files_list, "count": len(files_list)})
 
     if path in ("/", "/index.html"):
         base_dir = os.path.dirname(os.path.abspath(__file__))

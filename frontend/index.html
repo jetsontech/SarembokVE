@@ -2052,6 +2052,159 @@
             color: var(--text-muted);
         }
 
+        /* File Upload & Attachment Tray */
+        .chat-attachment-tray {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(0, 240, 255, 0.05);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        .chat-attachment-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(6, 12, 24, 0.95);
+            border: 1px solid rgba(0, 240, 255, 0.4);
+            border-radius: 6px;
+            padding: 5px 9px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+        }
+        .chat-attachment-chip img {
+            width: 24px;
+            height: 24px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid var(--cyan);
+        }
+        .chat-attachment-chip .chip-name {
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--cyan);
+            font-weight: 600;
+        }
+        .chat-attachment-chip .chip-size {
+            color: var(--text-secondary);
+            font-size: 9.5px;
+        }
+        .chat-attachment-chip .chip-remove {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 13px;
+            padding: 0 3px;
+            line-height: 1;
+        }
+        .chat-attachment-chip .chip-remove:hover {
+            color: #ef4444;
+        }
+
+        /* Drag & Drop File Overlay */
+        .chat-drag-overlay {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(2, 6, 16, 0.9);
+            border: 2px dashed var(--cyan);
+            border-radius: 12px;
+            z-index: 1000;
+            pointer-events: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: inset 0 0 50px rgba(0, 240, 255, 0.3);
+        }
+        .chat-drag-overlay.active {
+            display: flex;
+        }
+
+        /* Interactive File Download / Artifact Card */
+        .srbk-file-card {
+            background: rgba(8, 14, 26, 0.95);
+            border: 1px solid rgba(0, 240, 255, 0.35);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin: 14px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        }
+        .srbk-file-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .srbk-file-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .srbk-file-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: rgba(0, 240, 255, 0.12);
+            border: 1px solid var(--cyan);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: var(--cyan);
+            flex-shrink: 0;
+        }
+        .srbk-file-title {
+            font-family: var(--font-mono);
+            font-weight: 700;
+            font-size: 12.5px;
+            color: #fff;
+        }
+        .srbk-file-meta {
+            font-size: 10.5px;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+        }
+        .srbk-file-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .srbk-file-preview {
+            background: #040714;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            padding: 10px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: #94a3b8;
+            max-height: 240px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .srbk-dl-btn {
+            background: rgba(0, 240, 255, 0.15) !important;
+            border-color: rgba(0, 240, 255, 0.4) !important;
+            color: var(--cyan) !important;
+        }
+        .srbk-dl-btn:hover {
+            background: rgba(0, 240, 255, 0.3) !important;
+            border-color: var(--cyan) !important;
+        }
+
         /* Lightbox Modal */
         .srbk-lightbox-modal {
             position: fixed;
@@ -7683,6 +7836,16 @@ button,
                     <button type="button" onclick="clearVisionFrame()" style="margin-left:auto; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:11px;" title="Clear frame attachment">✕ CLEAR</button>
                 </div>
 
+                <!-- FILE ATTACHMENTS TRAY -->
+                <div class="chat-attachment-tray" id="chat-attachment-tray" style="display:none;"></div>
+
+                <!-- DRAG & DROP OVERLAY -->
+                <div class="chat-drag-overlay" id="chat-drag-overlay">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <div style="font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--cyan); letter-spacing:0.05em;">DROP FILES TO UPLOAD &amp; ATTACH</div>
+                    <div style="font-size:11px; color:var(--text-secondary);">Documents, code, datasets, CSV, and images</div>
+                </div>
+
                 <div class="dialogue-input-bar">
                     <button class="dialogue-mic-btn" id="dialogue-mic-btn" onclick="toggleLiveConversation()" title="Native Gemini Live conversation">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -7693,7 +7856,11 @@ button,
                     <button class="dialogue-mic-btn" id="dialogue-screen-btn" onclick="toggleVisionScreenShare()" title="Screen Vision (Share screen/tab with AI)" style="background:transparent; color:var(--cyan); border-color:rgba(0,240,255,0.3);">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                     </button>
-                    <input type="text" class="dialogue-input" id="directive-input" placeholder="Message Sarembok V E or tap mic..." onfocus="if(window.speechSynthesis&&window.speechSynthesis.speaking)interruptSpeech()" onkeydown="if(event.key==='Enter') sendDirective(false)">
+                    <button class="dialogue-mic-btn" id="dialogue-upload-btn" onclick="triggerFileUpload()" title="Attach File / Document / Image (Upload)" style="background:transparent; color:var(--cyan); border-color:rgba(0,240,255,0.3);">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    </button>
+                    <input type="file" id="chat-file-input" style="display:none;" multiple onchange="handleFileSelect(event)">
+                    <input type="text" class="dialogue-input" id="directive-input" placeholder="Message Sarembok V E, attach files, or tap mic..." onfocus="if(window.speechSynthesis&&window.speechSynthesis.speaking)interruptSpeech()" onkeydown="if(event.key==='Enter') sendDirective(false)">
                     <button class="dialogue-exec-btn" id="execute-button" onclick="sendDirective(false)" title="Submit directive to Sarembok V E">
                         <span class="exec-btn-desktop">EXECUTE</span>
                         <svg class="exec-btn-mobile" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -10191,6 +10358,353 @@ button,
             `;
         }
 
+        /* ============================================================
+           FILE UPLOAD & DOWNLOAD INFRASTRUCTURE
+           ============================================================ */
+        function formatFileSize(bytes) {
+            if (!bytes || bytes <= 0) return "0 B";
+            const k = 1024;
+            const sizes = ["B", "KB", "MB", "GB"];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+        }
+
+        window.fileCardStore = window.fileCardStore || {};
+
+        function renderFileCard(title, body) {
+            const rawBody = String(body || "").trim();
+            const cardId = "fc-" + Math.random().toString(36).substring(2, 9);
+            
+            let filename = "document.txt";
+            let mimeType = "text/plain";
+            
+            const fnMatch = String(title || "").match(/filename=["']?([^"'\s]+)["']?/i);
+            if (fnMatch) filename = fnMatch[1];
+            else if (title && title.trim() && !title.includes("=")) filename = title.trim();
+
+            const mimeMatch = String(title || "").match(/mime(?:Type)?=["']?([^"'\s]+)["']?/i);
+            if (mimeMatch) mimeType = mimeMatch[1];
+            else {
+                const ext = filename.split('.').pop().toLowerCase();
+                if (ext === 'csv') mimeType = 'text/csv';
+                else if (ext === 'json') mimeType = 'application/json';
+                else if (ext === 'py') mimeType = 'text/x-python';
+                else if (ext === 'js') mimeType = 'application/javascript';
+                else if (ext === 'ts') mimeType = 'application/typescript';
+                else if (ext === 'html') mimeType = 'text/html';
+                else if (ext === 'css') mimeType = 'text/css';
+                else if (ext === 'sh') mimeType = 'application/x-sh';
+                else if (ext === 'sql') mimeType = 'application/sql';
+                else if (ext === 'md') mimeType = 'text/markdown';
+            }
+
+            const sizeBytes = new Blob([rawBody]).size;
+            const sizeStr = formatFileSize(sizeBytes);
+            window.fileCardStore[cardId] = { filename, mimeType, content: rawBody };
+
+            let icon = "📄";
+            if (filename.endsWith('.csv') || filename.endsWith('.xlsx')) icon = "📊";
+            else if (filename.endsWith('.json')) icon = "📦";
+            else if (filename.endsWith('.py') || filename.endsWith('.js') || filename.endsWith('.html') || filename.endsWith('.ts')) icon = "💻";
+            else if (filename.endsWith('.sh') || filename.endsWith('.bash')) icon = "⚙️";
+
+            return `
+                <div class="srbk-file-card" id="${cardId}">
+                    <div class="srbk-file-header">
+                        <div class="srbk-file-info">
+                            <div class="srbk-file-icon">${icon}</div>
+                            <div>
+                                <div class="srbk-file-title">${escapeHtml(filename)}</div>
+                                <div class="srbk-file-meta">${sizeStr} · ${escapeHtml(mimeType)}</div>
+                            </div>
+                        </div>
+                        <div class="srbk-file-actions">
+                            <button class="browser-action-btn" type="button" onclick="toggleFileCardPreview('${cardId}', this)" style="padding:4px 9px; font-size:10px;">👁 PREVIEW</button>
+                            <button class="browser-action-btn" type="button" onclick="downloadFileCardContent('${cardId}', this)" style="padding:4px 12px; font-size:10px; border-color:var(--cyan); color:var(--cyan); background:rgba(0,240,255,0.18); font-weight:700;">⬇ DOWNLOAD</button>
+                            <button class="browser-action-btn" type="button" onclick="copyFileCardContent('${cardId}', this)" style="padding:4px 9px; font-size:10px;">COPY</button>
+                        </div>
+                    </div>
+                    <div class="srbk-file-preview" id="${cardId}-preview" style="display:none;">${escapeHtml(rawBody)}</div>
+                </div>
+            `;
+        }
+
+        function toggleFileCardPreview(cardId, btn) {
+            const preview = document.getElementById(cardId + "-preview");
+            if (!preview) return;
+            const isHidden = preview.style.display === "none";
+            preview.style.display = isHidden ? "block" : "none";
+            btn.textContent = isHidden ? "✕ HIDE" : "👁 PREVIEW";
+        }
+
+        function downloadFileCardContent(cardId, btn) {
+            const item = window.fileCardStore ? window.fileCardStore[cardId] : null;
+            if (!item) return;
+            const blob = new Blob([item.content], { type: item.mimeType + ";charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = item.filename;
+            a.click();
+            URL.revokeObjectURL(url);
+            if (btn) {
+                const old = btn.textContent;
+                btn.textContent = "✓ SAVED";
+                setTimeout(() => { btn.textContent = old; }, 1500);
+            }
+            showToast(`DOWNLOADED ${item.filename}`);
+        }
+
+        function copyFileCardContent(cardId, btn) {
+            const item = window.fileCardStore ? window.fileCardStore[cardId] : null;
+            if (!item) return;
+            navigator.clipboard.writeText(item.content).then(() => {
+                if (btn) {
+                    const old = btn.textContent;
+                    btn.textContent = "COPIED!";
+                    setTimeout(() => { btn.textContent = old; }, 1500);
+                }
+            });
+        }
+
+        function downloadCode(btn) {
+            const block = btn.closest(".srbk-code-block");
+            if (!block) return;
+            const codeEl = block.querySelector("code");
+            const code = codeEl ? codeEl.innerText : "";
+            const langEl = block.querySelector(".srbk-code-head span");
+            const lang = langEl ? langEl.innerText.toLowerCase().trim() : "";
+
+            let filename = "";
+            const firstLine = code.split("\n")[0] || "";
+            const fnMatch = firstLine.match(/^(?:#|\/\/|\/\*|<!--|--)\s*([\w\-./\\]+\.[a-zA-Z0-9]+)/);
+            if (fnMatch) {
+                filename = fnMatch[1].replace(/^[./\\]+/, "");
+            }
+
+            if (!filename) {
+                const extMap = {
+                    python: "py", py: "py",
+                    javascript: "js", js: "js",
+                    typescript: "ts", ts: "ts",
+                    html: "html", htm: "html",
+                    css: "css", scss: "scss",
+                    json: "json",
+                    csv: "csv",
+                    sql: "sql",
+                    sh: "sh", bash: "sh", zsh: "sh",
+                    dockerfile: "Dockerfile",
+                    yaml: "yaml", yml: "yaml",
+                    markdown: "md", md: "md",
+                    c: "c", cpp: "cpp", rust: "rs", rs: "rs", go: "go",
+                };
+                const ext = extMap[lang] || "txt";
+                filename = ext === "Dockerfile" ? "Dockerfile" : `sarembok_script_${Date.now()}.${ext}`;
+            }
+
+            const blob = new Blob([code], { type: "text/plain;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            const origText = btn.textContent;
+            btn.textContent = "✓ SAVED";
+            setTimeout(() => { btn.textContent = origText; }, 1500);
+            showToast(`DOWNLOADED ${filename}`);
+        }
+
+        function downloadResponse(btn) {
+            const bubble = btn.closest(".srbk-bubble");
+            if (!bubble) return;
+            const content = bubble.querySelector(".srbk-content");
+            if (!content) return;
+
+            const text = content.innerText || "";
+            const filename = `sarembok_response_${Date.now()}.md`;
+
+            const blob = new Blob([`# Sarembok VE Response\n\n${text}\n\n---\n*Exported on ${new Date().toISOString()}*`], { type: "text/markdown;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            const origText = btn.textContent;
+            btn.textContent = "✓ SAVED";
+            setTimeout(() => { btn.textContent = origText; }, 1500);
+            showToast(`DOWNLOADED ${filename}`);
+        }
+
+        /* File Upload State & Handlers */
+        window.pendingAttachments = [];
+
+        function triggerFileUpload() {
+            const input = document.getElementById("chat-file-input");
+            if (input) input.click();
+        }
+
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            if (files && files.length > 0) {
+                handleFilesList(files);
+            }
+            event.target.value = "";
+        }
+
+        async function handleFilesList(files) {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const isImage = file.type.startsWith("image/");
+                
+                try {
+                    if (isImage) {
+                        const dataUrl = await readFileAsDataURL(file);
+                        window.pendingAttachments.push({
+                            filename: file.name,
+                            type: file.type || "image/png",
+                            size: file.size,
+                            content: dataUrl,
+                            isImage: true,
+                            preview: dataUrl,
+                        });
+                    } else {
+                        const text = await readFileAsText(file);
+                        window.pendingAttachments.push({
+                            filename: file.name,
+                            type: file.type || "text/plain",
+                            size: file.size,
+                            content: text,
+                            isImage: false,
+                        });
+                    }
+                } catch (err) {
+                    console.error("Error reading file:", err);
+                    showToast(`Failed to read file ${file.name}`);
+                }
+            }
+            renderAttachmentTray();
+            showToast(`ATTACHED ${files.length} FILE(S)`);
+        }
+
+        function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+        }
+
+        function renderAttachmentTray() {
+            const tray = document.getElementById("chat-attachment-tray");
+            if (!tray) return;
+            if (!window.pendingAttachments || window.pendingAttachments.length === 0) {
+                tray.style.display = "none";
+                tray.innerHTML = "";
+                return;
+            }
+            tray.style.display = "flex";
+            tray.innerHTML = window.pendingAttachments.map((att, idx) => {
+                let iconHtml = "";
+                if (att.isImage) {
+                    iconHtml = `<img src="${att.preview}" alt="thumb" />`;
+                } else {
+                    let ic = "📄";
+                    if (att.filename.endsWith(".csv")) ic = "📊";
+                    else if (att.filename.endsWith(".json")) ic = "📦";
+                    else if (att.filename.endsWith(".py") || att.filename.endsWith(".js") || att.filename.endsWith(".html") || att.filename.endsWith(".ts")) ic = "💻";
+                    iconHtml = `<span style="font-size:14px;">${ic}</span>`;
+                }
+                return `
+                    <div class="chat-attachment-chip">
+                        ${iconHtml}
+                        <span class="chip-name" title="${escapeHtml(att.filename)}">${escapeHtml(att.filename)}</span>
+                        <span class="chip-size">${formatFileSize(att.size)}</span>
+                        <button class="chip-remove" onclick="removeAttachment(${idx})" title="Remove attachment">✕</button>
+                    </div>
+                `;
+            }).join("");
+        }
+
+        function removeAttachment(index) {
+            if (window.pendingAttachments && window.pendingAttachments.length > index) {
+                window.pendingAttachments.splice(index, 1);
+                renderAttachmentTray();
+            }
+        }
+
+        function clearAttachments() {
+            window.pendingAttachments = [];
+            renderAttachmentTray();
+        }
+
+        function initDragAndDropUpload() {
+            const dropzone = document.getElementById("view-dialogue");
+            const overlay = document.getElementById("chat-drag-overlay");
+            if (!dropzone || !overlay) return;
+
+            let dragCounter = 0;
+
+            dropzone.addEventListener("dragenter", (e) => {
+                e.preventDefault();
+                dragCounter++;
+                overlay.classList.add("active");
+            });
+
+            dropzone.addEventListener("dragleave", (e) => {
+                e.preventDefault();
+                dragCounter--;
+                if (dragCounter <= 0) {
+                    dragCounter = 0;
+                    overlay.classList.remove("active");
+                }
+            });
+
+            dropzone.addEventListener("dragover", (e) => {
+                e.preventDefault();
+            });
+
+            dropzone.addEventListener("drop", (e) => {
+                e.preventDefault();
+                dragCounter = 0;
+                overlay.classList.remove("active");
+                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handleFilesList(e.dataTransfer.files);
+                }
+            });
+
+            // Clipboard paste for screenshots and files
+            document.addEventListener("paste", (e) => {
+                const activeEl = document.activeElement;
+                const directiveInput = document.getElementById("directive-input");
+                if (activeEl === directiveInput || (dropzone && dropzone.contains(activeEl))) {
+                    if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+                        e.preventDefault();
+                        handleFilesList(e.clipboardData.files);
+                    }
+                }
+            });
+        }
+
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", initDragAndDropUpload);
+        } else {
+            initDragAndDropUpload();
+        }
+
         function renderTaskMatrix(title, body) {
             const lines = String(body || "").trim().split("\n").filter(Boolean);
             let itemsHtml = "";
@@ -10443,7 +10957,7 @@ button,
 
             // 1. Code blocks
             s = s.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
-                return `<div class="srbk-code-block"><div class="srbk-code-head"><span>${lang || "CODE"}</span><button class="srbk-copy-btn" type="button" onclick="copyCode(this)">COPY</button></div><pre><code>${escapeHtml(code.trim())}</code></pre></div>`;
+                return `<div class="srbk-code-block"><div class="srbk-code-head"><span>${lang || "CODE"}</span><div style="display:flex;gap:6px;align-items:center;"><button class="srbk-copy-btn srbk-dl-btn" type="button" onclick="downloadCode(this)" title="Download code snippet as a file">⬇ SAVE</button><button class="srbk-copy-btn" type="button" onclick="copyCode(this)">COPY</button></div></div><pre><code>${escapeHtml(code.trim())}</code></pre></div>`;
             });
 
             // 2. Music Player & Cyber Synth (:::music ... :::)
@@ -10501,6 +11015,11 @@ button,
             // 12. Industrial Product Design & Hardware Studio (:::product ... ::: or :::blueprint ... :::)
             s = s.replace(/:::(?:product|blueprint|hardware)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 return renderProductCard(title, body);
+            });
+
+            // 13. Interactive File Downloads & Artifact Cards (:::file ... ::: or :::download ... :::)
+            s = s.replace(/:::(?:file|download|artifact)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
+                return renderFileCard(title, body);
             });
 
             // SAREMBOK_COLLAPSED_TABLE_RECOVERY_20260914
@@ -11165,8 +11684,13 @@ button,
             if (!input) return;
 
             let text = input.value.trim();
-            if (!text) return;
+            const attachmentsToSend = [...(window.pendingAttachments || [])];
+            if (!text && attachmentsToSend.length === 0) return;
+            if (!text && attachmentsToSend.length > 0) {
+                text = "Please inspect and analyze the attached file(s).";
+            }
             input.value = "";
+            clearAttachments();
 
             // Check if user requested background execution
             if (isBackground || text.startsWith("/bg ") || text.startsWith("/background ") || text.startsWith("/async ")) {
@@ -11185,8 +11709,8 @@ button,
                 frameToSend = captureCurrentOpenCVFrame();
             }
 
-            // Append user bubble with perception frame
-            appendUserDialogue(text, frameToSend);
+            // Append user bubble with perception frame and attachments
+            appendUserDialogue(text, frameToSend, attachmentsToSend);
             clearVisionFrame();
 
             // Create assistant bubble
@@ -11211,6 +11735,7 @@ button,
                         stream: true,
                         admin: isAdm,
                         imageFrame: frameToSend,
+                        attachments: attachmentsToSend,
                         sessionId: localStorage.getItem("sarembok_active_session_id") || "sess_main"
                     },
                     delta => {
@@ -11354,7 +11879,7 @@ button,
             }
         }
 
-        function appendUserDialogue(text, imageFrame) {
+        function appendUserDialogue(text, imageFrame, attachments = []) {
             const history = document.getElementById("dialogue-history");
             const div = document.createElement("div");
             div.className = "srbk-bubble user";
@@ -11363,7 +11888,13 @@ button,
                 const src = imageFrame.startsWith("data:") ? imageFrame : `data:image/jpeg;base64,${imageFrame}`;
                 imgHtml = `<div style="margin-top:6px;"><img src="${src}" style="max-width:200px; max-height:140px; border-radius:6px; border:1px solid var(--cyan); object-fit:cover;" alt="Vision perception frame" /></div>`;
             }
-            div.innerHTML = `<div class="srbk-bubble-sender">YOU</div><div class="srbk-content"><p>${escapeHtml(text)}</p>${imgHtml}</div>`;
+            let attachHtml = "";
+            if (Array.isArray(attachments) && attachments.length > 0) {
+                attachHtml = `<div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">` +
+                    attachments.map(a => `<span style="display:inline-flex; align-items:center; gap:5px; padding:3px 8px; background:rgba(0,240,255,0.12); border:1px solid var(--cyan); border-radius:4px; font-family:var(--font-mono); font-size:10.5px; color:var(--cyan);">📎 ${escapeHtml(a.filename || a.name || 'file')} (${formatFileSize(a.size || 0)})</span>`).join('') +
+                    `</div>`;
+            }
+            div.innerHTML = `<div class="srbk-bubble-sender">YOU</div><div class="srbk-content"><p>${escapeHtml(text)}</p>${imgHtml}${attachHtml}</div>`;
             history.appendChild(div);
             scrollDialogue();
         }
@@ -11381,6 +11912,7 @@ button,
                         <button class="srbk-tool-btn" onclick="submitMessageFeedback(this, 1)" title="Helpful response (Thumbs Up)">👍</button>
                         <button class="srbk-tool-btn" onclick="submitMessageFeedback(this, -1)" title="Needs refinement (Thumbs Down)">👎</button>
                         <button class="srbk-tool-btn" onclick="copyResponse(this)" title="Copy complete response">COPY</button>
+                        <button class="srbk-tool-btn" onclick="downloadResponse(this)" title="Download this response as Markdown (.md)">⬇ SAVE</button>
                         <button class="srbk-tool-btn srbk-speak-btn" onclick="speakText(this)" title="Narrate response">🔊</button>
                     </div>
                 </div>
@@ -15705,6 +16237,76 @@ button,
             showToast("EXPORTED CHAT TO MARKDOWN (.MD)");
         }
 
+        function exportCurrentChatJson() {
+            const historyEl = document.getElementById("dialogue-history");
+            const activeId = localStorage.getItem("sarembok_active_session_id") || "sess_active";
+            const bubbles = historyEl ? historyEl.querySelectorAll(".srbk-bubble") : [];
+            const data = {
+                sessionId: activeId,
+                exportedAt: new Date().toISOString(),
+                messages: [],
+            };
+            bubbles.forEach(b => {
+                const isUser = b.classList.contains("user");
+                const role = isUser ? "user" : "assistant";
+                const content = b.querySelector(".srbk-content")?.innerText || "";
+                data.messages.push({ role, content: content.trim() });
+            });
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `sarembok_chat_${activeId}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast("EXPORTED CHAT TO JSON");
+        }
+
+        function exportCurrentChatTxt() {
+            const historyEl = document.getElementById("dialogue-history");
+            const activeId = localStorage.getItem("sarembok_active_session_id") || "sess_active";
+            const bubbles = historyEl ? historyEl.querySelectorAll(".srbk-bubble") : [];
+            let txt = `SAREMBOK VE CONVERSATION TRANSCRIPT\nSession ID: ${activeId}\nExported: ${new Date().toISOString()}\n========================================\n\n`;
+            bubbles.forEach(b => {
+                const isUser = b.classList.contains("user");
+                const sender = isUser ? "YOU" : "SAREMBOK";
+                const content = b.querySelector(".srbk-content")?.innerText || "";
+                txt += `[${sender}]\n${content.trim()}\n\n----------------------------------------\n\n`;
+            });
+            const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `sarembok_chat_${activeId}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast("EXPORTED CHAT TO TXT");
+        }
+
+        function exportCurrentChatCodeSnippets() {
+            const historyEl = document.getElementById("dialogue-history");
+            const codeBlocks = historyEl ? historyEl.querySelectorAll(".srbk-code-block") : [];
+            if (codeBlocks.length === 0) {
+                showToast("No code blocks found in active conversation.");
+                return;
+            }
+            codeBlocks.forEach((block, idx) => {
+                const codeEl = block.querySelector("code");
+                const code = codeEl ? codeEl.innerText : "";
+                const langEl = block.querySelector(".srbk-code-head span");
+                const lang = langEl ? langEl.innerText.toLowerCase().trim() : "txt";
+                const ext = lang === "python" ? "py" : lang === "javascript" ? "js" : lang === "html" ? "html" : lang === "css" ? "css" : lang === "json" ? "json" : (lang || "txt");
+                const blob = new Blob([code], { type: "text/plain" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `snippet_${idx + 1}.${ext}`;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+            showToast(`DOWNLOADED ${codeBlocks.length} CODE SNIPPETS`);
+        }
+
         function exportAllSessionsJson() {
             let sessions = {};
             try {
@@ -16729,11 +17331,25 @@ button,
             <div class="drawer-tab-panel" id="drawer-panel-export">
                 <div class="drawer-card">
                     <div class="drawer-card-header">
-                        <span style="font-weight:700; color:#fff;">EXPORT ACTIVE CHAT (.MD)</span>
-                        <span class="drawer-badge good">MARKDOWN</span>
+                        <span style="font-weight:700; color:#fff;">EXPORT ACTIVE CHAT</span>
+                        <span class="drawer-badge good">MULTI-FORMAT</span>
                     </div>
-                    <div style="font-size:10.5px; color:var(--text-secondary); line-height:1.4;">Download the entire current conversation transcript with code blocks, sender badges, and timestamps formatted in GitHub Flavored Markdown.</div>
-                    <button class="browser-action-btn" onclick="exportCurrentChatMarkdown()" style="padding:8px 14px; font-size:10.5px; border-color:var(--cyan); color:var(--cyan); margin-top:4px;">DOWNLOAD ACTIVE CHAT (.MD)</button>
+                    <div style="font-size:10.5px; color:var(--text-secondary); line-height:1.4;">Download the active conversation in your preferred format, or extract all generated code snippets as standalone files.</div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;">
+                        <button class="browser-action-btn" onclick="exportCurrentChatMarkdown()" style="flex:1; padding:7px 10px; font-size:10px; border-color:var(--cyan); color:var(--cyan);">⬇ MARKDOWN (.MD)</button>
+                        <button class="browser-action-btn" onclick="exportCurrentChatJson()" style="flex:1; padding:7px 10px; font-size:10px; border-color:#38bdf8; color:#38bdf8;">⬇ JSON (.JSON)</button>
+                        <button class="browser-action-btn" onclick="exportCurrentChatTxt()" style="flex:1; padding:7px 10px; font-size:10px; border-color:#94a3b8; color:#94a3b8;">⬇ TEXT (.TXT)</button>
+                        <button class="browser-action-btn" onclick="exportCurrentChatCodeSnippets()" style="width:100%; padding:7px 10px; font-size:10px; border-color:var(--emerald); color:var(--emerald);">⬇ EXTRACT ALL CODE SNIPPETS</button>
+                    </div>
+                </div>
+
+                <div class="drawer-card" style="border-style:dashed; border-color:rgba(0,240,255,0.4);">
+                    <div class="drawer-card-header">
+                        <span style="font-weight:700; color:#fff;">UPLOAD FILES &amp; DATASETS</span>
+                        <span class="drawer-badge cyan">UPLOAD</span>
+                    </div>
+                    <div style="font-size:10.5px; color:var(--text-secondary); line-height:1.4;">Attach files, source code, CSVs, documents or images to discuss with Sarembok VE.</div>
+                    <button class="browser-action-btn" onclick="toggleTaskHistoryDrawer(false); switchTab('dialogue'); triggerFileUpload();" style="padding:8px 14px; font-size:10.5px; border-color:var(--cyan); color:var(--cyan); margin-top:4px; font-weight:700;">📎 UPLOAD / ATTACH FILE</button>
                 </div>
 
                 <div class="drawer-card">
