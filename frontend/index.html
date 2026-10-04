@@ -1877,6 +1877,181 @@
             border-top: 1px solid rgba(168, 85, 247, 0.15);
         }
 
+        /* Interactive UI/UX Mockup & Prototype Cards */
+        .srbk-mockup-card {
+            margin: 18px 0;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(3, 7, 18, 0.99) 100%);
+            border: 1px solid rgba(56, 189, 248, 0.45);
+            overflow: hidden;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), 0 0 28px rgba(56, 189, 248, 0.2);
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+        .srbk-mockup-card:hover {
+            border-color: rgba(56, 189, 248, 0.75);
+            box-shadow: 0 18px 56px rgba(0, 0, 0, 0.85), 0 0 36px rgba(56, 189, 248, 0.35);
+        }
+        .srbk-mockup-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 10px 14px;
+            background: rgba(56, 189, 248, 0.1);
+            border-bottom: 1px solid rgba(56, 189, 248, 0.25);
+        }
+        .srbk-mockup-badge-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .srbk-mockup-badge {
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            color: #38bdf8;
+            text-transform: uppercase;
+        }
+        .srbk-mockup-title {
+            font-family: var(--font-display);
+            font-size: 11.5px;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+        .srbk-mockup-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .srbk-mockup-view-btn {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .srbk-mockup-view-btn:hover {
+            color: #fff;
+            border-color: rgba(56, 189, 248, 0.5);
+            background: rgba(56, 189, 248, 0.15);
+        }
+        .srbk-mockup-view-btn.active {
+            color: #38bdf8;
+            border-color: #38bdf8;
+            background: rgba(56, 189, 248, 0.2);
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+        }
+        .srbk-mockup-action-btn {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .srbk-mockup-action-btn:hover {
+            background: rgba(56, 189, 248, 0.3);
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+        }
+        .srbk-mockup-canvas-wrapper {
+            background: #020617;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+            min-height: 380px;
+        }
+        .srbk-mockup-iframe {
+            width: 100%;
+            height: 480px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            background: #ffffff;
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .srbk-mockup-code-drawer {
+            border-top: 1px solid rgba(56, 189, 248, 0.2);
+            background: rgba(2, 6, 23, 0.95);
+            padding: 12px;
+            max-height: 300px;
+            overflow: auto;
+        }
+        .srbk-mockup-foot {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 14px;
+            background: rgba(0, 0, 0, 0.5);
+            border-top: 1px solid rgba(56, 189, 248, 0.15);
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            color: var(--text-muted);
+        }
+
+        /* Industrial Product Design & Hardware Engineering Cards */
+        .srbk-product-card {
+            margin: 18px 0;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(17, 24, 39, 0.98) 0%, rgba(5, 10, 20, 0.99) 100%);
+            border: 1px solid rgba(251, 146, 60, 0.45);
+            overflow: hidden;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), 0 0 28px rgba(251, 146, 60, 0.2);
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+        .srbk-product-card:hover {
+            border-color: rgba(251, 146, 60, 0.75);
+            box-shadow: 0 18px 56px rgba(0, 0, 0, 0.85), 0 0 36px rgba(251, 146, 60, 0.35);
+        }
+        .srbk-product-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: rgba(251, 146, 60, 0.12);
+            border-bottom: 1px solid rgba(251, 146, 60, 0.25);
+        }
+        .srbk-product-badge {
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            color: #fb923c;
+            text-transform: uppercase;
+        }
+        .srbk-product-sub {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            color: var(--text-muted);
+            letter-spacing: 0.08em;
+        }
+        .srbk-product-body {
+            padding: 14px 18px;
+            line-height: 1.6;
+        }
+        .srbk-product-foot {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 14px;
+            background: rgba(0, 0, 0, 0.5);
+            border-top: 1px solid rgba(251, 146, 60, 0.15);
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            color: var(--text-muted);
+        }
+
         /* Lightbox Modal */
         .srbk-lightbox-modal {
             position: fixed;
@@ -9885,6 +10060,137 @@ button,
         window.openImageLightbox = openImageLightbox;
         window.closeImageLightbox = closeImageLightbox;
 
+        function renderMockupCard(title, body) {
+            const raw = String(body || "").trim();
+            const cardTitle = (title || "").trim() || "INTERACTIVE UI/UX PROTOTYPE";
+            const mockupId = "mockup_" + Math.random().toString(36).substring(2, 9);
+
+            let htmlContent = raw;
+            const codeBlockMatch = raw.match(/```(?:html|xml)?\n([\s\S]*?)```/i);
+            if (codeBlockMatch) {
+                htmlContent = codeBlockMatch[1].trim();
+            }
+
+            if (!htmlContent.toLowerCase().includes("<html") && !htmlContent.toLowerCase().includes("<!doctype")) {
+                htmlContent = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>body{margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#f8fafc;}</style></head><body>" + htmlContent + "</body></html>";
+            }
+
+            const encoded = encodeURIComponent(htmlContent);
+
+            return `
+                <div class="srbk-mockup-card" id="${mockupId}">
+                    <div class="srbk-mockup-head">
+                        <div class="srbk-mockup-badge-group">
+                            <span class="srbk-mockup-badge">🎨 INTERACTIVE PROTOTYPE</span>
+                            <span class="srbk-mockup-title">${escapeHtml(cardTitle)}</span>
+                        </div>
+                        <div class="srbk-mockup-controls">
+                            <button type="button" class="srbk-mockup-view-btn active" onclick="setMockupViewport('${mockupId}', 'desktop', this)">🖥️ DESKTOP</button>
+                            <button type="button" class="srbk-mockup-view-btn" onclick="setMockupViewport('${mockupId}', 'tablet', this)">💻 TABLET</button>
+                            <button type="button" class="srbk-mockup-view-btn" onclick="setMockupViewport('${mockupId}', 'mobile', this)">📱 MOBILE</button>
+                            <button type="button" class="srbk-mockup-action-btn" onclick="openMockupNewTab('${encoded}')">⛶ FULLSCREEN</button>
+                            <button type="button" class="srbk-mockup-action-btn" onclick="toggleMockupCode('${mockupId}')">&lt;/&gt; CODE</button>
+                        </div>
+                    </div>
+                    <div class="srbk-mockup-canvas-wrapper" id="${mockupId}_wrapper">
+                        <iframe id="${mockupId}_iframe" class="srbk-mockup-iframe" sandbox="allow-scripts allow-forms allow-same-origin" srcdoc="${escapeHtml(htmlContent)}"></iframe>
+                    </div>
+                    <div class="srbk-mockup-code-drawer" id="${mockupId}_code" style="display:none;">
+                        <div class="srbk-code-head" style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                            <span style="font-family:var(--font-mono); font-size:10px; color:#38bdf8;">PROTOTYPE SOURCE CODE</span>
+                            <button type="button" class="srbk-copy-btn" onclick="copyMockupCode('${mockupId}')">COPY HTML</button>
+                        </div>
+                        <pre style="margin:0;"><code id="${mockupId}_raw_code">${escapeHtml(htmlContent)}</code></pre>
+                    </div>
+                    <div class="srbk-mockup-foot">
+                        <span>⚡ SAREMBOK VE LIVE DESIGN SANDBOX · REAL-TIME INTERACTIVE PROTOTYPING</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function setMockupViewport(mockupId, mode, btn) {
+            const card = document.getElementById(mockupId);
+            if (!card) return;
+            const iframe = document.getElementById(mockupId + "_iframe");
+            card.querySelectorAll(".srbk-mockup-view-btn").forEach(b => b.classList.remove("active"));
+            if (btn) btn.classList.add("active");
+            if (!iframe) return;
+            if (mode === "mobile") {
+                iframe.style.width = "375px";
+                iframe.style.height = "667px";
+                iframe.style.margin = "16px auto";
+                iframe.style.borderRadius = "28px";
+                iframe.style.border = "8px solid #222";
+                iframe.style.boxShadow = "0 20px 40px rgba(0,0,0,0.6)";
+            } else if (mode === "tablet") {
+                iframe.style.width = "768px";
+                iframe.style.height = "520px";
+                iframe.style.margin = "12px auto";
+                iframe.style.borderRadius = "16px";
+                iframe.style.border = "6px solid #222";
+                iframe.style.boxShadow = "0 15px 30px rgba(0,0,0,0.5)";
+            } else {
+                iframe.style.width = "100%";
+                iframe.style.height = "480px";
+                iframe.style.margin = "0";
+                iframe.style.borderRadius = "8px";
+                iframe.style.border = "1px solid rgba(255,255,255,0.08)";
+                iframe.style.boxShadow = "none";
+            }
+        }
+        window.setMockupViewport = setMockupViewport;
+
+        function openMockupNewTab(encodedHtml) {
+            try {
+                const content = decodeURIComponent(encodedHtml);
+                const win = window.open("", "_blank");
+                if (win) {
+                    win.document.write(content);
+                    win.document.close();
+                }
+            } catch (e) {
+                console.warn("Fullscreen mockup error:", e);
+            }
+        }
+        window.openMockupNewTab = openMockupNewTab;
+
+        function toggleMockupCode(mockupId) {
+            const drawer = document.getElementById(mockupId + "_code");
+            if (drawer) {
+                drawer.style.display = drawer.style.display === "none" ? "block" : "none";
+            }
+        }
+        window.toggleMockupCode = toggleMockupCode;
+
+        function copyMockupCode(mockupId) {
+            const codeEl = document.getElementById(mockupId + "_raw_code");
+            if (codeEl) {
+                navigator.clipboard.writeText(codeEl.textContent || "");
+                alert("Prototype HTML copied to clipboard!");
+            }
+        }
+        window.copyMockupCode = copyMockupCode;
+
+        function renderProductCard(title, body) {
+            const raw = String(body || "").trim();
+            const cardTitle = (title || "").trim() || "INDUSTRIAL PRODUCT DESIGN & SPECIFICATION";
+            return `
+                <div class="srbk-product-card">
+                    <div class="srbk-product-head">
+                        <span class="srbk-product-badge">🛠️ ${escapeHtml(cardTitle)}</span>
+                        <span class="srbk-product-sub">CAD & INDUSTRIAL ENGINEERING STUDIO</span>
+                    </div>
+                    <div class="srbk-product-body">
+                        ${md(raw)}
+                    </div>
+                    <div class="srbk-product-foot">
+                        <span>⚡ SAREMBOK VE HARDWARE & PRODUCT DESIGN LAB · SPECIFICATION VERIFIED</span>
+                    </div>
+                </div>
+            `;
+        }
+
         function renderTaskMatrix(title, body) {
             const lines = String(body || "").trim().split("\n").filter(Boolean);
             let itemsHtml = "";
@@ -9990,9 +10296,13 @@ button,
 
             const mediaBody = matchedPreset ? `https://www.youtube.com/watch?v=${matchedPreset.id}` : cleanTopic;
 
-            // Check for image generation intent
-            const imgIntents = ["generate image", "generate an image", "create image", "create an image", "make an image", "render image", "render an image", "draw an image", "draw me", "paint me", "synthesize image", "make a picture", "generate a picture", "create artwork", "generate artwork", "draw a", "generate visual"];
-            const isImage = imgIntents.some(ii => pLow.includes(ii)) || ((pLow.includes("image") || pLow.includes("picture") || pLow.includes("artwork") || pLow.includes("photo")) && ["generate", "create", "render", "synthesize", "draw", "paint"].some(w => pLow.includes(w)));
+            // Clean up standard provider refusals since Sarembok enriches with live visual/mockup cards!
+            s = s.replace(/(?:I(?:\s*['’]m| am)?\s+sorry,?\s+(?:but\s+)?)?(?:I\s+(?:do\s+not|don't)\s+have\s+the\s+ability\s+to\s+generate\s+(?:visual\s+)?images?(?:\s+or\s+mockups?)?[^.\n]*[.\n]?)/gi, "").trim();
+            s = s.replace(/(?:As an AI text model|As a language model|I cannot create or generate images)[^.\n]*[.\n]?/gi, "").trim();
+
+            // Check for image & design generation intent
+            const imgIntents = ["generate image", "generate an image", "create image", "create an image", "make an image", "render image", "render an image", "draw an image", "draw me", "paint me", "synthesize image", "make a picture", "generate a picture", "create artwork", "generate artwork", "draw a", "generate visual", "generate design", "mockup", "mock up", "product design"];
+            const isImage = imgIntents.some(ii => pLow.includes(ii)) || ((pLow.includes("image") || pLow.includes("picture") || pLow.includes("artwork") || pLow.includes("photo") || pLow.includes("mockup") || pLow.includes("design")) && ["generate", "create", "render", "synthesize", "draw", "paint", "make"].some(w => pLow.includes(w)));
 
             // If the incoming text ALREADY has a verified media card with a real URL from the backend, keep it!
             const hasVerifiedMedia = /:::(?:video|music|youtube|image)[^\n]*\n\s*https?:\/\/[^\s\n]+\s*\n:::/i.test(s);
@@ -10181,6 +10491,16 @@ button,
             // 10. Standalone YouTube links on their own line
             s = s.replace(/(?:^|\n)(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?[^\s]+|youtu\.be\/[\w-]+))\b/gi, (match, url) => {
                 return "\n" + renderVideoCard("", url);
+            });
+
+            // 11. Interactive UI/UX Mockups & Prototypes (:::mockup ... ::: or :::design ... :::)
+            s = s.replace(/:::(?:mockup|design|prototype)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
+                return renderMockupCard(title, body);
+            });
+
+            // 12. Industrial Product Design & Hardware Studio (:::product ... ::: or :::blueprint ... :::)
+            s = s.replace(/:::(?:product|blueprint|hardware)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
+                return renderProductCard(title, body);
             });
 
             // SAREMBOK_COLLAPSED_TABLE_RECOVERY_20260914

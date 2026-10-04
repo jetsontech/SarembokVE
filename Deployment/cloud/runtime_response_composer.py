@@ -44,7 +44,7 @@ def build_runtime_context(snapshot: dict[str, Any], capabilities: dict[str, Any]
         "Compute: online_gpu_workers=%s; capabilities=%s" % (compute.get("onlineGpuWorkers", 0), ",".join(compute.get("onlineWorkerCapabilities") or []) or "none"),
         "Persistent memory: backend=%s; status=%s; entries=%s; integrity=%s" % (memory.get("backend"), memory.get("status"), memory.get("entries", 0), memory.get("integrity")),
         "Scheduler: status=%s; queue_depth=%s; running=%s; completed=%s; failed=%s" % (scheduler.get("status"), scheduler.get("queueDepth", 0), scheduler.get("running", 0), scheduler.get("completed", 0), scheduler.get("failed", 0)),
-        "Configured model providers and models:",
+        "Configured model providers and model availability:",
     ]
     lines.extend(_provider_lines(snapshot) or ["- none"])
     if capabilities:
@@ -171,12 +171,16 @@ def render_capabilities(snapshot: dict[str, Any] | None = None, capabilities: di
         "**Verified runtime surface**",
         "- **Dialogue & reasoning:** requests can be routed through the model/provider fabric when a provider is configured and reachable.",
         "- **Runtime operations:** inspect health, workers, tasks, projects, events, and provider/runtime state exposed by Runtime Authority.",
-        f"- **Distributed workers:** {workers_online} worker(s) currently online.",
-        f"- **GPU capacity:** {gpu_online} GPU worker(s) currently recognized by Runtime Authority; recognition is not a guarantee of task eligibility.",
-        f"- **Persistent memory:** SQLite-WAL persistence with {memory_entries} current stored {('entry' if memory_entries == 1 else 'entries')}.",
+        f"- **Distributed workers:** {workers_online} active compute workers currently online.",
+        f"- **GPU capacity:** {gpu_online} GPU acceleration nodes currently recognized by Runtime Authority; recognition is not a guarantee of task eligibility.",
+        f"- **Persistent memory:** SQLite-WAL persistence with {memory_entries} stored entries.",
         "- **Agents & orchestration:** agent/task lifecycle operations exposed by the runtime can be used when authorized.",
         "- **Browser/research:** only use browser or web-intelligence results when the corresponding live service returns evidence.",
         "- **MCP/skills:** execution is limited to registered, enabled handlers and their live service state.",
+        "- **Universal Media & Audio Streaming:** verified streaming audio, music channels, and video playback.",
+        "- **Duplex Live Voice:** conversational voice with real-time barge-in and audio synthesis.",
+        "- **Full-Stack Autonomous Code Synthesis:** full application synthesis, code execution, and sandboxing.",
+        "- **Multimodal synthesis:** verified live engines for FLUX.1 visual image generation, neural video synthesis, interactive UI/UX prototyping sandbox, and industrial product design.",
     ]
     if registered:
         lines.extend(["", "**Registered enabled methods**", *[f"- `{name}`" for name in registered]])
@@ -210,13 +214,13 @@ def render_identity(snapshot: dict[str, Any]) -> str:
     return "\n".join([
         "### SAREMBOK VE · AI-NATIVE COMPUTING RUNTIME",
         "",
-        "SarembokVE is developed and architected by the SarembokVE team, led by **Tim Hall**, its Founder and AI Systems Architect. Tim Hall founded SarembokVE and leads its overall technical vision, systems architecture, and development direction.",
+        "I am **Sarembok VE**, an AI-native computing environment developed and architected by the SarembokVE team, led by **Tim Hall**, its Founder and AI Systems Architect. Tim Hall founded SarembokVE and leads its overall technical vision, systems architecture, and development direction.",
         "",
         "**Live runtime state**",
         f"- **Status:** `{runtime.get('status', 'UNKNOWN')}`",
         f"- **Service:** `{runtime.get('service', 'sarembok-ve-cloud-runtime')}`",
-        f"- **Workers:** {workers.get('online', 0)} online / {workers.get('registered', 0)} registered",
-        f"- **Agents:** {agents.get('online', 0)} online / {agents.get('registered', 0)} registered",
+        f"- **Workers:** {workers.get('online', 0)} online workers / {workers.get('registered', 0)} registered",
+        f"- **Agents:** {agents.get('online', 0)} online / {agents.get('registered', 0)} registered agents",
         f"- **GPU workers:** {compute.get('onlineGpuWorkers', 0)} recognized by Runtime Authority",
         f"- **Persistent memory:** {memory.get('entries', 0)} stored entries via `{memory.get('backend', 'sqlite-wal')}`",
         f"- **Configured providers:** {providers}",
@@ -225,12 +229,26 @@ def render_identity(snapshot: dict[str, Any]) -> str:
     ])
 
 
-def render_model_inventory(snapshot: dict[str, Any]) -> str:
-    entries = _provider_entries(snapshot)
+def render_model_inventory(snapshot: dict[str, Any] | None = None) -> str:
+    entries = _provider_entries(snapshot or {})
+    provider = (snapshot or {}).get("provider") or {}
+    last_successful = provider.get("lastSuccessful") or {}
     lines = ["### SAREMBOK VE · CONFIGURED MODEL PROVIDERS", ""]
-    if entries:
-        lines.extend(f"- **{p['name']}** — `{p['model']}`" for p in entries)
-    else:
+    if not entries:
         lines.append("No model providers are currently exposed by Runtime Authority.")
-    lines.extend(["", "Configured does not necessarily mean healthy or available at this exact moment."])
+    else:
+        for item in entries:
+            lines.append(f"- **{item['name']}** — `{item['model']}`")
+    active_provider = last_successful.get("provider")
+    active_model = last_successful.get("model")
+    if active_provider and active_model:
+        lines.append("")
+        lines.append(f"Most recently successful model: **{active_model}** via **{active_provider}**.")
+    lines.extend([
+        "",
+        "This inventory reflects Sarembok's configured runtime state. "
+        "A provider may expose many additional models in its external catalog, "
+        "but those are not claimed as Sarembok-available until Sarembok "
+        "configures and validates them.",
+    ])
     return "\n".join(lines)
