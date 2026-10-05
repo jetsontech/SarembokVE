@@ -269,6 +269,11 @@
             return;
         }
 
+        // Resume audio context if suspended (browser autoplay policy unlock)
+        if (nativeOutputContext.state === "suspended") {
+            nativeOutputContext.resume().catch(function () {});
+        }
+
         // Hard mutual exclusion: instantly silence any active Kokoro or legacy speech synthesis
         try {
             if (typeof window.interruptKokoroSpeech === "function") {
@@ -300,6 +305,9 @@
         source.connect(nativeOutputContext.destination);
 
         var now = nativeOutputContext.currentTime;
+        if (nativeNextAudioTime < now || nativeNextAudioTime > now + 2.0) {
+            nativeNextAudioTime = now;
+        }
         var startAt = Math.max(
             nativeNextAudioTime,
             now + (nativeNextAudioTime > now ? 0.005 : 0.02)
@@ -311,6 +319,12 @@
         source.onended = function () {
             nativeOutputSources.delete(source);
             try { source.disconnect(); } catch (_) {}
+            if (nativeOutputSources.size === 0 && nativeLiveActive) {
+                setNativeLiveStatus(
+                    "LISTENING (GEMINI LIVE)",
+                    "Native Gemini Live active · speak naturally"
+                );
+            }
         };
 
         source.start(startAt);
@@ -1032,8 +1046,9 @@
                 "this.out=[];" +
                 "this.speechSeen=false;" +
                 "this.silenceMs=0;" +
-                "this.vadThreshold=0.028;" +
-                "this.endSilenceMs=400;" +
+                "this.vadThreshold=0.038;" +
+                "this.consecutiveSpeechFrames=0;" +
+                "this.endSilenceMs=450;" +
             "}" +
             "process(inputs,outputs,parameters){" +
                 "const input=inputs[0]&&inputs[0][0];" +
@@ -1057,7 +1072,9 @@
                         "sum+=v*v;" +
                     "}" +
                     "const rms=Math.sqrt(sum/640);" +
-                    "const speech=rms>=this.vadThreshold;" +
+                    "const speechEnergy=rms>=this.vadThreshold;" +
+                    "if(speechEnergy){this.consecutiveSpeechFrames++;}else{this.consecutiveSpeechFrames=0;}" +
+                    "const speech=speechEnergy&&(this.consecutiveSpeechFrames>=2||this.speechSeen);" +
                     "if(speech){" +
                         "this.speechSeen=true;" +
                         "this.silenceMs=0;" +
@@ -1272,7 +1289,17 @@
                 nativeLiveActive = true;
                 window.nativeLiveActive = true;
                 window.liveConversationActive = true;
+                window.voiceEnabled = true;
                 try {
+                    if (typeof voiceEnabled !== "undefined") voiceEnabled = true;
+                    var voiceLabel = document.getElementById("hud-voice-label");
+                    if (voiceLabel) voiceLabel.textContent = "VOICE: ON";
+                    var voiceBtn = document.getElementById("hud-voice-toggle");
+                    if (voiceBtn) voiceBtn.classList.remove("muted");
+                    var voiceChip = document.getElementById("dialogue-voice-toggle-chip");
+                    if (voiceChip) voiceChip.classList.remove("muted");
+                    var voiceChipText = document.getElementById("dialogue-voice-chip-text");
+                    if (voiceChipText) voiceChipText.textContent = "VOICE: ON";
                     if (typeof window.interruptKokoroSpeech === "function") window.interruptKokoroSpeech();
                     var inp = document.getElementById("directive-input");
                     if (inp) {
@@ -1345,9 +1372,16 @@
 
                         var payload = event.data || {};
 
+                        // Privacy & Typing Guard: if user is typing in directive-input or any text field,
+                        // do not stream mic input to Gemini Live (keeps typing private and avoids clatter triggers)
+                        var activeEl = document.activeElement;
+                        if (activeEl && (activeEl.id === "directive-input" || activeEl.id === "deck-directive-input" || activeEl.classList.contains("dialogue-input") || activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+                            return;
+                        }
+
                         // Acoustic echo gating: when Sarembok is actively speaking audio,
-                        // do not stream low-amplitude mic bleed (speakers heard by laptop mic) back into Gemini Live.
-                        if (nativeOutputSources.size > 0 && (payload.rms || 0) < 0.08) {
+                        // do not stream mic bleed back into Gemini Live unless user is deliberately interrupting loudly.
+                        if (nativeOutputSources.size > 0 && (payload.rms || 0) < 0.14) {
                             return;
                         }
 

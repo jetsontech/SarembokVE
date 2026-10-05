@@ -11754,23 +11754,12 @@ button,
                 }
             }
 
-            // If the user already has Live Conversation running, route the text directive into the live duplex session
-            if (window.isNativeLiveActive && window.isNativeLiveActive() && typeof window.sendNativeLiveText === "function") {
-                let frameToSend = activeVisionFrame;
-                if (!frameToSend && visionMode && opencvActive) {
-                    frameToSend = captureCurrentOpenCVFrame();
-                }
-                clearVisionFrame();
-                const sent = await window.sendNativeLiveText(text, attachmentsToSend, frameToSend);
-                if (sent) {
-                    if (btn) btn.disabled = false;
-                    if (bgBtn) bgBtn.disabled = false;
-                    scrollDialogue();
-                    return;
-                }
-            }
-
+            // User typed into the text box: this is a quiet, private text directive.
+            // Instantly silence any active speech so typing takes complete priority without broadcasting audio to the room.
             interruptSpeech();
+            if (typeof window.clearNativeOutputAudio === "function") {
+                try { window.clearNativeOutputAudio(); } catch (_) {}
+            }
 
             if (btn) btn.disabled = true;
             if (bgBtn) bgBtn.disabled = true;
@@ -12036,8 +12025,8 @@ button,
         /* ============================================================
            INTERACTIVE VOICE & SPEECH RECOGNITION (STT / TTS)
            ============================================================ */
-        let voiceEnabled = false; // Voice is managed exclusively by Gemini Live conversation engine
-        window.voiceEnabled = false;
+        let voiceEnabled = true; // Voice enabled by default (matching HUD VOICE: ON)
+        window.voiceEnabled = true;
         let speechRecognition = null;
         let isRecordingSpeech = false;
         let selectedVoiceLang = "gemini-vega";
@@ -14432,29 +14421,14 @@ button,
         }
 
         function toggleLiveConversation() {
-            liveConversationActive = !liveConversationActive;
-            const btn = document.getElementById("live-conv-btn");
-            const btnText = document.getElementById("live-conv-btn-text");
-            const hud = document.getElementById("live-conv-hud");
-            const banner = document.getElementById("live-audio-notice");
-
-            if (liveConversationActive) {
-                recognitionPermissionDenied = false; // Always re-allow attempt on user click
-                if (banner) banner.style.display = "none";
-                if (btn) btn.classList.add("active");
-                if (btnText) btnText.textContent = "LIVE CONVERSATION: ACTIVE";
-                if (hud) hud.classList.add("active");
-                voiceEnabled = true;
-                startLiveConversationLoop();
-                showToast("LIVE 2-WAY CONVERSATION ACTIVE · SPEAK FREELY");
-            } else {
-                if (btn) btn.classList.remove("active");
-                if (btnText) btnText.textContent = "LIVE CONVERSATION";
-                if (hud) hud.classList.remove("active");
-                stopLiveConversationLoop();
-                showToast("LIVE CONVERSATION STOPPED");
+            if (typeof window.toggleNativeLiveConversation === "function") {
+                return window.toggleNativeLiveConversation();
+            }
+            if (typeof window.startSarembokLiveVoice === "function") {
+                return window.startSarembokLiveVoice();
             }
         }
+        window.toggleLiveConversation = toggleLiveConversation;
 
         function setLiveConvUI(state, hint) {
             const orb = document.getElementById("live-conv-orb");
@@ -14472,11 +14446,14 @@ button,
         }
 
         async function startLiveConversationLoop() {
-            if (!liveConversationActive) return;
-            if (isSpeakingTurn || isWaitingForAIResponse || (window.speechSynthesis && window.speechSynthesis.speaking) || liveSpeechQueue.length > 0) {
-                console.log("[duplex] Deferring live recognition loop: assistant is currently speaking or synthesizing.");
-                return;
+            // Disabled: Live conversation is handled exclusively by Gemini Live native audio in live-voice.js
+            if (typeof window.toggleNativeLiveConversation === "function" && !window.isNativeLiveActive()) {
+                window.toggleNativeLiveConversation();
             }
+            return;
+        }
+
+        async function _legacy_startLiveConversationLoop() {
 
             const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRec) {
@@ -14688,6 +14665,18 @@ button,
             wakeWordAwake = false;
             liveSpeechQueue = [];
             isProcessingSpeechQueue = false;
+            if (liveRecContinuous) {
+                try {
+                    liveRecContinuous.onend = null;
+                    liveRecContinuous.onerror = null;
+                    liveRecContinuous.onresult = null;
+                    liveRecContinuous.stop();
+                } catch (_) {}
+                liveRecContinuous = null;
+            }
+            if (typeof window.stopNativeLive === "function") {
+                try { window.stopNativeLive(); } catch (_) {}
+            }
             for (const item of srbkTtsPrefetch.values()) {
                 try { item.controller.abort(); } catch (_) {}
             }
@@ -14697,12 +14686,11 @@ button,
             pauseRecognitionForSpeech();
             if (window.speechSynthesis) {
                 window.speechSynthesis.cancel();
-            setAudioDucking(false);
             }
             isSpeakingTurn = false;
             isWaitingForAIResponse = false;
             setAvatarSignal("IDLE");
-                setAudioDucking(false);
+            setAudioDucking(false);
             hideInterruptPill();
         }
 
@@ -17822,6 +17810,6 @@ document.getElementById('global-input-field').addEventListener('input', function
   document.addEventListener("DOMContentLoaded",sync);
 })();
 </script>
-    <script src="/live-voice.js?v=20261004-unify-live-v8"></script>
+    <script src="/live-voice.js?v=20261004-unify-live-v10"></script>
 </body>
 </html>
