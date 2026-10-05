@@ -7869,7 +7869,7 @@ button,
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                     </button>
                     <input type="file" id="chat-file-input" style="display:none;" multiple onchange="handleFileSelect(event)">
-                    <input type="text" class="dialogue-input" id="directive-input" placeholder="Message Sarembok V E, attach files, or tap mic..." onfocus="if(window.speechSynthesis&&window.speechSynthesis.speaking)interruptSpeech()" onkeydown="if(event.key==='Enter') sendDirective(false)">
+                    <input type="text" class="dialogue-input" id="directive-input" placeholder="Message Sarembok V E, attach files, or tap mic..." onfocus="interruptSpeech()" onkeydown="if(event.key==='Enter') sendDirective(false)">
                     <button class="dialogue-exec-btn" id="execute-button" onclick="sendDirective(false)" title="Submit directive to Sarembok V E">
                         <span class="exec-btn-desktop">EXECUTE</span>
                         <svg class="exec-btn-mobile" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -12197,23 +12197,12 @@ button,
             liveTranscriptBuffer = "";
         }
 
-        function resumeRecognitionAfterSpeech(delayMs = 600) {
-            if (!liveConversationActive) return;
-            setTimeout(() => {
-                if (!liveConversationActive) return;
-                if (isSpeakingTurn || isWaitingForAIResponse || (window.speechSynthesis && window.speechSynthesis.speaking) || liveSpeechQueue.length > 0) {
-                    return;
-                }
-                startLiveConversationLoop();
-            }, delayMs);
-        }
-
         function handleOrbClick() {
-            if (isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking) || isWaitingForAIResponse) {
-                interruptSpeech();
-                showToast("INTERRUPTED · LISTENING");
-            } else if (!liveConversationActive) {
-                toggleLiveConversation();
+            if (typeof window.handleNativeOrbClick === "function") {
+                return window.handleNativeOrbClick();
+            }
+            if (typeof toggleLiveConversation === "function") {
+                return toggleLiveConversation();
             }
         }
         window.handleOrbClick = handleOrbClick;
@@ -12259,132 +12248,6 @@ button,
             return false;
         }
 
-        // High-fidelity neural voice matcher: prioritizes human-like natural cloud voices
-        // and eliminates robotic legacy desktop synthesizers.
-        function getVoiceFidelityScore(v) {
-            const n = (v.name || "").toLowerCase();
-            let score = 0;
-            // Tier 1: Modern neural cloud voices (Edge Natural, Chrome Google Cloud TTS, Safari Premium)
-            if (n.includes("natural") || n.includes("neural")) score += 200;
-            if (n.includes("google")) score += 150;
-            if (n.includes("online")) score += 100;
-            if (n.includes("enhanced") || n.includes("premium")) score += 100;
-            if (!v.localService) score += 50;
-
-            // Severe penalty for 15+ year old robotic local SAPI desktop voices
-            if (n.includes("desktop")) score -= 150;
-            if (n.includes("microsoft hazel") || n.includes("microsoft susan") || n.includes("microsoft george") || n.includes("microsoft david") || n.includes("microsoft zira")) {
-                score -= 120;
-            }
-            return score;
-        }
-
-        function isVoiceFemale(v) {
-            const n = (v.name || "").toLowerCase();
-            if (/\bfemale\b/i.test(n) || n.includes("google us english") || n.includes("google uk english female")) return true;
-            const femaleNames = ["jenny", "samantha", "victoria", "ava", "allison", "karen", "sonia", "emma", "michelle", "stephanie", "clara", "zira", "hazel", "susan"];
-            return femaleNames.some(fn => n.includes(fn));
-        }
-
-        function isVoiceMale(v) {
-            if (isVoiceFemale(v)) return false;
-            const n = (v.name || "").toLowerCase();
-            if (/\bmale\b/i.test(n) || n.includes("google uk english male") || n.includes("google us english male")) return true;
-            const maleNames = ["david", "mark", "george", "guy", "ryan", "alex", "daniel", "tom", "eric", "christopher", "richard", "james", "stefan", "frank", "paul", "charles", "oliver"];
-            return maleNames.some(mn => n.includes(mn));
-        }
-
-        function getResolvedVoiceProfile() {
-            if (!window.speechSynthesis) return { voice: null, pitch: 1.0, rate: 1.0 };
-            const rawVoices = window.speechSynthesis.getVoices() || [];
-            if (rawVoices.length === 0) return { voice: null, pitch: 1.0, rate: 1.0 };
-
-            const profile = (selectedVoiceLang || "gemini-vega").toLowerCase();
-
-            // Filter for English candidates first, then sort strictly by human-like fidelity
-            const enVoices = rawVoices.filter(v => (v.lang || "").toLowerCase().startsWith("en"));
-            const candidatePool = enVoices.length > 0 ? enVoices : rawVoices;
-
-            const females = candidatePool.filter(v => isVoiceFemale(v)).sort((a, b) => getVoiceFidelityScore(b) - getVoiceFidelityScore(a));
-            const males = candidatePool.filter(v => isVoiceMale(v)).sort((a, b) => getVoiceFidelityScore(b) - getVoiceFidelityScore(a));
-
-            const topFemale = females[0] || candidatePool[0] || null;
-            const topMale = males[0] || candidatePool[0] || null;
-
-            // 1. GEMINI VEGA (Calibrated to OpenAI Shimmer / New Recording 61 benchmark)
-            // American studio narrator: natural warm pitch (~205 Hz, pitch: 1.00), measured cadence (~93 WPM, rate: 0.92)
-            if (profile.includes("vega")) {
-                const vegaPriority = ["jenny", "shimmer", "google us english", "natural", "neural", "samantha", "ava"];
-                let matchedVoice = null;
-                for (const vp of vegaPriority) {
-                    matchedVoice = females.find(v => {
-                        const n = (v.name || "").toLowerCase();
-                        const lang = (v.lang || "").toLowerCase();
-                        return n.includes(vp) && (lang.includes("us") || !lang.includes("gb")) && getVoiceFidelityScore(v) > 0;
-                    });
-                    if (matchedVoice) break;
-                }
-                return { voice: matchedVoice || topFemale, pitch: 1.00, rate: 0.92 };
-            }
-
-            // 2. ADA V1 (Sovereign British Synthesizer - Ada Lovelace Core)
-            // Sophisticated, refined, articulate British female cadence
-            if (profile.includes("ada") || profile.includes("gb") || profile.includes("echo")) {
-                const gbFemale = females.find(v => {
-                    const n = (v.name || "").toLowerCase();
-                    const lang = (v.lang || "").toLowerCase();
-                    return (lang.includes("gb") || n.includes("uk") || n.includes("sonia")) && getVoiceFidelityScore(v) > 0;
-                });
-                return { voice: gbFemale || females.find(v => v !== topFemale) || topFemale, pitch: 1.00, rate: 0.98 };
-            }
-
-            // 3. GEMINI AOEDE (Warm Studio Female)
-            // Warm, deeper resonance, calm, reflective
-            if (profile.includes("aoede")) {
-                const ukFemale = females.find(v => {
-                    const n = (v.name || "").toLowerCase();
-                    const lang = (v.lang || "").toLowerCase();
-                    return (lang.includes("gb") || n.includes("uk") || n.includes("sonia") || n.includes("hazel online")) && getVoiceFidelityScore(v) > 0;
-                });
-                return { voice: ukFemale || females[1] || topFemale, pitch: 0.96, rate: 0.97 };
-            }
-
-            // 4. GEMINI KORE (Soft Intimate Female)
-            // Soft, gentle, intimate conversational cadence
-            if (profile.includes("kore")) {
-                const softFemale = females.find(v => {
-                    const n = (v.name || "").toLowerCase();
-                    return (n.includes("ava") || n.includes("victoria")) && getVoiceFidelityScore(v) > 0;
-                });
-                return { voice: softFemale || topFemale, pitch: 1.04, rate: 0.95 };
-            }
-
-            // 5. NEURAL AMERICAN MALE (Onyx)
-            // Deep, authoritative, warm masculine narrator
-            if (profile.includes("us") || profile.includes("onyx") || profile.includes("male")) {
-                return { voice: topMale, pitch: 0.95, rate: 0.98 };
-            }
-
-            // 6. CYBERNETIC SYNTHESIZER (Sovereign Matrix)
-            // Clean cybernetic AI presence without extreme pitch-shifting distortion
-            if (profile.includes("synth")) {
-                return { voice: candidatePool[0] || null, pitch: 0.80, rate: 1.08 };
-            }
-
-            return { voice: topFemale, pitch: 1.0, rate: 1.0 };
-        }
-
-        function getAdaFemaleVoice() {
-            const resolved = getResolvedVoiceProfile();
-            return resolved ? resolved.voice : null;
-        }
-
-        if (window.speechSynthesis) {
-            window.speechSynthesis.onvoiceschanged = () => {
-                getResolvedVoiceProfile();
-            };
-        }
-
         function toggleVoiceOutput() {
             voiceEnabled = !voiceEnabled;
             if (voiceEnabled) void unlockAudioEngine();
@@ -12392,9 +12255,6 @@ button,
             if (!voiceEnabled) {
                 if (typeof window.clearNativeOutputAudio === "function") {
                     try { window.clearNativeOutputAudio(); } catch (_) {}
-                }
-                if (window.speechSynthesis) {
-                    window.speechSynthesis.cancel();
                 }
                 if (activeNeuralAudio) {
                     try { activeNeuralAudio.pause(); activeNeuralAudio.currentTime = 0; } catch (_) {}
@@ -12411,8 +12271,8 @@ button,
             if (label) label.textContent = voiceEnabled ? "VOICE: ON" : "VOICE: OFF";
             if (btn) btn.classList.toggle("muted", !voiceEnabled);
             if (chip) chip.classList.toggle("muted", !voiceEnabled);
-            if (chipText) chipText.textContent = voiceEnabled ? "VOICE: ON" : "VOICE: OFF";
         }
+
 
         let activeNeuralAudio = null;
         let activeNeuralAudioSource = null;
@@ -13112,21 +12972,6 @@ button,
                         const reason = err && err.message ? " · " + err.message : "";
                         window.setKokoroStatus("Kokoro fallback · browser speech" + reason, false);
                     }
-                    if (window.speechSynthesis && (!window.isNativeLiveActive || !window.isNativeLiveActive())) {
-                        try {
-                            const u = new SpeechSynthesisUtterance(clean);
-                            const voiceProf = getResolvedVoiceProfile();
-                            if (voiceProf && voiceProf.voice) u.voice = voiceProf.voice;
-                            u.rate = voiceProf ? voiceProf.rate : 1.0;
-                            u.pitch = voiceProf ? voiceProf.pitch : 1.0;
-                            u.onend = () => finishSpeaking();
-                            u.onerror = () => finishSpeaking();
-                            window.speechSynthesis.speak(u);
-                            return;
-                        } catch (e) {
-                            console.warn("[tts] browser speech fallback error:", e);
-                        }
-                    }
                     finishSpeaking();
                 }
             })();
@@ -13549,9 +13394,7 @@ button,
                     window.sarembokSocket.send(JSON.stringify({ type: "SET_VOICE_PROFILE", voice: activeVoiceModel }));
                 }
             } catch (_) {}
-            if (window.speechSynthesis) {
-                try { window.speechSynthesis.cancel(); } catch (_) {}
-            }
+
 
             // A real user selection is a browser gesture, so immediately exercise
             // the selected neural voice. Startup synchronization calls this function
@@ -14408,511 +14251,11 @@ button,
             }
         }
 
-        async function startLiveConversationLoop() {
-            return;
-        }
-
-        async function _legacy_startLiveConversationLoop() {
-            return;
-            if (!SpeechRec) {
-                alert("Live speech recognition requires Chrome, Edge, or a WebSpeech-compatible browser.");
-                toggleLiveConversation();
-                return;
-            }
-
-            try {
-                if (liveRecContinuous) {
-                    try {
-                        liveRecContinuous.onend = null;
-                        liveRecContinuous.onerror = null;
-                        liveRecContinuous.onresult = null;
-                        liveRecContinuous.stop();
-                    } catch(e) {}
-                    liveRecContinuous = null;
-                }
-
-                liveRecContinuous = new SpeechRec();
-                liveRecContinuous.continuous = true;
-                liveRecContinuous.interimResults = true;
-                liveRecContinuous.lang = "en-US";
-
-                wakeWordAwake = false;
-                liveTranscriptBuffer = "";
-                setLiveConvUI(
-                    wakeWordRequired ? "LISTENING (WAKE WORD)" : "LISTENING (HANDS-FREE 2-WAY)",
-                    wakeWordRequired ? 'Say "Hey Sarembok" or "Sarembok" to activate' : "Speak naturally · Say 'Stop' or click orb to interrupt"
-                );
-                setAvatarSignal("LISTENING");
-
-                liveRecContinuous.onstart = () => {
-                    console.log("[duplex] Live conversation recognizer started.");
-                    setLiveConvUI("LISTENING", wakeWordRequired ? 'Say "Hey Sarembok" or speak...' : "Listening · Speak naturally");
-                    setAvatarSignal("LISTENING");
-                };
-
-                liveRecContinuous.onaudiostart = () => {
-                    console.log("[duplex] Audio capturing started.");
-                    const orb = document.getElementById("live-conv-orb");
-                    if (orb) orb.classList.add("listening");
-                };
-
-                liveRecContinuous.onspeechstart = () => {
-                    console.log("[duplex] Speech detected by microphone.");
-                    const currentlySpeaking = isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking) || isWaitingForAIResponse || liveSpeechQueue.length > 0;
-                    if (currentlySpeaking) {
-                        console.log("[barge-in] Human speech detected during active audio turn. Halting assistant speech immediately.");
-                        interruptSpeech();
-                        sendRPC("CancelActiveStream", {});
-                    }
-                };
-
-                liveRecContinuous.onresult = event => {
-                    let interim = "";
-                    let finalChunk = "";
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        const transcript = event.results[i][0].transcript;
-                        if (event.results[i].isFinal) {
-                            finalChunk += transcript + " ";
-                        } else {
-                            interim += transcript;
-                        }
-                    }
-
-                    const currentHeard = (finalChunk || interim).trim();
-                    if (!currentHeard) return;
-
-                    // Filter out noise pops and single-character transcripts (e.g. '?', '.')
-                    const cleanAlpha = currentHeard.replace(/[^a-zA-Z0-9]/g, "").trim();
-                    if (cleanAlpha.length < 2) return;
-
-                    const currentlySpeaking = isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking) || isWaitingForAIResponse || liveSpeechQueue.length > 0;
-
-                    // 1. DROP ALL AUDIO WHILE ASSISTANT SPEAKS OR PROCESSES (PHYSICAL FEEDBACK SUPPRESSION)
-                    if (currentlySpeaking) {
-                        const isWake = WAKE_WORD_PATTERN.test(currentHeard);
-                        const isExplicitStop = /\b(?:stop|halt|cancel|quiet|shh|wait|hold on|pause|listen|excuse me|no|shut up|hey sarembok|sarembok)\b/i.test(currentHeard);
-
-                        if (isWake || isExplicitStop) {
-                            console.log("[barge-in] Explicit human interrupt trigger:", currentHeard);
-                            interruptSpeech();
-                            return;
-                        } else {
-                            liveTranscriptBuffer = "";
-                            return;
-                        }
-                    }
-
-                    // 2. POST-SPEECH ACOUSTIC TAIL SUPPRESSION (1200ms)
-                    if (Date.now() - lastSpeechEndTime < 1200) {
-                        liveTranscriptBuffer = "";
-                        return;
-                    }
-
-                    // 3. GLOBAL ACOUSTIC SELF-ECHO DETECTOR
-                    if (isSelfEcho(currentHeard)) {
-                        liveTranscriptBuffer = "";
-                        console.log("[duplex] Suppressed acoustic echo from assistant history:", currentHeard);
-                        return;
-                    }
-
-                    // 4. WAKE WORD ENGINE
-                    if (wakeWordRequired) {
-                        if (!wakeWordAwake) {
-                            if (WAKE_WORD_PATTERN.test(currentHeard)) {
-                                wakeWordAwake = true;
-                                clearTimeout(wakeWordAwakeTimer);
-                                wakeWordAwakeTimer = setTimeout(() => {
-                                    wakeWordAwake = false;
-                                    if (liveConversationActive && !isSpeakingTurn && !isWaitingForAIResponse) {
-                                        setLiveConvUI("LISTENING (WAKE WORD)", 'Say "Hey Sarembok" or "Sarembok"...');
-                                    }
-                                }, 8500);
-
-                                const afterWake = currentHeard.replace(WAKE_WORD_PATTERN, "").replace(/^[,.:;!?-]+\s*/, "").trim();
-                                if (afterWake.length >= 2 && /[a-zA-Z]{2,}/.test(afterWake) && !isSelfEcho(afterWake)) {
-                                    setLiveConvUI("HEARD: " + afterWake.toUpperCase(), "Processing directive...");
-                                    setAvatarSignal("ATTENTION");
-                                    clearTimeout(liveSilenceTimer);
-                                    liveSilenceTimer = setTimeout(() => {
-                                        if (!isWaitingForAIResponse && !isSpeakingTurn) {
-                                            executeLiveConversationTurn(afterWake);
-                                            wakeWordAwake = false;
-                                            liveTranscriptBuffer = "";
-                                        }
-                                    }, 900);
-                                } else {
-                                    setLiveConvUI("WAKE WORD DETECTED", 'Say your directive...');
-                                    setAvatarSignal("ATTENTION");
-                                    enqueueLiveSpeech("Yes? I'm listening.");
-                                }
-                            } else {
-                                setLiveConvUI("LISTENING (WAKE WORD)", 'Say "Hey Sarembok" or "Sarembok" to activate');
-                            }
-                            return;
-                        } else {
-                            clearTimeout(wakeWordAwakeTimer);
-                            wakeWordAwakeTimer = setTimeout(() => { wakeWordAwake = false; }, 8500);
-                        }
-                    }
-
-                    // 5. ACCUMULATE DIRECTIVE & SILENCE DISPATCH
-                    liveTranscriptBuffer = (liveTranscriptBuffer + " " + finalChunk).trim() || currentHeard;
-                    const cleanDirective = liveTranscriptBuffer.replace(WAKE_WORD_PATTERN, "").replace(/^[,.:;!?-]+\s*/, "").trim();
-
-                    if (cleanDirective.length >= 2 && /[a-zA-Z0-9]{2,}/.test(cleanDirective) && !isSelfEcho(cleanDirective)) {
-                        setLiveConvUI("HEARING DIRECTIVE...", `"${cleanDirective}"`);
-                        setAvatarSignal("LISTENING");
-
-                        clearTimeout(liveSilenceTimer);
-                        liveSilenceTimer = setTimeout(() => {
-                            if (cleanDirective.length >= 2 && 
-                                /[a-zA-Z0-9]{2,}/.test(cleanDirective) && 
-                                !isSelfEcho(cleanDirective) && 
-                                !isWaitingForAIResponse && 
-                                !isSpeakingTurn && 
-                                !(window.speechSynthesis && window.speechSynthesis.speaking) &&
-                                Date.now() - lastSpeechEndTime >= 1200) {
-                                executeLiveConversationTurn(cleanDirective);
-                                wakeWordAwake = false;
-                                liveTranscriptBuffer = "";
-                            }
-                        }, 1000);
-                    }
-                };
-
-                liveRecContinuous.onerror = err => {
-                    console.warn("[duplex] Recognition error:", err.error);
-                    if (err.error === "no-speech") return;
-                    if (err.error === "network") {
-                        setLiveConvUI("CONNECTING...", "Speech recognition link reconnecting...");
-                        return;
-                    }
-                    if (err.error === "not-allowed" || err.error === "service-not-allowed") {
-                        recognitionPermissionDenied = true;
-                        setLiveConvUI("MIC PERMISSION NEEDED", "Click lock icon in URL address bar -> Allow Microphone");
-                        showToast("MIC PERMISSION NEEDED: Click lock icon in address bar -> Allow Microphone");
-                        stopLiveConversationLoop();
-                    } else if (err.error === "audio-capture") {
-                        setLiveConvUI("NO MIC DETECTED", "Select microphone in browser sound settings");
-                        showToast("NO MIC FOUND: Check microphone selection in browser settings");
-                        stopLiveConversationLoop();
-                    }
-                };
-
-                liveRecContinuous.onend = () => {
-                    console.log("[duplex] Speech recognition ended.");
-                    if (liveConversationActive && !recognitionPermissionDenied && !isSpeakingTurn && !isWaitingForAIResponse && !(window.speechSynthesis && window.speechSynthesis.speaking) && liveSpeechQueue.length === 0) {
-                        setTimeout(() => {
-                            if (liveConversationActive && !recognitionPermissionDenied && !isSpeakingTurn && !isWaitingForAIResponse && !(window.speechSynthesis && window.speechSynthesis.speaking) && liveSpeechQueue.length === 0) {
-                                startLiveConversationLoop();
-                            }
-                        }, 250);
-                    }
-                };
-
-                liveRecContinuous.start();
-
-            } catch (err) {
-                console.error("Failed to start live recognition:", err);
-            }
-        }
-
-        function stopLiveConversationLoop() {
-            clearTimeout(liveSilenceTimer);
-            clearTimeout(wakeWordAwakeTimer);
-            wakeWordAwake = false;
-            liveSpeechQueue = [];
-            isProcessingSpeechQueue = false;
-            if (liveRecContinuous) {
-                try {
-                    liveRecContinuous.onend = null;
-                    liveRecContinuous.onerror = null;
-                    liveRecContinuous.onresult = null;
-                    liveRecContinuous.stop();
-                } catch (_) {}
-                liveRecContinuous = null;
-            }
-            if (typeof window.stopNativeLive === "function") {
-                try { window.stopNativeLive(); } catch (_) {}
-            }
-            for (const item of srbkTtsPrefetch.values()) {
-                try { item.controller.abort(); } catch (_) {}
-            }
-            srbkTtsPrefetch.clear();
-            currentAssistantSpokenText = "";
-            liveTranscriptBuffer = "";
-            pauseRecognitionForSpeech();
-            if (window.speechSynthesis) {
-                window.speechSynthesis.cancel();
-            }
-            isSpeakingTurn = false;
-            isWaitingForAIResponse = false;
-            setAvatarSignal("IDLE");
-            setAudioDucking(false);
-            hideInterruptPill();
-        }
-
-        function interruptKokoroSpeech() {
-            ttsPlaybackGeneration++;
-            liveSpeechQueue = [];
-            isProcessingSpeechQueue = false;
-            currentAssistantSpokenText = "";
-            if (activeTtsAbortController) {
-                try { activeTtsAbortController.abort(); } catch (_) {}
-                activeTtsAbortController = null;
-            }
-            activeTtsRequestId = 0;
-            if (activeNeuralAudio) {
-                try { activeNeuralAudio.pause(); } catch (_) {}
-                activeNeuralAudio = null;
-            }
-            if (activeNeuralAudioSource) {
-                try { activeNeuralAudioSource.stop(0); } catch (_) {}
-                activeNeuralAudioSource = null;
-            }
-            if (window.speechSynthesis) {
-                try { window.speechSynthesis.cancel(); } catch (_) {}
-            }
-        }
-        window.interruptKokoroSpeech = interruptKokoroSpeech;
-
-        function interruptSpeech() {
-            console.log("[barge-in] interruptSpeech called.");
-            if (typeof window.clearNativeOutputAudio === "function") {
-                try { window.clearNativeOutputAudio(); } catch (_) {}
-            }
-            interruptKokoroSpeech();
-            currentTurnId++; // Invalidate active AI generation
-            clearTimeout(liveSilenceTimer);
-            liveTranscriptBuffer = "";
-            if (vegaRefAudio) {
-                try { vegaRefAudio.pause(); vegaRefAudio.currentTime = 0; } catch (e) {}
-                vegaRefAudio = null;
-            }
-            setAudioDucking(false);
-            isSpeakingTurn = false;
-            isWaitingForAIResponse = false;
-            lastSpeechEndTime = Date.now();
-            morphTargets.jawOpen = 0;
-            updateMorphMeters();
-            hideInterruptPill();
-            pauseRecognitionForSpeech();
-
-            if (liveConversationActive) {
-                wakeWordAwake = true; // Instantly stay awake for user's follow-up directive
-                setLiveConvUI("INTERRUPTED · LISTENING", "Interrupted. Listening for your directive...");
-                setAvatarSignal("LISTENING");
-                setTimeout(() => {
-                    if (liveConversationActive && !isSpeakingTurn && !isWaitingForAIResponse && !(window.speechSynthesis && window.speechSynthesis.speaking)) {
-                        startLiveConversationLoop();
-                    }
-                }, 200);
-            } else {
-                setAvatarSignal("IDLE");
-                setAudioDucking(false);
-            }
-        }
-
-        function enqueueLiveSpeech(text) {
-            // Disabled: Kokoro TTS voice system is superseded by Gemini Live conversation engine
-            return;
-        }
-
-        async function prefetchLiveSpeech(text) {
-            const normalized = String(text || "").trim();
-            if (!normalized) return null;
-
-            const profileKey = Object.prototype.hasOwnProperty.call(KOKORO_VOICE_MAP, selectedVoiceLang)
-                ? selectedVoiceLang : "gemini-vega";
-            const profile = KOKORO_VOICE_MAP[profileKey];
-            const speed =
-                profileKey === "ada-sovereign" ? 0.98 :
-                profileKey === "gemini-kore" ? 0.95 :
-                profileKey === "synth" ? 1.02 :
-                0.95;
-
-            const key = [
-                profile.voice, profile.language, String(speed), normalized
-            ].join("\u0001");
-
-            const existing = srbkTtsPrefetch.get(key);
-            if (existing) return existing.promise;
-
-            let token = window.browserSessionToken || "";
-            if (!token) {
-                token = await initSession();
-                if (!token) return null;
-            }
-
-            const controller = new AbortController();
-            const promise = (async () => {
-                const request = async () => {
-                    const qs = new URLSearchParams({
-                        text: normalized,
-                        voice: profile.voice,
-                        language: profile.language,
-                        speed: String(speed)
-                    });
-                    return fetch("/api/tts?" + qs.toString(), {
-                        method: "GET",
-                        cache: "no-store",
-                        signal: controller.signal,
-                        headers: { "Authorization": "Bearer " + token }
-                    });
-                };
-
-                let response = await request();
-                if (response.status === 401) {
-                    token = await initSession();
-                    if (!token) throw new Error("browser session refresh failed");
-                    response = await request();
-                }
-
-                const type = (response.headers.get("content-type") || "").toLowerCase();
-                if (!response.ok) throw new Error("neural TTS HTTP " + response.status);
-                if (!type.includes("audio/")) throw new Error("neural TTS returned non-audio data");
-
-                const blob = await response.blob();
-                if (blob.size < 128) throw new Error("neural TTS returned only " + blob.size + " bytes");
-                return blob;
-            })();
-
-            srbkTtsPrefetch.set(key, { promise, controller });
-            promise.catch(() => {}).finally(() => {
-                const item = srbkTtsPrefetch.get(key);
-                if (item && item.promise === promise) srbkTtsPrefetch.delete(key);
-            });
-            return promise;
-        }
-
-        function processLiveSpeechQueue() {
-            liveSpeechQueue = [];
-            isProcessingSpeechQueue = false;
-        }
-
-        async function executeLiveConversationTurn(userSpeech) {
-            return;
-            const cleanSpeech = (userSpeech || "").trim();
-            // Guard against empty, punctuation-only, or self-echo loops
-            if (!cleanSpeech || cleanSpeech.length < 2 || !/[a-zA-Z0-9]{2,}/.test(cleanSpeech) || isSelfEcho(cleanSpeech)) {
-                console.log("[duplex] Suppressed invalid or echo turn execution:", cleanSpeech);
-                if (liveConversationActive) resumeRecognitionAfterSpeech(300);
-                return;
-            }
-
-            // Strictly prevent turn execution while assistant is speaking or within the 1.2s post-speech tail
-            if (isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking) || Date.now() - lastSpeechEndTime < 1200) {
-                console.log("[duplex] Suppressed turn execution during speech or cooldown:", cleanSpeech);
-                liveTranscriptBuffer = "";
-                return;
-            }
-
-            const myTurnId = ++currentTurnId;
-            isWaitingForAIResponse = true;
-            setLiveConvUI("SYNTHESIZING...", `Routing through frontier fabric: "${cleanSpeech}"`);
-            setAvatarSignal("ATTENTION");
-
-            let frameToSend = activeVisionFrame;
-            if (!frameToSend && visionMode && opencvActive) {
-                frameToSend = captureCurrentOpenCVFrame();
-            }
-
-            appendUserDialogue(cleanSpeech, frameToSend);
-            clearVisionFrame();
-
-            const assistantBubble = createAssistantDialogue();
-            const content = assistantBubble.querySelector(".srbk-content");
-
-            let streamedResponse = "";
-            let sentenceBuffer = "";
-
-            try {
-                const selectedModel = document.getElementById("active-model-select")?.value || "gemini-flash";
-                const selectedLang = document.getElementById("active-language-select")?.value || "en";
-                const userKey = localStorage.getItem("sarembok_user_api_key") || "";
-                const userModel = userKey ? (localStorage.getItem("sarembok_user_model") || selectedModel) : selectedModel;
-
-                const isAdm = Boolean(window.adminExecutionActive || cleanSpeech.startsWith("/admin") || cleanSpeech.startsWith("/exec") || cleanSpeech.startsWith("/sh") || cleanSpeech.startsWith("/py"));
-                const result = await sendRPC(
-                    "SarembokChat",
-                    {
-                        prompt: cleanSpeech,
-                        model: userModel,
-                        language: selectedLang,
-                        conversational: true,
-                        admin: isAdm,
-                        stream: true,
-                        imageFrame: frameToSend,
-                        sessionId: localStorage.getItem("sarembok_active_session_id") || "sess_main"
-                    },
-                    delta => {
-                        if (myTurnId !== currentTurnId) return; // User interrupted
-                        streamedResponse += delta;
-                        sentenceBuffer += delta;
-                        content.innerHTML = md(streamedResponse);
-                        scrollDialogue();
-
-                        // Stream sentence by sentence into speech queue
-                        if (liveConversationActive) {
-                            const match = sentenceBuffer.match(/([.!?])\s+/);
-                            if (match) {
-                                const splitIdx = match.index + 1;
-                                const readySentence = sentenceBuffer.slice(0, splitIdx).trim();
-                                sentenceBuffer = sentenceBuffer.slice(splitIdx);
-                                if (readySentence && myTurnId === currentTurnId) {
-                                    enqueueLiveSpeech(readySentence);
-                                }
-                            }
-                        }
-                    }
-                );
-
-                if (myTurnId !== currentTurnId) return;
-
-                const finalText = result?.response || streamedResponse || "Directive completed.";
-                content.innerHTML = md(finalText);
-                scrollDialogue();
-
-                if (sentenceBuffer.trim() && liveConversationActive && myTurnId === currentTurnId) {
-                    enqueueLiveSpeech(sentenceBuffer.trim());
-                } else if (liveConversationActive && !streamedResponse && myTurnId === currentTurnId) {
-                    enqueueLiveSpeech(finalText);
-                }
-
-            } catch (err) {
-                if (myTurnId !== currentTurnId) return;
-                content.innerHTML = `<p style="color:var(--amber);">Live conversation notice: ${escapeHtml(err.message)}</p>`;
-                setLiveConvUI("LISTENING (READY)", "Speak your next directive...");
-                setAvatarSignal("IDLE");
-                setAudioDucking(false);
-                if (liveConversationActive) resumeRecognitionAfterSpeech(500);
-            } finally {
-                if (myTurnId === currentTurnId) {
-                    isWaitingForAIResponse = false;
-                    // The first live reply can finish speaking while the RPC is still
-                    // unwinding. Once the response is no longer waiting, explicitly
-                    // restart microphone recognition so duplex mode never stalls after
-                    // the first exchange.
-                    if (
-                        liveConversationActive &&
-                        !isSpeakingTurn &&
-                        liveSpeechQueue.length === 0
-                    ) {
-                        resumeRecognitionAfterSpeech(150);
-                    }
-                }
-            }
-        }
-
-        function speakCalmConversational(text, onCompleteCallback) {
-            // Disabled: Kokoro TTS voice system is superseded by Gemini Live conversation engine
-            if (typeof onCompleteCallback === "function") onCompleteCallback();
-        }
 
         // Global hotkey interruption listener (Escape or Spacebar outside input)
         window.addEventListener("keydown", e => {
             if (e.key === "Escape" || (e.key === " " && e.target === document.body)) {
-                if (isSpeakingTurn || (window.speechSynthesis && window.speechSynthesis.speaking)) {
+                if (isSpeakingTurn || (typeof window.isLiveAudioActive === 'function' && window.isLiveAudioActive())) {
                     e.preventDefault();
                     interruptSpeech();
                     showToast("SPEECH INTERRUPTED");
@@ -17608,7 +16951,7 @@ button,
         <input type="text" id="global-input-field"
             placeholder="Message Sarembok V E or tap mic…"
             autocomplete="off" spellcheck="false"
-            onfocus="if(window.speechSynthesis&&window.speechSynthesis.speaking)interruptSpeech()"
+            onfocus="interruptSpeech()"
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();globalSendMessage(false);}">
         <button id="global-send-btn" onclick="globalSendMessage(false)" title="Send">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -17795,6 +17138,6 @@ document.getElementById('global-input-field').addEventListener('keydown', functi
   document.addEventListener("DOMContentLoaded",sync);
 })();
 </script>
-    <script src="/live-voice.js?v=20261005-unified-live-v15"></script>
+    <script src="/live-voice.js?v=20261005-frontier-live-v16"></script>
 </body>
 </html>
