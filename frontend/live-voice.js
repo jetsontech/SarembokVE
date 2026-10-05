@@ -34,6 +34,7 @@
     var nativeHistory = [];
     var nativeReconnectTimer = null;
     var nativeStartPromise = null;
+    var nativeConnectionGeneration = 0;
 
     var LIVE_TOOLS = {
         get_runtime_info: "GetRuntimeInfo",
@@ -246,6 +247,7 @@
     }
 
     function clearNativeOutputAudio() {
+        try { if (window.speechSynthesis && window.speechSynthesis.cancel) window.speechSynthesis.cancel(); } catch (_) {}
         nativeNextAudioTime = nativeOutputContext
             ? nativeOutputContext.currentTime
             : 0;
@@ -551,99 +553,44 @@
         var isNarrationOnly = Boolean(opts.narrationOnly);
         if (!rawText && (!attachments || !attachments.length) && !imageFrame) return false;
         if (!nativeLiveActive) return false;
-
-        // If the socket is currently connecting, wait up to 3 seconds for it to open
         if (nativeLiveSocket && nativeLiveSocket.readyState === WebSocket.CONNECTING) {
             for (var waitIter = 0; waitIter < 30; waitIter++) {
                 await new Promise(function (r) { setTimeout(r, 100); });
                 if (nativeLiveSocket && nativeLiveSocket.readyState === WebSocket.OPEN) break;
             }
         }
-        if (!nativeLiveSocket || nativeLiveSocket.readyState !== WebSocket.OPEN) {
-            console.warn("[LiveVoice] sendNativeLiveText: socket not open (readyState=" + (nativeLiveSocket ? nativeLiveSocket.readyState : "none") + ")");
-            return false;
-        }
-
-        // Barge-in: stop active output speech immediately
+        if (!nativeLiveSocket || nativeLiveSocket.readyState !== WebSocket.OPEN) return false;
         clearNativeOutputAudio();
-
-        // Reset previous turn state
         resetNativeTurn();
         nativeTurnUserText = rawText;
-
         if (!isNarrationOnly) {
-            // Render user bubble in the dialogue history
-            try {
-                if (typeof appendUserDialogue === "function") {
-                    nativeUserBubble = appendUserDialogue(rawText, imageFrame, attachments);
-                }
-            } catch (_) {}
-
-            // Render assistant bubble in the dialogue history
-            try {
-                if (typeof createAssistantDialogue === "function") {
-                    nativeAssistantBubble = createAssistantDialogue();
-                }
-            } catch (_) {}
+            try { if (typeof appendUserDialogue === "function") nativeUserBubble = appendUserDialogue(rawText, imageFrame, attachments); } catch (_) {}
+            try { if (typeof createAssistantDialogue === "function") nativeAssistantBubble = createAssistantDialogue(); } catch (_) {}
         }
-
-        // Prepare clientContent parts
-        var parts = [];
-
-        // Prepend any attached text files
         var fileContext = "";
-        if (Array.isArray(attachments) && attachments.length > 0) {
-            for (var i = 0; i < attachments.length; i++) {
-                var att = attachments[i];
-                if (att && att.content && !String(att.content).startsWith("data:image")) {
-                    fileContext += "[ATTACHED FILE: " + (att.filename || att.name || "file") + "]\n" + att.content + "\n[END ATTACHED FILE]\n\n";
-                }
-            }
-        }
-
-        var fullText = (fileContext + rawText).trim();
-        if (fullText) {
-            if (isNarrationOnly) {
-                parts.push({ text: "Please read aloud this response verbatim with natural speech inflection and clear pronunciation:\n" + fullText });
-            } else {
-                parts.push({ text: fullText });
-            }
-        }
-
-        if (imageFrame) {
-            var cleanBase64 = String(imageFrame).replace(/^data:image\/[a-z]+;base64,/, "");
-            if (cleanBase64) {
-                parts.push({
-                    inlineData: {
-                        mimeType: "image/jpeg",
-                        data: cleanBase64
-                    }
-                });
-            }
-        }
-
-        setNativeLiveStatus(
-            "WORKING (GEMINI LIVE)",
-            "Generating Live voice response..."
-        );
-
-        var sent = sendNativeClientJson({
-            clientContent: {
-                turns: [
-                    {
-                        role: "user",
-                        parts: parts
-                    }
-                ],
-                turnComplete: true
+        if (Array.isArray(attachments)) attachments.forEach(function(att) {
+            if (att && att.content && !String(att.content).startsWith("data:image")) {
+                fileContext += "[ATTACHED FILE: " + (att.filename || att.name || "file") + "]\n" + att.content + "\n[END ATTACHED FILE]\n\n";
             }
         });
-
-        if (!sent) {
-            logNativeLive("Failed to send directive to Gemini Live socket", "amber");
-            return false;
+        var fullText = (fileContext + rawText).trim();
+        var spokenText = isNarrationOnly
+            ? "Please read aloud this response verbatim with natural speech inflection and clear pronunciation:\n" + rawText
+            : rawText;
+        var parts = [];
+        if (fullText) parts.push({text: isNarrationOnly ? "Please read aloud this response verbatim with natural speech inflection and clear pronunciation:\n" + fullText : fullText});
+        if (imageFrame) {
+            var cleanBase64 = String(imageFrame).replace(/^data:image\/[a-z]+;base64,/, "");
+            if (cleanBase64) parts.push({inlineData:{mimeType:"image/jpeg",data:cleanBase64}});
         }
-
+        setNativeLiveStatus("WORKING (GEMINI LIVE)", "Generating Live voice response...");
+        var sent;
+        if (!attachments?.length && !imageFrame && fullText) {
+            sent = sendNativeClientJson({realtimeInput:{text:spokenText}});
+        } else {
+            sent = sendNativeClientJson({clientContent:{turns:[{role:"user",parts:parts}],turnComplete:true}});
+        }
+        if (!sent) return false;
         detectAndTriggerLiveMediaIntent(rawText);
         return true;
     }
@@ -1139,6 +1086,7 @@
     }
 
     async function connectNativeGemini(tokenData) {
+        var connectionGeneration = ++nativeConnectionGeneration;
         if (nativeLiveSocket) {
             try {
                 nativeLiveSocket.onopen = null;
@@ -1155,10 +1103,12 @@
         var url = LIVE_WS_BASE + "?access_token=" +
             encodeURIComponent(tokenData.token);
 
-        nativeLiveSocket = new WebSocket(url);
-        nativeLiveSocket.binaryType = "arraybuffer";
+        var socket = new WebSocket(url);
+        nativeLiveSocket = socket;
+        socket.binaryType = "arraybuffer";
 
-        nativeLiveSocket.onopen = function () {
+        socket.onopen = function () {
+            if (socket !== nativeLiveSocket || connectionGeneration !== nativeConnectionGeneration || nativeLiveStopping) return;
             var setup = tokenData.setup || {};
             var generationConfig = Object.assign(
                 {},
@@ -1184,10 +1134,11 @@
                 setupMessage.setup.historyConfig = setup.historyConfig;
             }
 
-            nativeLiveSocket.send(JSON.stringify(setupMessage));
+            socket.send(JSON.stringify(setupMessage));
         };
 
-        nativeLiveSocket.onmessage = async function (event) {
+        socket.onmessage = async function (event) {
+            if (socket !== nativeLiveSocket || connectionGeneration !== nativeConnectionGeneration) return;
             try {
                 var text = null;
 
@@ -1212,15 +1163,16 @@
             }
         };
 
-        nativeLiveSocket.onerror = function () {
+        socket.onerror = function () {
+            if (socket !== nativeLiveSocket || connectionGeneration !== nativeConnectionGeneration) return;
             setNativeLiveStatus(
                 "LIVE CONNECTION ERROR",
                 "Gemini Live connection failed"
             );
         };
 
-        nativeLiveSocket.onclose = function (event) {
-            if (nativeLiveStopping) return;
+        socket.onclose = function (event) {
+            if (socket !== nativeLiveSocket || connectionGeneration !== nativeConnectionGeneration || nativeLiveStopping) return;
             logNativeLive("Gemini Live socket closed code=" + String(event && event.code || "") + " reason=" + String(event && event.reason || ""), "amber");
 
             nativeSetupComplete = false;

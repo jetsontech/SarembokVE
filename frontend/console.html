@@ -994,13 +994,19 @@
         async function sendMessage(){
             const input=document.getElementById('chat-input'),text=input.value.trim();if(!text)return;
             input.value='';input.focus();
-            if(typeof window.consoleVoiceInterrupt==='function')window.consoleVoiceInterrupt();
+            if(typeof window.unlockAudioEngine==='function') void window.unlockAudioEngine();
 
-            // Silence active audio on typing to maintain quiet private text conversation
-            if (typeof window.clearNativeOutputAudio === 'function') {
-                try { window.clearNativeOutputAudio(); } catch (_) {}
+            // Live is the console's single authoritative voice/chat path.
+            const liveActive=Boolean(window.nativeLiveActive||(typeof window.isNativeLiveActive==='function'&&window.isNativeLiveActive()));
+            if(liveActive&&typeof window.sendNativeLiveText==='function'){
+                try{
+                    const sent=await window.sendNativeLiveText(text,null,null);
+                    if(sent)return;
+                }catch(err){console.warn('[console] Live text send failed:',err);}
             }
 
+            if(typeof window.consoleVoiceInterrupt==='function')window.consoleVoiceInterrupt();
+            if(typeof window.clearNativeOutputAudio==='function'){try{window.clearNativeOutputAudio();}catch(_){}}
             appendMessage('user','You',text);const thinkingEl=showThinking();let streamedText='',assistantContent=null,assistantSender=null;
             const updateStreamUi=(delta)=>{streamedText+=String(delta||'');if(!assistantContent){thinkingEl.innerHTML='<div class="msg-sender agent" id="streaming-assistant-sender">Sarembok</div><div class="msg-body" id="streaming-assistant-content"></div>';assistantSender=thinkingEl.querySelector('#streaming-assistant-sender');assistantContent=thinkingEl.querySelector('#streaming-assistant-content');}assistantContent.innerHTML=formatReply(streamedText);const scroll=document.getElementById('conversation-scroll');scroll.scrollTop=scroll.scrollHeight;};
             try{const result=await sendRPC('SarembokChat',{prompt:text,sessionId:sessionId,stream:true},updateStreamUi);const finalText=String(result?.response||result?.audioText||streamedText||'Response received.');
@@ -1166,6 +1172,21 @@
         }
 
         // ====== CONSOLE NATIVE LIVE VOICE ADAPTERS ======
+        window.appendUserDialogue=function(text){
+            const scroll=document.getElementById('conversation-scroll'); if(!scroll)return null;
+            const group=document.createElement('div'); group.className='msg-group';
+            group.innerHTML='<div class="msg-sender user">You</div><div class="msg-body user-msg"></div>';
+            const body=group.querySelector('.msg-body'); if(body)body.textContent=String(text||'');
+            scroll.appendChild(group); scroll.scrollTop=scroll.scrollHeight; return group;
+        };
+        window.createAssistantDialogue=function(){
+            const scroll=document.getElementById('conversation-scroll'); if(!scroll)return null;
+            const group=document.createElement('div'); group.className='msg-group';
+            group.innerHTML='<div class="msg-sender agent">Sarembok</div><div class="msg-body"></div>';
+            scroll.appendChild(group); scroll.scrollTop=scroll.scrollHeight; return group;
+        };
+        window.scrollDialogue=function(){const scroll=document.getElementById('conversation-scroll');if(scroll)scroll.scrollTop=scroll.scrollHeight;};
+
         window.setLiveConvUI=function(state,hint){const s=document.getElementById('console-voice-state'),h=document.getElementById('console-voice-hint'),d=document.getElementById('console-voice-dot'),l=document.getElementById('hud-live-2way-btn'),m=document.getElementById('dialogue-mic-btn'),active=/LISTENING|HEARING|SPEAKING|WORKING|ACTIVE|CONNECTING/i.test(String(state||''));if(s)s.textContent=String(state||'VOICE READY');if(h)h.textContent=hint?' · '+String(hint):'';if(d)d.classList.toggle('active',active);if(l)l.classList.toggle('live',active);if(m)m.classList.toggle('active',active);};
         window.setAvatarSignal=function(){};window.setAudioDucking=function(){};window.addTerminalLine=function(){};
     </script>

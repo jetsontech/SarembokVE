@@ -12308,8 +12308,15 @@ button,
             }
             if (!text) return;
 
-            // Privacy & Mute check: if VOICE: OFF, NEVER speak aloud
             if (typeof window.voiceEnabled !== "undefined" && !window.voiceEnabled) {
+                if (typeof onCompleteCallback === "function") onCompleteCallback();
+                return;
+            }
+
+            // Gemini Live is the exclusive speaker while a duplex session is active.
+            // One-shot narration must never start a second Live session or fall back
+            // to browser speech while Live is still connected.
+            if (typeof window.isNativeLiveActive === "function" && window.isNativeLiveActive()) {
                 if (typeof onCompleteCallback === "function") onCompleteCallback();
                 return;
             }
@@ -12320,62 +12327,103 @@ button,
             pauseRecognitionForSpeech();
             isSpeakingTurn = true;
             currentAssistantSpokenText = clean;
-            currentUtteranceHistory.push({ text: clean.toLowerCase(), time: Date.now() });
-            if (currentUtteranceHistory.length > 25) currentUtteranceHistory.shift();
             showInterruptPill();
             setAvatarSignal("SPEAKING");
             setAudioDucking(true);
 
-            // Each speakText invocation owns one playback generation. Older audio
-            // callbacks must never clean up or abort a newer request.
             const speechRequestId = ++ttsPlaybackGeneration;
+            if (activeTtsAbortController) {
+                try { activeTtsAbortController.abort(); } catch (_) {}
+            }
+            activeTtsAbortController = new AbortController();
 
-            let visemeInterval = null;
             const finishSpeaking = () => {
                 if (speechRequestId !== ttsPlaybackGeneration) return;
-                if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
                 isSpeakingTurn = false;
                 currentAssistantSpokenText = "";
                 lastSpeechEndTime = Date.now();
                 setAvatarSignal("IDLE");
                 setAudioDucking(false);
-                morphTargets.jawOpen = 0;
-                updateMorphMeters();
                 hideInterruptPill();
                 window._activeSpeechUtterance = null;
-
+                activeNeuralAudio = null;
                 if (typeof onCompleteCallback === "function") {
-                    try { onCompleteCallback(); } catch (callbackErr) { console.warn("[voice] completion callback error:", callbackErr); }
+                    try { onCompleteCallback(); } catch (_) {}
                 }
             };
             window.finishSpeakingTurn = finishSpeaking;
 
-            void unlockAudioEngine();
+            try {
+                await unlockAudioEngine();
 
-            // Unified Frontier Voice: on-demand speech narration uses Gemini Live
-            (async () => {
-                try {
-                    if (typeof window.ensureNativeLiveSession === "function" && typeof window.sendNativeLiveText === "function") {
-                        const ready = await window.ensureNativeLiveSession("conversational");
-                        if (ready) {
-                            await window.sendNativeLiveText(clean, null, null, { narrationOnly: true });
-                            return;
-                        }
-                    }
-                    // Local browser speech synthesis fallback if WebSocket is unavailable
-                    if (typeof window.speechSynthesis !== "undefined") {
+                const sessionToken = window.browserSessionToken || (
+                    typeof window.initSession === "function" ? await window.initSession() : ""
+                );
+                if (!sessionToken) throw new Error("browser session unavailable");
+
+                const params = new URLSearchParams({
+                    text: clean,
+                    voice: "af_heart",
+                    language: "en-us",
+                    speed: "0.95"
+                });
+                const response = await fetch("/api/tts?" + params.toString(), {
+                    method: "GET",
+                    cache: "no-store",
+                    headers: {
+                        "Accept": "audio/wav",
+                        "Authorization": "Bearer " + sessionToken
+                    },
+                    signal: activeTtsAbortController.signal
+                });
+                if (!response.ok) {
+                    throw new Error("Kokoro TTS HTTP " + response.status);
+                }
+
+                const blob = await response.blob();
+                if (!blob.size) throw new Error("Kokoro returned empty audio");
+
+                // A single HTMLAudioElement owns one-shot Kokoro playback. No
+                // concurrent audio elements are allowed.
+                if (activeNeuralAudio) {
+                    try { activeNeuralAudio.pause(); activeNeuralAudio.currentTime = 0; } catch (_) {}
+                }
+                const audio = new Audio(URL.createObjectURL(blob));
+                audio.preload = "auto";
+                audio.setAttribute("playsinline", "");
+                activeNeuralAudio = audio;
+                window._activeSpeechUtterance = audio;
+
+                const cleanupUrl = audio.src;
+                audio.onended = () => {
+                    URL.revokeObjectURL(cleanupUrl);
+                    finishSpeaking();
+                };
+                audio.onerror = () => {
+                    URL.revokeObjectURL(cleanupUrl);
+                    finishSpeaking();
+                };
+
+                await audio.play();
+            } catch (err) {
+                if (err && err.name === "AbortError") return;
+                console.warn("[KokoroVoice] one-shot narration failed:", err);
+
+                // Browser speech is only a last-resort fallback when Gemini Live
+                // is definitely inactive. It can never run concurrently with Live.
+                if (!(typeof window.isNativeLiveActive === "function" && window.isNativeLiveActive()) &&
+                    typeof window.speechSynthesis !== "undefined") {
+                    try {
                         window.speechSynthesis.cancel();
                         const utterance = new SpeechSynthesisUtterance(clean);
                         utterance.onend = finishSpeaking;
                         utterance.onerror = finishSpeaking;
                         window.speechSynthesis.speak(utterance);
                         return;
-                    }
-                } catch (err) {
-                    console.warn("[FrontierVoice] Speech narration notice:", err);
+                    } catch (_) {}
                 }
                 finishSpeaking();
-            })();
+            }
         }
 
         function toggleSpeechRecognition() {
