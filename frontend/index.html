@@ -11681,6 +11681,684 @@ button,
             const _sh = document.getElementById('simple-chat-hero'); if (_sh) _sh.classList.remove('visible');
             // Capture the browser's real user gesture before any RPC/network await.
             void unlockAudioEngine();
+            const input = document.getElementById("directive-input");
+            const btn = document.getElementById("execute-button");
+            const bgBtn = document.getElementById("execute-bg-button");
+            if (!input) return;
+
+            let text = input.value.trim();
+            const attachmentsToSend = [...(window.pendingAttachments || [])];
+            if (!text && attachmentsToSend.length === 0) return;
+            if (!text && attachmentsToSend.length > 0) {
+                text = "Please inspect and analyze the attached file(s).";
+            }
+            input.value = "";
+            clearAttachments();
+
+            // Check if user requested background execution
+            if (isBackground || text.startsWith("/bg ") || text.startsWith("/background ") || text.startsWith("/async ")) {
+                text = text.replace(/^\/(?:bg|background|async)\s+/i, "").trim();
+                dispatchBackgroundTask(text);
+                return;
+            }
+
+            // Quick live voice toggles via chat input
+            if (text === "/live" || text === "/voice") {
+                if (typeof window.toggleLiveConversation === "function") {
+                    window.toggleLiveConversation();
+                }
+                return;
+            }
+            if (text.startsWith("/live ") || text.startsWith("/voice ")) {
+                text = text.replace(/^\/(?:live|voice)\s+/i, "").trim();
+                if (typeof window.isNativeLiveActive === "function" && !window.isNativeLiveActive()) {
+                    if (typeof window.toggleLiveConversation === "function") {
+                        await window.toggleLiveConversation();
+                        for (let i = 0; i < 30; i++) {
+                            if (window.isNativeLiveActive && window.isNativeLiveActive()) break;
+                            await new Promise(r => setTimeout(r, 100));
+                        }
+                    }
+                }
+            }
+
+            // If the user already has Live Conversation running, route the text directive into the live duplex session
+            const liveRunning = Boolean(
+                window.nativeLiveActive ||
+                (typeof window.isNativeLiveActive === "function" && window.isNativeLiveActive())
+            );
+            if (liveRunning && typeof window.sendNativeLiveText === "function") {
+                let frameToSend = activeVisionFrame;
+                if (!frameToSend && visionMode && opencvActive) {
+                    frameToSend = captureCurrentOpenCVFrame();
+                }
+                clearVisionFrame();
+                const sent = await window.sendNativeLiveText(text, attachmentsToSend, frameToSend);
+                if (sent) {
+                    if (btn) btn.disabled = false;
+                    if (bgBtn) bgBtn.disabled = false;
+                    scrollDialogue();
+                    return;
+                }
+            }
+
+            // User typed into the text box: silence any previous speech
+            interruptSpeech();
+            if (typeof window.clearNativeOutputAudio === "function") {
+                try { window.clearNativeOutputAudio(); } catch (_) {}
+            }
+
+            if (btn) btn.disabled = true;
+            if (bgBtn) bgBtn.disabled = true;
+
+            const myTurnId = ++currentTurnId;
+
+            let frameToSend = activeVisionFrame;
+            if (!frameToSend && visionMode && opencvActive) {
+                frameToSend = captureCurrentOpenCVFrame();
+            }
+
+            // Append user bubble with perception frame and attachments
+            appendUserDialogue(text, frameToSend, attachmentsToSend);
+            clearVisionFrame();
+
+            // Create assistant bubble
+            const assistantBubble = createAssistantDialogue();
+            const content = assistantBubble.querySelector(".srbk-content");
+            let streamedText = "";
+            let speechBuffer = "";
+            let streamedSpeechStarted = false;
+
+            try {
+                const selectedModel = document.getElementById("active-model-select")?.value || "auto";
+                const selectedLang = document.getElementById("active-language-select")?.value || "en";
+                const isAdm = Boolean(window.adminExecutionActive || text.startsWith("/admin") || text.startsWith("/exec") || text.startsWith("/sh") || text.startsWith("/py"));
+                const userKey = localStorage.getItem("sarembok_user_api_key") || "";
+                const userModel = userKey ? (localStorage.getItem("sarembok_user_model") || selectedModel) : selectedModel;
+                const result = await sendRPC(
+                    "SarembokChat",
+                    {
+                        prompt: text,
+                        model: userModel,
+                        language: selectedLang,
+                        stream: true,
+                        admin: isAdm,
+                        imageFrame: frameToSend,
+                        attachments: attachmentsToSend,
+                        sessionId: localStorage.getItem("sarembok_active_session_id") || "sess_main"
+                    },
+                    delta => {
+                        if (myTurnId !== currentTurnId) return;
+                        const chunk = String(delta || "");
+                        streamedText += chunk;
+                        content.innerHTML = md(enrichResponseOnClient(text, streamedText));
+                        scrollDialogue();
+
+                        // Fallback text streaming: speech audio is handled exclusively by Live Conversation.
+                    }
+                );
+
+                if (myTurnId !== currentTurnId) return;
+
+                let finalText = result?.response || result?.audioText || streamedText || "Directive executed.";
+                finalText = enrichResponseOnClient(text, finalText);
+                const engineBadge = document.getElementById("dialogue-gpu-badge");
+                if (engineBadge) {
+                    const provider = String(result?.metadata?.provider || result?.source || "").trim();
+                    const modelName = String(result?.metadata?.model || result?.model || "").trim();
+                    const taskCat = String(result?.metadata?.taskCategory || result?.taskCategory || "").trim();
+
+                    if (provider === "runtime_authority" || modelName === "runtime-authority") {
+                        engineBadge.textContent = "ENGINE: SAREMBOK CORE RUNTIME";
+                        engineBadge.className = "cyber-card-badge green";
+                    } else {
+                        let cleanModel = modelName;
+                        if (cleanModel.includes("/")) cleanModel = cleanModel.split("/").pop();
+                        cleanModel = cleanModel.replace(/-/g, " ").toUpperCase();
+
+                        if (taskCat && taskCat !== "MANUAL" && taskCat !== "GENERAL") {
+                            engineBadge.textContent = `ENGINE: DYNAMIC · ${taskCat} (${cleanModel})`;
+                        } else {
+                            engineBadge.textContent = `ENGINE: ${cleanModel}`;
+                        }
+                        engineBadge.className = "cyber-card-badge cyan";
+                    }
+                }
+                if (result?.structuredResponse && typeof window.renderStructuredResponse === "function") {
+                    content.innerHTML = renderStructuredResponse(result.structuredResponse) || md(finalText);
+                } else {
+                    content.innerHTML = md(finalText);
+                }
+
+                // Async-resolve any unresolved media cards via backend SearchYouTube RPC
+                const hasUnresolvedCards = content.querySelectorAll('iframe[src="about:blank"], a[href*="results?search_query"]').length > 0;
+                if (hasUnresolvedCards) {
+                    let resolveTopic = text.replace(/(?:can you\s+)?(?:please\s+)?(?:play|show|open|stream|watch|listen to)\s+(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:video\s+about\s+|on\s+youtube\s+|youtube\s+)?/gi, "").replace(/["']/g, "").trim();
+                    if (!resolveTopic || resolveTopic.length < 2) resolveTopic = "lofi study music";
+                    resolveAndUpdateMediaCards(content, resolveTopic, resolveTopic.toUpperCase());
+                }
+
+                // If Admin Tool Traces are present, render interactive cyber deck cards
+                if (result?.toolTraces && Array.isArray(result.toolTraces) && result.toolTraces.length > 0) {
+                    result.toolTraces.forEach(tr => {
+                        const card = document.createElement("div");
+                        card.className = "admin-trace-card";
+                        const stepNum = tr.step || 1;
+                        const toolName = escapeHtml(tr.tool || "tool");
+                        const dur = tr.durationMs ? `${tr.durationMs}ms` : "";
+                        let bodyHtml = "";
+                        if (tr.output && typeof tr.output === "object") {
+                            const cmd = tr.output.command ? `$ ${escapeHtml(tr.output.command)}\n` : "";
+                            const out = escapeHtml(tr.output.stdout || tr.output.output || JSON.stringify(tr.output, null, 2));
+                            bodyHtml = `<pre class="admin-trace-pre">${cmd}${out}</pre>`;
+                        } else {
+                            bodyHtml = `<pre class="admin-trace-pre">${escapeHtml(String(tr.output || ""))}</pre>`;
+                        }
+                        card.innerHTML = `<div class="admin-trace-head"><span>[STEP ${stepNum}] ${toolName.toUpperCase()}</span><span>${dur}</span></div>${bodyHtml}`;
+                        content.appendChild(card);
+                    });
+                }
+
+                // If screenshot or structured data is present
+                if (result?.screenshot) {
+                    const shotCard = document.createElement("div");
+                    shotCard.className = "srbk-screenshot-card";
+                    shotCard.innerHTML = `<div class="srbk-screenshot-head"><span>CAPTURED SCREENSHOT</span><span>${escapeHtml(result.url || "")}</span></div><img class="srbk-screenshot-img" src="${result.screenshot}" alt="Page render">`;
+                    content.appendChild(shotCard);
+                }
+
+                // Chat responses remain quiet and clean. On-demand speech narration is triggered via 🔊 buttons.
+
+                scrollDialogue();
+
+            } catch (err) {
+                content.innerHTML = `<p style="color:var(--amber);">Execution notice: ${escapeHtml(err.message)}</p>`;
+            } finally {
+                if (btn) btn.disabled = false;
+                if (bgBtn) bgBtn.disabled = false;
+                saveCurrentChatSession();
+            }
+        }
+
+        function appendUserDialogue(text, imageFrame, attachments = []) {
+            const history = document.getElementById("dialogue-history");
+            const div = document.createElement("div");
+            div.className = "srbk-bubble user";
+            let imgHtml = "";
+            if (imageFrame) {
+                const src = imageFrame.startsWith("data:") ? imageFrame : `data:image/jpeg;base64,${imageFrame}`;
+                imgHtml = `<div style="margin-top:6px;"><img src="${src}" style="max-width:200px; max-height:140px; border-radius:6px; border:1px solid var(--cyan); object-fit:cover;" alt="Vision perception frame" /></div>`;
+            }
+            let attachHtml = "";
+            if (Array.isArray(attachments) && attachments.length > 0) {
+                attachHtml = `<div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">` +
+                    attachments.map(a => `<span style="display:inline-flex; align-items:center; gap:5px; padding:3px 8px; background:rgba(0,240,255,0.12); border:1px solid var(--cyan); border-radius:4px; font-family:var(--font-mono); font-size:10.5px; color:var(--cyan);">📎 ${escapeHtml(a.filename || a.name || 'file')} (${formatFileSize(a.size || 0)})</span>`).join('') +
+                    `</div>`;
+            }
+            div.innerHTML = `<div class="srbk-bubble-sender">YOU</div><div class="srbk-content"><p>${escapeHtml(text)}</p>${imgHtml}${attachHtml}</div>`;
+            history.appendChild(div);
+            scrollDialogue();
+        }
+
+        function createAssistantDialogue() {
+            const history = document.getElementById("dialogue-history");
+            const div = document.createElement("div");
+            const msgId = "msg-" + Math.random().toString(36).substring(2, 9);
+            div.id = msgId;
+            div.className = "srbk-bubble assistant";
+            div.innerHTML = `
+                <div class="srbk-bubble-sender">
+                    <span>SAREMBOK</span>
+                    <div class="srbk-bubble-tools">
+                        <button class="srbk-tool-btn" onclick="submitMessageFeedback(this, 1)" title="Helpful response (Thumbs Up)">👍</button>
+                        <button class="srbk-tool-btn" onclick="submitMessageFeedback(this, -1)" title="Needs refinement (Thumbs Down)">👎</button>
+                        <button class="srbk-tool-btn" onclick="copyResponse(this)" title="Copy complete response">COPY</button>
+                        <button class="srbk-tool-btn" onclick="downloadResponse(this)" title="Download this response as Markdown (.md)">⬇ SAVE</button>
+                        <button class="srbk-tool-btn srbk-speak-btn" onclick="speakText(this)" title="Narrate response">🔊</button>
+                    </div>
+                </div>
+                <div class="srbk-content"><p><em>Computing...</em></p></div>`;
+            history.appendChild(div);
+            scrollDialogue();
+            return div;
+        }
+
+        function scrollDialogue() {
+            const history = document.getElementById("dialogue-history");
+            if (history) {
+                history.scrollTop = history.scrollHeight;
+                requestAnimationFrame(() => {
+                    history.scrollTop = history.scrollHeight;
+                });
+            }
+        }
+
+        /* ============================================================
+           HEADLESS BROWSER ACTIONS (/screenshot, /render)
+           ============================================================ */
+        async function executeBrowserScreenshot() {
+            const input = document.getElementById("browser-url-input");
+            const preview = document.getElementById("browser-preview-container");
+            if (!input || !preview) return;
+
+            const url = input.value.trim();
+            if (!url) return;
+
+            preview.innerHTML = `<div style="font-family:var(--font-mono); font-size:12px; color:var(--cyan);">Capturing full-page Chromium render for ${escapeHtml(url)}...</div>`;
+
+            try {
+                const res = await sendRPC("BrowserScreenshot", { url, fullPage: true });
+                if (res?.screenshot) {
+                    preview.innerHTML = `
+                        <div style="width:100%; height:100%; display:flex; flex-direction:column;">
+                            <div style="padding:8px 12px; background:rgba(0,0,0,0.8); font-family:var(--font-mono); font-size:11px; color:var(--cyan); display:flex; justify-content:space-between;">
+                                <span>${escapeHtml(res.title || url)}</span>
+                                <span>${res.latencyMs || 0} ms</span>
+                            </div>
+                            <img src="${res.screenshot}" style="width:100%; max-height:480px; object-fit:contain; background:#000;" alt="Capture">
+                        </div>
+                    `;
+                } else {
+                    preview.innerHTML = `<div style="color:var(--amber); font-family:var(--font-mono);">Failed to capture screenshot: ${escapeHtml(res?.error || "Unknown error")}</div>`;
+                }
+            } catch (err) {
+                preview.innerHTML = `<div style="color:var(--amber); font-family:var(--font-mono);">Browser service error: ${escapeHtml(err.message)}</div>`;
+            }
+        }
+
+        async function executeBrowserRender() {
+            const input = document.getElementById("browser-url-input");
+            const preview = document.getElementById("browser-preview-container");
+            if (!input || !preview) return;
+
+            const url = input.value.trim();
+            if (!url) return;
+
+            preview.innerHTML = `<div style="font-family:var(--font-mono); font-size:12px; color:var(--cyan);">Rendering DOM for ${escapeHtml(url)}...</div>`;
+
+            try {
+                const res = await sendRPC("BrowserRender", { url });
+                if (res?.html) {
+                    preview.innerHTML = `
+                        <div style="width:100%; height:100%; display:flex; flex-direction:column;">
+                            <div style="padding:8px 12px; background:rgba(0,0,0,0.8); font-family:var(--font-mono); font-size:11px; color:var(--cyan);">
+                                DOM RENDER: ${res.htmlBytes} bytes extracted (${res.latencyMs} ms)
+                            </div>
+                            <textarea style="width:100%; height:320px; background:#040714; color:#94a3b8; font-family:var(--font-mono); font-size:11px; padding:12px; border:none; outline:none; resize:none;" readonly>${escapeHtml(res.html.slice(0, 10000))}</textarea>
+                        </div>
+                    `;
+                } else {
+                    preview.innerHTML = `<div style="color:var(--amber); font-family:var(--font-mono);">Failed to render: ${escapeHtml(res?.error || "Unknown error")}</div>`;
+                }
+            } catch (err) {
+                preview.innerHTML = `<div style="color:var(--amber); font-family:var(--font-mono);">Browser service error: ${escapeHtml(err.message)}</div>`;
+            }
+        }
+
+        /* ============================================================
+           ANIMATIONS & AUTO-BOOT DISPATCH
+           ============================================================ */
+        setInterval(() => {
+            cycleCount++;
+            const cycleEl = document.getElementById("deck-cycle-counter");
+            if (cycleEl) cycleEl.textContent = String(cycleCount).padStart(5, "0");
+
+            frameCount += Math.floor(Math.random() * 3) + 1;
+            const framesEl = document.getElementById("deck-frames-val");
+            if (framesEl) framesEl.textContent = frameCount.toLocaleString();
+        }, 3200);
+
+        
+        /* ============================================================
+           INTERACTIVE VOICE & SPEECH RECOGNITION (STT / TTS)
+           ============================================================ */
+        let voiceEnabled = true; // Voice enabled by default (matching HUD VOICE: ON)
+        window.voiceEnabled = true;
+        let speechRecognition = null;
+        let isRecordingSpeech = false;
+        let selectedVoiceLang = "gemini-vega";
+        try { selectedVoiceLang = localStorage.getItem("sarembok-kokoro-voice") || selectedVoiceLang; } catch (_) {}
+
+        // Live interactive 2-way duplex conversation state
+        let liveConversationActive = false;
+        let liveRecContinuous = null;
+        let liveSilenceTimer = null;
+        let liveTranscriptBuffer = "";
+        let isSpeakingTurn = false;
+        let isWaitingForAIResponse = false;
+        let wakeWordRequired = false;
+        let wakeWordAwake = false;
+        let wakeWordAwakeTimer = null;
+        let lastSpeechEndTime = 0;
+        let liveSpeechQueue = [];
+        let isProcessingSpeechQueue = false;
+        // Bounded cross-sentence TTS prefetch. The active sentence plays while the
+        // next complete sentence is synthesized, eliminating avoidable inter-sentence
+        // stalls without ever cutting text at arbitrary character boundaries.
+        const srbkTtsPrefetch = new Map();
+        let currentAssistantSpokenText = "";
+        let currentUtteranceHistory = [];
+        let currentTurnId = 0;
+        let recognitionPermissionDenied = false;
+        let audioHardwareStream = null;
+        let audioContextUnlocked = false;
+        let globalAudioCtx = null;
+        let audioKeepAliveSource = null;
+        let audioKeepAliveGain = null;
+        function primeHtmlAudioElement() {
+            try {
+                let audio = window.__srbkSpeechAudio;
+                if (!audio) {
+                    audio = new Audio();
+                    audio.preload = "auto";
+                    audio.setAttribute("playsinline", "");
+                    audio.setAttribute("webkit-playsinline", "");
+                    audio.volume = 0.000001;
+                    audio.loop = true;
+                    window.__srbkSpeechAudio = audio;
+                    const sampleRate = 8000;
+                    const samples = Math.floor(sampleRate * 0.1);
+                    const buffer = new ArrayBuffer(44 + samples * 2);
+                    const view = new DataView(buffer);
+                    const write = (offset, value) => {
+                        for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i));
+                    };
+                    write(0, "RIFF"); view.setUint32(4, 36 + samples * 2, true);
+                    write(8, "WAVE"); write(12, "fmt "); view.setUint32(16, 16, true);
+                    view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+                    view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true);
+                    view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+                    write(36, "data"); view.setUint32(40, samples * 2, true);
+                    const silentUrl = URL.createObjectURL(new Blob([buffer], {type: "audio/wav"}));
+                    audio.src = silentUrl;
+                    audio.dataset.srbkSilentUrl = silentUrl;
+                    audio.play().catch(() => {});
+                } else if (audio.paused) {
+                    audio.play().catch(() => {});
+                }
+                return audio;
+            } catch (e) {
+                console.warn("[audio] HTMLAudio prime failed:", e);
+                return null;
+            }
+        }
+
+        async function unlockAudioEngine() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) throw new Error("Web Audio API is unavailable");
+
+                if (!globalAudioCtx || globalAudioCtx.state === "closed") {
+                    globalAudioCtx = new AudioCtx();
+                    audioKeepAliveSource = null;
+                    audioKeepAliveGain = null;
+                }
+
+                // This function is intentionally called synchronously from real user
+                // gestures (send/test/mic/click). Await the resume operation so an
+                // async TTS fetch can never race a still-suspended output context.
+                if (globalAudioCtx.state === "suspended") {
+                    await globalAudioCtx.resume();
+                }
+                if (globalAudioCtx.state === "suspended") {
+                    await globalAudioCtx.resume();
+                }
+                if (globalAudioCtx.state !== "running") {
+                    throw new Error("AudioContext is " + globalAudioCtx.state);
+                }
+
+                // Keep the context alive between responses. The oscillator is connected
+                // through an effectively silent gain node and is never exposed as speech.
+                if (!audioKeepAliveSource) {
+                    audioKeepAliveSource = globalAudioCtx.createOscillator();
+                    audioKeepAliveGain = globalAudioCtx.createGain();
+                    audioKeepAliveGain.gain.value = 0.000001;
+                    audioKeepAliveSource.connect(audioKeepAliveGain);
+                    audioKeepAliveGain.connect(globalAudioCtx.destination);
+                    audioKeepAliveSource.start();
+                }
+
+                audioContextUnlocked = true;
+                return true;
+            } catch (e) {
+                audioContextUnlocked = false;
+                console.warn("[audio] Audio engine unlock failed:", e);
+                return false;
+            }
+        }
+
+        // Browser visibility changes can suspend Web Audio. Re-arm the same persistent
+        // context when the page becomes visible again; no new context is created unless
+        // the old one was actually closed.
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden && voiceEnabled) void unlockAudioEngine();
+        });
+        window.addEventListener("touchstart", () => { void unlockAudioEngine(); }, { passive: true });
+        window.addEventListener("touchend", () => { void unlockAudioEngine(); }, { passive: true });
+        window.addEventListener("pointerdown", () => { void unlockAudioEngine(); }, { passive: true });
+        window.addEventListener("click", () => { void unlockAudioEngine(); }, { passive: true });
+        window.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " ") void unlockAudioEngine();
+        }, { passive: true });
+
+        function showInterruptPill() {
+            const pill = document.getElementById("srbk-interrupt-pill");
+            if (pill) pill.classList.add("visible");
+        }
+
+        function hideInterruptPill() {
+            const pill = document.getElementById("srbk-interrupt-pill");
+            if (pill) pill.classList.remove("visible");
+        }
+
+        function pauseRecognitionForSpeech() {
+            if (liveRecContinuous) {
+                try {
+                    liveRecContinuous.onend = null;
+                    liveRecContinuous.onerror = null;
+                    liveRecContinuous.onresult = null;
+                    liveRecContinuous.stop();
+                } catch(e) {}
+                liveRecContinuous = null;
+            }
+            clearTimeout(liveSilenceTimer);
+            liveTranscriptBuffer = "";
+        }
+
+        function handleOrbClick() {
+            if (typeof window.handleNativeOrbClick === "function") {
+                return window.handleNativeOrbClick();
+            }
+            if (typeof toggleLiveConversation === "function") {
+                return toggleLiveConversation();
+            }
+        }
+        window.handleOrbClick = handleOrbClick;
+        window.pauseRecognitionForSpeech = pauseRecognitionForSpeech;
+        window.resumeRecognitionAfterSpeech = resumeRecognitionAfterSpeech;
+
+        // Robust Acoustic Self-Echo Detector: verifies if microphone input is assistant's own voice playing from speakers
+        function isSelfEcho(heardText) {
+            if (!heardText) return false;
+            const h = heardText.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+            if (!h) return false;
+
+            const now = Date.now();
+            const candidates = [];
+            if (currentAssistantSpokenText) {
+                candidates.push(currentAssistantSpokenText.toLowerCase());
+            }
+            for (const item of currentUtteranceHistory) {
+                const itemText = typeof item === "string" ? item : item.text;
+                const itemTime = typeof item === "object" ? item.time : 0;
+                if (!itemTime || (now - itemTime < 30000)) { // 30s acoustic retention window
+                    if (itemText) candidates.push(itemText);
+                }
+            }
+            if (candidates.length === 0) return false;
+
+            const hWords = h.split(/\s+/).filter(w => w.length > 2);
+
+            for (const cand of candidates) {
+                const cleanCand = cand.replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+                if (!cleanCand) continue;
+
+                // 1. Direct or reverse substring match
+                if (cleanCand.includes(h) || h.includes(cleanCand)) return true;
+
+                // 2. Word overlap check (handles acoustic distortion and duplicated words from echo)
+                if (hWords.length > 0) {
+                    const candWords = new Set(cleanCand.split(/\s+/).filter(w => w.length > 2));
+                    const matchCount = hWords.filter(w => candWords.has(w)).length;
+                    if (matchCount / hWords.length >= 0.35) return true;
+                }
+            }
+            return false;
+        }
+
+        function toggleVoiceOutput() {
+            voiceEnabled = !voiceEnabled;
+            if (voiceEnabled) void unlockAudioEngine();
+            window.voiceEnabled = voiceEnabled;
+            if (!voiceEnabled) {
+                if (typeof window.clearNativeOutputAudio === "function") {
+                    try { window.clearNativeOutputAudio(); } catch (_) {}
+                }
+                if (activeNeuralAudio) {
+                    try { activeNeuralAudio.pause(); activeNeuralAudio.currentTime = 0; } catch (_) {}
+                    activeNeuralAudio = null;
+                }
+                setAudioDucking(false);
+                setAvatarSignal("IDLE");
+            }
+            const label = document.getElementById("hud-voice-label");
+            const btn = document.getElementById("hud-voice-toggle");
+            const chip = document.getElementById("dialogue-voice-toggle-chip");
+            const chipText = document.getElementById("dialogue-voice-chip-text");
+
+            if (label) label.textContent = voiceEnabled ? "VOICE: ON" : "VOICE: OFF";
+            if (btn) btn.classList.toggle("muted", !voiceEnabled);
+            if (chip) chip.classList.toggle("muted", !voiceEnabled);
+        }
+
+
+        let activeNeuralAudio = null;
+        let activeNeuralAudioSource = null;
+        let activeTtsAbortController = null;
+        // Monotonic browser-side TTS generation. This is deliberately separate from
+        // currentTurnId because AI/RPC turns and audio playback have different lifecycles.
+        let ttsPlaybackGeneration = 0;
+        let activeTtsRequestId = 0;
+
+
+        // SAREMBOK_PRODUCT_PRONUNCIATION_20260914
+        function normalizeSarembokSpeech(text) {
+            let speech = String(text || "");
+
+            // Kokoro on the current CPU deployment can mis-tokenize apostrophe
+            // contractions (for example "you'd" -> "you dee"). Expand common
+            // English contractions in the speech layer only; the visible response
+            // remains unchanged.
+            const contractions = [
+                [/\byou'd\b/gi, "you would"], [/\byou'll\b/gi, "you will"], [/\byou're\b/gi, "you are"],
+                [/\byou've\b/gi, "you have"], [/\byour\b/gi, "your"],
+                [/\bwe'd\b/gi, "we would"], [/\bwe'll\b/gi, "we will"], [/\bwe're\b/gi, "we are"], [/\bwe've\b/gi, "we have"],
+                [/\bthey'd\b/gi, "they would"], [/\bthey'll\b/gi, "they will"], [/\bthey're\b/gi, "they are"], [/\bthey've\b/gi, "they have"],
+                [/\bI'd\b/gi, "I would"], [/\bI'll\b/gi, "I will"], [/\bI'm\b/gi, "I am"], [/\bI've\b/gi, "I have"],
+                [/\bhe'd\b/gi, "he would"], [/\bhe'll\b/gi, "he will"], [/\bhe's\b/gi, "he is"],
+                [/\bshe'd\b/gi, "she would"], [/\bshe'll\b/gi, "she will"], [/\bshe's\b/gi, "she is"],
+                [/\bit'd\b/gi, "it would"], [/\bit'll\b/gi, "it will"], [/\bit's\b/gi, "it is"],
+                [/\bthat's\b/gi, "that is"], [/\bthat'd\b/gi, "that would"], [/\bthat'll\b/gi, "that will"],
+                [/\bwhat's\b/gi, "what is"], [/\bwhat'd\b/gi, "what would"], [/\bwhat'll\b/gi, "what will"],
+                [/\bwho's\b/gi, "who is"], [/\bwho'd\b/gi, "who would"], [/\bwho'll\b/gi, "who will"],
+                [/\bwhere's\b/gi, "where is"], [/\bwhen's\b/gi, "when is"], [/\bwhy's\b/gi, "why is"], [/\bhow's\b/gi, "how is"],
+                [/\bdon't\b/gi, "do not"], [/\bdoesn't\b/gi, "does not"], [/\bdidn't\b/gi, "did not"],
+                [/\bisn't\b/gi, "is not"], [/\baren't\b/gi, "are not"], [/\bwasn't\b/gi, "was not"], [/\bweren't\b/gi, "were not"],
+                [/\bcan't\b/gi, "cannot"], [/\bcouldn't\b/gi, "could not"], [/\bwon't\b/gi, "will not"], [/\bwouldn't\b/gi, "would not"],
+                [/\bshouldn't\b/gi, "should not"], [/\bmustn't\b/gi, "must not"], [/\bhaven't\b/gi, "have not"], [/\bhasn't\b/gi, "has not"], [/\bhadn't\b/gi, "had not"],
+                [/\blet's\b/gi, "let us"], [/\bthere's\b/gi, "there is"], [/\bhere's\b/gi, "here is"],
+                [/\bn't\b/gi, " not"], [/\b'cause\b/gi, "because"]
+            ];
+            for (const [pattern, replacement] of contractions) {
+                speech = speech.replace(pattern, replacement);
+            }
+
+            return speech
+                // Brand pronunciation
+                .replace(/\bSarembok\s*VE\b/gi, "Sarembok V E")
+                .replace(/\bSarembokVE\b/gi, "Sarembok V E")
+                // Strip emoji (Unicode ranges: emoticons, misc symbols, supplemental symbols, dingbats, etc.)
+                .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{2B50}\u{2B55}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F004}\u{1F0CF}\u{1F200}-\u{1F251}]/gu, "")
+                // Strip standalone punctuation/math/arrow symbols that TTS reads aloud
+                .replace(/[·•◇◆▸▹►▻→←↑↓↔↕⇒⇐⇔★☆✓✗✘✦✧✩✪✫✬✭✮✯✰♠♣♥♦♤♧♡♢§¶†‡©®™°±×÷≠≤≥≈∞∑∏√∂∫∈∉∋∌⊂⊃⊄⊅⊆⊇⊕⊗⊥∩∪∀∃∄∧∨¬⊤⊢⊨]/g, " ")
+                // Strip remaining non-ASCII non-letter junk that TTS may read as letter names
+                .replace(/[^\x00-\x7F]/g, " ")
+                .replace(/\s+/g, " ")
+                .trim();
+        }
+
+        async function speakText(btnOrText, onCompleteCallback, preserveConversationTurn = false) {
+            let text = "";
+            if (typeof btnOrText === "string") {
+                text = btnOrText;
+            } else if (btnOrText && btnOrText.closest) {
+                const bubble = btnOrText.closest(".srbk-bubble");
+                text = bubble ? bubble.querySelector(".srbk-content")?.textContent : "";
+            }
+            if (!text) return;
+
+            // Privacy & Mute check: if VOICE: OFF, NEVER speak aloud
+            if (typeof window.voiceEnabled !== "undefined" && !window.voiceEnabled) {
+                if (typeof onCompleteCallback === "function") onCompleteCallback();
+                return;
+            }
+
+            // Hard mutual exclusion: never allow Kokoro speech if Live Voice is active
+            if (window.nativeLiveActive || (typeof window.isNativeLiveActive === "function" && window.isNativeLiveActive())) {
+                console.log("[speakText] Kokoro narration blocked because Live Voice is active");
+                if (typeof showToast === "function") {
+                    showToast("Live Voice is currently active. Stop Live Voice to use on-demand narration.");
+                }
+                if (typeof onCompleteCallback === "function") onCompleteCallback();
+                return;
+            }
+
+            const clean = normalizeSarembokSpeech(text);
+            if (!clean) return;
+
+            pauseRecognitionForSpeech();
+            isSpeakingTurn = true;
+            currentAssistantSpokenText = clean;
+            currentUtteranceHistory.push({ text: clean.toLowerCase(), time: Date.now() });
+            if (currentUtteranceHistory.length > 25) currentUtteranceHistory.shift();
+            showInterruptPill();
+            setAvatarSignal("SPEAKING");
+            setAudioDucking(true);
+
+            // Each speakText invocation owns one playback generation. Older audio
+            // callbacks must never clean up or abort a newer request.
+            const speechRequestId = ++ttsPlaybackGeneration;
+
+            let visemeInterval = null;
+            const finishSpeaking = () => {
+                if (speechRequestId !== ttsPlaybackGeneration) return;
+                if (visemeInterval) { clearInterval(visemeInterval); visemeInterval = null; }
+                isSpeakingTurn = false;
+                currentAssistantSpokenText = "";
+                lastSpeechEndTime = Date.now();
+                setAvatarSignal("IDLE");
+                setAudioDucking(false);
+                morphTargets.jawOpen = 0;
+                updateMorphMeters();
+                hideInterruptPill();
+                window._activeSpeechUtterance = null;
+
+                if (typeof onCompleteCallback === "function") {
+                    try { onCompleteCallback(); } catch (callbackErr) { console.warn("[voice] completion callback error:", callbackErr); }
+                }
+            };
+
+            void unlockAudioEngine();
 
             // Advanced Frontier Voice: on-demand speech narration uses Gemini Live
             (async () => {
@@ -15803,7 +16481,7 @@ document.getElementById('global-input-field').addEventListener('keydown', functi
     else syncActiveTab();
 })();
 </script>
-    <script src="/live-voice.js?v=20261005-frontier-live-v17"></script>
+    <script src="/live-voice.js?v=20261005-frontier-live-v18"></script>
 
 </body>
 </html>
