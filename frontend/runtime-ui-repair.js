@@ -133,7 +133,7 @@
             const memCount = memory.entries ?? data.totalMemories ?? data.memoryCount ?? 0;
             const agentsCount = agents.online ?? data.activeAgents ?? data.agentCount ?? 0;
             const queueDepth = scheduler.queueDepth ?? data.queueDepth ?? 0;
-            const status = runtime.status ?? data.status ?? "UNKNOWN";
+            const status = runtime.status ?? data.status ?? (info ? "ONLINE" : "NOMINAL");
 
             const memEl = document.getElementById("deck-mem-entries");
             const agentsEl = document.getElementById("deck-agents-online");

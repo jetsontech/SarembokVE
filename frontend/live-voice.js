@@ -1,8 +1,8 @@
 (function () {
     "use strict";
 
-    // Native Gemini Live voice replaces the legacy browser SpeechRecognition ->
-    // SarembokChat -> Kokoro chain for the user-facing live conversation path.
+    // Native Gemini Live voice is the unified speech and duplex conversation engine
+    // for all audio synthesis and voice interaction across SarembokVE.
     // Sarembok remains the authenticated control plane for tools, identity,
     // memory, persistence, and agent/runtime state.
 
@@ -274,11 +274,9 @@
             nativeOutputContext.resume().catch(function () {});
         }
 
-        // Hard mutual exclusion: instantly silence any active Kokoro or legacy speech synthesis
+        // Silence any lingering background media or previous audio elements
         try {
-            if (typeof window.interruptKokoroSpeech === "function") {
-                window.interruptKokoroSpeech();
-            } else if (window.activeNeuralAudio && typeof window.activeNeuralAudio.pause === "function") {
+            if (window.activeNeuralAudio && typeof window.activeNeuralAudio.pause === "function") {
                 window.activeNeuralAudio.pause();
                 window.activeNeuralAudio = null;
             }
@@ -319,16 +317,24 @@
         source.onended = function () {
             nativeOutputSources.delete(source);
             try { source.disconnect(); } catch (_) {}
-            if (nativeOutputSources.size === 0 && nativeLiveActive) {
-                setNativeLiveStatus(
-                    "LISTENING (GEMINI LIVE)",
-                    "Native Gemini Live active · speak naturally"
-                );
+            if (nativeOutputSources.size === 0) {
+                if (typeof window.finishSpeakingTurn === "function") {
+                    try { window.finishSpeakingTurn(); } catch (_) {}
+                }
+                if (nativeLiveActive) {
+                    setNativeLiveStatus(
+                        "LISTENING (GEMINI LIVE)",
+                        "Native Gemini Live active · speak naturally"
+                    );
+                }
             }
         };
 
         source.start(startAt);
 
+        if (typeof window.setAvatarSignal === "function") {
+            try { window.setAvatarSignal("SPEAKING"); } catch (_) {}
+        }
         if (nativeLiveActive) {
             setNativeLiveStatus(
                 "SPEAKING (GEMINI LIVE)",
@@ -539,8 +545,10 @@
         }
     }
 
-    async function sendNativeLiveText(text, attachments, imageFrame) {
+    async function sendNativeLiveText(text, attachments, imageFrame, options) {
         var rawText = String(text || "").trim();
+        var opts = options && typeof options === "object" ? options : {};
+        var isNarrationOnly = Boolean(opts.narrationOnly);
         if (!rawText && (!attachments || !attachments.length) && !imageFrame) return false;
         if (!nativeLiveActive) return false;
 
@@ -556,13 +564,6 @@
             return false;
         }
 
-        // Silence Kokoro audio immediately
-        try {
-            if (typeof window.interruptKokoroSpeech === "function") {
-                window.interruptKokoroSpeech();
-            }
-        } catch (_) {}
-
         // Barge-in: stop active output speech immediately
         clearNativeOutputAudio();
 
@@ -570,19 +571,21 @@
         resetNativeTurn();
         nativeTurnUserText = rawText;
 
-        // Render user bubble in the dialogue history
-        try {
-            if (typeof appendUserDialogue === "function") {
-                nativeUserBubble = appendUserDialogue(rawText, imageFrame, attachments);
-            }
-        } catch (_) {}
+        if (!isNarrationOnly) {
+            // Render user bubble in the dialogue history
+            try {
+                if (typeof appendUserDialogue === "function") {
+                    nativeUserBubble = appendUserDialogue(rawText, imageFrame, attachments);
+                }
+            } catch (_) {}
 
-        // Render assistant bubble in the dialogue history
-        try {
-            if (typeof createAssistantDialogue === "function") {
-                nativeAssistantBubble = createAssistantDialogue();
-            }
-        } catch (_) {}
+            // Render assistant bubble in the dialogue history
+            try {
+                if (typeof createAssistantDialogue === "function") {
+                    nativeAssistantBubble = createAssistantDialogue();
+                }
+            } catch (_) {}
+        }
 
         // Prepare clientContent parts
         var parts = [];
@@ -600,7 +603,11 @@
 
         var fullText = (fileContext + rawText).trim();
         if (fullText) {
-            parts.push({ text: fullText });
+            if (isNarrationOnly) {
+                parts.push({ text: "Please read aloud this response verbatim with natural speech inflection and clear pronunciation:\n" + fullText });
+            } else {
+                parts.push({ text: fullText });
+            }
         }
 
         if (imageFrame) {
@@ -1236,9 +1243,8 @@
 
             try {
                 // Native Gemini Live owns the microphone and speaker. Stop any
-                // legacy Kokoro/SpeechRecognition turn before taking control.
+                // lingering speech turn before taking control.
                 try {
-                    if (typeof window.interruptKokoroSpeech === "function") window.interruptKokoroSpeech();
                     if (typeof interruptSpeech === "function") interruptSpeech();
                 } catch (_) {}
 
@@ -1256,7 +1262,6 @@
                     if (voiceChip) voiceChip.classList.remove("muted");
                     var voiceChipText = document.getElementById("dialogue-voice-chip-text");
                     if (voiceChipText) voiceChipText.textContent = "VOICE: ON";
-                    if (typeof window.interruptKokoroSpeech === "function") window.interruptKokoroSpeech();
                     var inp = document.getElementById("directive-input");
                     if (inp) {
                         inp.classList.add("live-active");
@@ -1593,9 +1598,7 @@
     window.sendNativeLiveText = sendNativeLiveText;
     window.clearNativeOutputAudio = clearNativeOutputAudio;
 
-    // Override only the legacy public entry points. The old SpeechRecognition /
-    // Kokoro functions remain available as fallback implementation code but are
-    // no longer used by the live voice controls.
+    // Public API entry points for unified Gemini Live audio.
     window.toggleLiveConversation = toggleNativeLiveConversation;
     window.handleOrbClick = handleNativeOrbClick;
 

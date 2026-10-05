@@ -11867,9 +11867,12 @@ button,
                     content.appendChild(shotCard);
                 }
 
-                // Chat responses remain quiet and clean. On-demand speech narration is triggered via 🔊 buttons.
-
                 scrollDialogue();
+
+                // Automatic speech narration for text responses when VOICE: ON is active
+                if (typeof window.voiceEnabled !== "undefined" && window.voiceEnabled && !liveRunning && finalText) {
+                    void speakText(finalText, null, true);
+                }
 
             } catch (err) {
                 content.innerHTML = `<p style="color:var(--amber);">Execution notice: ${escapeHtml(err.message)}</p>`;
@@ -12017,7 +12020,7 @@ button,
         let speechRecognition = null;
         let isRecordingSpeech = false;
         let selectedVoiceLang = "gemini-vega";
-        try { selectedVoiceLang = localStorage.getItem("sarembok-kokoro-voice") || selectedVoiceLang; } catch (_) {}
+        try { selectedVoiceLang = localStorage.getItem("sarembok-live-voice") || selectedVoiceLang; } catch (_) {}
 
         // Live interactive 2-way duplex conversation state
         let liveConversationActive = false;
@@ -12255,10 +12258,8 @@ button,
         function normalizeSarembokSpeech(text) {
             let speech = String(text || "");
 
-            // Kokoro on the current CPU deployment can mis-tokenize apostrophe
-            // contractions (for example "you'd" -> "you dee"). Expand common
-            // English contractions in the speech layer only; the visible response
-            // remains unchanged.
+            // Expand common English contractions in the speech layer only;
+            // the visible text response remains unchanged.
             const contractions = [
                 [/\byou'd\b/gi, "you would"], [/\byou'll\b/gi, "you will"], [/\byou're\b/gi, "you are"],
                 [/\byou've\b/gi, "you have"], [/\byour\b/gi, "your"],
@@ -12302,23 +12303,13 @@ button,
             if (typeof btnOrText === "string") {
                 text = btnOrText;
             } else if (btnOrText && btnOrText.closest) {
-                const bubble = btnOrText.closest(".srbk-bubble");
-                text = bubble ? bubble.querySelector(".srbk-content")?.textContent : "";
+                const bubble = btnOrText.closest(".srbk-bubble") || btnOrText.closest(".ws-bubble");
+                text = bubble ? (bubble.querySelector(".srbk-content, .ws-content-text")?.textContent || "") : "";
             }
             if (!text) return;
 
             // Privacy & Mute check: if VOICE: OFF, NEVER speak aloud
             if (typeof window.voiceEnabled !== "undefined" && !window.voiceEnabled) {
-                if (typeof onCompleteCallback === "function") onCompleteCallback();
-                return;
-            }
-
-            // Hard mutual exclusion: never allow Kokoro speech if Live Voice is active
-            if (window.nativeLiveActive || (typeof window.isNativeLiveActive === "function" && window.isNativeLiveActive())) {
-                console.log("[speakText] Kokoro narration blocked because Live Voice is active");
-                if (typeof showToast === "function") {
-                    showToast("Live Voice is currently active. Stop Live Voice to use on-demand narration.");
-                }
                 if (typeof onCompleteCallback === "function") onCompleteCallback();
                 return;
             }
@@ -12357,23 +12348,33 @@ button,
                     try { onCompleteCallback(); } catch (callbackErr) { console.warn("[voice] completion callback error:", callbackErr); }
                 }
             };
+            window.finishSpeakingTurn = finishSpeaking;
 
             void unlockAudioEngine();
 
-            // Advanced Frontier Voice: on-demand speech narration uses Gemini Live
+            // Unified Frontier Voice: on-demand speech narration uses Gemini Live
             (async () => {
                 try {
                     if (typeof window.ensureNativeLiveSession === "function" && typeof window.sendNativeLiveText === "function") {
                         const ready = await window.ensureNativeLiveSession("conversational");
                         if (ready) {
-                            await window.sendNativeLiveText("Please read this message aloud to the user: " + clean);
+                            await window.sendNativeLiveText(clean, null, null, { narrationOnly: true });
+                            return;
                         }
+                    }
+                    // Local browser speech synthesis fallback if WebSocket is unavailable
+                    if (typeof window.speechSynthesis !== "undefined") {
+                        window.speechSynthesis.cancel();
+                        const utterance = new SpeechSynthesisUtterance(clean);
+                        utterance.onend = finishSpeaking;
+                        utterance.onerror = finishSpeaking;
+                        window.speechSynthesis.speak(utterance);
+                        return;
                     }
                 } catch (err) {
                     console.warn("[FrontierVoice] Speech narration notice:", err);
-                } finally {
-                    finishSpeaking();
                 }
+                finishSpeaking();
             })();
         }
 
@@ -12778,8 +12779,6 @@ button,
             "gemini-charon": { model: "Charon", voice: "Charon", label: "Charon (Calm Male)" },
             "gemini-fenrir": { model: "Fenrir", voice: "Fenrir", label: "Fenrir (Deep Authority)" }
         };
-        const KOKORO_VOICE_MAP = FRONTIER_VOICE_MAP;
-
         function changeVoiceProfile(val, testNow = false) {
             const key = Object.prototype.hasOwnProperty.call(FRONTIER_VOICE_MAP, val) ? val : "gemini-vega";
             const profile = FRONTIER_VOICE_MAP[key];
@@ -12827,9 +12826,9 @@ button,
             setTimeout(initMetaHumanHologram, 400);
 
             const voiceEl = document.getElementById("mh-voice-select");
-            const savedVoice = (() => { try { return localStorage.getItem("sarembok-kokoro-voice"); } catch (_) { return null; } })();
+            const savedVoice = (() => { try { return localStorage.getItem("sarembok-live-voice"); } catch (_) { return null; } })();
             if (voiceEl) {
-                if (savedVoice && KOKORO_VOICE_MAP[savedVoice]) voiceEl.value = savedVoice;
+                if (savedVoice && FRONTIER_VOICE_MAP[savedVoice]) voiceEl.value = savedVoice;
                 selectedVoiceLang = voiceEl.value || "gemini-vega";
             }
 
@@ -16481,7 +16480,7 @@ document.getElementById('global-input-field').addEventListener('keydown', functi
     else syncActiveTab();
 })();
 </script>
-    <script src="/live-voice.js?v=20261005-frontier-live-v18"></script>
+    <script src="/live-voice.js?v=20261005-frontier-live-v19"></script>
 
 </body>
 </html>
