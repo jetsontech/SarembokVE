@@ -11754,23 +11754,19 @@ button,
                 }
             }
 
-            // SOLE CONVERSATIONAL & VOICE SYSTEM: LIVE CONVERSATION
-            // All dialogue directives and question answering in the message box use the unified Live Conversation engine and voice.
-            if (typeof window.ensureNativeLiveSession === "function" && typeof window.sendNativeLiveText === "function") {
+            // If the user already has Live Conversation running, route the text directive into the live duplex session
+            if (window.isNativeLiveActive && window.isNativeLiveActive() && typeof window.sendNativeLiveText === "function") {
                 let frameToSend = activeVisionFrame;
                 if (!frameToSend && visionMode && opencvActive) {
                     frameToSend = captureCurrentOpenCVFrame();
                 }
                 clearVisionFrame();
-                const liveReady = await window.ensureNativeLiveSession();
-                if (liveReady) {
-                    const sent = await window.sendNativeLiveText(text, attachmentsToSend, frameToSend);
-                    if (sent) {
-                        if (btn) btn.disabled = false;
-                        if (bgBtn) bgBtn.disabled = false;
-                        scrollDialogue();
-                        return;
-                    }
+                const sent = await window.sendNativeLiveText(text, attachmentsToSend, frameToSend);
+                if (sent) {
+                    if (btn) btn.disabled = false;
+                    if (bgBtn) bgBtn.disabled = false;
+                    scrollDialogue();
+                    return;
                 }
             }
 
@@ -12386,6 +12382,9 @@ button,
             if (voiceEnabled) void unlockAudioEngine();
             window.voiceEnabled = voiceEnabled;
             if (!voiceEnabled) {
+                if (typeof window.clearNativeOutputAudio === "function") {
+                    try { window.clearNativeOutputAudio(); } catch (_) {}
+                }
                 if (window.speechSynthesis) {
                     window.speechSynthesis.cancel();
                 }
@@ -12472,15 +12471,21 @@ button,
             }
             if (!text) return;
 
-            // Route to unified Live Conversation voice engine
-            if (typeof window.ensureNativeLiveSession === "function" && typeof window.sendNativeLiveText === "function") {
-                const ok = await window.ensureNativeLiveSession();
-                if (ok) {
-                    await window.sendNativeLiveText("Please read this aloud: " + text.slice(0, 300));
-                    if (typeof onCompleteCallback === "function") onCompleteCallback();
-                    return;
-                }
+            // Privacy & Mute check: if VOICE: OFF, NEVER speak aloud
+            if (typeof window.voiceEnabled !== "undefined" && !window.voiceEnabled) {
+                if (typeof onCompleteCallback === "function") onCompleteCallback();
+                return;
             }
+
+            // Route to unified Live Conversation voice engine ONLY if Live Voice is already active
+            if (window.isNativeLiveActive && window.isNativeLiveActive() && typeof window.sendNativeLiveText === "function") {
+                await window.sendNativeLiveText("Please read this aloud: " + text.slice(0, 300));
+                if (typeof onCompleteCallback === "function") onCompleteCallback();
+                return;
+            }
+
+            const clean = normalizeSarembokSpeech(text);
+            if (!clean) return;
 
             pauseRecognitionForSpeech();
             isSpeakingTurn = true;
@@ -17817,6 +17822,6 @@ document.getElementById('global-input-field').addEventListener('input', function
   document.addEventListener("DOMContentLoaded",sync);
 })();
 </script>
-    <script src="/live-voice.js?v=20261004-unify-live-v7"></script>
+    <script src="/live-voice.js?v=20261004-unify-live-v8"></script>
 </body>
 </html>

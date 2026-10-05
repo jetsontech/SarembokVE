@@ -264,6 +264,11 @@
         if (!bytes || bytes.byteLength < 2) return;
         if (!nativeOutputContext) return;
 
+        // Privacy & Mute check: if user turned VOICE: OFF, NEVER play audio
+        if (typeof window.voiceEnabled !== "undefined" && !window.voiceEnabled) {
+            return;
+        }
+
         // Hard mutual exclusion: instantly silence any active Kokoro or legacy speech synthesis
         try {
             if (typeof window.interruptKokoroSpeech === "function") {
@@ -1027,8 +1032,8 @@
                 "this.out=[];" +
                 "this.speechSeen=false;" +
                 "this.silenceMs=0;" +
-                "this.vadThreshold=0.012;" +
-                "this.endSilenceMs=320;" +
+                "this.vadThreshold=0.028;" +
+                "this.endSilenceMs=400;" +
             "}" +
             "process(inputs,outputs,parameters){" +
                 "const input=inputs[0]&&inputs[0][0];" +
@@ -1059,14 +1064,16 @@
                     "}else if(this.speechSeen){" +
                         "this.silenceMs+=40;" +
                     "}" +
+                    "const shouldSend=speech||(this.speechSeen&&this.silenceMs<=280);" +
                     "this.port.postMessage({" +
-                        "pcm:pcm.buffer," +
+                        "pcm:shouldSend?pcm.buffer:null," +
                         "speech:speech," +
+                        "rms:rms," +
                         "speechEnded:(" +
                             "this.speechSeen&&" +
                             "this.silenceMs>=this.endSilenceMs" +
                         ")" +
-                    "},[pcm.buffer]);" +
+                    "},shouldSend?[pcm.buffer]:[]);" +
                     "if(this.speechSeen&&this.silenceMs>=this.endSilenceMs){" +
                         "this.speechSeen=false;" +
                         "this.silenceMs=0;" +
@@ -1337,9 +1344,22 @@
                         ) return;
 
                         var payload = event.data || {};
-                        var pcmBuffer = payload.pcm;
 
-                        if (!pcmBuffer) return;
+                        // Acoustic echo gating: when Sarembok is actively speaking audio,
+                        // do not stream low-amplitude mic bleed (speakers heard by laptop mic) back into Gemini Live.
+                        if (nativeOutputSources.size > 0 && (payload.rms || 0) < 0.08) {
+                            return;
+                        }
+
+                        var pcmBuffer = payload.pcm;
+                        if (!pcmBuffer) {
+                            if (payload.speechEnded) {
+                                nativeLiveSocket.send(JSON.stringify({
+                                    realtimeInput: { audioStreamEnd: true }
+                                }));
+                            }
+                            return;
+                        }
 
                         var bytes = new Uint8Array(pcmBuffer);
                         if (!bytes.length) return;
