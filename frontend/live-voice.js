@@ -1045,7 +1045,6 @@
                 "this.silenceMs=0;" +
                 "this.vadThreshold=0.015;" +
                 "this.consecutiveSpeechFrames=0;" +
-                "this.endSilenceMs=500;" +
             "}" +
             "process(inputs,outputs,parameters){" +
                 "const input=inputs[0]&&inputs[0][0];" +
@@ -1078,17 +1077,13 @@
                     "}else if(this.speechSeen){" +
                         "this.silenceMs+=40;" +
                     "}" +
-                    "const shouldSend=speech||(this.speechSeen&&this.silenceMs<=350);" +
+                    "const shouldSend=speech||(this.speechSeen&&this.silenceMs<=1200);" +
                     "this.port.postMessage({" +
                         "pcm:shouldSend?pcm.buffer:null," +
                         "speech:speech," +
-                        "rms:rms," +
-                        "speechEnded:(" +
-                            "this.speechSeen&&" +
-                            "this.silenceMs>=this.endSilenceMs" +
-                        ")" +
+                        "rms:rms" +
                     "},shouldSend?[pcm.buffer]:[]);" +
-                    "if(this.speechSeen&&this.silenceMs>=this.endSilenceMs){" +
+                    "if(this.speechSeen&&this.silenceMs>=1600){" +
                         "this.speechSeen=false;" +
                         "this.silenceMs=0;" +
                     "}" +
@@ -1242,6 +1237,7 @@
                 // Native Gemini Live owns the microphone and speaker. Stop any
                 // legacy Kokoro/SpeechRecognition turn before taking control.
                 try {
+                    if (typeof window.interruptKokoroSpeech === "function") window.interruptKokoroSpeech();
                     if (typeof interruptSpeech === "function") interruptSpeech();
                 } catch (_) {}
 
@@ -1345,14 +1341,7 @@
                         }
 
                         var pcmBuffer = payload.pcm;
-                        if (!pcmBuffer) {
-                            if (payload.speechEnded) {
-                                nativeLiveSocket.send(JSON.stringify({
-                                    realtimeInput: { audioStreamEnd: true }
-                                }));
-                            }
-                            return;
-                        }
+                        if (!pcmBuffer) return;
 
                         var bytes = new Uint8Array(pcmBuffer);
                         if (!bytes.length) return;
@@ -1365,19 +1354,6 @@
                                 }
                             }
                         }));
-
-                        if (payload.speechEnded) {
-                            console.log(
-                                "[GEMINI-LIVE TIMING] audioStreamEnd",
-                                performance.now().toFixed(1)
-                            );
-
-                            nativeLiveSocket.send(JSON.stringify({
-                                realtimeInput: {
-                                    audioStreamEnd: true
-                                }
-                            }));
-                        }
                     };
 
                     nativeMicSource.connect(nativeInputWorklet);
@@ -1480,6 +1456,13 @@
         }
 
         if (nativeLiveSocket) {
+            try {
+                if (nativeLiveSocket.readyState === WebSocket.OPEN) {
+                    nativeLiveSocket.send(JSON.stringify({
+                        realtimeInput: { audioStreamEnd: true }
+                    }));
+                }
+            } catch (_) {}
             try {
                 nativeLiveSocket.onopen = null;
                 nativeLiveSocket.onmessage = null;

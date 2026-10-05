@@ -11755,7 +11755,11 @@ button,
             }
 
             // If the user already has Live Conversation running, route the text directive into the live duplex session
-            if (typeof window.isNativeLiveActive === "function" && window.isNativeLiveActive() && typeof window.sendNativeLiveText === "function") {
+            const liveRunning = Boolean(
+                window.nativeLiveActive ||
+                (typeof window.isNativeLiveActive === "function" && window.isNativeLiveActive())
+            );
+            if (liveRunning && typeof window.sendNativeLiveText === "function") {
                 let frameToSend = activeVisionFrame;
                 if (!frameToSend && visionMode && opencvActive) {
                     frameToSend = captureCurrentOpenCVFrame();
@@ -11895,10 +11899,7 @@ button,
                     content.appendChild(shotCard);
                 }
 
-                // Narrate response if voice output is enabled and Live Voice is not active
-                if (window.voiceEnabled && typeof speakText === "function" && (!window.isNativeLiveActive || !window.isNativeLiveActive())) {
-                    speakText(finalText);
-                }
+                // Chat responses remain quiet and clean. On-demand speech narration is triggered via 🔊 buttons.
 
                 scrollDialogue();
 
@@ -12484,8 +12485,12 @@ button,
                 return;
             }
 
-            // Route to unified Live Conversation voice engine ONLY if Live Voice is already active
-            if (window.isNativeLiveActive && window.isNativeLiveActive()) {
+            // Hard mutual exclusion: never allow Kokoro speech if Live Voice is active
+            if (window.nativeLiveActive || (typeof window.isNativeLiveActive === "function" && window.isNativeLiveActive())) {
+                console.log("[speakText] Kokoro narration blocked because Live Voice is active");
+                if (typeof showToast === "function") {
+                    showToast("Live Voice is currently active. Stop Live Voice to use on-demand narration.");
+                }
                 if (typeof onCompleteCallback === "function") onCompleteCallback();
                 return;
             }
@@ -15587,9 +15592,7 @@ button,
             addWsWalEntry("step_" + Math.floor(Math.random()*900 + 100), "COMMITTED", text.slice(0, 42));
             chatPane.scrollTop = chatPane.scrollHeight;
 
-            if (window.voiceEnabled && typeof speakText === "function" && (!window.isNativeLiveActive || !window.isNativeLiveActive())) {
-                speakText(fullText);
-            }
+
         }
 
         function updateWsStatus(msg) {
@@ -15781,9 +15784,10 @@ button,
 
         function startSimpleVoice() {
             void unlockAudioEngine();
-            enableLiveAudioNow();
-            if (window.webkitSpeechRecognition || window.SpeechRecognition) {
-                toggleSpeechRecognition();
+            if (typeof toggleLiveConversation === "function") {
+                toggleLiveConversation();
+            } else if (typeof startSarembokLiveVoice === "function") {
+                startSarembokLiveVoice();
             }
         }
 
@@ -17867,6 +17871,6 @@ document.getElementById('global-input-field').addEventListener('keydown', functi
   document.addEventListener("DOMContentLoaded",sync);
 })();
 </script>
-    <script src="/live-voice.js?v=20261004-unify-live-v12"></script>
+    <script src="/live-voice.js?v=20261005-unified-live-v14"></script>
 </body>
 </html>
