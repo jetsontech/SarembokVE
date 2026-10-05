@@ -11754,8 +11754,23 @@ button,
                 }
             }
 
-            // User typed into the text box: this is a quiet, private text directive.
-            // Instantly silence any active speech so typing takes complete priority without broadcasting audio to the room.
+            // If the user already has Live Conversation running, route the text directive into the live duplex session
+            if (typeof window.isNativeLiveActive === "function" && window.isNativeLiveActive() && typeof window.sendNativeLiveText === "function") {
+                let frameToSend = activeVisionFrame;
+                if (!frameToSend && visionMode && opencvActive) {
+                    frameToSend = captureCurrentOpenCVFrame();
+                }
+                clearVisionFrame();
+                const sent = await window.sendNativeLiveText(text, attachmentsToSend, frameToSend);
+                if (sent) {
+                    if (btn) btn.disabled = false;
+                    if (bgBtn) bgBtn.disabled = false;
+                    scrollDialogue();
+                    return;
+                }
+            }
+
+            // User typed into the text box: silence any previous speech
             interruptSpeech();
             if (typeof window.clearNativeOutputAudio === "function") {
                 try { window.clearNativeOutputAudio(); } catch (_) {}
@@ -11880,7 +11895,10 @@ button,
                     content.appendChild(shotCard);
                 }
 
-                // Fallback completion: text-only, speech audio is handled exclusively by Live Conversation.
+                // Narrate response if voice output is enabled and Live Voice is not active
+                if (window.voiceEnabled && typeof speakText === "function" && (!window.isNativeLiveActive || !window.isNativeLiveActive())) {
+                    speakText(finalText);
+                }
 
                 scrollDialogue();
 
@@ -12361,9 +12379,6 @@ button,
         }
 
         if (window.speechSynthesis) {
-            window.speechSynthesis.speak = function () {
-                console.log("[tts] window.speechSynthesis.speak suppressed; native Live audio is authoritative.");
-            };
             window.speechSynthesis.onvoiceschanged = () => {
                 getResolvedVoiceProfile();
             };
@@ -13090,7 +13105,22 @@ button,
                     console.warn("[tts] Kokoro playback failed for " + kokoroVoice + ":", err);
                     if (typeof window.setKokoroStatus === "function") {
                         const reason = err && err.message ? " · " + err.message : "";
-                        window.setKokoroStatus("Kokoro audio error · " + kokoroVoice + reason, false);
+                        window.setKokoroStatus("Kokoro fallback · browser speech" + reason, false);
+                    }
+                    if (window.speechSynthesis && (!window.isNativeLiveActive || !window.isNativeLiveActive())) {
+                        try {
+                            const u = new SpeechSynthesisUtterance(clean);
+                            const voiceProf = getResolvedVoiceProfile();
+                            if (voiceProf && voiceProf.voice) u.voice = voiceProf.voice;
+                            u.rate = voiceProf ? voiceProf.rate : 1.0;
+                            u.pitch = voiceProf ? voiceProf.pitch : 1.0;
+                            u.onend = () => finishSpeaking();
+                            u.onerror = () => finishSpeaking();
+                            window.speechSynthesis.speak(u);
+                            return;
+                        } catch (e) {
+                            console.warn("[tts] browser speech fallback error:", e);
+                        }
                     }
                     finishSpeaking();
                 }
@@ -15459,12 +15489,20 @@ button,
                         <div style="font-size:11px; font-family:var(--font-mono); color:var(--cyan);">
                             ANTIGRAVITY GEMINI · V3.8-FLASH
                         </div>
-                        <button
-                            class="srbk-tool-btn"
-                            type="button"
-                            onclick="copyResponse(this)"
-                            title="Copy complete response"
-                            aria-label="Copy complete response">COPY</button>
+                        <div style="display:flex; gap:6px;">
+                            <button
+                                class="srbk-tool-btn"
+                                type="button"
+                                onclick="copyResponse(this)"
+                                title="Copy complete response"
+                                aria-label="Copy complete response">COPY</button>
+                            <button
+                                class="srbk-tool-btn srbk-speak-btn"
+                                type="button"
+                                onclick="speakText(this)"
+                                title="Narrate response"
+                                aria-label="Narrate response">🔊</button>
+                        </div>
                     </div>
                     <div class="ws-content-text" style="line-height:1.6;"></div>
                 </div>
@@ -15548,6 +15586,10 @@ button,
             updateWsTelemetry();
             addWsWalEntry("step_" + Math.floor(Math.random()*900 + 100), "COMMITTED", text.slice(0, 42));
             chatPane.scrollTop = chatPane.scrollHeight;
+
+            if (window.voiceEnabled && typeof speakText === "function" && (!window.isNativeLiveActive || !window.isNativeLiveActive())) {
+                speakText(fullText);
+            }
         }
 
         function updateWsStatus(msg) {
@@ -17654,28 +17696,27 @@ function globalSendMessage(isBackground) {
     // Capture the browser's real user gesture before routing into async chat/TTS.
     void unlockAudioEngine();
     const field = document.getElementById('global-input-field');
-    if (!field) return;
-    const text = field.value.trim();
-    if (!text) return;
-
     const tab = window._activeTab || document.querySelector('.dock-btn.active')?.id.replace(/^dock-btn-/, '') || 'dialogue';
+    const wsInput = document.getElementById('ws-prompt-input');
+    const text = (field ? field.value.trim() : "") || (tab === 'workspace' && wsInput ? wsInput.value.trim() : "");
+    if (!text) return;
+    if (field) field.value = '';
+    if (wsInput && tab === 'workspace') wsInput.value = '';
 
     if (tab === 'workspace') {
         // Route to workspace prompt handler
-        field.value = '';
         submitWorkspacePrompt(text);
     } else {
         // Route to dialogue handler — mirror text into the real directive-input and fire
         const realInput = document.getElementById('directive-input');
         if (realInput) {
             realInput.value = text;
-            field.value = '';
             // Make sure dialogue view is active so sendDirective renders output there
             if (tab !== 'dialogue') switchTab('dialogue');
             sendDirective(isBackground);
         } else {
             // Fallback: just clear
-            field.value = '';
+            if (field) field.value = '';
         }
     }
 }
@@ -17732,6 +17773,15 @@ document.getElementById('global-input-field').addEventListener('input', function
 document.getElementById('global-input-field').addEventListener('keydown', function() {
     window.__lastDirectiveInputTime = Date.now();
 });
+
+// Mirror keystroke timing on ws-prompt-input
+(function patchWsPromptInput() {
+    const wsInp = document.getElementById('ws-prompt-input');
+    if (wsInp) {
+        wsInp.addEventListener('input', function() { window.__lastDirectiveInputTime = Date.now(); });
+        wsInp.addEventListener('keydown', function() { window.__lastDirectiveInputTime = Date.now(); });
+    }
+})();
 
 // Mobile: adjust global bar bottom for the 52px dock
 (function applyMobileGlobalBarOffset() {
@@ -17817,6 +17867,6 @@ document.getElementById('global-input-field').addEventListener('keydown', functi
   document.addEventListener("DOMContentLoaded",sync);
 })();
 </script>
-    <script src="/live-voice.js?v=20261004-unify-live-v11"></script>
+    <script src="/live-voice.js?v=20261004-unify-live-v12"></script>
 </body>
 </html>

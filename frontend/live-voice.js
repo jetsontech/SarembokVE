@@ -1043,9 +1043,9 @@
                 "this.out=[];" +
                 "this.speechSeen=false;" +
                 "this.silenceMs=0;" +
-                "this.vadThreshold=0.045;" +
+                "this.vadThreshold=0.015;" +
                 "this.consecutiveSpeechFrames=0;" +
-                "this.endSilenceMs=650;" +
+                "this.endSilenceMs=500;" +
             "}" +
             "process(inputs,outputs,parameters){" +
                 "const input=inputs[0]&&inputs[0][0];" +
@@ -1071,7 +1071,7 @@
                     "const rms=Math.sqrt(sum/640);" +
                     "const speechEnergy=rms>=this.vadThreshold;" +
                     "if(speechEnergy){this.consecutiveSpeechFrames++;}else{this.consecutiveSpeechFrames=0;}" +
-                    "const speech=speechEnergy&&(this.consecutiveSpeechFrames>=4||this.speechSeen);" +
+                    "const speech=speechEnergy&&(this.consecutiveSpeechFrames>=2||this.speechSeen);" +
                     "if(speech){" +
                         "this.speechSeen=true;" +
                         "this.silenceMs=0;" +
@@ -1331,18 +1331,16 @@
 
                         var payload = event.data || {};
 
-                        // Privacy & Typing Guard: if user is typing in directive-input or any text field,
-                        // do not stream mic input to Gemini Live (keeps typing private and avoids clatter triggers)
-                        var activeEl = document.activeElement;
-                        var isTyping = activeEl && (activeEl.id === "directive-input" || activeEl.id === "deck-directive-input" || activeEl.id === "global-input-field" || activeEl.classList.contains("dialogue-input") || activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA");
+                        // Keystroke Noise Rejection: suppress mic streaming ONLY while keys are actively being typed
+                        // to avoid keyboard clatter interrupting Gemini Live. Does NOT mute when input is merely focused.
                         var now = Date.now();
-                        if (isTyping || (window.__lastDirectiveInputTime && (now - window.__lastDirectiveInputTime < 3000))) {
+                        if (window.__lastDirectiveInputTime && (now - window.__lastDirectiveInputTime < 700)) {
                             return;
                         }
 
                         // Acoustic echo gating: when Sarembok is actively speaking audio,
-                        // do not stream mic bleed back into Gemini Live unless user is deliberately interrupting loudly.
-                        if (nativeOutputSources.size > 0 && (payload.rms || 0) < 0.14) {
+                        // do not stream mic bleed back into Gemini Live unless user is deliberately interrupting.
+                        if (nativeOutputSources.size > 0 && (payload.rms || 0) < 0.08) {
                             return;
                         }
 
