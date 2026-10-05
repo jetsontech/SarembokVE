@@ -12361,6 +12361,9 @@ button,
         }
 
         if (window.speechSynthesis) {
+            window.speechSynthesis.speak = function () {
+                console.log("[tts] window.speechSynthesis.speak suppressed; native Live audio is authoritative.");
+            };
             window.speechSynthesis.onvoiceschanged = () => {
                 getResolvedVoiceProfile();
             };
@@ -12467,8 +12470,7 @@ button,
             }
 
             // Route to unified Live Conversation voice engine ONLY if Live Voice is already active
-            if (window.isNativeLiveActive && window.isNativeLiveActive() && typeof window.sendNativeLiveText === "function") {
-                await window.sendNativeLiveText("Please read this aloud: " + text.slice(0, 300));
+            if (window.isNativeLiveActive && window.isNativeLiveActive()) {
                 if (typeof onCompleteCallback === "function") onCompleteCallback();
                 return;
             }
@@ -14446,16 +14448,11 @@ button,
         }
 
         async function startLiveConversationLoop() {
-            // Disabled: Live conversation is handled exclusively by Gemini Live native audio in live-voice.js
-            if (typeof window.toggleNativeLiveConversation === "function" && !window.isNativeLiveActive()) {
-                window.toggleNativeLiveConversation();
-            }
             return;
         }
 
         async function _legacy_startLiveConversationLoop() {
-
-            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            return;
             if (!SpeechRec) {
                 alert("Live speech recognition requires Chrome, Edge, or a WebSpeech-compatible browser.");
                 toggleLiveConversation();
@@ -14833,7 +14830,7 @@ button,
         }
 
         async function executeLiveConversationTurn(userSpeech) {
-            pauseRecognitionForSpeech();
+            return;
             const cleanSpeech = (userSpeech || "").trim();
             // Guard against empty, punctuation-only, or self-echo loops
             if (!cleanSpeech || cleanSpeech.length < 2 || !/[a-zA-Z0-9]{2,}/.test(cleanSpeech) || isSelfEcho(cleanSpeech)) {
@@ -17716,14 +17713,24 @@ function globalCameraToggle() {
                 globalField.value = realField.value;
             }
         });
-        realField.addEventListener('input', () => { globalField.value = realField.value; });
+        realField.addEventListener('input', () => {
+            globalField.value = realField.value;
+            window.__lastDirectiveInputTime = Date.now();
+        });
+        realField.addEventListener('keydown', () => {
+            window.__lastDirectiveInputTime = Date.now();
+        });
     }
 })();
 
 // Also mirror global field typing into directive-input for compatibility
 document.getElementById('global-input-field').addEventListener('input', function() {
+    window.__lastDirectiveInputTime = Date.now();
     const real = document.getElementById('directive-input');
     if (real) real.value = this.value;
+});
+document.getElementById('global-input-field').addEventListener('keydown', function() {
+    window.__lastDirectiveInputTime = Date.now();
 });
 
 // Mobile: adjust global bar bottom for the 52px dock
@@ -17810,6 +17817,6 @@ document.getElementById('global-input-field').addEventListener('input', function
   document.addEventListener("DOMContentLoaded",sync);
 })();
 </script>
-    <script src="/live-voice.js?v=20261004-unify-live-v10"></script>
+    <script src="/live-voice.js?v=20261004-unify-live-v11"></script>
 </body>
 </html>

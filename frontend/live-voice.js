@@ -852,12 +852,9 @@
 
         if (setupComplete) {
             nativeSetupComplete = true;
-            populateHistoryFromDialogue();
-            var historyMessage = buildInitialHistoryContent();
-            if (historyMessage) {
-                sendNativeClientJson(historyMessage);
-            }
-
+            // DO NOT inject history with turnComplete: true!
+            // Injecting turnComplete: true causes Gemini Live to generate speech immediately upon
+            // connecting without any user input. Session must remain in silence until user speaks.
             setNativeLiveStatus(
                 "LISTENING (GEMINI LIVE)",
                 nativeLiveMediaStream
@@ -1046,9 +1043,9 @@
                 "this.out=[];" +
                 "this.speechSeen=false;" +
                 "this.silenceMs=0;" +
-                "this.vadThreshold=0.038;" +
+                "this.vadThreshold=0.045;" +
                 "this.consecutiveSpeechFrames=0;" +
-                "this.endSilenceMs=450;" +
+                "this.endSilenceMs=650;" +
             "}" +
             "process(inputs,outputs,parameters){" +
                 "const input=inputs[0]&&inputs[0][0];" +
@@ -1074,14 +1071,14 @@
                     "const rms=Math.sqrt(sum/640);" +
                     "const speechEnergy=rms>=this.vadThreshold;" +
                     "if(speechEnergy){this.consecutiveSpeechFrames++;}else{this.consecutiveSpeechFrames=0;}" +
-                    "const speech=speechEnergy&&(this.consecutiveSpeechFrames>=2||this.speechSeen);" +
+                    "const speech=speechEnergy&&(this.consecutiveSpeechFrames>=4||this.speechSeen);" +
                     "if(speech){" +
                         "this.speechSeen=true;" +
                         "this.silenceMs=0;" +
                     "}else if(this.speechSeen){" +
                         "this.silenceMs+=40;" +
                     "}" +
-                    "const shouldSend=speech||(this.speechSeen&&this.silenceMs<=280);" +
+                    "const shouldSend=speech||(this.speechSeen&&this.silenceMs<=350);" +
                     "this.port.postMessage({" +
                         "pcm:shouldSend?pcm.buffer:null," +
                         "speech:speech," +
@@ -1139,7 +1136,18 @@
     }
 
     async function connectNativeGemini(tokenData) {
+        if (nativeLiveSocket) {
+            try {
+                nativeLiveSocket.onopen = null;
+                nativeLiveSocket.onmessage = null;
+                nativeLiveSocket.onerror = null;
+                nativeLiveSocket.onclose = null;
+                nativeLiveSocket.close();
+            } catch (_) {}
+            nativeLiveSocket = null;
+        }
         nativeSetupComplete = false;
+        clearNativeOutputAudio();
 
         var url = LIVE_WS_BASE + "?access_token=" +
             encodeURIComponent(tokenData.token);
@@ -1166,10 +1174,12 @@
                     realtimeInputConfig: setup.realtimeInputConfig,
                     inputAudioTranscription: setup.inputAudioTranscription,
                     outputAudioTranscription: setup.outputAudioTranscription,
-                    sessionResumption: setup.sessionResumption,
-                    historyConfig: setup.historyConfig
+                    sessionResumption: setup.sessionResumption
                 }
             };
+            if (setup.historyConfig) {
+                setupMessage.setup.historyConfig = setup.historyConfig;
+            }
 
             nativeLiveSocket.send(JSON.stringify(setupMessage));
         };
@@ -1218,57 +1228,6 @@
                 }, 750);
             }
         };
-    }
-
-    async function startNativeInputCapture() {
-        nativeLiveMediaStream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-                channelCount: 1,
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
-            },
-            video: false
-        });
-
-        await ensureAudioContexts();
-
-        nativeMicSource = nativeInputContext.createMediaStreamSource(
-            nativeLiveMediaStream
-        );
-        nativeInputWorklet = new AudioWorkletNode(
-            nativeInputContext,
-            "sarembok-live-input",
-            { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 1 }
-        );
-
-        nativeInputWorklet.port.onmessage = function (event) {
-            if (!nativeSetupComplete) return;
-            if (
-                !nativeLiveSocket ||
-                nativeLiveSocket.readyState !== WebSocket.OPEN
-            ) return;
-
-            var pcm = new Uint8Array(event.data);
-            if (!pcm.length) return;
-
-            nativeLiveSocket.send(JSON.stringify({
-                realtimeInput: {
-                    audio: {
-                        mimeType: "audio/pcm;rate=16000",
-                        data: base64FromBytes(pcm)
-                    }
-                }
-            }));
-        };
-
-        nativeMicSource.connect(nativeInputWorklet);
-
-        // Keep the worklet alive without routing microphone audio to the speakers.
-        var silentGain = nativeInputContext.createGain();
-        silentGain.gain.value = 0;
-        nativeInputWorklet.connect(silentGain);
-        silentGain.connect(nativeInputContext.destination);
     }
 
     async function startNativeLive(mode) {
@@ -1375,7 +1334,9 @@
                         // Privacy & Typing Guard: if user is typing in directive-input or any text field,
                         // do not stream mic input to Gemini Live (keeps typing private and avoids clatter triggers)
                         var activeEl = document.activeElement;
-                        if (activeEl && (activeEl.id === "directive-input" || activeEl.id === "deck-directive-input" || activeEl.classList.contains("dialogue-input") || activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+                        var isTyping = activeEl && (activeEl.id === "directive-input" || activeEl.id === "deck-directive-input" || activeEl.id === "global-input-field" || activeEl.classList.contains("dialogue-input") || activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA");
+                        var now = Date.now();
+                        if (isTyping || (window.__lastDirectiveInputTime && (now - window.__lastDirectiveInputTime < 3000))) {
                             return;
                         }
 
@@ -1521,7 +1482,13 @@
         }
 
         if (nativeLiveSocket) {
-            try { nativeLiveSocket.close(1000, "user-stop"); } catch (_) {}
+            try {
+                nativeLiveSocket.onopen = null;
+                nativeLiveSocket.onmessage = null;
+                nativeLiveSocket.onerror = null;
+                nativeLiveSocket.onclose = null;
+                nativeLiveSocket.close(1000, "user-stop");
+            } catch (_) {}
             nativeLiveSocket = null;
         }
 
