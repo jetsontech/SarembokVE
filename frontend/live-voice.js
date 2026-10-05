@@ -966,7 +966,7 @@
                     logNativeLive("audio decode error: " + err.message, "amber");
                 }
             }
-            if (part.text) {
+            if (part.text && !serverContent.outputTranscription) {
                 var cleanPart = sanitizeAssistantText(part.text);
                 if (cleanPart) {
                     nativeTurnAssistantText = mergeTranscript(
@@ -980,6 +980,7 @@
 
         if (serverContent.interrupted) {
             clearNativeOutputAudio();
+            resetNativeTurn();
             setNativeLiveStatus(
                 "LISTENING (INTERRUPTED)",
                 "Listening · the assistant was interrupted"
@@ -1606,6 +1607,12 @@
         if (mic) {
             mic.setAttribute("onclick", "toggleLiveConversation()");
             mic.title = "Start native Gemini Live conversation";
+        }
+
+        var globalMic = document.getElementById("global-mic-btn");
+        if (globalMic) {
+            globalMic.setAttribute("onclick", "toggleLiveConversation()");
+            globalMic.title = "Start native Gemini Live conversation";
         }
 
         var liveBtn = document.getElementById("hud-live-2way-btn");
