@@ -1631,30 +1631,8 @@
         if (orb) {
             orb.setAttribute("onclick", "handleOrbClick()");
         }
-
-        var kokoroBtn = document.getElementById("srbk-kokoro-btn");
-        if (kokoroBtn) {
-            var spans = kokoroBtn.querySelectorAll("span");
-            if (spans.length > 1) spans[1].textContent = "KOKORO FALLBACK";
-        }
-
-        var kokoroTitle = document.querySelector(".srbk-kokoro-title");
-        if (kokoroTitle) kokoroTitle.textContent = "KOKORO FALLBACK";
-
-        var kokoroStatus = document.getElementById("srbk-kokoro-status");
-        if (kokoroStatus) {
-            kokoroStatus.textContent =
-                "Fallback neural speech only. Live conversation uses native Gemini Live audio.";
-        }
-
         var legacyWakeWord = document.getElementById("wake-word-toggle-btn");
         if (legacyWakeWord) legacyWakeWord.style.display = "none";
-
-        var kokoroState = document.getElementById("srbk-kokoro-state");
-        if (kokoroState) kokoroState.textContent = "FALLBACK";
-
-        var kokoroTest = document.getElementById("srbk-kokoro-test");
-        if (kokoroTest) kokoroTest.textContent = "▶ TEST FALLBACK VOICE";
     }
 
     if (document.readyState === "loading") {
