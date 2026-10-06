@@ -247,7 +247,7 @@
     }
 
     function clearNativeOutputAudio() {
-        try { if (window.speechSynthesis && window.speechSynthesis.cancel) window.speechSynthesis.cancel(); } catch (_) {}
+        // Gemini Live is the sole voice authority. Browser SpeechSynthesis is disabled.
         nativeNextAudioTime = nativeOutputContext
             ? nativeOutputContext.currentTime
             : 0;
