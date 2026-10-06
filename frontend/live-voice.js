@@ -35,6 +35,39 @@
     var nativeReconnectTimer = null;
     var nativeStartPromise = null;
     var nativeConnectionGeneration = 0;
+    // Exactly one Gemini Live voice authority is allowed across all Sarembok tabs.
+    // This prevents the main site and Agent Console (or two console tabs) from
+    // opening independent microphone/speaker sessions that answer simultaneously.
+    var liveAuthorityId = "live-" + Math.random().toString(36).slice(2) + "-" + Date.now().toString(36);
+    var liveAuthorityChannel = null;
+    try {
+        liveAuthorityChannel = new BroadcastChannel("sarembok-gemini-live-authority-v1");
+        liveAuthorityChannel.onmessage = function (event) {
+            var data = event && event.data || {};
+            if (!data || data.type !== "CLAIM" || data.id === liveAuthorityId) return;
+            if (nativeLiveActive) {
+                try { void stopNativeLive(); } catch (_) {}
+            }
+        };
+    } catch (_) {
+        liveAuthorityChannel = null;
+    }
+
+    function claimLiveAuthority() {
+        try {
+            if (liveAuthorityChannel) {
+                liveAuthorityChannel.postMessage({type: "CLAIM", id: liveAuthorityId});
+            }
+        } catch (_) {}
+    }
+
+    function releaseLiveAuthority() {
+        try {
+            if (liveAuthorityChannel) {
+                liveAuthorityChannel.postMessage({type: "RELEASE", id: liveAuthorityId});
+            }
+        } catch (_) {}
+    }
 
     var LIVE_TOOLS = {
         get_runtime_info: "GetRuntimeInfo",
@@ -1184,6 +1217,10 @@
         if (nativeLiveActive) return;
         if (nativeStartPromise) return nativeStartPromise;
 
+        // Take the single cross-tab Live authority before opening the mic or
+        // Gemini socket. Any other Sarembok page will be forced to stop.
+        claimLiveAuthority();
+
         nativeStartPromise = (async function () {
             nativeLiveMode = mode === "agentic" ? "agentic" : "conversational";
             nativeLiveStopping = false;
@@ -1390,6 +1427,7 @@
 
     async function stopNativeLive() {
         nativeLiveStopping = true;
+        releaseLiveAuthority();
         nativeLiveActive = false;
         window.nativeLiveActive = false;
         window.liveConversationActive = false;
@@ -1566,7 +1604,9 @@
         }
 
         var liveBtn = document.getElementById("hud-live-2way-btn");
-        if (liveBtn) {
+        // On Agent Console this element is a status indicator, not a second
+        // voice control. Only the main-site BUTTON may receive the toggle.
+        if (liveBtn && liveBtn.tagName === "BUTTON") {
             liveBtn.setAttribute("onclick", "toggleLiveConversation()");
             var label = liveBtn.querySelector("span");
             if (label) label.textContent = "LIVE VOICE";
@@ -1592,6 +1632,7 @@
     }
 
     window.addEventListener("pagehide", function () {
+        try { releaseLiveAuthority(); } catch (_) {}
         try { void stopNativeLive(); } catch (_) {}
     });
 })();
