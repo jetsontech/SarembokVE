@@ -11869,10 +11869,8 @@ button,
 
                 scrollDialogue();
 
-                // Automatic speech narration for text responses when VOICE: ON is active
-                if (typeof window.voiceEnabled !== "undefined" && window.voiceEnabled && !liveRunning && finalText) {
-                    void speakText(finalText, null, true);
-                }
+                // Frontier voice authority: normal SarembokChat responses remain text-only.
+                // Gemini Live owns audio when Live is active; never invoke a second TTS engine here.
 
             } catch (err) {
                 content.innerHTML = `<p style="color:var(--amber);">Execution notice: ${escapeHtml(err.message)}</p>`;
@@ -12245,13 +12243,6 @@ button,
         }
 
 
-        let activeNeuralAudio = null;
-        let activeNeuralAudioSource = null;
-        let activeTtsAbortController = null;
-        // Monotonic browser-side TTS generation. This is deliberately separate from
-        // currentTurnId because AI/RPC turns and audio playback have different lifecycles.
-        let ttsPlaybackGeneration = 0;
-        let activeTtsRequestId = 0;
 
 
         // SAREMBOK_PRODUCT_PRONUNCIATION_20260914
@@ -12298,132 +12289,33 @@ button,
                 .trim();
         }
 
-        async function speakText(btnOrText, onCompleteCallback, preserveConversationTurn = false) {
+        async async function speakText(btnOrText, onCompleteCallback, preserveConversationTurn = false) {
             let text = "";
-            if (typeof btnOrText === "string") {
-                text = btnOrText;
-            } else if (btnOrText && btnOrText.closest) {
+            if (typeof btnOrText === "string") text = btnOrText;
+            else if (btnOrText && btnOrText.closest) {
                 const bubble = btnOrText.closest(".srbk-bubble") || btnOrText.closest(".ws-bubble");
                 text = bubble ? (bubble.querySelector(".srbk-content, .ws-content-text")?.textContent || "") : "";
             }
-            if (!text) return;
-
+            text = String(text || "").trim();
+            if (!text) { if (typeof onCompleteCallback === "function") onCompleteCallback(); return false; }
             if (typeof window.voiceEnabled !== "undefined" && !window.voiceEnabled) {
                 if (typeof onCompleteCallback === "function") onCompleteCallback();
-                return;
+                return false;
             }
-
-            // Gemini Live is the exclusive speaker while a duplex session is active.
-            // One-shot narration must never start a second Live session or fall back
-            // to browser speech while Live is still connected.
             if (typeof window.isNativeLiveActive === "function" && window.isNativeLiveActive()) {
-                if (typeof onCompleteCallback === "function") onCompleteCallback();
-                return;
+                try {
+                    if (typeof window.sendNativeLiveText === "function") {
+                        const sent = await window.sendNativeLiveText(text, null, null);
+                        if (typeof onCompleteCallback === "function") onCompleteCallback();
+                        return Boolean(sent);
+                    }
+                } catch (err) {
+                    console.warn("[FrontierVoice] Gemini Live narration request failed:", err);
+                }
             }
-
-            const clean = normalizeSarembokSpeech(text);
-            if (!clean) return;
-
-            pauseRecognitionForSpeech();
-            isSpeakingTurn = true;
-            currentAssistantSpokenText = clean;
-            showInterruptPill();
-            setAvatarSignal("SPEAKING");
-            setAudioDucking(true);
-
-            const speechRequestId = ++ttsPlaybackGeneration;
-            if (activeTtsAbortController) {
-                try { activeTtsAbortController.abort(); } catch (_) {}
-            }
-            activeTtsAbortController = new AbortController();
-
-            const finishSpeaking = () => {
-                if (speechRequestId !== ttsPlaybackGeneration) return;
-                isSpeakingTurn = false;
-                currentAssistantSpokenText = "";
-                lastSpeechEndTime = Date.now();
-                setAvatarSignal("IDLE");
-                setAudioDucking(false);
-                hideInterruptPill();
-                window._activeSpeechUtterance = null;
-                activeNeuralAudio = null;
-                if (typeof onCompleteCallback === "function") {
-                    try { onCompleteCallback(); } catch (_) {}
-                }
-            };
-            window.finishSpeakingTurn = finishSpeaking;
-
-            try {
-                await unlockAudioEngine();
-
-                const sessionToken = window.browserSessionToken || (
-                    typeof window.initSession === "function" ? await window.initSession() : ""
-                );
-                if (!sessionToken) throw new Error("browser session unavailable");
-
-                const params = new URLSearchParams({
-                    text: clean,
-                    voice: "af_heart",
-                    language: "en-us",
-                    speed: "0.95"
-                });
-                const response = await fetch("/api/tts?" + params.toString(), {
-                    method: "GET",
-                    cache: "no-store",
-                    headers: {
-                        "Accept": "audio/wav",
-                        "Authorization": "Bearer " + sessionToken
-                    },
-                    signal: activeTtsAbortController.signal
-                });
-                if (!response.ok) {
-                    throw new Error("Kokoro TTS HTTP " + response.status);
-                }
-
-                const blob = await response.blob();
-                if (!blob.size) throw new Error("Kokoro returned empty audio");
-
-                // A single HTMLAudioElement owns one-shot Kokoro playback. No
-                // concurrent audio elements are allowed.
-                if (activeNeuralAudio) {
-                    try { activeNeuralAudio.pause(); activeNeuralAudio.currentTime = 0; } catch (_) {}
-                }
-                const audio = new Audio(URL.createObjectURL(blob));
-                audio.preload = "auto";
-                audio.setAttribute("playsinline", "");
-                activeNeuralAudio = audio;
-                window._activeSpeechUtterance = audio;
-
-                const cleanupUrl = audio.src;
-                audio.onended = () => {
-                    URL.revokeObjectURL(cleanupUrl);
-                    finishSpeaking();
-                };
-                audio.onerror = () => {
-                    URL.revokeObjectURL(cleanupUrl);
-                    finishSpeaking();
-                };
-
-                await audio.play();
-            } catch (err) {
-                if (err && err.name === "AbortError") return;
-                console.warn("[KokoroVoice] one-shot narration failed:", err);
-
-                // Browser speech is only a last-resort fallback when Gemini Live
-                // is definitely inactive. It can never run concurrently with Live.
-                if (!(typeof window.isNativeLiveActive === "function" && window.isNativeLiveActive()) &&
-                    typeof window.speechSynthesis !== "undefined") {
-                    try {
-                        window.speechSynthesis.cancel();
-                        const utterance = new SpeechSynthesisUtterance(clean);
-                        utterance.onend = finishSpeaking;
-                        utterance.onerror = finishSpeaking;
-                        window.speechSynthesis.speak(utterance);
-                        return;
-                    } catch (_) {}
-                }
-                finishSpeaking();
-            }
+            // Gemini Live is the sole voice authority. No Kokoro or browser SpeechSynthesis fallback.
+            if (typeof onCompleteCallback === "function") onCompleteCallback();
+            return false;
         }
 
         function toggleSpeechRecognition() {
