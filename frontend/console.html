@@ -736,7 +736,7 @@
             <div class="input-area">
                 <div class="input-row">
                     <button class="voice-btn" id="dialogue-mic-btn" type="button" onclick="toggleLiveConversation()" title="Start two-way live voice">🎙 2-WAY</button>
-                    <button class="voice-btn active" id="hud-live-2way-btn" type="button" onclick="toggleLiveConversation()" title="Start two-way live voice">LIVE VOICE</button>
+                    <div class="voice-btn live-voice-status" id="hud-live-2way-btn" role="status" aria-live="polite" title="Gemini Live is the console voice authority">LIVE VOICE · GEMINI LIVE</div>
                     <input type="text" class="chat-input" id="chat-input" placeholder="Message Sarembok…" autocomplete="off" spellcheck="true">
                     <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
                     <div class="voice-status" id="console-voice-status"><span class="voice-status-dot" id="console-voice-dot"></span><span id="console-voice-state">VOICE READY</span><span id="console-voice-hint"></span></div>
