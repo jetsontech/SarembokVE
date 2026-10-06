@@ -550,7 +550,6 @@
     async function sendNativeLiveText(text, attachments, imageFrame, options) {
         var rawText = String(text || "").trim();
         var opts = options && typeof options === "object" ? options : {};
-        var isNarrationOnly = Boolean(opts.narrationOnly);
         if (!rawText && (!attachments || !attachments.length) && !imageFrame) return false;
         if (!nativeLiveActive) return false;
         if (nativeLiveSocket && nativeLiveSocket.readyState === WebSocket.CONNECTING) {
@@ -563,10 +562,8 @@
         clearNativeOutputAudio();
         resetNativeTurn();
         nativeTurnUserText = rawText;
-        if (!isNarrationOnly) {
-            try { if (typeof appendUserDialogue === "function") nativeUserBubble = appendUserDialogue(rawText, imageFrame, attachments); } catch (_) {}
-            try { if (typeof createAssistantDialogue === "function") nativeAssistantBubble = createAssistantDialogue(); } catch (_) {}
-        }
+        try { if (typeof appendUserDialogue === "function") nativeUserBubble = appendUserDialogue(rawText, imageFrame, attachments); } catch (_) {}
+        try { if (typeof createAssistantDialogue === "function") nativeAssistantBubble = createAssistantDialogue(); } catch (_) {}
         var fileContext = "";
         if (Array.isArray(attachments)) attachments.forEach(function(att) {
             if (att && att.content && !String(att.content).startsWith("data:image")) {
@@ -574,11 +571,9 @@
             }
         });
         var fullText = (fileContext + rawText).trim();
-        var spokenText = isNarrationOnly
-            ? "Please read aloud this response verbatim with natural speech inflection and clear pronunciation:\n" + rawText
-            : rawText;
+        var spokenText = rawText;
         var parts = [];
-        if (fullText) parts.push({text: isNarrationOnly ? "Please read aloud this response verbatim with natural speech inflection and clear pronunciation:\n" + fullText : fullText});
+        if (fullText) parts.push({text: fullText});
         if (imageFrame) {
             var cleanBase64 = String(imageFrame).replace(/^data:image\/[a-z]+;base64,/, "");
             if (cleanBase64) parts.push({inlineData:{mimeType:"image/jpeg",data:cleanBase64}});
