@@ -12303,15 +12303,10 @@ button,
                 return false;
             }
             if (typeof window.isNativeLiveActive === "function" && window.isNativeLiveActive()) {
-                try {
-                    if (typeof window.sendNativeLiveText === "function") {
-                        const sent = await window.sendNativeLiveText(text, null, null);
-                        if (typeof onCompleteCallback === "function") onCompleteCallback();
-                        return Boolean(sent);
-                    }
-                } catch (err) {
-                    console.warn("[FrontierVoice] Gemini Live narration request failed:", err);
-                }
+                // The current Live turn already owns its audio. Re-speaking the
+                // completed assistant text would create a second Gemini turn.
+                if (typeof onCompleteCallback === "function") onCompleteCallback();
+                return false;
             }
             // Gemini Live is the sole voice authority. No Kokoro or browser SpeechSynthesis fallback.
             if (typeof onCompleteCallback === "function") onCompleteCallback();
