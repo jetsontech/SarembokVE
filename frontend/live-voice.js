@@ -1035,10 +1035,6 @@
                 "this.phase=0;" +
                 "this.ratio=sampleRate/16000;" +
                 "this.out=[];" +
-                "this.speechSeen=false;" +
-                "this.silenceMs=0;" +
-                "this.vadThreshold=0.022;" +
-                "this.consecutiveSpeechFrames=0;" +
             "}" +
             "process(inputs,outputs,parameters){" +
                 "const input=inputs[0]&&inputs[0][0];" +
@@ -1062,25 +1058,10 @@
                         "sum+=v*v;" +
                     "}" +
                     "const rms=Math.sqrt(sum/640);" +
-                    "const speechEnergy=rms>=this.vadThreshold;" +
-                    "if(speechEnergy){this.consecutiveSpeechFrames++;}else{this.consecutiveSpeechFrames=0;}" +
-                    "const speech=speechEnergy&&(this.consecutiveSpeechFrames>=1||this.speechSeen);" +
-                    "if(speech){" +
-                        "this.speechSeen=true;" +
-                        "this.silenceMs=0;" +
-                    "}else if(this.speechSeen){" +
-                        "this.silenceMs+=40;" +
-                    "}" +
-                    "const shouldSend=speech||(this.speechSeen&&this.silenceMs<=180);" +
                     "this.port.postMessage({" +
-                        "pcm:shouldSend?pcm.buffer:null," +
-                        "speech:speech," +
+                        "pcm:pcm.buffer," +
                         "rms:rms" +
-                    "},shouldSend?[pcm.buffer]:[]);" +
-                    "if(this.speechSeen&&this.silenceMs>=500){" +
-                        "this.speechSeen=false;" +
-                        "this.silenceMs=0;" +
-                    "}" +
+                    "},[pcm.buffer]);" +
                 "}" +
                 "return true;" +
             "}" +
