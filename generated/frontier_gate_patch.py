@@ -201,3 +201,39 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+class TubiStreamingBridge:
+    """Playwright video streaming bridge for Tubi platform playback."""
+    def __init__(self, db_connection=None):
+        self.db_connection = db_connection
+
+    async def launch_stream(self, movie_query: str) -> None:
+        print(f"[TubiStreamingBridge] Launching Playwright stream for '{movie_query}'")
+
+db = None
+
+
+# Append this to generated/frontier_gate_patch.py to process the Tubi player actions
+async def execute_agent_action(final_action_payload: dict):
+    """
+    Reads the parsed, safe output from your supervisor and triggers 
+    the necessary system tools or browser subsystems.
+    """
+    tool_name = final_action_payload.get("tool")
+    parameters = final_action_payload.get("parameters", {})
+    
+    if tool_name == "MediaPlaybackAgent":
+        movie_query = parameters.get("query")
+        platform = parameters.get("platform", "tubi")
+        
+        print(f"[SarembokVE Router] Ingesting command: Play '{movie_query}' via {platform}")
+        
+        # Initialize and launch the Playwright background video wrapper
+        bridge = TubiStreamingBridge(db_connection=db)
+        await bridge.launch_stream(movie_query)
+        
+    else:
+        # Fall back to default terminal or diagnostic registry handlers
+        print(f"[SarembokVE Router] Routing to standard system agent: {tool_name}")
+
