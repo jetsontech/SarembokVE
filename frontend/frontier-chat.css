@@ -9,8 +9,7 @@ body.mode-simple .hud-mode-pill-wrap{border:1px solid rgba(0,216,232,.18)!import
 body.mode-simple .hud-mode-btn{min-height:30px!important;padding:6px 11px!important;border:0!important;border-radius:999px!important;background:transparent!important;color:#8d9aae!important}
 body.mode-simple .hud-mode-btn.active{background:#00d8e8!important;color:#061016!important;box-shadow:0 0 18px rgba(0,216,232,.18)!important}
 body.mode-simple .hud-voice-btn{min-height:30px!important;padding:6px 10px!important;border-radius:999px!important;border:1px solid rgba(255,255,255,.1)!important;background:rgba(255,255,255,.035)!important;color:#a9b5c4!important}
-body.mode-simple #hud-features-btn,body.mode-simple #hud-history-drawer-btn,body.mode-simple #hud-agent-console-btn{display:none!important}
-body.mode-simple .dialogue-wrap{max-width:900px!important;margin:0 auto!important;border:0!important;background:transparent!important;box-shadow:none!important}
+body.mode-simple .dialogue-wrap{max-width:min(1560px,96vw)!important;margin:0 auto!important;border:0!important;background:transparent!important;box-shadow:none!important}
 body.mode-simple .dialogue-head{min-height:48px!important;padding:8px 4px!important;background:rgba(8,11,16,.72)!important;border-bottom:1px solid rgba(255,255,255,.06)!important}
 body.mode-simple .dialogue-title{font-family:var(--font-sans)!important;font-size:11px!important;color:#728197!important}
 body.mode-simple .dialogue-head .cyber-select{border:1px solid rgba(255,255,255,.09)!important;background:#10151d!important;color:#aeb9c8!important;border-radius:9px!important}
