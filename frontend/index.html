@@ -9688,10 +9688,17 @@ button,
 
             if (media.needsResolve && media.resolveQuery) {
                 try {
-                    const result = await sendRPC("SearchYouTube", { query: media.resolveQuery });
+                    const result = await sendRPC("ResolveMediaStream", { query: media.resolveQuery, platform: "auto" });
                     if (result?.videoId) {
                         TOPIC_PRESETS[media.resolveQuery.toLowerCase()] = { id: result.videoId, title: (title || media.resolveQuery).toUpperCase() };
                         media = resolvePlayableMedia(result.videoId, title);
+                    } else if (result?.url) {
+                        media = {
+                            raw: result.url,
+                            displayTitle: result.title || title || media.resolveQuery,
+                            embedUrl: result.url,
+                            platform: result.platform || "tubi"
+                        };
                     }
                 } catch (e) {
                     console.warn('[Sarembok] Inline video resolve failed:', e);

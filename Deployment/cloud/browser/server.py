@@ -18,7 +18,11 @@ NAVIGATION_TIMEOUT_MS = max(
     1000,
     int(os.getenv("SAREMBOK_BROWSER_NAVIGATION_TIMEOUT_MS", "15000")),
 )
-USER_AGENT = "SarembokBrowser/2.0 (+https://sarembok.com)"
+USER_AGENT = os.getenv(
+    "ANTIGRAVITY_CUSTOM_UA",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+)
+
 
 
 def allowed_hosts() -> list[str]:
@@ -104,12 +108,18 @@ class BrowserRuntime:
 
     def start(self) -> None:
         self.playwright = sync_playwright().start()
+        launch_args = [
+            "--disable-dev-shm-usage",
+            "--no-sandbox",
+        ]
+        if os.getenv("ANTIGRAVITY_MASK_AUTOMATION", "true").lower() in ("true", "1", "yes"):
+            launch_args.extend([
+                "--disable-blink-features=AutomationControlled",
+                "--disable-infobars",
+            ])
         self.browser = self.playwright.chromium.launch(
             headless=True,
-            args=[
-                "--disable-dev-shm-usage",
-                "--no-sandbox",
-            ],
+            args=launch_args,
         )
 
     def stop(self) -> None:
@@ -149,6 +159,10 @@ class BrowserRuntime:
             java_script_enabled=True,
             service_workers="block",
         )
+        if os.getenv("ANTIGRAVITY_MASK_AUTOMATION", "true").lower() in ("true", "1", "yes"):
+            context.add_init_script(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+            )
 
         def route_handler(route: Any) -> None:
             request_url = route.request.url

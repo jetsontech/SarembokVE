@@ -2098,6 +2098,87 @@ def resolve_youtube_search(query: str) -> dict[str, Any]:
     except Exception as exc:
         LOG.warning("YouTube verified search failed for %r: %s",q_clean,exc)
     return {"videoId":None,"url":q_url,"searchUrl":q_url,"title":f"Search results for {q_clean}","verified":False,"matchScore":0.0}
+
+
+def _query_local_media_catalog(query: str) -> Optional[dict[str, Any]]:
+    """Queries local media database/cache for locally indexed asset."""
+    try:
+        import sqlite3
+        if os.path.exists(DB_PATH):
+            with sqlite3.connect(DB_PATH) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "CREATE TABLE IF NOT EXISTS media_playback_events (id INTEGER PRIMARY KEY AUTOINCREMENT, query TEXT, platform TEXT, url TEXT, timestamp TEXT)"
+                )
+                cursor.execute(
+                    "SELECT url, query FROM media_playback_events WHERE query LIKE ? ORDER BY id DESC LIMIT 1",
+                    (f"%{query}%",)
+                )
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        "platform": "local_catalog",
+                        "url": row[0],
+                        "title": row[1].title() if row[1] else query.title(),
+                        "verified": True,
+                        "source": "local_database",
+                        "matchScore": 1.0,
+                    }
+    except Exception as exc:
+        LOG.debug("Local media catalog query notice: %s", exc)
+    return None
+
+
+def resolve_media_stream(query: str, platform: str = "auto") -> dict[str, Any]:
+    """Resolves media stream with direct Tubi stealth routing and local database fallback.
+    Enforces native DOM selector routing and blocks YouTube fallback loops for movies."""
+    clean_query = str(query or "").strip()
+    is_movie = platform == "tubi" or any(term in clean_query.lower() for term in (
+        "movie", "film", "stream", "spiderman", "spider-man", "batman", "avengers", "cinema", "full movie"
+    ))
+
+    if is_movie:
+        from tubi_streaming_bridge import TubiStreamingBridge
+        bridge = TubiStreamingBridge()
+        direct_slug_url = bridge.construct_direct_slug_url(clean_query)
+        LOG.info("Tubi stealth bridge routing query %r to direct slug %r", clean_query, direct_slug_url)
+
+        try:
+            res = asyncio.run(bridge.launch_stream(clean_query)) if hasattr(asyncio, "run") else {}
+        except Exception as bridge_err:
+            LOG.warning("Tubi streaming bridge launch notice: %s", bridge_err)
+            res = {}
+
+        if res.get("status") in ("streaming", "streaming_active", "resolved_routing") and res.get("resolved_url"):
+            return {
+                "platform": "tubi",
+                "url": res["resolved_url"],
+                "title": clean_query.title(),
+                "verified": True,
+                "directSlug": direct_slug_url,
+                "selector": "div[data-testid='video-thumbnail'] a",
+                "stealthShield": True,
+            }
+
+        # ENFORCE NATIVE DOM SELECTOR ROUTING & BLOCK YOUTUBE LOOP:
+        # Crash/fail back to local database rather than falling back to global web search engines or YouTube
+        LOG.warning("Tubi media resolution empty/blocked for %r. Failing back to local catalog; YouTube fallback blocked.", clean_query)
+        local_match = _query_local_media_catalog(clean_query)
+        if local_match:
+            return local_match
+
+        return {
+            "platform": "tubi",
+            "url": direct_slug_url,
+            "title": clean_query.title(),
+            "verified": False,
+            "error": "Tubi platform grid empty; failed back to local catalog. Web search / YouTube fallback blocked.",
+            "fallbackBlocked": True,
+        }
+
+    return resolve_youtube_search(clean_query)
+
+
 def get_visual_engine_status() -> dict[str, Any]:
     """Returns the configuration and readiness of all 3 visual synthesis tiers."""
     comfy_url = os.getenv("COMFYUI_URL", os.getenv("SOVEREIGN_GPU_ENDPOINT", "http://127.0.0.1:8188")).strip().rstrip("/")
@@ -3659,6 +3740,9 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
 
     if method in ("SearchYouTube", "ResolveMediaStream"):
         query = str(params.get("query") or params.get("topic") or "").strip()
+        platform = str(params.get("platform") or "auto").strip().lower()
+        if method == "ResolveMediaStream":
+            return resolve_media_stream(query, platform=platform)
         return resolve_youtube_search(query)
 
     if method == "SearchWeb":

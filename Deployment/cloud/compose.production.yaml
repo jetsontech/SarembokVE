@@ -19,6 +19,8 @@ services:
       SAREMBOK_GEMINI_API: ${SAREMBOK_GEMINI_API:-generatecontent}
       SAREMBOK_GEMINI_THINKING_LEVEL: ${SAREMBOK_GEMINI_THINKING_LEVEL:-low}
       SAREMBOK_PROVIDER_ORDER: ${SAREMBOK_PROVIDER_ORDER:-Gemini,OpenRouter,Groq,OpenAI,Custom}
+      ANTIGRAVITY_CUSTOM_UA: ${ANTIGRAVITY_CUSTOM_UA:-"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+      ANTIGRAVITY_MASK_AUTOMATION: ${ANTIGRAVITY_MASK_AUTOMATION:-"true"}
       LLM_ENDPOINT_URL: ${LLM_ENDPOINT_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-}
@@ -33,6 +35,9 @@ services:
 
   sarembok-browser:
     image: sarembok-browser:production
+    environment:
+      ANTIGRAVITY_CUSTOM_UA: ${ANTIGRAVITY_CUSTOM_UA:-"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+      ANTIGRAVITY_MASK_AUTOMATION: ${ANTIGRAVITY_MASK_AUTOMATION:-"true"}
 
   sarembok-edge:
     build:
