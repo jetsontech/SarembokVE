@@ -226,6 +226,15 @@
                 : "Start native Gemini Live conversation";
         }
 
+        var globalMic = document.getElementById("global-mic-btn");
+        if (globalMic) {
+            globalMic.classList.toggle("active", nativeLiveActive);
+            globalMic.classList.toggle("recording", nativeLiveActive);
+            globalMic.title = nativeLiveActive
+                ? "Stop native Gemini Live conversation"
+                : "Start native Gemini Live conversation";
+        }
+
         try {
             if (typeof setAvatarSignal === "function") {
                 if (state.indexOf("SPEAKING") >= 0) setAvatarSignal("SPEAKING");
@@ -241,15 +250,28 @@
             }
         } catch (_) {}
 
+        var voiceName = (nativeLiveConfig && nativeLiveConfig.setup && nativeLiveConfig.setup.generationConfig && nativeLiveConfig.setup.generationConfig.speechConfig && nativeLiveConfig.setup.generationConfig.speechConfig.voiceConfig && nativeLiveConfig.setup.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig && nativeLiveConfig.setup.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName) || "Kore";
+
         var input = document.getElementById("directive-input");
         if (input) {
             if (nativeLiveActive) {
-                var voiceName = (nativeLiveConfig && nativeLiveConfig.setup && nativeLiveConfig.setup.generationConfig && nativeLiveConfig.setup.generationConfig.speechConfig && nativeLiveConfig.setup.generationConfig.speechConfig.voiceConfig && nativeLiveConfig.setup.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig && nativeLiveConfig.setup.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName) || "Kore";
                 input.placeholder = "Message Sarembok (Live Voice Active · " + voiceName + ")...";
                 input.classList.add("live-active");
             } else {
                 input.placeholder = "Message Sarembok V E, attach files, or tap mic...";
                 input.classList.remove("live-active");
+            }
+        }
+
+        var globalField = document.getElementById("global-input-field");
+        if (globalField) {
+            if (nativeLiveActive) {
+                if (!globalField.dataset.normalPlaceholder) globalField.dataset.normalPlaceholder = globalField.placeholder;
+                globalField.placeholder = "Message Sarembok (Live Voice Active · " + voiceName + ")…";
+                globalField.classList.add("live-active");
+            } else {
+                if (globalField.dataset.normalPlaceholder) globalField.placeholder = globalField.dataset.normalPlaceholder;
+                globalField.classList.remove("live-active");
             }
         }
     }
@@ -352,7 +374,9 @@
         nativeOutputSources.add(source);
         window.__srbkIsSpeaking = true;
 
-        source.onended = function () {
+        var cleanupSource = function () {
+            if (cleanupSource.done) return;
+            cleanupSource.done = true;
             nativeOutputSources.delete(source);
             try { source.disconnect(); } catch (_) {}
             if (nativeOutputSources.size === 0) {
@@ -369,6 +393,11 @@
                 }
             }
         };
+
+        source.onended = cleanupSource;
+        // Watchdog timeout: if source.onended is delayed or missed by browser backgrounding, clean up safely
+        var maxWaitMs = Math.max(500, Math.ceil(((startAt - now) + buffer.duration + 0.35) * 1000));
+        setTimeout(cleanupSource, maxWaitMs);
 
         source.start(startAt);
 
@@ -1433,6 +1462,19 @@
                 if (inp.dataset.normalPlaceholder) {
                     inp.placeholder = inp.dataset.normalPlaceholder;
                 }
+            }
+            var gField = document.getElementById("global-input-field");
+            if (gField) {
+                gField.classList.remove("live-active");
+                if (gField.dataset.normalPlaceholder) {
+                    gField.placeholder = gField.dataset.normalPlaceholder;
+                }
+            }
+            var gMic = document.getElementById("global-mic-btn");
+            if (gMic) {
+                gMic.classList.remove("active");
+                gMic.classList.remove("recording");
+                gMic.title = "Start native Gemini Live conversation";
             }
         } catch (_) {}
 

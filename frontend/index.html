@@ -6996,7 +6996,7 @@ button,
 <script>
 </script>
 
-<link rel="stylesheet" href="/frontier-chat.css?v=20261002-ui2">
+<link rel="stylesheet" href="/frontier-chat.css?v=20261009-live-glow">
 </head>
 <body>
 <form id="srbk-admin-passcode-form" style="display:none" onsubmit="return false;"></form>
@@ -16368,17 +16368,11 @@ function globalSendMessage(isBackground) {
 
 function globalMicToggle() {
     // Primary visible mic: native Gemini Live owns the microphone for 2-way conversation.
-    const btn = document.getElementById('global-mic-btn');
     if (typeof toggleLiveConversation === 'function') {
         void toggleLiveConversation();
     } else if (typeof startSarembokLiveVoice === 'function') {
         void startSarembokLiveVoice();
     }
-    if (btn) setTimeout(() => {
-        const liveBtn = document.getElementById('dialogue-mic-btn');
-        const active = !!(liveBtn && (liveBtn.classList.contains('active') || liveBtn.classList.contains('recording')));
-        btn.classList.toggle('recording', active);
-    }, 150);
 }
 
 function globalCameraToggle() {
@@ -16463,7 +16457,7 @@ if (gField) {
     else syncActiveTab();
 })();
 </script>
-    <script src="/live-voice.js?v=20261009-continuous-mic-v25"></script>
+    <script src="/live-voice.js?v=20261009-continuous-mic-v26"></script>
 
 </body>
 </html>

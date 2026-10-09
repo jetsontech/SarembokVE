@@ -31,7 +31,11 @@ body.mode-simple #global-input-bar{left:0!important;right:0!important;bottom:0!i
 body.mode-simple #global-input-bar-inner{max-width:900px!important;min-height:54px!important;padding:7px 9px!important;border:1px solid rgba(255,255,255,.11)!important;background:#10151d!important;border-radius:18px!important;box-shadow:0 16px 45px rgba(0,0,0,.42)!important}
 body.mode-simple #global-input-field{color:#f4f7fb!important;font-size:16px!important}
 body.mode-simple #global-input-field::placeholder{color:#68778a!important}
-body.mode-simple #global-mic-btn,body.mode-simple #global-vision-btn{background:rgba(255,255,255,.035)!important;border-color:rgba(255,255,255,.09)!important;color:#8fa0b3!important}
+body.mode-simple #global-mic-btn,body.mode-simple #global-vision-btn{background:rgba(255,255,255,.035)!important;border-color:rgba(255,255,255,.09)!important;color:#8fa0b3!important;transition:all .2s ease!important}
+body.mode-simple #global-mic-btn.recording,body.mode-simple #global-mic-btn.active{background:rgba(239,68,68,.25)!important;border-color:#ef4444!important;color:#ef4444!important;box-shadow:0 0 18px rgba(239,68,68,.55)!important;animation:srbkPulseRed 1.1s infinite ease-in-out!important}
+@keyframes srbkPulseRed{0%,100%{transform:scale(1);box-shadow:0 0 18px rgba(239,68,68,.55)}50%{transform:scale(1.12);box-shadow:0 0 24px rgba(239,68,68,.85)}}
+body.mode-simple #global-input-field.live-active{color:#00d8e8!important}
+body.mode-simple #global-input-field.live-active::placeholder{color:rgba(0,216,232,.75)!important}
 body.mode-simple #global-send-btn{width:40px!important;height:40px!important;background:#00d8e8!important;color:#041016!important;box-shadow:0 0 18px rgba(0,216,232,.16)!important}
 body.mode-simple #global-bg-btn{display:none!important}
 body.mode-simple .srbk-mobile-dialogue-composer{display:none!important}
