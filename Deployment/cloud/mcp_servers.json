@@ -1,5 +1,11 @@
 {
   "mcpServers": {
+    "ovh_vps": {
+      "transport": "stdio",
+      "command": "python",
+      "args": ["Tools/ovh_vps_mcp.py"],
+      "timeout": 60.0
+    },
     "sqlite": {
       "transport": "stdio",
       "command": "python",

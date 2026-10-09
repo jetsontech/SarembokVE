@@ -293,6 +293,8 @@
             try { source.disconnect(); } catch (_) {}
         });
         nativeOutputSources.clear();
+        window.__srbkIsSpeaking = false;
+        window.__lastModelAudioEndTime = 0;
     }
 
     function queueNativeOutputPcm(bytes) {
@@ -338,21 +340,24 @@
         source.connect(nativeOutputContext.destination);
 
         var now = nativeOutputContext.currentTime;
-        if (nativeNextAudioTime < now || nativeNextAudioTime > now + 2.0) {
-            nativeNextAudioTime = now;
+        // Continuous sample-accurate audio scheduling.
+        // If buffer ran dry or at the very beginning of a turn, lead in by 25ms.
+        // Never jump nativeNextAudioTime backward while sources are still scheduled.
+        if (nativeNextAudioTime < now) {
+            nativeNextAudioTime = now + 0.025;
         }
-        var startAt = Math.max(
-            nativeNextAudioTime,
-            now + (nativeNextAudioTime > now ? 0.005 : 0.02)
-        );
+        var startAt = nativeNextAudioTime;
 
         nativeNextAudioTime = startAt + buffer.duration;
         nativeOutputSources.add(source);
+        window.__srbkIsSpeaking = true;
 
         source.onended = function () {
             nativeOutputSources.delete(source);
             try { source.disconnect(); } catch (_) {}
             if (nativeOutputSources.size === 0) {
+                window.__srbkIsSpeaking = false;
+                window.__lastModelAudioEndTime = Date.now();
                 if (typeof window.finishSpeakingTurn === "function") {
                     try { window.finishSpeakingTurn(); } catch (_) {}
                 }
@@ -878,6 +883,9 @@
 
         if (serverContent.inputTranscription) {
             var inputText = serverContent.inputTranscription.text || "";
+            if (nativeOutputSources.size > 0) {
+                clearNativeOutputAudio();
+            }
             nativeTurnUserText = mergeTranscript(
                 nativeTurnUserText,
                 inputText
@@ -892,6 +900,9 @@
 
         if (serverContent.interimInputTranscription) {
             var interim = serverContent.interimInputTranscription.text || "";
+            if (nativeOutputSources.size > 0) {
+                clearNativeOutputAudio();
+            }
             setNativeLiveStatus(
                 "HEARING YOU",
                 interim || nativeTurnUserText || "Listening"
@@ -1026,7 +1037,7 @@
                 "this.out=[];" +
                 "this.speechSeen=false;" +
                 "this.silenceMs=0;" +
-                "this.vadThreshold=0.015;" +
+                "this.vadThreshold=0.022;" +
                 "this.consecutiveSpeechFrames=0;" +
             "}" +
             "process(inputs,outputs,parameters){" +
@@ -1060,13 +1071,13 @@
                     "}else if(this.speechSeen){" +
                         "this.silenceMs+=40;" +
                     "}" +
-                    "const shouldSend=speech||(this.speechSeen&&this.silenceMs<=1200);" +
+                    "const shouldSend=speech||(this.speechSeen&&this.silenceMs<=750);" +
                     "this.port.postMessage({" +
                         "pcm:shouldSend?pcm.buffer:null," +
                         "speech:speech," +
                         "rms:rms" +
                     "},shouldSend?[pcm.buffer]:[]);" +
-                    "if(this.speechSeen&&this.silenceMs>=1600){" +
+                    "if(this.speechSeen&&this.silenceMs>=1200){" +
                         "this.speechSeen=false;" +
                         "this.silenceMs=0;" +
                     "}" +
@@ -1324,9 +1335,12 @@
                             return;
                         }
 
-                        // Acoustic echo gating: when Sarembok is actively speaking audio,
-                        // do not stream mic bleed back into Gemini Live unless user is deliberately interrupting.
-                        if (nativeOutputSources.size > 0 && (payload.rms || 0) < 0.08) {
+                        // Zero-Echo Duplex Gate: while Sarembok is speaking (or within the 400ms acoustic reverb tail),
+                        // DO NOT stream microphone audio to Gemini Live. This completely prevents acoustic bleed,
+                        // self-interruption loops, foreign language hallucinations, and double-voice responses.
+                        var isModelSpeaking = (nativeOutputSources.size > 0) ||
+                            (window.__lastModelAudioEndTime && (now - window.__lastModelAudioEndTime < 400));
+                        if (isModelSpeaking) {
                             return;
                         }
 

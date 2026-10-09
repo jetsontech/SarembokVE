@@ -252,7 +252,6 @@ def build_live_setup(mode: str = "conversational") -> dict[str, Any]:
                     "voiceName": os.getenv("SAREMBOK_LIVE_VOICE", "Kore"),
                 }
             },
-            "languageCode": "en-US",
         },
     }
 
@@ -274,7 +273,7 @@ def build_live_setup(mode: str = "conversational") -> dict[str, Any]:
             "automaticActivityDetection": {
                 "disabled": False,
                 "prefixPaddingMs": 160,
-                "silenceDurationMs": 650,
+                "silenceDurationMs": 750,
             },
             "activityHandling": "START_OF_ACTIVITY_INTERRUPTS",
         },
