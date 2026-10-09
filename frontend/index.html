@@ -7130,6 +7130,13 @@ button,
                     <span>FABRIC: V3.8-FLASH</span>
                 </button>
 
+                <!-- Live Edge Entropy Telemetry Badge -->
+                <button class="hud-voice-btn" id="hud-entropy-badge" onclick="switchTab('fabric')" title="Edge Shannon Entropy Loop Defense (Threshold: 0.88)" style="border-color:rgba(16,185,129,0.35); color:#10b981; background:rgba(16,185,129,0.08); font-family:var(--font-mono); font-size:11px; padding:4px 9px;">
+                    <span id="hud-entropy-dot" style="width:6px; height:6px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981; display:inline-block; margin-right:4px;"></span>
+                    <span id="hud-entropy-text" style="font-weight:700;">H: 0.14</span>
+                    <span style="font-size:9px; opacity:0.6; margin-left:2px;">/0.88</span>
+                </button>
+
                 
                 <button class="hud-voice-btn" id="hud-telemetry-toggle-btn" onclick="toggleWorkspaceCockpit()" title="Toggle Advanced Developer Cockpit Telemetry" style="border-color:rgba(0,240,255,0.4); color:var(--cyan); background:rgba(0,240,255,0.08);">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -14096,6 +14103,31 @@ button,
                 if (toggleLabel) toggleLabel.textContent = "TELEMETRY COCKPIT";
             }
         }
+
+        function updateEdgeEntropyBadge() {
+            var rpcFn = (typeof window.sendRPC === 'function') ? window.sendRPC : ((typeof sendRPC === 'function') ? sendRPC : null);
+            if (!rpcFn) return;
+            rpcFn('GetEntropyMetrics', {}).then(function(res) {
+                if (!res) return;
+                var val = typeof res.entropy === 'number' ? res.entropy.toFixed(2) : '0.14';
+                var txt = document.getElementById('hud-entropy-text');
+                var dot = document.getElementById('hud-entropy-dot');
+                var badge = document.getElementById('hud-entropy-badge');
+                if (txt) txt.textContent = 'H: ' + val;
+                if (res.status === 'ALERT' || res.entropy >= 0.88) {
+                    if (dot) { dot.style.background = '#ef4444'; dot.style.boxShadow = '0 0 8px #ef4444'; }
+                    if (badge) { badge.style.color = '#ef4444'; badge.style.borderColor = 'rgba(239,68,68,0.5)'; badge.style.background = 'rgba(239,68,68,0.12)'; }
+                } else if (res.entropy >= 0.70) {
+                    if (dot) { dot.style.background = '#f59e0b'; dot.style.boxShadow = '0 0 6px #f59e0b'; }
+                    if (badge) { badge.style.color = '#f59e0b'; badge.style.borderColor = 'rgba(245,158,11,0.5)'; badge.style.background = 'rgba(245,158,11,0.12)'; }
+                } else {
+                    if (dot) { dot.style.background = '#10b981'; dot.style.boxShadow = '0 0 6px #10b981'; }
+                    if (badge) { badge.style.color = '#10b981'; badge.style.borderColor = 'rgba(16,185,129,0.4)'; badge.style.background = 'rgba(16,185,129,0.08)'; }
+                }
+            }).catch(function() {});
+        }
+        setInterval(updateEdgeEntropyBadge, 5000);
+        setTimeout(updateEdgeEntropyBadge, 1200);
 
         async function submitWorkspacePrompt(customText) {
             const input = document.getElementById('ws-prompt-input');

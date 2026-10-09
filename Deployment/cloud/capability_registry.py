@@ -54,6 +54,7 @@ RPC_CAPABILITIES = {
     "ExecuteComputeTask": ("compute", "Execute compute work on eligible registered workers."),
     "GetVisualEngineStatus": ("frontier-vision", "Read visual synthesis provider and worker status."),
     "SearchWeb": ("search", "Search the live web for real-time information, facts, scores, and news."),
+    "GetEntropyMetrics": ("governance", "Read live Shannon entropy loop metrics and guardrail status."),
 }
 
 

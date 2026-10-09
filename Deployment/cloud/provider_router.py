@@ -176,6 +176,13 @@ class ProviderRouter:
         if any(m in text for m in synthesis_markers):
             return 'SYNTHESIS', 'deepseek-v3'
 
+        if 'paligemma' in text:
+            return 'VISION', 'paligemma'
+        if 'codegemma' in text:
+            return 'CODE', 'codegemma'
+        if 'gemma' in text:
+            return 'GENERAL', 'gemma-2-9b'
+
         # 4. Fast conversational / default
         return 'FAST', 'gemini-flash'
 
@@ -190,6 +197,13 @@ class ProviderRouter:
         'qwen-2.5-coder': 'qwen/qwen-2.5-coder-32b-instruct',
         'code': 'qwen/qwen-2.5-coder-32b-instruct',
         'gemini-flash': 'google/gemini-3.8-flash',
+        'gemma': 'google/gemma-2-9b-it',
+        'gemma-2': 'google/gemma-2-9b-it',
+        'gemma-2-9b': 'google/gemma-2-9b-it',
+        'gemma-2-27b': 'google/gemma-2-27b-it',
+        'gemma-4': 'google/gemma-2-9b-it',
+        'codegemma': 'google/codegemma-7b-it',
+        'paligemma': 'google/paligemma-3b-pt-224',
     }
 
     def resolve_model_id(self, model_hint: str | None) -> str | None:
@@ -219,6 +233,17 @@ class ProviderRouter:
                 else:
                     result['UserKey'] = ProviderSpec('UserKey', target_model or 'openai/gpt-4o-mini', 'openai', 'https://openrouter.ai/api/v1/chat/completions', dk)
 
+        # Sovereign Edge Local Gemma Worker (llama.cpp / vLLM / Ollama)
+        local_gemma_url = os.getenv('SAREMBOK_LOCAL_GEMMA_URL', '').strip()
+        if local_gemma_url:
+            result['LocalGemma'] = ProviderSpec(
+                'LocalGemma',
+                target_model or os.getenv('SAREMBOK_LOCAL_GEMMA_MODEL', 'google/gemma-2-9b-it'),
+                'openai',
+                local_gemma_url,
+                os.getenv('SAREMBOK_LOCAL_GEMMA_KEY', 'sovereign-local')
+            )
+
         openai = os.getenv('OPENAI_API_KEY', '').strip()
         if openai:
             result['OpenAI'] = ProviderSpec('OpenAI', os.getenv('LLM_MODEL', 'gpt-5-mini'), 'openai', 'https://api.openai.com/v1/chat/completions', openai)
@@ -235,12 +260,14 @@ class ProviderRouter:
         custom = os.getenv('LLM_ENDPOINT_URL', '').strip()
         if custom:
             result['Custom'] = ProviderSpec('Custom', os.getenv('LLM_MODEL', 'llama-3.1-8b'), 'openai', custom, os.getenv('LLM_API_KEY', 'dummy'))
-        order = [x.strip() for x in os.getenv('SAREMBOK_PROVIDER_ORDER', 'Gemini,OpenRouter,Groq,OpenAI,Custom').split(',') if x.strip()]
+        order = [x.strip() for x in os.getenv('SAREMBOK_PROVIDER_ORDER', 'Gemini,LocalGemma,OpenRouter,Groq,OpenAI,Custom').split(',') if x.strip()]
 
-        # Gemini 3.8 Flash is the latency-first native path. When it is explicitly
-        # requested, prefer Google's direct API even if an older deployment-level
-        # provider order still names OpenRouter first. If no Gemini key is configured,
-        # normal fallback ordering remains intact.
+        # When Gemma model is specifically requested, prioritize LocalGemma or OpenRouter
+        if target_model and 'gemma' in target_model.lower():
+            if 'LocalGemma' in result:
+                order = ['LocalGemma'] + [x for x in order if x != 'LocalGemma']
+
+        # Gemini 3.8 Flash is the latency-first native path.
         if target_model == 'google/gemini-3.8-flash':
             order = ['Gemini'] + [x for x in order if x != 'Gemini']
 

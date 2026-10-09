@@ -97,10 +97,23 @@ const server = http.createServer((req, res) => {
             const session = db.prepare(`SELECT * FROM session_state ORDER BY initialized_at DESC LIMIT 1`).get() || { global_status: 'AWAITING_WORKLOAD', token_burned: 0, hard_cap: 10000 };
             const agents = db.prepare(`SELECT * FROM agent_nodes`).all();
             const logs = db.prepare(`SELECT * FROM transaction_log ORDER BY created_at DESC LIMIT 30`).all();
+            let latestEntropy = 0.12;
+            if (logs && logs.length > 0 && typeof logs[0].entropy_score === 'number') {
+                latestEntropy = logs[0].entropy_score;
+            }
             db.close();
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ session, agents, logs }));
+            res.end(JSON.stringify({
+                session,
+                agents,
+                logs,
+                entropy: {
+                    current: latestEntropy,
+                    threshold: 0.88,
+                    status: latestEntropy >= 0.88 ? 'ALERT' : 'NOMINAL'
+                }
+            }));
         } catch (dbErr) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: "Failed to read database pipeline state matrix: " + dbErr.message }));
