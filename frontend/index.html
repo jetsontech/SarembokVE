@@ -12768,21 +12768,29 @@ button,
             } catch (_) {}
         }
 
+        let _initSessionPromise = null;
         async function initSession() {
-            try {
-                const resp = await fetch("/api/session", { cache: "no-store" });
-                if (resp.ok) {
-                    const data = await resp.json();
-                    if (data && data.sessionToken) {
-                        window.browserSessionToken = data.sessionToken;
-                        return data.sessionToken;
+            if (window.browserSessionToken) return window.browserSessionToken;
+            if (_initSessionPromise) return _initSessionPromise;
+            _initSessionPromise = (async () => {
+                try {
+                    const resp = await fetch("/api/session", { cache: "no-store" });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (data && data.sessionToken) {
+                            window.browserSessionToken = data.sessionToken;
+                            return data.sessionToken;
+                        }
                     }
+                } catch (err) {
+                    console.debug("[session] initSession notice:", err);
+                } finally {
+                    _initSessionPromise = null;
                 }
-            } catch (err) {
-                console.debug("[session] initSession notice:", err);
-            }
-            window.browserSessionToken = null;
-            return null;
+                window.browserSessionToken = null;
+                return null;
+            })();
+            return _initSessionPromise;
         }
 
         let hasAppStarted = false;
