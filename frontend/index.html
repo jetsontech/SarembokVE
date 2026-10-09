@@ -9194,6 +9194,42 @@ button,
            ============================================================ */
         var currentUiMode = 'simple';
         window.currentUiMode = 'simple';
+        var _systemSettingsCache = null;
+
+        function interruptSpeech() {
+            if (typeof window.clearNativeOutputAudio === 'function') {
+                try { window.clearNativeOutputAudio(); } catch (_) {}
+            }
+            if (typeof window.interruptKokoroSpeech === 'function') {
+                try { window.interruptKokoroSpeech(); } catch (_) {}
+            }
+            if (window.speechSynthesis) {
+                try { window.speechSynthesis.cancel(); } catch (_) {}
+            }
+            if (typeof currentTurnId !== 'undefined') currentTurnId++;
+            if (typeof liveSpeechQueue !== 'undefined') liveSpeechQueue = [];
+            if (typeof isProcessingSpeechQueue !== 'undefined') isProcessingSpeechQueue = false;
+            if (typeof currentAssistantSpokenText !== 'undefined') currentAssistantSpokenText = "";
+            if (typeof liveSilenceTimer !== 'undefined') clearTimeout(liveSilenceTimer);
+            if (typeof liveTranscriptBuffer !== 'undefined') liveTranscriptBuffer = "";
+            if (typeof isSpeakingTurn !== 'undefined') isSpeakingTurn = false;
+            if (typeof isWaitingForAIResponse !== 'undefined') isWaitingForAIResponse = false;
+            if (typeof setAudioDucking === 'function') setAudioDucking(false);
+            if (typeof setAvatarSignal === 'function') setAvatarSignal("IDLE");
+            if (typeof hideInterruptPill === 'function') hideInterruptPill();
+        }
+        window.interruptSpeech = interruptSpeech;
+
+        function pauseRecognitionForSpeech() {
+            if (typeof interruptSpeech === 'function') interruptSpeech();
+        }
+        window.pauseRecognitionForSpeech = pauseRecognitionForSpeech;
+
+        function resumeRecognitionAfterSpeech(delayMs = 600) {
+            // Native Live audio handles real-time dialogue continuously.
+        }
+        window.resumeRecognitionAfterSpeech = resumeRecognitionAfterSpeech;
+
         let ws = null;
         let rpcCounter = 1;
         const pending = new Map();
@@ -15104,7 +15140,7 @@ button,
         };
 
         let _activeSettingsSubTab = "mcp";
-        let _systemSettingsCache = null;
+        _systemSettingsCache = _systemSettingsCache || null;
 
         function switchSettingsSubTab(subTabId) {
             _activeSettingsSubTab = subTabId;
@@ -16364,14 +16400,17 @@ function globalCameraToggle() {
 })();
 
 // Also mirror global field typing into directive-input for compatibility
-document.getElementById('global-input-field').addEventListener('input', function() {
-    window.__lastDirectiveInputTime = Date.now();
-    const real = document.getElementById('directive-input');
-    if (real) real.value = this.value;
-});
-document.getElementById('global-input-field').addEventListener('keydown', function() {
-    window.__lastDirectiveInputTime = Date.now();
-});
+const gField = document.getElementById('global-input-field');
+if (gField) {
+    gField.addEventListener('input', function() {
+        window.__lastDirectiveInputTime = Date.now();
+        const real = document.getElementById('directive-input');
+        if (real) real.value = this.value;
+    });
+    gField.addEventListener('keydown', function() {
+        window.__lastDirectiveInputTime = Date.now();
+    });
+}
 
 // Mirror keystroke timing on ws-prompt-input
 (function patchWsPromptInput() {
