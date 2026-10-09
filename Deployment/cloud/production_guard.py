@@ -25,7 +25,7 @@ READ_METHODS = {
     "GetFeedbackSummary", "ListMemories", "SearchMemories",
     "ListDigitalHumanSessions", "GetDigitalHumanSession",
     "ListMcpServers", "GetGpuMarketplace", "ListGpuRentals",
-    "GetVisionStatus", "GetAdminStatus", "GetConversationHistory",
+    "GetVisionStatus", "GetAdminStatus", "GetConversationHistory", "SearchWeb",
 }
 
 USER_METHODS = READ_METHODS | {

@@ -84,7 +84,8 @@
         play_media: "ResolveMediaStream",
         popout_media: "PopoutMedia",
         stop_media: "StopMedia",
-        generate_flyer: "GenerateFlyer"
+        generate_flyer: "GenerateFlyer",
+        search_web: "SearchWeb"
     };
 
     function srbkSendRPC(method, params, onDelta) {
@@ -816,6 +817,24 @@
                     summary: flyerSummary,
                     message: "The visual flyer for " + flyerTitle + " has been rendered interactively on screen in the design studio."
                 };
+            } else if (name === "search_web") {
+                var searchQ = String(args.query || args.q || "").trim();
+                try {
+                    result = await srbkSendRPC("SearchWeb", { query: searchQ, limit: 5 });
+                    if (!result || (!result.results && !result.summary)) {
+                        result = {
+                            query: searchQ,
+                            results: [],
+                            summary: "No search results found for " + searchQ
+                        };
+                    }
+                } catch (err) {
+                    result = {
+                        query: searchQ,
+                        error: String(err.message || err),
+                        summary: "Search failed for " + searchQ
+                    };
+                }
             } else if (!rpcMethod) {
                 result = { error: "unregistered_live_tool", tool: name };
             } else {

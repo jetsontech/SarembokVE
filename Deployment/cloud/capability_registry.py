@@ -53,6 +53,7 @@ RPC_CAPABILITIES = {
     "GenerateImage": ("frontier-vision", "Image generation when a verified visual provider or GPU worker is operational."),
     "ExecuteComputeTask": ("compute", "Execute compute work on eligible registered workers."),
     "GetVisualEngineStatus": ("frontier-vision", "Read visual synthesis provider and worker status."),
+    "SearchWeb": ("search", "Search the live web for real-time information, facts, scores, and news."),
 }
 
 

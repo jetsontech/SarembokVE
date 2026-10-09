@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import html as _html
 import hmac as _hmac
 import json
 import logging
@@ -248,6 +249,7 @@ BROWSER_ALLOWED_METHODS = {
     "GetAdminStatus",
     "VerifyAdminPasscode",
     "SearchYouTube",
+    "SearchWeb",
     "ResolveMediaStream",
     "RegisterWorker",
     "Heartbeat",
@@ -321,6 +323,7 @@ FAST_LANE_BLOCKERS = (
     "research", "search", "browse", "look up", "find out", "current event",
     "what happened", "happening", "today", "yesterday", "this week",
     "this month", "breaking", "election", "president", "market",
+    "record", "score", "scores", "standing", "standings", "falcons", "nfl", "nba", "mlb", "who won", "game ",
     "create ", "spawn ", "build ", "deploy ", "execute ", "run ",
     "remember", "store memory", "save ", "forget ", "delete ",
     "play ", "watch ", "show ", "stream ", "listen to ", "youtube",
@@ -1406,17 +1409,84 @@ def _extract_search_terms(query: str) -> str:
     return ""
 
 
+def fetch_web_search(query: str, max_results: int = 5) -> dict[str, Any]:
+    """Fetch live web search snippets via DuckDuckGo HTML parser for instant real-time grounding."""
+    t0 = time.time()
+    q_clean = str(query or "").strip()
+    if not q_clean:
+        return {"query": "", "results": [], "snippets": [], "summary": "No query provided.", "elapsed": 0.0}
+
+    url = "https://html.duckduckgo.com/html/?q=" + urllib.parse.quote(q_clean)
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+    })
+
+    results = []
+    snippets = []
+
+    try:
+        with urllib.request.urlopen(req, timeout=4.5) as resp:
+            content = resp.read().decode("utf-8", errors="ignore")
+            title_matches = re.findall(r'<a[^>]+class="result__a"[^>]*href="([^"]*)"[^>]*>(.*?)</a>', content, re.S)
+            snippet_matches = re.findall(r'<a[^>]+class="result__snippet[^"]*"[^>]*>(.*?)</a>', content, re.S)
+
+            count = min(len(title_matches), len(snippet_matches), max_results)
+            for i in range(count):
+                raw_href = title_matches[i][0]
+                uddg = re.search(r'uddg=([^&]+)', raw_href)
+                target_url = urllib.parse.unquote(uddg.group(1)) if uddg else raw_href
+                if target_url.startswith("//"):
+                    target_url = "https:" + target_url
+
+                t_clean = _html.unescape(re.sub(r'<[^>]+>', '', title_matches[i][1]).strip())
+                s_clean = _html.unescape(re.sub(r'<[^>]+>', '', snippet_matches[i]).strip())
+
+                if s_clean:
+                    results.append({
+                        "title": t_clean,
+                        "url": target_url,
+                        "snippet": s_clean,
+                    })
+                    snippets.append(f"{t_clean}: {s_clean}")
+    except Exception as exc:
+        LOG.warning("Live web search fetch failed for %r: %s", q_clean, exc)
+
+    elapsed = round(time.time() - t0, 3)
+    summary = "\n".join(snippets) if snippets else f"No search results found for '{q_clean}'."
+
+    return {
+        "query": q_clean,
+        "results": results,
+        "snippets": snippets,
+        "summary": summary,
+        "elapsed": elapsed,
+    }
+
+
 def _fetch_realtime_data(query: str) -> str | None:
-    """Multi-tiered real-time data engine: Google News RSS + DuckDuckGo + Wikipedia."""
+    """Multi-tiered real-time data engine: Live Web Search + Google News RSS + Wikipedia."""
     clean_q = query.strip()
     if not clean_q:
         return None
     results = []
 
-    # 1. Real-Time News & Current Events (Google News RSS)
+    # 1. Real-time Live Web Search (Instant Web Grounding for sports records, scores, facts, etc.)
+    try:
+        web_res = fetch_web_search(clean_q, max_results=5)
+        if web_res.get("snippets"):
+            lines = [f"- {s}" for s in web_res["snippets"][:5]]
+            results.append("### [LIVE REAL-TIME VERIFIED WEB GROUNDING]:\n" + "\n".join(lines))
+    except Exception as exc:
+        LOG.debug("Live web search grounding failed: %s", exc)
+
+    # 2. Real-Time News & Current Events (Google News RSS)
     terms = _extract_search_terms(clean_q)
     is_news_intent = any(k in clean_q.lower() for k in ("news", "headline", "headlines", "current event", "breaking", "update", "happening"))
     if not terms and not is_news_intent:
+        if results:
+            return "\n\n".join(results)
         return None
 
     try:
@@ -3022,7 +3092,8 @@ def sarembok_process_dialogue(
     realtime_triggers = (
         "news", "headline", "headlines", "current event", "current events", "happened", "happening",
         "today", "yesterday", "this week", "this month", "latest", "recent", "update", "updates",
-        "stock", "price", "crypto", "weather", "score",
+        "stock", "price", "crypto", "weather", "score", "scores", "record", "records", "standing", "standings",
+        "falcons", "nfl", "nba", "mlb", "who won", "did they win", "football record", "current record",
         "game", "election", "president", "market", "research", "search", "browse", "find out",
         "look up", "world", "breaking", "what's going on", "whats going on", "what's new", "whats new"
     )
@@ -3550,6 +3621,11 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
     if method in ("SearchYouTube", "ResolveMediaStream"):
         query = str(params.get("query") or params.get("topic") or "").strip()
         return resolve_youtube_search(query)
+
+    if method == "SearchWeb":
+        query = str(params.get("query") or params.get("q") or params.get("text") or "").strip()
+        limit = int(params.get("limit") or params.get("max_results") or 5)
+        return fetch_web_search(query, max_results=limit)
 
     if method == "BrowserSessionOpen":
         sid = str(params.get("sessionId") or "").strip()

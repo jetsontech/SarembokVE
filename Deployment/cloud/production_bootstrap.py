@@ -68,7 +68,7 @@ def _role_for(method: str, params: dict[str, Any]) -> tuple[str, str]:
 def _required_role(method: str) -> str | None:
     if method in {"GetRuntimeInfo", "GetProviderMetrics", "GetVisualEngineStatus", "ListWorkers", "ListTasks", "ListProjects", "GetCurrentUser", "GetFeedbackSummary", "ListMemories", "SearchMemories", "ListDigitalHumanSessions", "GetDigitalHumanSession", "ListMcpServers", "GetGpuMarketplace", "ListGpuRentals", "GetVisionStatus", "GetAdminStatus", "GetConversationHistory"}:
         return "USER"
-    if method in {"SarembokChat", "Chat", "SarembokDialogue", "BrowserNavigate", "BrowserScreenshot", "BrowserRender", "SubmitFeedback", "StoreMemory", "DeleteMemory", "CreateDigitalHumanSession", "CloseDigitalHumanSession", "SearchYouTube", "ResolveMediaStream", "ProcessVisionFrame", "SpatialVisualRecall", "GenerateImage", "SaveUserChatSession", "ListUserChatSessions", "DeleteUserChatSession"}:
+    if method in {"SarembokChat", "Chat", "SarembokDialogue", "BrowserNavigate", "BrowserScreenshot", "BrowserRender", "SubmitFeedback", "StoreMemory", "DeleteMemory", "CreateDigitalHumanSession", "CloseDigitalHumanSession", "SearchYouTube", "SearchWeb", "ResolveMediaStream", "ProcessVisionFrame", "SpatialVisualRecall", "GenerateImage", "SaveUserChatSession", "ListUserChatSessions", "DeleteUserChatSession"}:
         return "USER"
     if method in {"RegisterWorker", "Heartbeat", "ClaimTask", "CompleteTask", "FailTask", "ExecuteComputeTask"}:
         return "WORKER"

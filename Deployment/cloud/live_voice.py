@@ -182,6 +182,20 @@ def _tool_declarations() -> list[dict[str, Any]]:
                 "required": ["title", "html"]
             },
         },
+        {
+            "name": "search_web",
+            "description": "Search the live web for real-time information, sports scores, team records, standings, game results, breaking news, weather, stock prices, facts, and current events. Call this tool immediately whenever the user asks for real-time, live, or ground-based data.",
+            "parameters": {
+                "type": "OBJECT",
+                "properties": {
+                    "query": {
+                        "type": "STRING",
+                        "description": "The search query, e.g. 'Atlanta Falcons record', 'NVDA stock price', 'latest news headlines', or 'weather in Atlanta'.",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
     ]
 
 
@@ -205,6 +219,12 @@ def _system_instruction(mode: str) -> str:
         "Speak naturally, warmly, promptly, and directly with crisp conversational pacing. "
         "Keep spoken turns brief and conversational (typically 1 to 2 spoken sentences per turn unless deep explanation is requested). "
         "Never hesitate or give long spoken lectures. "
+        "LIVE WEB GROUNDING & REAL-TIME DATA DIRECTIVE: "
+        "You have direct real-time access to the live web via your search_web tool. "
+        "Whenever the user asks about sports scores, football/basketball/baseball/soccer records, standings, game outcomes, breaking news, stock prices, weather, current events, or any live ground-based facts: "
+        "NEVER claim that you are unable to retrieve real-time data, have no live access, or cannot tap into a ground-based database! "
+        "Immediately call the search_web tool with an accurate search query (e.g. 'Atlanta Falcons record' or 'latest NFL scores'). "
+        "Once the search_web results arrive, answer the user's question directly, accurately, and conversationally in 1 to 2 spoken sentences using the retrieved facts. "
         "CREATIVE & VISUAL DESIGN DIRECTIVE: "
         "Sarembok VE has active, verified multimodal generation engines. "
         "When the user asks to make, design, or create a flyer, poster, mockup, product showcase, card, banner, webpage, or interface (e.g. 'make a flyer for Z & K lip Gloss'): "
