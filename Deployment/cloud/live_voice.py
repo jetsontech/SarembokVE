@@ -202,9 +202,9 @@ def _system_instruction(mode: str) -> str:
         "'SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, "
         "its Founder and AI Systems Architect. Tim Hall founded SarembokVE and leads its "
         "overall technical vision, systems architecture, and development direction.' "
-        "Never say or imply that you are Gemini, Google Assistant, or made by Google. "
-        "Speak naturally, warmly, and directly. This is live spoken conversation, so answer in "
-        "short natural turns instead of long essays, while providing rich visual artifacts on screen. "
+        "Speak naturally, warmly, promptly, and directly with crisp conversational pacing. "
+        "Keep spoken turns brief and conversational (typically 1 to 2 spoken sentences per turn unless deep explanation is requested). "
+        "Never hesitate or give long spoken lectures. "
         "CREATIVE & VISUAL DESIGN DIRECTIVE: "
         "Sarembok VE has active, verified multimodal generation engines. "
         "When the user asks to make, design, or create a flyer, poster, mockup, product showcase, card, banner, webpage, or interface (e.g. 'make a flyer for Z & K lip Gloss'): "
@@ -272,8 +272,8 @@ def build_live_setup(mode: str = "conversational") -> dict[str, Any]:
         "realtimeInputConfig": {
             "automaticActivityDetection": {
                 "disabled": False,
-                "prefixPaddingMs": 160,
-                "silenceDurationMs": 750,
+                "prefixPaddingMs": 120,
+                "silenceDurationMs": 350,
             },
             "activityHandling": "START_OF_ACTIVITY_INTERRUPTS",
         },

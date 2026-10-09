@@ -1064,20 +1064,20 @@
                     "const rms=Math.sqrt(sum/640);" +
                     "const speechEnergy=rms>=this.vadThreshold;" +
                     "if(speechEnergy){this.consecutiveSpeechFrames++;}else{this.consecutiveSpeechFrames=0;}" +
-                    "const speech=speechEnergy&&(this.consecutiveSpeechFrames>=2||this.speechSeen);" +
+                    "const speech=speechEnergy&&(this.consecutiveSpeechFrames>=1||this.speechSeen);" +
                     "if(speech){" +
                         "this.speechSeen=true;" +
                         "this.silenceMs=0;" +
                     "}else if(this.speechSeen){" +
                         "this.silenceMs+=40;" +
                     "}" +
-                    "const shouldSend=speech||(this.speechSeen&&this.silenceMs<=750);" +
+                    "const shouldSend=speech||(this.speechSeen&&this.silenceMs<=180);" +
                     "this.port.postMessage({" +
                         "pcm:shouldSend?pcm.buffer:null," +
                         "speech:speech," +
                         "rms:rms" +
                     "},shouldSend?[pcm.buffer]:[]);" +
-                    "if(this.speechSeen&&this.silenceMs>=1200){" +
+                    "if(this.speechSeen&&this.silenceMs>=500){" +
                         "this.speechSeen=false;" +
                         "this.silenceMs=0;" +
                     "}" +
@@ -1335,11 +1335,11 @@
                             return;
                         }
 
-                        // Zero-Echo Duplex Gate: while Sarembok is speaking (or within the 400ms acoustic reverb tail),
+                        // Zero-Echo Duplex Gate: while Sarembok is speaking (or within the 200ms acoustic reverb tail),
                         // DO NOT stream microphone audio to Gemini Live. This completely prevents acoustic bleed,
                         // self-interruption loops, foreign language hallucinations, and double-voice responses.
                         var isModelSpeaking = (nativeOutputSources.size > 0) ||
-                            (window.__lastModelAudioEndTime && (now - window.__lastModelAudioEndTime < 400));
+                            (window.__lastModelAudioEndTime && (now - window.__lastModelAudioEndTime < 200));
                         if (isModelSpeaking) {
                             return;
                         }
