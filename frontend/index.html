@@ -10173,9 +10173,17 @@ button,
             const media = resolvePlayableMedia(urlOrBody, title);
             const mediaTarget = media.ytId || media.raw || media.embedUrl;
             const isTubi = /tubitv\.com/i.test(media.embedUrl) || /tubitv\.com/i.test(mediaTarget) || /tubitv\.com/i.test(urlOrBody);
+            const isTubiSearch = isTubi && (/search/i.test(media.embedUrl) || /search/i.test(mediaTarget) || !/movies\/\d+/i.test(mediaTarget));
             const isDirectStream = media.embedUrl.endsWith(".mp4") || media.embedUrl.endsWith(".webm") || media.platform === "direct_stream" || media.embedUrl.includes("/sample/") || media.embedUrl.includes("/download/");
+            const rawQuery = (media.displayTitle || title || "movies").replace(/^🎬\s*/, "").replace(/\s*·\s*TUBI.*$/i, "").trim();
 
-            const headerActions = isTubi ? `
+            const headerActions = isTubiSearch ? `
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <button type="button" class="srbk-video-pop-btn" style="background:#00d8e8;color:#000;font-weight:700;" onclick="window.open('${escapeHtml(mediaTarget)}', '_blank', 'popup=yes,width=1920,height=1080,fullscreen=yes')">▶ FULLSCREEN ↗</button>
+                    <button type="button" class="srbk-video-pop-btn" onclick="popOutFloatingVideo('${escapeHtml(mediaTarget)}', '${escapeHtml(media.displayTitle)}')">⧉ POP OUT</button>
+                    <a href="${escapeHtml(mediaTarget)}" target="_blank" rel="noopener" class="srbk-video-link" style="color:#00d8e8;font-weight:700;">TUBI ↗</a>
+                </div>
+            ` : (isTubi ? `
                 <div style="display:flex; gap:6px; align-items:center;">
                     <button type="button" class="srbk-video-pop-btn" style="background:#00d8e8;color:#000;font-weight:700;" onclick="window.open('${escapeHtml(mediaTarget)}', '_blank', 'popup=yes,width=1920,height=1080,fullscreen=yes')">▶ FULLSCREEN ↗</button>
                     <button type="button" class="srbk-video-pop-btn" onclick="popOutFloatingVideo('${escapeHtml(mediaTarget)}', '${escapeHtml(media.displayTitle)}')">⧉ POP OUT</button>
@@ -10193,10 +10201,30 @@ button,
                     <button type="button" class="srbk-video-pop-btn" onclick="openDetachedPipWindowFromUrl('${escapeHtml(mediaTarget)}')">↗ WINDOW</button>
                     <a href="${escapeHtml(media.directWatchUrl)}" target="_blank" rel="noopener" class="srbk-video-link">YOUTUBE ↗</a>
                 </div>
-            `);
+            `));
 
             let playerHtml = "";
-            if (isTubi) {
+            if (isTubiSearch) {
+                const searchQ = encodeURIComponent(rawQuery);
+                playerHtml = `
+                <div class="srbk-tubi-search-container" style="background:#050c14;border-radius:8px;overflow:hidden;border:1px solid rgba(0,216,232,0.25);">
+                    <div style="padding:10px 14px;background:rgba(0,216,232,0.08);border-bottom:1px solid rgba(0,216,232,0.2);display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                        <div style="flex:1;min-width:200px;display:flex;gap:6px;">
+                            <input type="text" class="srbk-tubi-inline-input" value="${escapeHtml(rawQuery)}" placeholder="Search free movies on Tubi..." style="flex:1;background:rgba(2,6,12,0.9);border:1px solid rgba(0,216,232,0.4);border-radius:6px;padding:6px 12px;color:#fff;font-size:12px;outline:none;" onkeydown="if(event.key==='Enter'){const f=this.closest('.srbk-tubi-search-container').querySelector('iframe');if(f)f.src='/api/view_tubi?q='+encodeURIComponent(this.value);}">
+                            <button type="button" onclick="const input=this.previousElementSibling;const f=this.closest('.srbk-tubi-search-container').querySelector('iframe');if(f)f.src='/api/view_tubi?q='+encodeURIComponent(input.value);" style="background:#00d8e8;color:#041018;font-weight:700;border:0;padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;">SEARCH</button>
+                        </div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <span onclick="const f=this.closest('.srbk-tubi-search-container').querySelector('iframe');if(f)f.src='/api/view_tubi?q=spiderman';" style="background:rgba(255,255,255,0.08);color:#d9e6f2;border:1px solid rgba(255,255,255,0.15);padding:3px 9px;border-radius:4px;font-size:10px;cursor:pointer;">Spider-Man</span>
+                            <span onclick="const f=this.closest('.srbk-tubi-search-container').querySelector('iframe');if(f)f.src='/api/view_tubi?q=rise';" style="background:rgba(255,255,255,0.08);color:#d9e6f2;border:1px solid rgba(255,255,255,0.15);padding:3px 9px;border-radius:4px;font-size:10px;cursor:pointer;">Rise</span>
+                            <span onclick="const f=this.closest('.srbk-tubi-search-container').querySelector('iframe');if(f)f.src='/api/view_tubi?q=matrix';" style="background:rgba(255,255,255,0.08);color:#d9e6f2;border:1px solid rgba(255,255,255,0.15);padding:3px 9px;border-radius:4px;font-size:10px;cursor:pointer;">The Matrix</span>
+                            <span onclick="const f=this.closest('.srbk-tubi-search-container').querySelector('iframe');if(f)f.src='/api/view_tubi?q=batman';" style="background:rgba(255,255,255,0.08);color:#d9e6f2;border:1px solid rgba(255,255,255,0.15);padding:3px 9px;border-radius:4px;font-size:10px;cursor:pointer;">Batman</span>
+                        </div>
+                    </div>
+                    <div class="srbk-video-player-wrap" style="position:relative;width:100%;height:540px;overflow:hidden;background:#050c14;">
+                        <iframe src="/api/view_tubi?q=${searchQ}" class="srbk-tubi-iframe" style="position:absolute;inset:0;width:100%;height:100%;border:0;background:#050c14;" referrerpolicy="no-referrer" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    </div>
+                </div>`;
+            } else if (isTubi) {
                 playerHtml = `
                 <div class="srbk-video-player-wrap srbk-cinema-theater-wrap" style="position:relative;width:100%;aspect-ratio:16 / 9;overflow:hidden;background:radial-gradient(circle at center, rgba(0,216,232,0.18) 0%, rgba(5,10,16,0.96) 80%);display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;text-align:center;padding:24px;">
                     <div style="width:72px;height:72px;border-radius:50%;background:rgba(0,216,232,0.2);border:2px solid #00d8e8;display:flex;align-items:center;justify-content:center;box-shadow:0 0 35px rgba(0,216,232,0.45);cursor:pointer;margin-bottom:14px;transition:transform 0.2s;"
@@ -10227,7 +10255,14 @@ button,
                 playerHtml = `<video controls autoplay playsinline src="${escapeHtml(media.embedUrl)}" class="srbk-video-player" style="width:100%;height:100%;object-fit:contain;background:#000;"></video>`;
             }
 
-            const footerHtml = isTubi ? `
+            const footerHtml = isTubiSearch ? `
+                <div class="srbk-video-foot" style="display:flex;gap:8px;justify-content:space-between;align-items:center;">
+                    <div style="font-size:11px;color:#8ba2b5;">⚡ Inline Tubi Search Viewer active. Click any title to watch or browse free catalog.</div>
+                    <button type="button" class="srbk-video-pop-btn" style="background:rgba(255,255,255,0.08);color:#d9e6f2;" onclick="window.open('${escapeHtml(mediaTarget)}', '_blank', 'popup=yes,width=1920,height=1080,fullscreen=yes')">
+                        <span>↗</span> <span>DETACH TO POPUP</span>
+                    </button>
+                </div>
+            ` : (isTubi ? `
                 <div class="srbk-video-foot">
                     <button type="button" class="srbk-big-pop-btn" style="background:#00d8e8;color:#051119;font-weight:700;" onclick="window.open('${escapeHtml(mediaTarget)}', '_blank', 'popup=yes,width=1920,height=1080,fullscreen=yes')">
                         <span>▶</span> <span>LAUNCH FULLSCREEN STREAM (${escapeHtml(media.displayTitle.toUpperCase())})</span>
@@ -10245,11 +10280,11 @@ button,
                         <span>⧉</span> <span>POP OUT VIDEO (KEEP WATCHING IN CORNER WHILE CHATTING)</span>
                     </button>
                 </div>
-            `);
+            `));
 
             return `<div class="srbk-video-card">
                 <div class="srbk-video-head">
-                    <span class="srbk-video-badge">🎬 ${escapeHtml(media.displayTitle)}${isTubi ? ' · TUBI STREAM' : (isDirectStream ? ' · FULL FEATURE FILM' : '')}</span>
+                    <span class="srbk-video-badge">🎬 ${escapeHtml(media.displayTitle)}${isTubiSearch ? ' · INLINE TUBI SEARCH' : (isTubi ? ' · TUBI STREAM' : (isDirectStream ? ' · FULL FEATURE FILM' : ''))}</span>
                     ${headerActions}
                 </div>
                 ${playerHtml}

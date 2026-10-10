@@ -6801,6 +6801,53 @@ async def process_http_request(connection: Any, request: Any) -> Any:
         except Exception as exc:
             return make_api_response(500, {"error": str(exc)})
 
+    if path_only in ("/api/view_tubi", "/api/view/tubi"):
+        parsed = urllib.parse.urlparse(path)
+        q_params = urllib.parse.parse_qs(parsed.query)
+        q_val = str(q_params.get("q", [""])[0] or q_params.get("query", [""])[0] or "").strip()
+        q_encoded = urllib.parse.quote(q_val)
+        target_url = f"https://tubitv.com/search/{q_encoded}" if q_encoded else "https://tubitv.com/search"
+        try:
+            req = urllib.request.Request(target_url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            })
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                raw_html = resp.read().decode("utf-8", errors="ignore")
+                base_tag = '<base href="https://tubitv.com/" target="_blank">'
+                if "<head>" in raw_html:
+                    raw_html = raw_html.replace("<head>", f"<head>\n  {base_tag}", 1)
+                elif "<head " in raw_html:
+                    raw_html = re.sub(r"(<head[^>]*>)", r"\1\n  " + base_tag, raw_html, count=1)
+                body_bytes = raw_html.encode("utf-8")
+                try:
+                    from websockets.datastructures import Headers
+                    from websockets.http11 import Response
+                    return Response(
+                        200,
+                        "OK",
+                        Headers([
+                            ("Content-Type", "text/html; charset=utf-8"),
+                            ("Content-Length", str(len(body_bytes))),
+                            ("Access-Control-Allow-Origin", "*"),
+                            ("Cache-Control", "public, max-age=60"),
+                        ]),
+                        body_bytes,
+                    )
+                except Exception:
+                    return (
+                        200,
+                        [
+                            ("Content-Type", "text/html; charset=utf-8"),
+                            ("Content-Length", str(len(body_bytes))),
+                            ("Access-Control-Allow-Origin", "*"),
+                        ],
+                        body_bytes,
+                    )
+        except Exception as exc:
+            LOG.warning("Tubi search proxy error: %s", exc)
+            return make_api_response(502, {"error": str(exc)})
+
     if path_only in ("/api/download", "/download", "/api/image", "/api/images", "/api/view"):
         parsed = urllib.parse.urlparse(path)
         query = urllib.parse.parse_qs(parsed.query)
