@@ -17066,6 +17066,11 @@ body #dialogue-history .srbk-native-cinema-card {
     flex-direction: column !important;
     overflow: hidden !important;
 }
+body #dialogue-history .srbk-video-card:not(.srbk-native-cinema-card) {
+    max-width: min(100%, calc((100dvh - 300px) * 1.7778)) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
 body #dialogue-history .srbk-cinema-library + div {
     display: none !important;
 }
