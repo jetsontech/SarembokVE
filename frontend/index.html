@@ -7141,7 +7141,7 @@ button,
             <span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:#00d8e8;letter-spacing:0.05em;">🎬 CINEMA · ${safeTitle.toUpperCase()} ${year}</span>
         </div>
         <div style="display:flex;gap:6px;">
-            <button onclick="window.open('${escapeHtmlLocal(streamUrl)}', '_blank', 'popup=yes,width=1920,height=1080,fullscreen=yes')"
+            <button onclick="window.openTheaterMode('${escapeHtmlLocal(streamUrl)}', '${safeTitle}')"
                     style="background:#00d8e8;color:#051119;font-weight:700;border:0;padding:5px 12px;border-radius:6px;font-size:10px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
                 ▶ THEATER MODE ↗
             </button>
@@ -7172,7 +7172,7 @@ button,
                 ${escapeHtmlLocal(synopsis)}
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button onclick="window.open('${escapeHtmlLocal(streamUrl)}', '_blank', 'popup=yes,width=1920,height=1080,fullscreen=yes')"
+                <button onclick="window.openTheaterMode('${escapeHtmlLocal(streamUrl)}', '${safeTitle}')"
                         style="background:#00d8e8;color:#041018;font-weight:700;padding:7px 18px;border-radius:6px;font-size:11px;border:0;cursor:pointer;box-shadow:0 0 15px rgba(0,216,232,0.35);display:inline-flex;align-items:center;gap:6px;">
                     ▶ PLAY FULL MOVIE (THEATER MODE)
                 </button>
@@ -7200,15 +7200,39 @@ button,
 </div>`;
     }
 
+    window.openTheaterMode = function(streamUrl, title) {
+        if (!streamUrl) return;
+        const screenW = window.screen.availWidth || 1920;
+        const screenH = window.screen.availHeight || 1080;
+        const w = Math.min(screenW, 1920);
+        const h = Math.min(screenH, 1080);
+        const left = Math.max(0, Math.round((screenW - w) / 2));
+        const top = Math.max(0, Math.round((screenH - h) / 2));
+
+        const popupFeatures = `popup=yes,width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`;
+        const popupWin = window.open(streamUrl, 'SarembokTheaterWindow', popupFeatures);
+        if (popupWin) {
+            try { popupWin.focus(); } catch (_) {}
+            if (typeof showToast === 'function') {
+                showToast(`THEATER MODE LAUNCHED · ${title ? String(title).toUpperCase() : 'NOW PLAYING'}`);
+            }
+        } else {
+            window.open(streamUrl, '_blank');
+        }
+    };
+
     window.renderNativeCinemaCard = renderNativeCinemaCard;
     window.resolveMovieDatabase = resolveMovieDatabase;
     window.renderMoviePrompt = function(promptText) {
         const input = document.getElementById("global-input-field");
         if (input) {
             input.value = promptText;
-            input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-            const sendBtn = document.getElementById("send-button");
-            if (sendBtn) sendBtn.click();
+            if (typeof globalSendMessage === 'function') {
+                globalSendMessage(false);
+            } else {
+                const sendBtn = document.getElementById("global-send-btn") || document.getElementById("send-button");
+                if (sendBtn) sendBtn.click();
+            }
         }
     };
 
@@ -9459,6 +9483,7 @@ button,
                 <span class="boot-badge-dot"></span> 🎬 POP-OUT VIDEO PLAYER
             </span>
             <div class="srbk-pip-controls">
+                <button class="srbk-pip-btn" id="srbk-pip-theater-mode-btn" onclick="if(window.currentPipMedia&&window.currentPipMedia.directWatchUrl)window.openTheaterMode(window.currentPipMedia.directWatchUrl, window.currentPipMedia.displayTitle)" style="color:#00e88f;border-color:rgba(0,232,143,0.4);display:none;font-weight:700;" title="Launch Full Stream in Theater Mode">▶ THEATER</button>
                 <button class="srbk-pip-btn" onclick="openDetachedPipWindow()" style="color:#00f0ff; border-color:rgba(0,240,255,0.4);" title="Float above all desktop windows (Always-On-Top OS Window)">⧉ ALWAYS ON TOP</button>
                 <button class="srbk-pip-btn" onclick="toggleMinimizePip()" title="Minimize / Expand">_</button>
                 <button class="srbk-pip-btn" onclick="closeFloatingPip()" style="color:#ef4444;" title="Close Video">✕</button>
@@ -9854,7 +9879,11 @@ button,
                     const sBtn = pipWindow.document.getElementById("pip-stream-btn");
                     if (sBtn) {
                         sBtn.addEventListener("click", () => {
-                            window.open(directWatch, "_blank", "popup=yes,width=1920,height=1080,fullscreen=yes");
+                            if (typeof window.openTheaterMode === "function") {
+                                window.openTheaterMode(directWatch, media.displayTitle);
+                            } else {
+                                window.open(directWatch, "_blank", "popup=yes,width=1920,height=1080,fullscreen=yes");
+                            }
                         });
                     }
                 }
@@ -9934,6 +9963,15 @@ button,
 
             if (titleEl) {
                 titleEl.innerHTML = `<span class="boot-badge-dot"></span> 🎬 ${escapeHtml(media.displayTitle)}`;
+            }
+
+            const theaterBtn = document.getElementById("srbk-pip-theater-mode-btn");
+            if (theaterBtn) {
+                if (media.directWatchUrl && media.directWatchUrl.startsWith("http")) {
+                    theaterBtn.style.display = "inline-flex";
+                } else {
+                    theaterBtn.style.display = "none";
+                }
             }
 
             if (media.embedUrl.includes("youtube") || media.embedUrl.includes("embed")) {
