@@ -26,8 +26,8 @@ class ProactiveOmniDaemon:
     proactive optimization scans, and executive briefings.
     """
 
-    def __init__(self, db_conn: sqlite3.Connection, scan_interval_sec: float = 30.0):
-        self.db = db_conn
+    def __init__(self, db_conn: sqlite3.Connection | None = None, scan_interval_sec: float = 30.0):
+        self.db = db_conn or sqlite3.connect(os.environ.get("SAREMBOK_DB_PATH", "/data/sarembok_cloud.db"), check_same_thread=False)
         self.scan_interval_sec = scan_interval_sec
         self._running = False
         self._thread: Optional[threading.Thread] = None

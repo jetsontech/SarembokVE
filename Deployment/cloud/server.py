@@ -711,9 +711,15 @@ except Exception:
         ProactiveOmniDaemon = None
         SwarmCompiler = None
 
-evolver = AutonomousEvolver() if AutonomousEvolver else None
-proactive_daemon = ProactiveOmniDaemon() if ProactiveOmniDaemon else None
-swarm_compiler = SwarmCompiler() if SwarmCompiler else None
+try:
+    evolver = AutonomousEvolver(store.db) if AutonomousEvolver else None
+    proactive_daemon = ProactiveOmniDaemon(store.db) if ProactiveOmniDaemon else None
+    swarm_compiler = SwarmCompiler(store.db) if SwarmCompiler else None
+except Exception as _prom_init_err:
+    LOG.warning("Prometheus engine initialization deferred: %s", _prom_init_err)
+    evolver = None
+    proactive_daemon = None
+    swarm_compiler = None
 
 DB_LOCK: asyncio.Lock | None = None
 CONNECTIONS: asyncio.Semaphore | None = None

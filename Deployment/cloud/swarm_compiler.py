@@ -58,8 +58,8 @@ class SwarmCompiler:
     tested software projects with live cloud sandbox execution.
     """
 
-    def __init__(self, db_conn: sqlite3.Connection):
-        self.db = db_conn
+    def __init__(self, db_conn: sqlite3.Connection | None = None):
+        self.db = db_conn or sqlite3.connect(os.environ.get("SAREMBOK_DB_PATH", "/data/sarembok_cloud.db"), check_same_thread=False)
         self._init_tables()
 
     def _init_tables(self) -> None:
