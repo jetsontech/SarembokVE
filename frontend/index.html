@@ -6605,6 +6605,41 @@ html[data-theme="dark"] .srbk-theme-switch {
         min-height: 180px !important;
     }
 
+    /* Cockpit Cinema Player Box — Perfect 16:9 Fit & Centered Comfortable Max-Width */
+    #dialogue-history .srbk-native-cinema-card {
+        max-width: 820px !important;
+        width: 100% !important;
+        margin: 14px auto !important;
+        box-sizing: border-box !important;
+    }
+    #dialogue-history .srbk-cinema-player-box {
+        position: relative !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        aspect-ratio: 16 / 9 !important;
+        max-height: 460px !important;
+        margin: 0 auto !important;
+        background: #000 !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
+        border: 1px solid rgba(0, 216, 232, 0.25) !important;
+    }
+    #dialogue-history .srbk-cinema-player-box iframe,
+    #dialogue-history .srbk-cinema-player-box video,
+    #dialogue-history .srbk-video-player-wrap iframe,
+    #dialogue-history .srbk-video-player-wrap video {
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        aspect-ratio: auto !important;
+        border: 0 !important;
+        display: block !important;
+        object-fit: contain !important;
+        background: #000 !important;
+    }
+
     #dialogue-history img {
         max-width: 100% !important;
         height: auto !important;
@@ -6967,6 +7002,7 @@ button,
             synopsis: "Spider-Man's European vacation takes a dangerous turn when Nick Fury recruits him to investigate mysterious elemental attacks across the continent.",
             poster: "https://canvas-lb.tubitv.com/opts/pOHmdqM4ERuoXg==/a5b9cc51-9ac2-444a-905d-d3dbc9a483f5/CNcHEKgEOgUxLjEuOQ==",
             streamUrl: "https://tubitv.com/movies/100063704/spider-man-far-from-home",
+            inlineStreamUrl: "https://vidsrc.to/embed/movie/429617",
             trailerId: "Nt9L1jCKGnE",
             platform: "tubi"
         },
@@ -6979,6 +7015,7 @@ button,
             synopsis: "Spider-Man's European vacation takes a dangerous turn when Nick Fury recruits him to investigate mysterious elemental attacks across the continent.",
             poster: "https://canvas-lb.tubitv.com/opts/pOHmdqM4ERuoXg==/a5b9cc51-9ac2-444a-905d-d3dbc9a483f5/CNcHEKgEOgUxLjEuOQ==",
             streamUrl: "https://tubitv.com/movies/100063704/spider-man-far-from-home",
+            inlineStreamUrl: "https://vidsrc.to/embed/movie/429617",
             trailerId: "Nt9L1jCKGnE",
             platform: "tubi"
         },
@@ -6991,6 +7028,7 @@ button,
             synopsis: "A reporter wakes up in a morgue after being killed by a vampire cult and vows bloody vengeance against the supernatural syndicate that took her life.",
             poster: "https://m.media-amazon.com/images/M/MV5BMjA4ODUyNTYyMl5BMl5BanBnXkFtZTcwMjE0NzkxMQ@@._V1_.jpg",
             streamUrl: "https://tubitv.com/movies/300624/rise-blood-hunter",
+            inlineStreamUrl: "https://vidsrc.to/embed/movie/12513",
             trailerId: "w51Shn78CGA",
             platform: "tubi"
         },
@@ -7003,6 +7041,7 @@ button,
             synopsis: "A computer hacker discovers from enigmatic rebels that the world is an elaborate simulation controlled by sentient machines.",
             poster: "https://m.media-amazon.com/images/M/MV5BNzQzOTk3OTAtNDQ0Zi00ZTVkLWI0MTEtMDllZjNkYzNjNTc4L2ltYWdlXkEyXkFqcGdeQXVyNjU0OTQ0OTY@._V1_.jpg",
             streamUrl: "https://tubitv.com/movies/515204/matrix",
+            inlineStreamUrl: "https://vidsrc.to/embed/movie/603",
             trailerId: "vKQi3bBA1y8",
             platform: "tubi"
         },
@@ -7015,6 +7054,7 @@ button,
             synopsis: "A computer hacker discovers from enigmatic rebels that the world is an elaborate simulation controlled by sentient machines.",
             poster: "https://m.media-amazon.com/images/M/MV5BNzQzOTk3OTAtNDQ0Zi00ZTVkLWI0MTEtMDllZjNkYzNjNTc4L2ltYWdlXkEyXkFqcGdeQXVyNjU0OTQ0OTY@._V1_.jpg",
             streamUrl: "https://tubitv.com/movies/515204/matrix",
+            inlineStreamUrl: "https://vidsrc.to/embed/movie/603",
             trailerId: "vKQi3bBA1y8",
             platform: "tubi"
         },
@@ -7027,6 +7067,7 @@ button,
             synopsis: "A human soldier is sent back in time to 1984 to protect Sarah Connor from an unstoppable cybernetic assassin.",
             poster: "https://m.media-amazon.com/images/M/MV5BYTViNzMxZjEtZGEwNy00MDNiLNy00MDNiLWI4NzQtNmIyN2E5OTZmYjBiXkEyXkFqcGdeQXVyNzkwFDA1ODg@._V1_.jpg",
             streamUrl: "https://tubitv.com/movies/301815/the-terminator",
+            inlineStreamUrl: "https://vidsrc.to/embed/movie/218",
             trailerId: "k64P4l2Wmeg",
             platform: "tubi"
         },
@@ -7039,8 +7080,33 @@ button,
             synopsis: "A human soldier is sent back in time to 1984 to protect Sarah Connor from an unstoppable cybernetic assassin.",
             poster: "https://m.media-amazon.com/images/M/MV5BYTViNzMxZjEtZGEwNy00MDNiLNy00MDNiLWI4NzQtNmIyN2E5OTZmYjBiXkEyXkFqcGdeQXVyNzkwFDA1ODg@._V1_.jpg",
             streamUrl: "https://tubitv.com/movies/301815/the-terminator",
+            inlineStreamUrl: "https://vidsrc.to/embed/movie/218",
             trailerId: "k64P4l2Wmeg",
             platform: "tubi"
+        },
+        "night of the living dead": {
+            title: "Night of the Living Dead",
+            year: 1968,
+            genre: "Horror · Cult Classic · Full Feature",
+            rating: "NR",
+            duration: "1h 36m",
+            synopsis: "A ragtag group barricades themselves in an abandoned farmhouse to survive an onslaught of the reanimated dead.",
+            poster: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Night_of_the_Living_Dead_poster.jpg/800px-Night_of_the_Living_Dead_poster.jpg",
+            streamUrl: "https://ia800300.us.archive.org/3/items/night_of_the_living_dead/night_of_the_living_dead_512kb.mp4",
+            isDirectStream: true,
+            platform: "direct_stream"
+        },
+        "charade": {
+            title: "Charade",
+            year: 1963,
+            genre: "Mystery · Thriller · Comedy",
+            rating: "NR",
+            duration: "1h 53m",
+            synopsis: "A woman is pursued in Paris by several men who want the fortune her murdered husband had stolen.",
+            poster: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Charade_1963_theatrical_poster.jpg/800px-Charade_1963_theatrical_poster.jpg",
+            streamUrl: "https://ia800201.us.archive.org/22/items/Charade1963/Charade.mp4",
+            isDirectStream: true,
+            platform: "direct_stream"
         },
         "oceans": {
             title: "Oceans",
@@ -7066,15 +7132,15 @@ button,
             isDirectStream: true,
             platform: "direct_stream"
         },
-        "real movie": {
-            title: "Elephants Dream",
-            year: 2006,
-            genre: "Sci-Fi · 3D Animation Feature",
-            rating: "PG",
-            duration: "11m",
-            synopsis: "Two travelers explore the surreal, infinite mechanical corridors of a gigantic living machine.",
-            poster: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Elephants_Dream_poster.png/800px-Elephants_Dream_poster.png",
-            streamUrl: "https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4",
+        "tears of steel": {
+            title: "Tears of Steel",
+            year: 2012,
+            genre: "Sci-Fi · Cyberpunk · VFX Feature",
+            rating: "PG-13",
+            duration: "12m",
+            synopsis: "In a dystopian future, human warriors and robotic scouts clash across a neon-lit cyberpunk cityscape.",
+            poster: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Tears_of_Steel_poster.jpg/800px-Tears_of_Steel_poster.jpg",
+            streamUrl: "https://archive.org/download/Tears-of-Steel/tears_of_steel_1080p.mp4",
             isDirectStream: true,
             platform: "direct_stream"
         }
@@ -7083,12 +7149,15 @@ button,
     function resolveMovieDatabase(query, url) {
         const qLower = String(query || "").toLowerCase();
         const uLower = String(url || "").toLowerCase();
-        if (uLower.includes("100063704") || uLower.includes("spider-man")) return MOVIE_DATABASE["spiderman"];
-        if (uLower.includes("300624") || uLower.includes("rise-blood-hunter")) return MOVIE_DATABASE["rise"];
-        if (uLower.includes("515204") || uLower.includes("/matrix")) return MOVIE_DATABASE["the matrix"];
-        if (uLower.includes("301815") || uLower.includes("the-terminator")) return MOVIE_DATABASE["the terminator"];
-        if (uLower.includes("oceans.mp4")) return MOVIE_DATABASE["oceans"];
-        if (uLower.includes("elephantsdream")) return MOVIE_DATABASE["elephants dream"];
+        if (uLower.includes("100063704") || uLower.includes("spider-man") || qLower.includes("spiderman") || qLower.includes("spider-man")) return MOVIE_DATABASE["spiderman"];
+        if (uLower.includes("300624") || uLower.includes("rise-blood-hunter") || qLower.includes("rise")) return MOVIE_DATABASE["rise"];
+        if (uLower.includes("515204") || uLower.includes("/matrix") || qLower.includes("matrix")) return MOVIE_DATABASE["the matrix"];
+        if (uLower.includes("301815") || uLower.includes("the-terminator") || qLower.includes("terminator")) return MOVIE_DATABASE["the terminator"];
+        if (uLower.includes("oceans.mp4") || qLower.includes("oceans")) return MOVIE_DATABASE["oceans"];
+        if (uLower.includes("elephantsdream") || qLower.includes("elephants dream")) return MOVIE_DATABASE["elephants dream"];
+        if (qLower.includes("living dead")) return MOVIE_DATABASE["night of the living dead"];
+        if (qLower.includes("charade")) return MOVIE_DATABASE["charade"];
+        if (qLower.includes("tears of steel")) return MOVIE_DATABASE["tears of steel"];
         for (const [key, movie] of Object.entries(MOVIE_DATABASE)) {
             if (qLower.includes(key) || uLower.includes(key)) {
                 return movie;
@@ -7109,43 +7178,42 @@ button,
         const isDirect = movie.isDirectStream || streamUrl.endsWith(".mp4") || streamUrl.endsWith(".webm");
         const trailerId = movie.trailerId || "";
         const safeTitle = escapeHtmlLocal(title);
+        const cardUid = "cin_" + Math.random().toString(36).slice(2, 9);
+        const hasInlineStream = Boolean(movie.inlineStreamUrl || isDirect);
+        const fullMovieUrl = isDirect ? streamUrl : (movie.inlineStreamUrl || "");
 
-        let playerAreaHtml = "";
+        let initialPlayerHtml = "";
         if (isDirect) {
-            playerAreaHtml = `
-                <div style="position:relative;width:100%;aspect-ratio:16 / 9;background:#000;border-radius:8px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.7);border:1px solid rgba(0,216,232,0.25);">
-                    <video controls autoplay playsinline src="${escapeHtmlLocal(streamUrl)}" class="srbk-video-player" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;"></video>
-                </div>`;
+            initialPlayerHtml = `<video controls autoplay playsinline src="${escapeHtmlLocal(fullMovieUrl)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;"></video>`;
+        } else if (movie.inlineStreamUrl) {
+            initialPlayerHtml = `<iframe src="${escapeHtmlLocal(fullMovieUrl)}" referrerpolicy="no-referrer" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:0;background:#000;"></iframe>`;
         } else if (trailerId) {
-            playerAreaHtml = `
-                <div style="position:relative;width:100%;aspect-ratio:16 / 9;background:#000;border-radius:8px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.7);border:1px solid rgba(0,216,232,0.25);">
-                    <iframe src="https://www.youtube.com/embed/${trailerId}?autoplay=1&rel=0&enablejsapi=1" class="srbk-video-iframe" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:0;"></iframe>
-                </div>`;
+            initialPlayerHtml = `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(trailerId)}?autoplay=1&rel=0&enablejsapi=1" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:0;background:#000;"></iframe>`;
         } else {
-            playerAreaHtml = `
-                <div style="position:relative;width:100%;aspect-ratio:16 / 9;background:radial-gradient(circle at center, rgba(0,216,232,0.18) 0%, rgba(5,10,16,0.96) 80%);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid rgba(0,216,232,0.25);cursor:pointer;" onclick="window.open('${escapeHtmlLocal(streamUrl)}', '_blank', 'popup=yes,width=1920,height=1080,fullscreen=yes')">
+            initialPlayerHtml = `
+                <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at center, rgba(0,216,232,0.18) 0%, rgba(5,10,16,0.96) 80%);cursor:pointer;" onclick="window.openTheaterMode('${escapeHtmlLocal(streamUrl)}', '${safeTitle}')">
                     <div style="width:68px;height:68px;border-radius:50%;background:rgba(0,216,232,0.2);border:2px solid #00d8e8;display:flex;align-items:center;justify-content:center;box-shadow:0 0 30px rgba(0,216,232,0.5);">
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="#00d8e8"><polygon points="6,3 20,12 6,21"/></svg>
                     </div>
-                    <div style="margin-top:12px;font-family:var(--font-display, sans-serif);font-size:16px;color:#fff;font-weight:700;">PLAY STREAM IN THEATER MODE</div>
+                    <div style="margin-top:12px;font-family:var(--font-display, sans-serif);font-size:15px;color:#fff;font-weight:700;">LAUNCH THEATER MODE STREAM</div>
                 </div>`;
         }
 
         return `
 <div class="srbk-video-card srbk-native-cinema-card" data-sarembok-media="cinema"
-     style="width:100%;box-sizing:border-box;overflow:hidden;border:1px solid rgba(0,216,232,0.35);background:linear-gradient(135deg, #050d18 0%, #0a1626 100%);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.6);margin:8px 0;">
+     style="width:100%;max-width:820px;margin:14px auto;box-sizing:border-box;overflow:hidden;border:1px solid rgba(0,216,232,0.35);background:linear-gradient(135deg, #050d18 0%, #0a1626 100%);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.6);">
     <!-- Cinema Header -->
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(0,216,232,0.06);border-bottom:1px solid rgba(0,216,232,0.15);">
         <div style="display:flex;align-items:center;gap:8px;">
             <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#00d8e8;box-shadow:0 0 10px #00d8e8;"></span>
-            <span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:#00d8e8;letter-spacing:0.05em;">🎬 CINEMA · ${safeTitle.toUpperCase()} ${year}</span>
+            <span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:#00d8e8;letter-spacing:0.05em;">🎬 CINEMA COCKPIT · ${safeTitle.toUpperCase()} ${year}</span>
         </div>
         <div style="display:flex;gap:6px;">
-            <button onclick="window.openTheaterMode('${escapeHtmlLocal(streamUrl)}', '${safeTitle}')"
+            <button onclick="window.openTheaterMode('${escapeHtmlLocal(streamUrl || fullMovieUrl)}', '${safeTitle}')"
                     style="background:#00d8e8;color:#051119;font-weight:700;border:0;padding:5px 12px;border-radius:6px;font-size:10px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
                 ▶ THEATER MODE ↗
             </button>
-            <button onclick="if(window.popOutFloatingVideo) window.popOutFloatingVideo('${escapeHtmlLocal(trailerId || streamUrl)}', '${safeTitle}')"
+            <button onclick="if(window.popOutFloatingVideo) window.popOutFloatingVideo('${escapeHtmlLocal(fullMovieUrl || trailerId || streamUrl)}', '${safeTitle}')"
                     style="background:rgba(255,255,255,0.08);color:#d9e6f2;border:1px solid rgba(255,255,255,0.15);padding:5px 10px;border-radius:6px;font-size:10px;cursor:pointer;">
                 🍿 POP OUT
             </button>
@@ -7166,17 +7234,17 @@ button,
                 <span style="background:rgba(0,216,232,0.12);color:#00d8e8;border:1px solid rgba(0,216,232,0.3);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">${rating}</span>
                 <span style="background:rgba(255,255,255,0.08);color:#d9e6f2;border:1px solid rgba(255,255,255,0.15);padding:2px 8px;border-radius:4px;font-size:10px;">${duration}</span>
                 <span style="background:rgba(255,255,255,0.08);color:#8ba2b5;border:1px solid rgba(255,255,255,0.15);padding:2px 8px;border-radius:4px;font-size:10px;">${genre}</span>
-                <span style="background:rgba(0,232,143,0.12);color:#00e88f;border:1px solid rgba(0,232,143,0.3);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">FREE STREAM · HD</span>
+                <span style="background:rgba(0,232,143,0.12);color:#00e88f;border:1px solid rgba(0,232,143,0.3);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">${hasInlineStream ? "FULL MOVIE AVAILABLE" : "FREE STREAM · HD"}</span>
             </div>
             <div style="font-size:12px;color:#a0b8cc;line-height:1.45;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">
                 ${escapeHtmlLocal(synopsis)}
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button onclick="window.openTheaterMode('${escapeHtmlLocal(streamUrl)}', '${safeTitle}')"
+                <button onclick="window.openTheaterMode('${escapeHtmlLocal(streamUrl || fullMovieUrl)}', '${safeTitle}')"
                         style="background:#00d8e8;color:#041018;font-weight:700;padding:7px 18px;border-radius:6px;font-size:11px;border:0;cursor:pointer;box-shadow:0 0 15px rgba(0,216,232,0.35);display:inline-flex;align-items:center;gap:6px;">
                     ▶ PLAY FULL MOVIE (THEATER MODE)
                 </button>
-                <button onclick="if(window.popOutFloatingVideo) window.popOutFloatingVideo('${escapeHtmlLocal(trailerId || streamUrl)}', '${safeTitle}')"
+                <button onclick="if(window.popOutFloatingVideo) window.popOutFloatingVideo('${escapeHtmlLocal(fullMovieUrl || trailerId || streamUrl)}', '${safeTitle}')"
                         style="background:rgba(255,255,255,0.08);color:#d9e6f2;border:1px solid rgba(255,255,255,0.18);padding:7px 14px;border-radius:6px;font-size:11px;cursor:pointer;">
                     🍿 ALWAYS-ON-TOP PiP
                 </button>
@@ -7184,9 +7252,29 @@ button,
         </div>
     </div>
 
-    <!-- Inline Active Player Area -->
-    <div style="padding:10px 14px;background:#030810;">
-        ${playerAreaHtml}
+    <!-- Inline Active Player Area with Source Switcher -->
+    <div style="padding:12px 14px;background:#030810;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+            <div style="display:flex;gap:6px;align-items:center;">
+                ${hasInlineStream ? `
+                <button id="btn-movie-${cardUid}" onclick="window.switchCinemaSource('${cardUid}', 'movie', '${escapeHtmlLocal(fullMovieUrl)}')"
+                        style="background:#00e88f;color:#041018;font-weight:700;border:0;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;box-shadow:0 0 12px rgba(0,232,143,0.35);display:inline-flex;align-items:center;gap:4px;">
+                    🎬 FULL MOVIE (INLINE)
+                </button>` : ''}
+                ${trailerId ? `
+                <button id="btn-trailer-${cardUid}" onclick="window.switchCinemaSource('${cardUid}', 'trailer', '${escapeHtmlLocal(trailerId)}')"
+                        style="background:${hasInlineStream ? 'rgba(255,255,255,0.08)' : '#00d8e8'};color:${hasInlineStream ? '#d9e6f2' : '#041018'};font-weight:700;border:1px solid rgba(255,255,255,0.15);padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                    🍿 TRAILER
+                </button>` : ''}
+            </div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:#00d8e8;letter-spacing:0.04em;">
+                ${hasInlineStream ? "STATUS: STREAMING FULL MOVIE" : "STATUS: PREVIEW TRAILER"}
+            </div>
+        </div>
+
+        <div class="srbk-cinema-player-box" id="cinema-box-${cardUid}">
+            ${initialPlayerHtml}
+        </div>
     </div>
 
     <!-- Quick Cinema Navigation Bar -->
@@ -7199,6 +7287,30 @@ button,
     </div>
 </div>`;
     }
+
+    window.switchCinemaSource = function(cardUid, mode, url) {
+        const box = document.getElementById("cinema-box-" + cardUid);
+        if (!box) return;
+        const btnMovie = document.getElementById("btn-movie-" + cardUid);
+        const btnTrailer = document.getElementById("btn-trailer-" + cardUid);
+
+        if (mode === 'movie') {
+            if (btnMovie) { btnMovie.style.background = "#00e88f"; btnMovie.style.color = "#041018"; }
+            if (btnTrailer) { btnTrailer.style.background = "rgba(255,255,255,0.08)"; btnTrailer.style.color = "#d9e6f2"; }
+            if (/\.(mp4|webm|ogg)(\?|$)/i.test(url)) {
+                box.innerHTML = `<video controls autoplay playsinline src="${escapeHtmlLocal(url)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;"></video>`;
+            } else {
+                box.innerHTML = `<iframe src="${escapeHtmlLocal(url)}" referrerpolicy="no-referrer" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:0;background:#000;"></iframe>`;
+            }
+            if (typeof showToast === 'function') showToast("STREAMING FULL MOVIE INLINE");
+        } else if (mode === 'trailer') {
+            if (btnTrailer) { btnTrailer.style.background = "#00d8e8"; btnTrailer.style.color = "#041018"; }
+            if (btnMovie) { btnMovie.style.background = "rgba(255,255,255,0.08)"; btnMovie.style.color = "#d9e6f2"; }
+            const ytEmbed = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(url)}?autoplay=1&rel=0&enablejsapi=1`;
+            box.innerHTML = `<iframe src="${ytEmbed}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:0;background:#000;"></iframe>`;
+            if (typeof showToast === 'function') showToast("PLAYING OFFICIAL TRAILER");
+        }
+    };
 
     window.openTheaterMode = function(streamUrl, title) {
         if (!streamUrl) return;
