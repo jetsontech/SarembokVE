@@ -6616,7 +6616,9 @@ html[data-theme="dark"] .srbk-theme-switch {
 
     /* Cockpit Cinema Player Box — Perfect 16:9 Fit & Contained Box */
     #dialogue-history .srbk-native-cinema-card {
-        max-width: 640px !important;
+        max-width: min(640px, 100%) !important;
+        max-height: calc(100dvh - 230px) !important;
+        overflow: hidden !important;
         width: 100% !important;
         margin: 8px auto !important;
         box-sizing: border-box !important;
@@ -6625,7 +6627,7 @@ html[data-theme="dark"] .srbk-theme-switch {
         position: relative !important;
         width: 100% !important;
         max-width: 100% !important;
-        height: 290px !important;
+        height: clamp(150px, 32vh, 290px) !important;
         margin: 0 auto !important;
         background: #000 !important;
         border-radius: 6px !important;
