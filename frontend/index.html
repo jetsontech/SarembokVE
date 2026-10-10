@@ -9834,15 +9834,22 @@ button,
                 const container = pipWindow.document.createElement("div");
                 container.className = "pip-container";
 
-                let playerSrc = "";
                 if (media.ytId) {
-                    playerSrc = `/pip_player.html?v=${encodeURIComponent(media.ytId)}&title=${encodeURIComponent(media.displayTitle || '')}`;
+                    const ytEmbed = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(media.ytId)}?autoplay=1&rel=0&enablejsapi=1`;
+                    container.innerHTML = `<iframe src="${ytEmbed}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="width:100%; height:100%; border:none;"></iframe>`;
                 } else if (media.embedUrl) {
-                    playerSrc = `/pip_player.html?url=${encodeURIComponent(media.embedUrl)}&title=${encodeURIComponent(media.displayTitle || '')}`;
+                    container.innerHTML = `<iframe src="${escapeHtml(media.embedUrl)}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="width:100%; height:100%; border:none;"></iframe>`;
+                } else if (media.raw && (/\.(mp4|webm|ogg|m4v)(\?|$)/i.test(media.raw))) {
+                    const v = pipWindow.document.createElement("video");
+                    v.src = media.raw;
+                    v.controls = true;
+                    v.autoplay = true;
+                    v.style.cssText = "width:100%; height:100%; object-fit:contain;";
+                    container.appendChild(v);
                 } else {
-                    playerSrc = `/pip_player.html?url=${encodeURIComponent(media.raw || '')}&title=${encodeURIComponent(media.displayTitle || '')}`;
+                    const fallbackSrc = media.raw || media.embedUrl || "";
+                    container.innerHTML = `<iframe src="${escapeHtml(fallbackSrc)}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="width:100%; height:100%; border:none;"></iframe>`;
                 }
-                container.innerHTML = `<iframe src="${playerSrc}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="width:100%; height:100%; border:none;"></iframe>`;
                 pipWindow.document.body.appendChild(container);
 
                 pipWindow.document.getElementById("pip-close-btn").addEventListener("click", () => {

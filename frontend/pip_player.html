@@ -109,9 +109,8 @@
             }
             const container = document.getElementById("player-container");
             if (v) {
-                const origin = encodeURIComponent(window.location.origin);
                 const iframe = document.createElement("iframe");
-                iframe.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(v)}?autoplay=1&enablejsapi=1&origin=${origin}&rel=0`;
+                iframe.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(v)}?autoplay=1&enablejsapi=1&rel=0`;
                 iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
                 iframe.referrerPolicy = "strict-origin-when-cross-origin";
                 iframe.allowFullscreen = true;
@@ -122,9 +121,8 @@
                     const match = clean.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
                     const ytId = match ? match[1] : "";
                     if (ytId) {
-                        const origin = encodeURIComponent(window.location.origin);
                         const iframe = document.createElement("iframe");
-                        iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&enablejsapi=1&origin=${origin}&rel=0`;
+                        iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&enablejsapi=1&rel=0`;
                         iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
                         iframe.referrerPolicy = "strict-origin-when-cross-origin";
                         iframe.allowFullscreen = true;
