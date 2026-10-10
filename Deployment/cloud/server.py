@@ -28,6 +28,7 @@ import urllib.parse
 import uuid
 import threading
 import sys
+from typing import Any, Optional
 
 # Make sibling cloud modules importable both in the production container and when
 # server.py is imported directly by local/CI regression tests.
@@ -709,6 +710,10 @@ except Exception:
         AutonomousEvolver = None
         ProactiveOmniDaemon = None
         SwarmCompiler = None
+
+evolver = AutonomousEvolver() if AutonomousEvolver else None
+proactive_daemon = ProactiveOmniDaemon() if ProactiveOmniDaemon else None
+swarm_compiler = SwarmCompiler() if SwarmCompiler else None
 
 DB_LOCK: asyncio.Lock | None = None
 CONNECTIONS: asyncio.Semaphore | None = None
@@ -2748,7 +2753,7 @@ def resolve_image_generation(
                 if img_bytes and len(img_bytes) > 1000:
                     img_bytes = _brand_sarembok_image(img_bytes)
                     safe_name = f"sarembokve_visual_{int(time.time())}_{actual_seed}.jpg"
-                    f_meta = save_uploaded_file(img_bytes, filename=safe_name, mime_type="image/jpeg", session_id="visual_synthesis")
+                    f_meta = save_uploaded_file(safe_name, img_bytes, mime_type="image/jpeg")
                     local_url = f"/api/download?fileId={f_meta['fileId']}"
             except Exception as cache_exc:
                 LOG.debug("SarembokVE local image cache bypassed: %s", cache_exc)
@@ -6223,6 +6228,8 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
 
     # ==================== PROMETHEUS SUPER-ENGINE FACETS ====================
     if method == "TriggerSelfEvolution":
+        if not evolver:
+            return {"error": "AutonomousEvolver is not available in this environment."}
         target_dim = params.get("dimension")
         milestone = evolver.run_evolution_cycle(target_dim)
         return {
@@ -6238,10 +6245,14 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
         }
 
     if method == "ListEvolutionMilestones":
+        if not evolver:
+            return {"milestones": []}
         limit = min(100, max(1, int(params.get("limit", 20))))
         return {"milestones": evolver.get_evolution_history(limit)}
 
     if method == "CompileEngineeringSwarm":
+        if not swarm_compiler:
+            return {"error": "SwarmCompiler is not available in this environment."}
         goal = str(params.get("goal", "Build high-performance real-time exchange")).strip()
         project = swarm_compiler.compile_project(goal)
         import dataclasses
@@ -6256,14 +6267,20 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
         }
 
     if method == "ListSwarmProjects":
+        if not swarm_compiler:
+            return {"projects": []}
         limit = min(50, max(1, int(params.get("limit", 10))))
         return {"projects": swarm_compiler.list_projects(limit)}
 
     if method == "QueryProactiveInsights":
+        if not proactive_daemon:
+            return {"insights": []}
         limit = min(50, max(1, int(params.get("limit", 15))))
         return {"insights": proactive_daemon.list_insights(limit)}
 
     if method == "TriggerProactiveScan":
+        if not proactive_daemon:
+            return {"insights": [], "count": 0}
         insights = proactive_daemon.run_proactive_scan()
         return {"insights": insights, "count": len(insights)}
 

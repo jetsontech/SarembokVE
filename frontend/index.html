@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
     <title>SAREMBOKVE · AI-NATIVE COMPUTING ENVIRONMENT</title>
     <meta name="description" content="SarembokVE is an AI-native computing environment and sovereign control plane for agents, persistent memory, tool execution, research, orchestration, and distributed compute.">
 
@@ -9329,7 +9329,7 @@ button,
                 </div>
                 <div style="background:rgba(0,0,0,0.5); border-radius:8px; padding:16px; margin-bottom:16px; font-size:11px; line-height:1.8; color:var(--text-primary); font-family:var(--font-mono);">
                     <div style="color:var(--amber); font-weight:700; margin-bottom:6px;">STEP 1: Open Free Colab Notebook</div>
-                    <a href="https://colab.research.google.com/github/jetsontech/SarembokVE/blob/runtime-authority-truth-boundary/Deployment/cloud/sarembok_gpu_worker.ipynb" target="_blank" class="browser-action-btn" style="display:inline-block; margin-bottom:12px; border-color:var(--cyan); background:rgba(0,240,255,0.12);">
+                    <a href="https://colab.research.google.com/github/jetsontech/SarembokVE/blob/runtime-authority-truth-boundary/Deployment/cloud/sarembok_gpu_worker.ipynb" target="_blank" rel="noopener noreferrer" class="browser-action-btn" style="display:inline-block; margin-bottom:12px; border-color:var(--cyan); background:rgba(0,240,255,0.12);">
                         🚀 LAUNCH NOTEBOOK IN GOOGLE COLAB ↗
                     </a>
                     
@@ -10887,7 +10887,7 @@ button,
 
             let filename = "";
             const firstLine = code.split("\n")[0] || "";
-            const fnMatch = firstLine.match(/^(?:#|\/\/|\/\*|<!--|--)\s*([\w\-./\\]+\.[a-zA-Z0-9]+)/);
+            const fnMatch = firstLine.match(new RegExp('^(?:#|\\/\\/|\\/\\*|<!--|--)\\s*([\\w\\-./\\\\]+\\.[a-zA-Z0-9]+)'));
             if (fnMatch) {
                 filename = fnMatch[1].replace(/^[./\\]+/, "");
             }
