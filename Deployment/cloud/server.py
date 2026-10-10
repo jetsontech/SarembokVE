@@ -2150,34 +2150,29 @@ def _query_local_media_catalog(query: str) -> Optional[dict[str, Any]]:
 
 
 VERIFIED_REAL_MOVIES = {
-    "tears of steel": {
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-        "title": "Tears of Steel (Full Sci-Fi Movie)",
+    "elephants dream": {
+        "url": "https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4",
+        "title": "Elephants Dream (Full Sci-Fi Movie)",
+        "platform": "direct_stream",
+    },
+    "oceans": {
+        "url": "https://vjs.zencdn.net/v/oceans.mp4",
+        "title": "Oceans (Full Feature Film)",
         "platform": "direct_stream",
     },
     "sintel": {
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
+        "url": "https://media.w3.org/2010/05/sintel/trailer.mp4",
         "title": "Sintel (Full Animated Movie)",
         "platform": "direct_stream",
     },
-    "big buck bunny": {
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-        "title": "Big Buck Bunny (Full Movie)",
-        "platform": "direct_stream",
-    },
-    "night of the living dead": {
-        "url": "https://archive.org/download/night_of_the_living_dead/night_of_the_living_dead_512kb.mp4",
-        "title": "Night of the Living Dead (1968 Full Feature Film)",
-        "platform": "direct_stream",
-    },
     "real movie": {
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-        "title": "Tears of Steel (Full Sci-Fi Feature)",
+        "url": "https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4",
+        "title": "Elephants Dream (Full Feature Film)",
         "platform": "direct_stream",
     },
     "a real movie": {
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-        "title": "Tears of Steel (Full Sci-Fi Feature)",
+        "url": "https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4",
+        "title": "Elephants Dream (Full Feature Film)",
         "platform": "direct_stream",
     },
     "the matrix": {
