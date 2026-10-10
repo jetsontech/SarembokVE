@@ -7145,7 +7145,7 @@ button,
                     style="background:#00d8e8;color:#051119;font-weight:700;border:0;padding:5px 12px;border-radius:6px;font-size:10px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
                 ▶ THEATER MODE ↗
             </button>
-            <button onclick="if(window.popOutFloatingVideo) window.popOutFloatingVideo('${escapeHtmlLocal(streamUrl)}', '${safeTitle}')"
+            <button onclick="if(window.popOutFloatingVideo) window.popOutFloatingVideo('${escapeHtmlLocal(trailerId || streamUrl)}', '${safeTitle}')"
                     style="background:rgba(255,255,255,0.08);color:#d9e6f2;border:1px solid rgba(255,255,255,0.15);padding:5px 10px;border-radius:6px;font-size:10px;cursor:pointer;">
                 🍿 POP OUT
             </button>
@@ -7176,7 +7176,7 @@ button,
                         style="background:#00d8e8;color:#041018;font-weight:700;padding:7px 18px;border-radius:6px;font-size:11px;border:0;cursor:pointer;box-shadow:0 0 15px rgba(0,216,232,0.35);display:inline-flex;align-items:center;gap:6px;">
                     ▶ PLAY FULL MOVIE (THEATER MODE)
                 </button>
-                <button onclick="if(window.popOutFloatingVideo) window.popOutFloatingVideo('${escapeHtmlLocal(streamUrl)}', '${safeTitle}')"
+                <button onclick="if(window.popOutFloatingVideo) window.popOutFloatingVideo('${escapeHtmlLocal(trailerId || streamUrl)}', '${safeTitle}')"
                         style="background:rgba(255,255,255,0.08);color:#d9e6f2;border:1px solid rgba(255,255,255,0.18);padding:7px 14px;border-radius:6px;font-size:11px;cursor:pointer;">
                     🍿 ALWAYS-ON-TOP PiP
                 </button>
@@ -9619,6 +9619,19 @@ button,
             }
 
             if (raw.startsWith("http://") || raw.startsWith("https://")) {
+                if (rawLower.includes("tubitv.com")) {
+                    const movie = (typeof resolveMovieDatabase === "function") ? resolveMovieDatabase(title, raw) : null;
+                    if (movie && movie.trailerId) {
+                        return {
+                            ytId: movie.trailerId,
+                            embedUrl: `https://www.youtube.com/embed/${movie.trailerId}?rel=0&enablejsapi=1`,
+                            directWatchUrl: raw,
+                            displayTitle: title || movie.title,
+                            raw,
+                            needsResolve: false
+                        };
+                    }
+                }
                 return {
                     ytId: null,
                     embedUrl: raw,
@@ -9823,13 +9836,28 @@ button,
                 `;
                 pipWindow.document.head.appendChild(style);
 
+                const directWatch = (media.directWatchUrl && media.directWatchUrl.startsWith("http")) ? media.directWatchUrl : "";
+                const fullStreamBtn = directWatch ? `<button class="pip-btn" id="pip-stream-btn" style="background:#00d8e8;color:#041018;border-color:#00d8e8;font-weight:700;margin-right:6px;" title="Open Full Movie Stream">▶ FULL MOVIE ↗</button>` : "";
+
                 const bar = pipWindow.document.createElement("div");
                 bar.className = "pip-bar";
                 bar.innerHTML = `
                     <span class="pip-title"><span class="pip-badge"></span> 🎬 ${escapeHtml(media.displayTitle || "Video")} · ALWAYS-ON-TOP</span>
-                    <button class="pip-btn" id="pip-close-btn" title="Close PiP">✕ Close</button>
+                    <div style="display:flex;align-items:center;">
+                        ${fullStreamBtn}
+                        <button class="pip-btn" id="pip-close-btn" title="Close PiP">✕ Close</button>
+                    </div>
                 `;
                 pipWindow.document.body.appendChild(bar);
+
+                if (directWatch) {
+                    const sBtn = pipWindow.document.getElementById("pip-stream-btn");
+                    if (sBtn) {
+                        sBtn.addEventListener("click", () => {
+                            window.open(directWatch, "_blank", "popup=yes,width=1920,height=1080,fullscreen=yes");
+                        });
+                    }
+                }
 
                 const container = pipWindow.document.createElement("div");
                 container.className = "pip-container";
