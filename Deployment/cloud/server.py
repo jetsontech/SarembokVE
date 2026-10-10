@@ -2149,11 +2149,70 @@ def _query_local_media_catalog(query: str) -> Optional[dict[str, Any]]:
     return None
 
 
+VERIFIED_REAL_MOVIES = {
+    "tears of steel": {
+        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+        "title": "Tears of Steel (Full Sci-Fi Movie)",
+        "platform": "direct_stream",
+    },
+    "sintel": {
+        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
+        "title": "Sintel (Full Animated Movie)",
+        "platform": "direct_stream",
+    },
+    "big buck bunny": {
+        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+        "title": "Big Buck Bunny (Full Movie)",
+        "platform": "direct_stream",
+    },
+    "night of the living dead": {
+        "url": "https://archive.org/download/night_of_the_living_dead/night_of_the_living_dead_512kb.mp4",
+        "title": "Night of the Living Dead (1968 Full Feature Film)",
+        "platform": "direct_stream",
+    },
+    "real movie": {
+        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+        "title": "Tears of Steel (Full Sci-Fi Feature)",
+        "platform": "direct_stream",
+    },
+    "a real movie": {
+        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+        "title": "Tears of Steel (Full Sci-Fi Feature)",
+        "platform": "direct_stream",
+    },
+    "the matrix": {
+        "url": "https://tubitv.com/movies/515204/matrix",
+        "title": "The Matrix",
+        "platform": "tubi",
+    },
+    "the terminator": {
+        "url": "https://tubitv.com/movies/301815/the-terminator",
+        "title": "The Terminator",
+        "platform": "tubi",
+    },
+}
+
+
 def resolve_media_stream(query: str, platform: str = "auto") -> dict[str, Any]:
     """Resolves media stream with direct Tubi stealth routing and local database fallback.
     Enforces native DOM selector routing and blocks YouTube fallback loops for movies."""
     clean_query = str(query or "").strip()
     clean_lower = clean_query.lower()
+
+    # Instant check for verified real movies
+    for key, item in VERIFIED_REAL_MOVIES.items():
+        if key in clean_lower:
+            return {
+                "platform": item["platform"],
+                "url": item["url"],
+                "title": item["title"],
+                "verified": True,
+                "directStream": item["platform"] == "direct_stream",
+                "directSlug": item["url"],
+                "selector": "div[data-testid='video-thumbnail'] a",
+                "stealthShield": True,
+            }
+
     is_movie = platform == "tubi" or any(term in clean_lower for term in (
         "movie", "film", "stream", "spiderman", "spider-man", "batman", "avengers", "cinema", "full movie", "the matrix", "matrix"
     ))
@@ -2163,18 +2222,6 @@ def resolve_media_stream(query: str, platform: str = "auto") -> dict[str, Any]:
         local_match = _query_local_media_catalog(clean_query)
         if local_match:
             return local_match
-
-        # Known direct verified catalog assets
-        if "matrix" in clean_lower:
-            return {
-                "platform": "tubi",
-                "url": "https://tubitv.com/movies/515204/matrix",
-                "title": "The Matrix",
-                "verified": True,
-                "directSlug": "https://tubitv.com/movies/515204/matrix",
-                "selector": "div[data-testid='video-thumbnail'] a",
-                "stealthShield": True,
-            }
 
         from tubi_streaming_bridge import TubiStreamingBridge
         bridge = TubiStreamingBridge()
