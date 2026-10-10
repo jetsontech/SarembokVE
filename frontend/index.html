@@ -6962,6 +6962,47 @@ button,
         const raw = String(url || "").trim();
         const id = extractId(raw);
 
+        // Check if raw is a Tubi or direct streaming URL
+        const isTubi = /tubitv\.com/i.test(raw);
+        if (isTubi) {
+            return `
+<div class="srbk-video-card srbk-cinema-player" data-sarembok-media="movie"
+     style="width:100%;max-width:100%;box-sizing:border-box;overflow:hidden;border:1px solid rgba(0,216,232,0.35);background:linear-gradient(135deg, #070e17 0%, #0d1a29 100%);border-radius:12px;box-shadow:0 12px 35px rgba(0,0,0,0.5);">
+  <div class="srbk-video-card-head"
+       style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;background:rgba(0,0,0,0.4);border-bottom:1px solid rgba(255,255,255,0.06);font-family:var(--font-mono);font-size:11px;color:#00d8e8;">
+    <span class="srbk-video-badge" style="display:flex;align-items:center;gap:6px;">
+      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#00d8e8;box-shadow:0 0 10px #00d8e8;"></span>
+      CINEMA STREAM · ${safeTitle} (TUBI)
+    </span>
+    <div style="display:flex;gap:10px;">
+      <button onclick="window.open('${escapeHtmlLocal(raw)}', '_blank', 'popup=yes,width=1920,height=1080,fullscreen=yes')"
+              style="background:#00d8e8;color:#051119;border:0;padding:5px 12px;border-radius:6px;font-family:var(--font-mono);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:0.05em;">
+        FULLSCREEN STREAM ↗
+      </button>
+    </div>
+  </div>
+  <div style="position:relative;width:100%;aspect-ratio:16 / 9;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at center, rgba(0,216,232,0.15) 0%, rgba(5,10,16,0.96) 80%);text-align:center;padding:24px;">
+    <div style="width:72px;height:72px;border-radius:50%;background:rgba(0,216,232,0.18);border:2px solid #00d8e8;display:flex;align-items:center;justify-content:center;box-shadow:0 0 35px rgba(0,216,232,0.4);cursor:pointer;margin-bottom:16px;transition:transform 0.2s;"
+         onclick="window.open('${escapeHtmlLocal(raw)}', '_blank', 'popup=yes,width=1920,height=1080,fullscreen=yes')">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="#00d8e8"><polygon points="6,3 20,12 6,21"/></svg>
+    </div>
+    <div style="font-family:var(--font-display, sans-serif);font-size:22px;color:#fff;font-weight:700;letter-spacing:0.04em;margin-bottom:6px;">${safeTitle}</div>
+    <div style="font-size:12px;color:#8ba2b5;max-width:440px;line-height:1.5;margin-bottom:18px;">Direct verified free cinema stream resolved via stealth player pipeline. Ready for instant full-screen playback.</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+      <a href="${escapeHtmlLocal(raw)}" target="_blank" rel="noopener noreferrer"
+         onclick="window.open('${escapeHtmlLocal(raw)}', '_blank', 'popup=yes,width=1920,height=1080,fullscreen=yes'); return false;"
+         style="background:#00d8e8;color:#041018;font-weight:700;padding:9px 22px;border-radius:8px;font-size:12px;text-decoration:none;box-shadow:0 0 20px rgba(0,216,232,0.45);display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+        ▶ PLAY FULLSCREEN STREAM
+      </a>
+      <button onclick="if(window.popOutFloatingVideo) window.popOutFloatingVideo('${escapeHtmlLocal(raw)}', '${safeTitle}')"
+              style="background:rgba(255,255,255,0.06);color:#d9e6f2;border:1px solid rgba(255,255,255,0.15);padding:9px 16px;border-radius:8px;font-size:12px;cursor:pointer;">
+        🍿 FLOAT POP-OUT (PiP)
+      </button>
+    </div>
+  </div>
+</div>`;
+        }
+
         let iframeSrc;
 
         if (id) {
@@ -11763,6 +11804,18 @@ button,
             }
             input.value = "";
             clearAttachments();
+
+            // Direct movie/media playback interceptor:
+            const mediaMatch = text.match(/^(?:play|watch|stream|listen to)\s+(.+)/i);
+            if (mediaMatch && !text.includes("game") && !text.includes("code") && !text.includes("canvas")) {
+                const mediaQuery = mediaMatch[1].trim();
+                if (typeof window.playVideoInline === "function") {
+                    void window.playVideoInline(mediaQuery, mediaQuery);
+                    if (btn) btn.disabled = false;
+                    if (bgBtn) bgBtn.disabled = false;
+                    return;
+                }
+            }
 
             // Check if user requested background execution
             if (isBackground || text.startsWith("/bg ") || text.startsWith("/background ") || text.startsWith("/async ")) {
