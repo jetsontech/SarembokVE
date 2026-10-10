@@ -9993,10 +9993,12 @@ button,
                 container.className = "pip-container";
 
                 if (media.ytId) {
-                    const ytEmbed = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(media.ytId)}?autoplay=1&rel=0&enablejsapi=1`;
+                    const ytEmbed = `${location.origin}/pip_player.html?v=${encodeURIComponent(media.ytId)}`;
                     container.innerHTML = `<iframe src="${ytEmbed}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="width:100%; height:100%; border:none;"></iframe>`;
                 } else if (media.embedUrl) {
-                    container.innerHTML = `<iframe src="${escapeHtml(media.embedUrl)}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="width:100%; height:100%; border:none;"></iframe>`;
+                    const ytm = String(media.embedUrl).match(/youtube(?:-nocookie)?\.com\/embed\/([\w-]{11})/);
+                    const embedSrc = ytm ? `${location.origin}/pip_player.html?v=${ytm[1]}` : media.embedUrl;
+                    container.innerHTML = `<iframe src="${escapeHtml(embedSrc)}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="width:100%; height:100%; border:none;"></iframe>`;
                 } else if (media.raw && (/\.(mp4|webm|ogg|m4v)(\?|$)/i.test(media.raw))) {
                     const v = pipWindow.document.createElement("video");
                     v.src = media.raw;
