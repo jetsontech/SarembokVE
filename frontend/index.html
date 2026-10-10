@@ -7207,7 +7207,7 @@ button,
     </div>
 
     <!-- Active Media Player Box (Contained 16:9) -->
-     <div style="padding:6px 8px;background:#02060c;flex:1;min-height:0;display:flex;">
+     <div style="padding:6px 8px;background:#02060c;flex:1;min-height:0;display:flex;justify-content:center;">
         <div class="srbk-cinema-player-box" id="cinema-box-${cardUid}"
              style="position:relative;width:100%;flex:1;min-height:0;background:#000;border-radius:6px;overflow:hidden;border:1px solid rgba(0,216,232,0.2);">
             ${playerHtml}
@@ -17059,19 +17059,24 @@ body #view-dialogue #dialogue-status-tag {
 body #dialogue-history .srbk-native-cinema-card {
     max-width: 1200px !important;
     width: 100% !important;
-    height: clamp(380px, calc(100dvh - 230px), 820px) !important;
+    height: clamp(420px, calc(100dvh - 175px), 860px) !important;
     max-height: none !important;
-    margin: 8px auto !important;
+    margin: 6px auto !important;
     display: flex !important;
     flex-direction: column !important;
     overflow: hidden !important;
 }
+body #dialogue-history .srbk-cinema-library + div {
+    display: none !important;
+}
 body #dialogue-history .srbk-cinema-player-box {
-    width: 100% !important;
     height: auto !important;
-    aspect-ratio: auto !important;
-    flex: 1 !important;
-    min-height: 0 !important;
+    align-self: stretch !important;
+    width: auto !important;
+    max-width: 100% !important;
+    aspect-ratio: 16 / 9 !important;
+    flex: none !important;
+    margin: 0 auto !important;
 }
 body #dialogue-history .srbk-cinema-player-box iframe,
 body #dialogue-history .srbk-cinema-player-box video {
