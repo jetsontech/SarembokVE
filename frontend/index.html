@@ -7187,7 +7187,7 @@ button,
 
         return `
 <div class="srbk-video-card srbk-native-cinema-card" data-sarembok-media="cinema"
-     style="width:100%;max-width:640px;margin:8px auto;box-sizing:border-box;overflow:hidden;border:1px solid rgba(0,216,232,0.3);background:linear-gradient(135deg, #050d18 0%, #0a1626 100%);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.6);">
+     style="width:100%;max-width:1200px;margin:8px auto;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;border:1px solid rgba(0,216,232,0.3);background:linear-gradient(135deg, #050d18 0%, #0a1626 100%);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.6);">
     <!-- Slim Cinema Header -->
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(0,216,232,0.06);border-bottom:1px solid rgba(0,216,232,0.15);">
         <div style="display:flex;align-items:center;gap:6px;min-width:0;">
@@ -7207,9 +7207,9 @@ button,
     </div>
 
     <!-- Active Media Player Box (Contained 16:9) -->
-    <div style="padding:6px 8px;background:#02060c;">
+     <div style="padding:6px 8px;background:#02060c;flex:1;min-height:0;display:flex;">
         <div class="srbk-cinema-player-box" id="cinema-box-${cardUid}"
-             style="position:relative;width:100%;aspect-ratio:16/9;height:auto;background:#000;border-radius:6px;overflow:hidden;border:1px solid rgba(0,216,232,0.2);">
+             style="position:relative;width:100%;flex:1;min-height:0;background:#000;border-radius:6px;overflow:hidden;border:1px solid rgba(0,216,232,0.2);">
             ${playerHtml}
         </div>
     </div>
@@ -7238,7 +7238,7 @@ button,
         </button>
     </div>
 
-    <!-- Quick Cinema Navigation Bar -->
+    <div class="srbk-cinema-library" style="display:none;"></div>
     <div style="padding:6px 12px;background:rgba(0,0,0,0.45);border-top:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;gap:6px;overflow-x:auto;">
         <span style="font-size:9px;color:#617b94;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">IN-APP LIBRARY:</span>
         <span onclick="window.renderMoviePrompt('play Night of the Living Dead')" style="background:rgba(255,255,255,0.06);color:#00e88f;padding:2px 6px;border-radius:3px;font-size:9.5px;cursor:pointer;white-space:nowrap;border:1px solid rgba(0,232,143,0.25);">Night of the Living Dead</span>
@@ -17057,15 +17057,28 @@ body #view-dialogue #dialogue-status-tag {
     display: none !important;
 }
 body #dialogue-history .srbk-native-cinema-card {
-    max-width: min(560px, 100%, calc((100dvh - 330px) * 1.7778)) !important;
+    max-width: 1200px !important;
     width: 100% !important;
+    height: clamp(380px, calc(100dvh - 230px), 820px) !important;
+    max-height: none !important;
     margin: 8px auto !important;
+    display: flex !important;
+    flex-direction: column !important;
     overflow: hidden !important;
 }
 body #dialogue-history .srbk-cinema-player-box {
     width: 100% !important;
     height: auto !important;
-    aspect-ratio: 16 / 9 !important;
+    aspect-ratio: auto !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+}
+body #dialogue-history .srbk-cinema-player-box iframe,
+body #dialogue-history .srbk-cinema-player-box video {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
 }
 </style>
     <script src="/live-voice.js?v=20261010-inapp-cinema-v28"></script>
