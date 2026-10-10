@@ -2170,7 +2170,7 @@ VERIFIED_REAL_MOVIES = {
         "duration": "2h 9m",
         "synopsis": "Spider-Man's European vacation takes a dangerous turn when Nick Fury recruits him to investigate mysterious attacks across the continent.",
         "poster": "https://canvas-lb.tubitv.com/opts/pOHmdqM4ERuoXg==/a5b9cc51-9ac2-444a-905d-d3dbc9a483f5/CNcHEKgEOgUxLjEuOQ==",
-        "trailer_yt": "DYYtuKyMtE8",
+        "trailer_yt": "Nt9L1jCKGnE",
         "platform": "tubi",
     },
     "spider-man": {
@@ -2182,7 +2182,7 @@ VERIFIED_REAL_MOVIES = {
         "duration": "2h 9m",
         "synopsis": "Spider-Man's European vacation takes a dangerous turn when Nick Fury recruits him to investigate mysterious attacks across the continent.",
         "poster": "https://canvas-lb.tubitv.com/opts/pOHmdqM4ERuoXg==/a5b9cc51-9ac2-444a-905d-d3dbc9a483f5/CNcHEKgEOgUxLjEuOQ==",
-        "trailer_yt": "DYYtuKyMtE8",
+        "trailer_yt": "Nt9L1jCKGnE",
         "platform": "tubi",
     },
     "rise": {
