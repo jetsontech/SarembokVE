@@ -6605,6 +6605,15 @@ html[data-theme="dark"] .srbk-theme-switch {
         min-height: 180px !important;
     }
 
+    /* Declutter dialogue header: hide title, model/language pickers, engine & status badges */
+    #view-dialogue .dialogue-title,
+    #view-dialogue #active-model-select,
+    #view-dialogue #active-language-select,
+    #view-dialogue #dialogue-gpu-badge,
+    #view-dialogue #dialogue-status-tag {
+        display: none !important;
+    }
+
     /* Cockpit Cinema Player Box — Perfect 16:9 Fit & Contained Box */
     #dialogue-history .srbk-native-cinema-card {
         max-width: 640px !important;
