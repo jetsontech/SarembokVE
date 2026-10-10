@@ -10172,8 +10172,15 @@ button,
         function renderVideoCard(title, urlOrBody) {
             const media = resolvePlayableMedia(urlOrBody, title);
             const mediaTarget = media.ytId || media.raw || media.embedUrl;
+            const isTubi = /tubitv\.com/i.test(media.embedUrl) || /tubitv\.com/i.test(mediaTarget) || /tubitv\.com/i.test(urlOrBody);
 
-            const headerActions = `
+            const headerActions = isTubi ? `
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <button type="button" class="srbk-video-pop-btn" style="background:#00d8e8;color:#000;font-weight:700;" onclick="window.open('${escapeHtml(mediaTarget)}', '_blank', 'popup=yes,width=1920,height=1080,fullscreen=yes')">▶ FULLSCREEN ↗</button>
+                    <button type="button" class="srbk-video-pop-btn" onclick="popOutFloatingVideo('${escapeHtml(mediaTarget)}', '${escapeHtml(media.displayTitle)}')">⧉ POP OUT</button>
+                    <a href="${escapeHtml(mediaTarget)}" target="_blank" rel="noopener" class="srbk-video-link" style="color:#00d8e8;font-weight:700;">STREAM ↗</a>
+                </div>
+            ` : `
                 <div style="display:flex; gap:6px; align-items:center;">
                     <button type="button" class="srbk-video-pop-btn" onclick="popOutFloatingVideo('${escapeHtml(mediaTarget)}', '${escapeHtml(media.displayTitle)}')">⧉ POP OUT</button>
                     <button type="button" class="srbk-video-pop-btn" onclick="openDetachedPipWindowFromUrl('${escapeHtml(mediaTarget)}')">↗ WINDOW</button>
@@ -10182,13 +10189,39 @@ button,
             `;
 
             let playerHtml = "";
-            if (media.embedUrl.includes("youtube") || media.embedUrl.includes("embed") || media.embedUrl === "about:blank" || media.needsResolve) {
+            if (isTubi) {
+                playerHtml = `
+                <div class="srbk-video-player-wrap srbk-cinema-theater-wrap" style="position:relative;width:100%;aspect-ratio:16 / 9;overflow:hidden;background:radial-gradient(circle at center, rgba(0,216,232,0.18) 0%, rgba(5,10,16,0.96) 80%);display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;text-align:center;padding:24px;">
+                    <div style="width:72px;height:72px;border-radius:50%;background:rgba(0,216,232,0.2);border:2px solid #00d8e8;display:flex;align-items:center;justify-content:center;box-shadow:0 0 35px rgba(0,216,232,0.45);cursor:pointer;margin-bottom:14px;transition:transform 0.2s;"
+                         onclick="window.open('${escapeHtml(mediaTarget)}', '_blank', 'popup=yes,width=1920,height=1080,fullscreen=yes')">
+                        <svg width="34" height="34" viewBox="0 0 24 24" fill="#00d8e8"><polygon points="6,3 20,12 6,21"/></svg>
+                    </div>
+                    <div style="font-family:var(--font-display, sans-serif);font-size:20px;color:#fff;font-weight:700;letter-spacing:0.04em;margin-bottom:6px;">${escapeHtml(media.displayTitle)}</div>
+                    <div style="font-size:12px;color:#8ba2b5;max-width:440px;line-height:1.5;margin-bottom:16px;">Verified Free Cinema Stream. Click below to launch in true full-screen theater mode.</div>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+                        <button onclick="window.open('${escapeHtml(mediaTarget)}', '_blank', 'popup=yes,width=1920,height=1080,fullscreen=yes')"
+                                style="background:#00d8e8;color:#041018;font-weight:700;padding:9px 24px;border-radius:8px;font-size:12px;border:0;cursor:pointer;box-shadow:0 0 20px rgba(0,216,232,0.45);display:inline-flex;align-items:center;gap:6px;">
+                            ▶ PLAY FULLSCREEN STREAM
+                        </button>
+                        <button onclick="popOutFloatingVideo('${escapeHtml(mediaTarget)}', '${escapeHtml(media.displayTitle)}')"
+                                style="background:rgba(255,255,255,0.08);color:#d9e6f2;border:1px solid rgba(255,255,255,0.18);padding:9px 16px;border-radius:8px;font-size:12px;cursor:pointer;">
+                            🍿 POP OUT VIDEO
+                        </button>
+                    </div>
+                </div>`;
+            } else if (media.embedUrl.includes("youtube") || media.embedUrl.includes("embed") || media.embedUrl === "about:blank" || media.needsResolve) {
                 playerHtml = `<div class="srbk-video-player-wrap"><iframe src="${media.embedUrl}" class="srbk-video-iframe" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
             } else {
                 playerHtml = `<video controls src="${escapeHtml(media.embedUrl)}" class="srbk-video-player"></video>`;
             }
 
-            const footerHtml = `
+            const footerHtml = isTubi ? `
+                <div class="srbk-video-foot">
+                    <button type="button" class="srbk-big-pop-btn" style="background:#00d8e8;color:#051119;font-weight:700;" onclick="window.open('${escapeHtml(mediaTarget)}', '_blank', 'popup=yes,width=1920,height=1080,fullscreen=yes')">
+                        <span>▶</span> <span>LAUNCH FULLSCREEN STREAM (${escapeHtml(media.displayTitle.toUpperCase())})</span>
+                    </button>
+                </div>
+            ` : `
                 <div class="srbk-video-foot">
                     <button type="button" class="srbk-big-pop-btn" onclick="popOutFloatingVideo('${escapeHtml(mediaTarget)}', '${escapeHtml(media.displayTitle)}')">
                         <span>⧉</span> <span>POP OUT VIDEO (KEEP WATCHING IN CORNER WHILE CHATTING)</span>
@@ -10198,7 +10231,7 @@ button,
 
             return `<div class="srbk-video-card">
                 <div class="srbk-video-head">
-                    <span class="srbk-video-badge">🎬 ${escapeHtml(media.displayTitle)}</span>
+                    <span class="srbk-video-badge">🎬 ${escapeHtml(media.displayTitle)}${isTubi ? ' · TUBI STREAM' : ''}</span>
                     ${headerActions}
                 </div>
                 ${playerHtml}
