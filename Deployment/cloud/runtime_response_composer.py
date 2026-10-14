@@ -37,14 +37,115 @@ def build_runtime_context(snapshot: dict[str, Any], capabilities: dict[str, Any]
     ])
 
 
-def sanitize_public_chat_result(result: dict[str, Any]) -> dict[str, Any]:
-    """Remove internal inference telemetry before a chat result reaches a browser."""
+def is_private_runtime_detail_query(prompt: str) -> bool:
+    """True when the user is asking about Sarembok's private implementation or live internals."""
+    if (
+        is_identity_query(prompt)
+        or is_self_state_query(prompt)
+        or is_capability_query(prompt)
+        or is_limitation_query(prompt)
+        or is_creator_query(prompt)
+    ):
+        return True
+    text = _normalize_prompt_intent(prompt)
+    markers = (
+        "under the hood", "how are you built", "how were you built",
+        "what tech stack", "technology stack", "what backend", "backend technology",
+        "what infrastructure", "what database", "what storage engine", "what api",
+        "what ports", "where are your servers", "where is this hosted",
+        "source code", "internal tools", "system internals", "implementation details",
+        "show me your config", "configuration file", "environment variables",
+        "api key", "api keys", "auth token", "authentication token",
+        "server logs", "raw logs", "stack trace", "provider settings",
+        "which llm", "what llm", "what model provider", "which provider powers",
+        "how many agents", "how many workers", "how many conversations",
+        "how many memory entries", "how many memory stores", "system uptime",
+    )
+    return any(marker in text for marker in markers)
+
+
+def _contains_explicit_runtime_disclosure(text: str) -> bool:
+    """Detect strong implementation claims without censoring ordinary technical discussion."""
+    low = re.sub(r"\\s+", " ", str(text or "").strip().lower())
+    markers = (
+        "i am gemini", "i'm gemini", "large language model developed by google",
+        "i am chatgpt", "i'm chatgpt", "i am claude", "i'm claude",
+        "localgemma", "gemma2:2b", "gemini-3.8-flash", "openai/gpt-oss-120b",
+        "configured providers", "configured model providers", "most recently successful model",
+        "provider_success", "provider_api", "taskcategory", "model routing",
+        "multiple ai providers", "sqlite-wal", "sarembok-ve-cloud-runtime",
+        "port 9000", "runtime authority", "requires authentication",
+        "authentication is required", "authentication token", "http 401", "http 403",
+        "active memory stores", "no active workers", "handled over",
+        "up for about", "sarembokve is developed and architected by the sarembokve team",
+    )
+    if any(marker in low for marker in markers):
+        return True
+    if re.search(r"\\b\\d+\\s+(?:active\\s+)?(?:agents?|workers?|conversations?|memory stores|memory entries|gpu workers?)\\b", low):
+        return True
+    if re.search(
+        r"\\b(?:powered by|running on|backed by|uses|using)\\s+(?:google\\s+)?"
+        r"(?:gemini|openrouter|groq|openai|anthropic|claude|llama|qwen|deepseek|gemma|gpt[- ]?\\d)\\b",
+        low,
+    ):
+        return True
+    return "tim hall" in low and ("founder" in low or "architected by" in low)
+
+
+def contains_public_output_disclosure(text: str, prompt: str = "") -> bool:
+    """Detect implementation leakage in visible text, with stricter checks for internal-detail prompts."""
+    if not str(text or "").strip():
+        return False
+    if _contains_explicit_runtime_disclosure(text):
+        return True
+    if is_private_runtime_detail_query(prompt):
+        low = str(text).lower()
+        internal_provider_names = (
+            "gemini", "openrouter", "groq", "openai", "anthropic", "claude",
+            "llama", "qwen", "deepseek", "gemma", "gpt-4o", "gpt-4",
+        )
+        return contains_private_runtime_disclosure(text) or any(name in low for name in internal_provider_names)
+    return False
+
+
+def should_suppress_public_chat_stream(prompt: str) -> bool:
+    """Avoid forwarding raw deltas for prompts that may elicit private runtime disclosures."""
+    return is_private_runtime_detail_query(prompt)
+
+
+def sanitize_public_chat_result(result: dict[str, Any], prompt: str = "") -> dict[str, Any]:
+    """Remove private telemetry, traces, memories, and unsafe self-description from a public chat result."""
     public_result = dict(result)
     for key in (
         "source", "model", "taskCategory", "metadata",
         "_deferPersistence", "_persistSessionId", "_persistPrompt", "_persistReply",
+        "toolTraces", "recalledMemories", "agentId", "adminMode",
     ):
         public_result.pop(key, None)
+
+    response_text = str(public_result.get("response") or "")
+    if contains_public_output_disclosure(response_text, prompt):
+        safe_text = (
+            "I can explain Sarembok's user-facing features, how to use them, and its practical limitations. "
+            "I don't share private configuration or operational details in the user-facing chat."
+        )
+        public_result["response"] = safe_text
+        if "audioText" in public_result:
+            public_result["audioText"] = safe_text
+        # Rebuild visible structured content too, so an alternate UI renderer cannot show the unsafe text.
+        structured = public_result.get("structuredResponse")
+        if isinstance(structured, dict):
+            public_structured = dict(structured)
+            public_structured["content"] = {
+                "summary": safe_text,
+                "sections": [],
+                "actions": [],
+                "code": [],
+                "tables": [],
+                "sources": [],
+                "text": safe_text,
+            }
+            public_result["structuredResponse"] = public_structured
 
     structured = public_result.get("structuredResponse")
     if isinstance(structured, dict):
@@ -160,6 +261,8 @@ def is_self_state_query(prompt: str) -> bool:
         "are you gemini", "are you chatgpt", "are you claude", "are you openai", "are you powered by",
         "which ai model", "what is your underlying model", "who is your ai provider",
         "what is your architecture", "explain your architecture", "what is your backend", "what are your internals",
+        "what is the technology stack", "what technologies are behind", "what engine powers", "what powers this system",
+        "how is the platform implemented", "what is the implementation", "which services run this", "what is running behind the scenes",
         "what integrations are connected", "which integrations are connected", "what integrations are disconnected",
         "what providers", "what provider", "what model is this", "what model are you", "what model do you use",
         "what model is running", "what model is active", "what models are available", "what other models",
