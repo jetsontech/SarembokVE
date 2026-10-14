@@ -369,4 +369,3 @@ def sanitize_conversation_history(history: list[tuple[str, str]]) -> list[tuple[
         sanitized.append((role, content))
 
     return sanitized
-
