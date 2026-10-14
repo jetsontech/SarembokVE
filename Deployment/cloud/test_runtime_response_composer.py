@@ -306,6 +306,27 @@ def test_public_chat_ui_hides_automated_provider_and_model_badges():
     root = Path(__file__).resolve().parents[2]
     main_html = (root / "frontend" / "index.html").read_text(encoding="utf-8")
     console_html = (root / "frontend" / "console.html").read_text(encoding="utf-8")
+    server_py = (root / "Deployment" / "cloud" / "server.py").read_text(encoding="utf-8")
+
+    assert '"GetPublicRuntimeStatus"' in server_py
+    assert '"GetPublicRuntimeStatus"' in main_html
+    assert "'GetPublicRuntimeStatus'" in console_html
+    assert 'return {"status": "ONLINE", "available": True}' in server_py
+    assert '"scope": sorted(BROWSER_ALLOWED_METHODS)' not in server_py
+    assert "ADMIN_ONLY_RPC_METHODS = {" in server_py
+    for protected_method in (
+        "GetRuntimeInfo", "GetProviderMetrics", "GetTraces", "GetAdminStatus",
+        "GetSystemIntegrationsConfig", "GetCDCChanges", "GetEntropyMetrics",
+    ):
+        assert f'"{protected_method}"' in server_py
+
+    telemetry_refresh = main_html.split("async function refreshTelemetry()", 1)[1].split("function updateTelemetryUI", 1)[0]
+    assert 'sendRPC("GetPublicRuntimeStatus")' in telemetry_refresh
+    assert 'sendRPC("GetRuntimeInfo")' not in telemetry_refresh
+    assert "SQLITE-WAL" not in main_html
+    assert "Edge Shannon Entropy Loop Defense" not in main_html
+    assert "H: 0.14" not in main_html
+    assert "res.entropy" not in main_html
 
     assert "SAREMBOK AI</div>" in main_html
     assert "SAREMBOK LIVE</span>" in main_html
