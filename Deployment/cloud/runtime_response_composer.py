@@ -224,3 +224,135 @@ def render_model_inventory(snapshot: dict[str, Any] | None = None) -> str:
         "and its practical limitations. I don't provide private configuration or operational details "
         "in the user-facing chat."
     )
+
+_PRIVATE_RUNTIME_DISCLOSURE_MARKERS = (
+    "i am gemini",
+    "i'm gemini",
+    "large language model developed by google",
+    "i am chatgpt",
+    "i'm chatgpt",
+    "i am claude",
+    "i'm claude",
+    "openrouter",
+    "localgemma",
+    "gemma2:2b",
+    "configured providers",
+    "configured model providers",
+    "most recently successful model",
+    "provider_success",
+    "provider_api",
+    "taskcategory",
+    "model routing",
+    "multiple ai providers",
+    "sqlite-wal",
+    "sqlite",
+    "runtime authority",
+    "port 9000",
+    "up for about",
+    "active agents running",
+    "active memory stores",
+    "handled over",
+    "requires authentication",
+    "authentication is required",
+    "authentication token",
+    "http 401",
+    "http 403",
+    "sarembokve is developed and architected by the sarembokve team",
+    "tim hall founded sarembokve",
+)
+
+
+def contains_private_runtime_disclosure(text: str) -> bool:
+    """Identify common disclosures that should not be reintroduced via chat history."""
+    low = re.sub(r"\\s+", " ", str(text or "").strip().lower())
+    if any(marker in low for marker in _PRIVATE_RUNTIME_DISCLOSURE_MARKERS):
+        return True
+    if re.search(r"\\b\\d+\\s+(?:active\\s+)?(?:agents?|workers?|conversations?|memory stores|memory entries|gpu workers?)\\b", low):
+        return True
+    if "tim hall" in low and ("founder" in low or "architected by" in low):
+        return True
+    return False
+
+
+def _is_private_topic_followup(prompt: str) -> bool:
+    norm = _normalize_prompt_intent(prompt)
+    fixed = {
+        "more", "more please", "tell me more", "go on", "continue", "do that",
+        "yes", "yes please", "okay", "ok", "what else", "say more",
+        "explain more", "do you have more to add", "you have more to add to that",
+        "you have more to add", "more to add", "tell me more about that",
+    }
+    return norm in fixed or norm.startswith("tell me more") or norm.startswith("more ")
+
+
+def _is_no_creator_attribution_request(prompt: str) -> bool:
+    low = str(prompt or "").lower()
+    return (
+        ("don't mention" in low or "do not mention" in low)
+        or "i don't want to know that" in low
+        or "i already know that" in low
+    )
+
+
+def sanitize_conversation_history(history: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """Replace legacy assistant disclosures in the current product-description thread."""
+    sanitized: list[tuple[str, str]] = []
+    private_topic_active = False
+    root_prompt = ""
+    suppress_creator_attribution = False
+
+    for role, content in history:
+        role = str(role or "")
+        content = str(content or "")
+        if role == "user":
+            if _is_no_creator_attribution_request(content):
+                suppress_creator_attribution = True
+                # Treat correction as continuation when a private topic is already active.
+                if not private_topic_active:
+                    private_topic_active = True
+                    root_prompt = content
+            elif is_creator_query(content):
+                private_topic_active = True
+                root_prompt = content
+            elif is_capability_query(content):
+                private_topic_active = True
+                root_prompt = content
+            elif is_limitation_query(content):
+                private_topic_active = True
+                root_prompt = content
+            elif is_identity_query(content):
+                private_topic_active = True
+                root_prompt = content
+            elif is_self_state_query(content):
+                private_topic_active = True
+                root_prompt = content
+            elif private_topic_active and _is_private_topic_followup(content):
+                pass
+            else:
+                private_topic_active = False
+                root_prompt = ""
+            sanitized.append((role, content))
+            continue
+
+        if role == "assistant":
+            low = content.lower()
+            attribution = (
+                "tim hall" in low and ("founder" in low or "architected by" in low)
+            ) or "sarembokve is developed and architected by the sarembokve team" in low
+            if suppress_creator_attribution and attribution:
+                content = "I can focus on Sarembok's purpose, user-facing features, and practical limitations."
+            elif private_topic_active and contains_private_runtime_disclosure(content):
+                if is_creator_query(root_prompt):
+                    content = "I can describe Sarembok's purpose and capabilities. Creator attribution is available when explicitly requested."
+                elif is_capability_query(root_prompt):
+                    content = render_capabilities()
+                elif is_limitation_query(root_prompt):
+                    content = render_limitations()
+                elif is_identity_query(root_prompt):
+                    content = render_identity()
+                else:
+                    content = render_model_inventory()
+        sanitized.append((role, content))
+
+    return sanitized
+
