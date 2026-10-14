@@ -106,7 +106,9 @@ def is_identity_query(prompt: str) -> bool:
     norm = _normalize_prompt_intent(prompt)
     markers = (
         "what is this", "what is this platform", "what is this system", "what is this app", "what is this software",
-        "what is this site", "what is this environment", "what system is this", "what platform is this",
+        "what is this site", "what is this environment", "tell me about this system", "tell me about the system",
+        "tell me about this platform", "describe this system", "explain this system",
+        "what system is this", "what platform is this",
         "what app is this", "what system are you", "what system am i using", "what is sarembok", "who is sarembok",
         "who are you", "what are you", "what is your name", "tell me about yourself", "what is your identity",
         "identify yourself",
