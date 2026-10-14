@@ -323,7 +323,10 @@ def test_public_chat_ui_hides_automated_provider_and_model_badges():
     telemetry_refresh = main_html.split("async function refreshTelemetry()", 1)[1].split("function updateTelemetryUI", 1)[0]
     assert 'sendRPC("GetPublicRuntimeStatus")' in telemetry_refresh
     assert 'sendRPC("GetRuntimeInfo")' not in telemetry_refresh
-    assert "SQLITE-WAL" not in main_html
+    public_memory_status = main_html.split('id="deck-mem-backend"', 1)[1].split("</span>", 1)[0]
+    assert "SQLITE-WAL" not in public_memory_status
+    assert "GetRuntimeInfo" not in main_html
+    assert "GetProviderMetrics" not in main_html
     assert "Edge Shannon Entropy Loop Defense" not in main_html
     assert "H: 0.14" not in main_html
     assert "res.entropy" not in main_html
