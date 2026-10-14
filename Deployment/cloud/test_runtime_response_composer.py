@@ -12,6 +12,9 @@ from runtime_response_composer import (
     sanitize_public_chat_result,
     sanitize_conversation_history,
     contains_private_runtime_disclosure,
+    contains_public_output_disclosure,
+    is_private_runtime_detail_query,
+    should_suppress_public_chat_stream,
 )
 
 
@@ -339,6 +342,67 @@ def test_public_chat_ui_hides_automated_provider_and_model_badges():
 
 
 
+
+def test_sensitive_public_chat_results_redact_text_traces_and_memories():
+    leaked = "I am Gemini, a large language model developed by Google."
+    sample = {
+        "response": leaked,
+        "audioText": leaked,
+        "source": "Gemini",
+        "model": "gemini-3.8-flash",
+        "toolTraces": [{"tool": "internal_runtime_tool", "payload": {"port": 9000}}],
+        "recalledMemories": [{"key": "provider", "value": "OpenRouter"}],
+        "agentId": "sarembok-prime",
+        "adminMode": True,
+        "structuredResponse": {
+            "type": "response",
+            "content": {
+                "summary": leaked,
+                "text": leaked,
+                "code": [{"language": "text", "content": "port 9000"}],
+            },
+            "metadata": {"provider": "Gemini", "model": "gemini-3.8-flash", "schema_version": "1.0"},
+        },
+    }
+    public = sanitize_public_chat_result(sample, prompt="Are you Gemini?")
+    assert "I am Gemini" not in str(public)
+    assert "large language model developed by Google" not in str(public)
+    assert "port 9000" not in str(public)
+    assert "OpenRouter" not in str(public)
+    for key in ("toolTraces", "recalledMemories", "agentId", "adminMode", "source", "model"):
+        assert key not in public
+    assert public["response"].startswith("I can explain Sarembok")
+    assert public["audioText"] == public["response"]
+    assert public["structuredResponse"]["content"]["text"] == public["response"]
+
+
+def test_sensitive_streaming_and_output_disclosure_guards():
+    assert is_private_runtime_detail_query("What technology stack powers this system?")
+    assert is_private_runtime_detail_query("What model provider are you using?")
+    assert should_suppress_public_chat_stream("Are you Gemini?")
+    assert should_suppress_public_chat_stream("Tell me about this system.")
+    assert not should_suppress_public_chat_stream("Explain photosynthesis.")
+    assert contains_public_output_disclosure(
+        "This platform is powered by Gemini.",
+        "What technology stack powers this system?",
+    )
+    assert not contains_public_output_disclosure(
+        "Gemini is Google's family of AI models.",
+        "What is Gemini?",
+    )
+
+
+def test_creator_attribution_remains_available_when_directly_requested():
+    reply = "SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, its Founder and AI Systems Architect."
+    public = sanitize_public_chat_result({"response": reply}, prompt="Who built SarembokVE?")
+    assert public["response"] == reply
+
+
+def test_public_vendor_question_is_not_mistaken_for_private_configuration():
+    reply = "OpenRouter is a service that provides access to multiple AI models through one interface."
+    public = sanitize_public_chat_result({"response": reply}, prompt="What is OpenRouter?")
+    assert public["response"] == reply
+
 if __name__ == "__main__":
     test_self_state_queries()
     test_capability_and_identity_queries()
@@ -351,5 +415,9 @@ if __name__ == "__main__":
     test_public_renderers_never_dump_internal_runtime_details()
     test_public_chat_payload_redacts_provider_and_internal_metadata()
     test_old_self_description_disclosures_are_scrubbed_from_history()
+    test_sensitive_public_chat_results_redact_text_traces_and_memories()
+    test_sensitive_streaming_and_output_disclosure_guards()
+    test_creator_attribution_remains_available_when_directly_requested()
+    test_public_vendor_question_is_not_mistaken_for_private_configuration()
     test_public_chat_ui_hides_automated_provider_and_model_badges()
     print("runtime_response_composer: PASS")
