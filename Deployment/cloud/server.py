@@ -6795,12 +6795,34 @@ async def handler(websocket) -> None:
                 if defer_persistence:
                     asyncio.create_task(_persist_deferred_chat(result))
             except PermissionError as exc:
-                response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32001, "message": str(exc)}}
-                LOG.warning("rpc_auth_failed peer=%s", peer)
+                request_id = request.get("id") if isinstance(request, dict) else None
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32001,
+                        "message": "This request isn't available with the access provided in this session.",
+                    },
+                }
+                LOG.warning("rpc_auth_failed peer=%s method=%s", peer, method if "method" in locals() else "unknown")
                 await websocket.send(json.dumps(response, separators=(",", ":")))
             except Exception as exc:
-                response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32000, "message": str(exc)}}
-                LOG.warning("rpc_error peer=%s error=%s", peer, exc)
+                request_id = request.get("id") if isinstance(request, dict) else None
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32000,
+                        "message": "The request couldn't be completed right now. Please try again.",
+                    },
+                }
+                LOG.warning(
+                    "rpc_error peer=%s method=%s error_type=%s error=%s",
+                    peer,
+                    method if "method" in locals() else "unknown",
+                    type(exc).__name__,
+                    exc,
+                )
                 await websocket.send(json.dumps(response, separators=(",", ":")))
     except websockets.exceptions.ConnectionClosed:
         pass
