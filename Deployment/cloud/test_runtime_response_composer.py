@@ -226,6 +226,8 @@ def test_public_renderers_never_dump_internal_runtime_details():
 if __name__ == "__main__":
     test_self_state_queries()
     test_capability_and_identity_queries()
+    test_limitation_queries()
+    test_limitations()
     test_capabilities()
     test_identity()
     test_runtime_context()
