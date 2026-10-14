@@ -6503,8 +6503,8 @@ def authenticate(request: dict[str, Any], method: str) -> None:
     if method == "ListTasks" and is_admin_session:
         return
 
-    # Worker RPCs use a separate enrollment/token boundary. Browser session
-    # credentials must never authorize worker registration or worker control.
+    # Worker operations use a separate token boundary. Registration remains a
+    # bootstrap exception; subsequent worker-control calls require its issued token.
     if method in WORKER_AUTH_METHODS:
         if method == "RegisterWorker":
             supplied = params.get("enrollmentToken")
