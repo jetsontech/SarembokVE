@@ -8152,7 +8152,7 @@ button,
                     <div class="dialogue-title">SAREMBOK · SOVEREIGN DIALOGUE &amp; SYNTHESIS</div>
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                         <select class="cyber-select" id="active-model-select" onchange="onModelChange(this.value)" title="Active AI Model Engine">
-                            <option value="auto" selected>⚡ Auto (Gemma Default · Task-Optimized)</option>
+                            <option value="auto" selected>⚡ Auto (Recommended)</option>
                             <option value="gemma-2-2b">Gemma 2 2B (Local CPU)</option>
                             <option value="gemini-flash">Gemini 3.8 Flash (Massive Context · Fast)</option>
                             <option value="qwen-2.5-coder">Qwen 2.5 Coder (Code & Architecture)</option>
@@ -8174,7 +8174,7 @@ button,
                             <span class="admin-exec-dot"></span>
                             <span id="admin-exec-btn-text">ADMIN: OFF</span>
                         </button>
-                        <div class="cyber-card-badge cyan" id="dialogue-gpu-badge" title="Active Engine">ENGINE: AUTO (GEMMA DEFAULT · TASK ROUTING)</div>
+                        <div class="cyber-card-badge cyan" id="dialogue-gpu-badge" title="Sarembok AI">SAREMBOK AI</div>
                         <button class="dialogue-voice-chip" id="dialogue-voice-toggle-chip" onclick="toggleVoiceOutput()" title="Toggle voice narration">
                             <span class="voice-chip-dot"></span>
                             <span id="dialogue-voice-chip-text">VOICE: ON</span>
@@ -11622,46 +11622,15 @@ button,
                 if (links) body += `<div class="srbk-structured-sources"><strong>Sources</strong><ul>${links}</ul></div>`;
             }
 
-            const meta = structured.metadata && typeof structured.metadata === "object"
-                ? structured.metadata
-                : {};
-            const provider = String(meta.provider || "").trim();
-            const model = String(meta.model || "").trim();
-            const taskCategory = String(meta.taskCategory || "").trim();
-
-            // Model metadata belongs strictly in top-level telemetry / HUD badges, never inside the conversational chat bubble
-            if (provider || model) {
-                const engineBadge = document.getElementById("dialogue-gpu-badge");
-                if (engineBadge) {
-                    if (provider === "runtime_authority" || model === "runtime-authority") {
-                        engineBadge.textContent = "ENGINE: SAREMBOK CORE RUNTIME";
-                        engineBadge.className = "cyber-card-badge green";
-                    } else {
-                        let cleanModel = model.includes("/") ? model.split("/").pop() : model;
-                        cleanModel = cleanModel.replace(/-/g, " ").toUpperCase();
-                        if (taskCategory && taskCategory !== "MANUAL" && taskCategory !== "GENERAL") {
-                            engineBadge.textContent = `ENGINE: DYNAMIC · ${taskCategory} (${cleanModel})`;
-                        } else {
-                            engineBadge.textContent = `ENGINE: ${cleanModel}`;
-                        }
-                        engineBadge.className = "cyber-card-badge cyan";
-                    }
-                }
-            }
+            // Provider/model telemetry is deliberately not shown in the customer-facing UI.
             return body || (text ? md(text) : "");
         }
 
-        window.onModelChange = function(val) {
+        window.onModelChange = function(_val) {
             const badge = document.getElementById("dialogue-gpu-badge");
             if (!badge) return;
-            if (val === "auto") {
-                badge.textContent = "ENGINE: AUTO (GEMMA DEFAULT · TASK ROUTING)";
-                badge.className = "cyber-card-badge cyan";
-            } else {
-                let cleanName = val.replace(/-/g, " ").toUpperCase();
-                badge.textContent = `ENGINE: ${cleanName} (MANUAL)`;
-                badge.className = "cyber-card-badge amber";
-            }
+            badge.textContent = "SAREMBOK AI";
+            badge.className = "cyber-card-badge cyan";
         };
 
         function md(text) {
@@ -12543,25 +12512,8 @@ button,
                 finalText = enrichResponseOnClient(text, finalText);
                 const engineBadge = document.getElementById("dialogue-gpu-badge");
                 if (engineBadge) {
-                    const provider = String(result?.metadata?.provider || result?.source || "").trim();
-                    const modelName = String(result?.metadata?.model || result?.model || "").trim();
-                    const taskCat = String(result?.metadata?.taskCategory || result?.taskCategory || "").trim();
-
-                    if (provider === "runtime_authority" || modelName === "runtime-authority") {
-                        engineBadge.textContent = "ENGINE: SAREMBOK CORE RUNTIME";
-                        engineBadge.className = "cyber-card-badge green";
-                    } else {
-                        let cleanModel = modelName;
-                        if (cleanModel.includes("/")) cleanModel = cleanModel.split("/").pop();
-                        cleanModel = cleanModel.replace(/-/g, " ").toUpperCase();
-
-                        if (taskCat && taskCat !== "MANUAL" && taskCat !== "GENERAL") {
-                            engineBadge.textContent = `ENGINE: DYNAMIC · ${taskCat} (${cleanModel})`;
-                        } else {
-                            engineBadge.textContent = `ENGINE: ${cleanModel}`;
-                        }
-                        engineBadge.className = "cyber-card-badge cyan";
-                    }
+                    engineBadge.textContent = "SAREMBOK AI";
+                    engineBadge.className = "cyber-card-badge cyan";
                 }
                 if (result?.structuredResponse && typeof window.renderStructuredResponse === "function") {
                     content.innerHTML = renderStructuredResponse(result.structuredResponse) || md(finalText);
@@ -13817,10 +13769,10 @@ button,
         function onModelChange(val) {
             activeModel = val;
             localStorage.setItem("srbk_model", val);
-            showToast("ENGINE: " + val.toUpperCase());
+            showToast("AI MODE UPDATED");
             const badge = document.getElementById("dialogue-gpu-badge");
             if (badge) {
-                badge.textContent = "ENGINE: " + val.toUpperCase();
+                badge.textContent = "SAREMBOK AI";
                 badge.className = "cyber-card-badge cyan";
             }
         }
