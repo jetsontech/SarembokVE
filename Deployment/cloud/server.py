@@ -3735,10 +3735,7 @@ def resolve_paligemma_grounding(raw_b64: str, prompt: str = "") -> dict[str, Any
 
 def dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
     with tracer.start_span(f"rpc.{method}", attributes={"rpc.method": method}):
-        result = _dispatch_internal(method, params)
-        if method == "SarembokChat" and isinstance(result, dict):
-            return sanitize_public_chat_result(result)
-        return result
+        return _dispatch_internal(method, params)
 
 
 def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -6787,7 +6784,12 @@ async def handler(websocket) -> None:
                         result = await asyncio.to_thread(dispatch, method, params)
 
                 defer_persistence = isinstance(result, dict) and bool(result.get("_deferPersistence"))
-                response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}
+                public_result = (
+                    sanitize_public_chat_result(result)
+                    if method == "SarembokChat" and isinstance(result, dict)
+                    else result
+                )
+                response = {"jsonrpc": "2.0", "id": request.get("id"), "result": public_result}
                 LOG.info("rpc_success method=%s request_id=%s", method, request.get("id"))
                 await websocket.send(json.dumps(response, separators=(",", ":")))
                 if defer_persistence:
