@@ -8,6 +8,7 @@ from runtime_response_composer import (
     render_identity,
     render_limitations,
     render_model_inventory,
+    sanitize_public_chat_result,
 )
 
 
@@ -222,6 +223,48 @@ def test_public_renderers_never_dump_internal_runtime_details():
         for item in forbidden:
             assert item.lower() not in output.lower(), f"leaked {item!r}: {output}"
 
+def test_public_chat_payload_redacts_provider_and_internal_metadata():
+    sample = {
+        "response": "Hello from Sarembok.",
+        "source": "Gemini",
+        "model": "gemini-3.8-flash",
+        "taskCategory": "FAST",
+        "metadata": {
+            "provider": "Gemini",
+            "model": "gemini-3.8-flash",
+            "provider_api": "interactions",
+            "latency_ms": 1234,
+            "usage": {"input_tokens": 12},
+        },
+        "structuredResponse": {
+            "type": "response",
+            "content": {"text": "Hello from Sarembok."},
+            "metadata": {
+                "provider": "Gemini",
+                "model": "gemini-3.8-flash",
+                "latency_ms": 1234,
+                "schema_version": "1.0",
+            },
+        },
+        "_deferPersistence": True,
+        "_persistSessionId": "private-session-id",
+        "_persistPrompt": "private test prompt",
+        "_persistReply": "private deferred reply",
+    }
+    public = sanitize_public_chat_result(sample)
+
+    assert public["response"] == "Hello from Sarembok."
+    for key in (
+        "source", "model", "taskCategory", "metadata",
+        "_deferPersistence", "_persistSessionId", "_persistPrompt", "_persistReply",
+    ):
+        assert key not in public, f"public response leaked {key}"
+    assert public["structuredResponse"]["metadata"] == {"schema_version": "1.0"}
+    assert "Gemini" not in str(public)
+    assert "gemini-3.8-flash" not in str(public)
+    assert "private-session-id" not in str(public)
+
+
 
 if __name__ == "__main__":
     test_self_state_queries()
@@ -233,4 +276,5 @@ if __name__ == "__main__":
     test_runtime_context()
     test_model_inventory()
     test_public_renderers_never_dump_internal_runtime_details()
+    test_public_chat_payload_redacts_provider_and_internal_metadata()
     print("runtime_response_composer: PASS")
