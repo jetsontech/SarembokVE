@@ -69,10 +69,14 @@ class LocalOnlyRoutingTests(unittest.TestCase):
     def test_streaming_calls_only_local_provider(self) -> None:
         router = ProviderRouter()
         deltas: list[str] = []
+        def fake_request_stream(spec, system_prompt, prompt, messages, deadline, on_delta, **kwargs):
+            on_delta("local streamed response")
+            return ("local streamed response", {}, "chat.completions", 12.5)
+
         with patch.object(
             router,
             "_request_stream",
-            return_value=("local streamed response", {}, "chat.completions", 12.5),
+            side_effect=fake_request_stream,
         ) as request_stream:
             result = router.generate_stream(
                 "system",
