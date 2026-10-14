@@ -92,6 +92,8 @@ def test_capability_and_identity_queries():
     assert is_identity_query("what's this")
     assert is_identity_query("whats this")
     assert is_identity_query("what is this platform")
+    assert is_identity_query("Tell me about this system")
+    assert is_identity_query("Tell me about the system")
     assert is_identity_query("what is this app")
     assert not is_identity_query("what can you do?")
     assert not is_identity_query("wht can it do")
@@ -132,56 +134,63 @@ def test_limitation_queries():
 def test_limitations():
     text = render_limitations(SNAPSHOT)
     assert "ARCHITECTURAL BOUNDARIES" in text
-    assert "Containerized Sandbox Isolation" in text
-    assert "Cryptographic Authorization & Human Guardrails" in text
-    assert "Sovereign Ground Truth vs. Speculative Hallucination" in text
-    assert "Physical World Actuation" in text
+    assert "authorized" in text
+    assert "I can make mistakes" in text
+    assert "confirmation" in text
+    assert "Containerized Sandbox Isolation" not in text
 
 
 def test_capabilities():
     text = render_capabilities(SNAPSHOT)
     assert "SAREMBOK VE" in text
-    assert "Universal Media & Audio Streaming" in text
-    assert "Duplex Live Voice" in text
-    assert "Full-Stack Autonomous Code Synthesis" in text
-    assert "2 active compute workers" in text
-    assert "1 GPU acceleration nodes" in text
-    assert "7 stored entries" in text
+    assert "Draft, revise, explain, and summarize writing" in text
+    assert "Write, review, and troubleshoot code" in text
+    assert "supported tools and workflows" in text
+    assert "2 active compute workers" not in text
+    assert "GPU acceleration nodes" not in text
+    assert "7 stored entries" not in text
+    assert "Gemini" not in text
+    assert "SQLite" not in text
 
 
 def test_identity():
     text = render_identity(SNAPSHOT)
 
     assert "Sarembok VE" in text
-    assert "2 online workers" in text
-    assert "3 registered agents" in text
-    assert "7 stored entries" in text
-    assert "Gemini" in text
-    assert "OpenRouter" in text
+    assert "I'm the AI assistant in SarembokVE" in text
+    assert "2 online workers" not in text
+    assert "3 registered agents" not in text
+    assert "7 stored entries" not in text
+    assert "Gemini" not in text
+    assert "OpenRouter" not in text
+    assert "Tim Hall" not in text
+    assert "provider" not in text.lower()
 
 
 def test_runtime_context():
     text = build_runtime_context(SNAPSHOT)
 
-    assert "registered=4; online=2; stale=1; offline=1" in text
-    assert "queue_depth=2" in text
-    assert "Gemini: model=gemini-3.8-flash" in text
-    assert "OpenRouter: model=openai/gpt-oss-120b" in text
-    assert "Groq: model=openai/gpt-oss-120b" in text
-    assert "model availability" in text.lower()
+    assert "SarembokVE is an AI-powered workspace" in text
+    assert "Gemini" not in text
+    assert "OpenRouter" not in text
+    assert "gemma2:2b" not in text
+    assert "sqlite-wal" not in text.lower()
+    assert "registered=4" not in text
+    assert "queue_depth=2" not in text
+    assert "port=9000" not in text
+    assert "must not be quoted or exposed" in text
 
 
 def test_model_inventory():
     text = render_model_inventory(SNAPSHOT)
 
-    assert "gemini-3.8-flash" in text
-    assert "openai/gpt-oss-120b" in text
-    assert "Gemini" in text
-    assert "OpenRouter" in text
-    assert "Groq" in text
-    assert "Most recently successful model" in text
-    assert "external catalog" in text
-    assert "Sarembok-available" in text
+    assert "I can explain Sarembok from a user's perspective" in text
+    assert "private configuration or operational details" in text
+    assert "gemini-3.8-flash" not in text
+    assert "openai/gpt-oss-120b" not in text
+    assert "Gemini" not in text
+    assert "OpenRouter" not in text
+    assert "Most recently successful model" not in text
 
 
 if __name__ == "__main__":
