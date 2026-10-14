@@ -11,6 +11,7 @@ from runtime_response_composer import (
     render_model_inventory,
     sanitize_public_chat_result,
     sanitize_conversation_history,
+    contains_private_runtime_disclosure,
 )
 
 
@@ -293,6 +294,9 @@ def test_old_self_description_disclosures_are_scrubbed_from_history():
     assert "Tim Hall" not in joined
     assert "no active workers registered" not in joined
     assert "I'm playing music by GloRilla" in joined
+    assert contains_private_runtime_disclosure("There are 25 active agents.")
+    assert contains_private_runtime_disclosure("We have 10 memory entries.")
+    assert contains_private_runtime_disclosure("The service has no active workers registered.")
 
 
 def test_public_chat_ui_hides_automated_provider_and_model_badges():
@@ -310,7 +314,7 @@ def test_public_chat_ui_hides_automated_provider_and_model_badges():
     assert "result?.metadata?.provider" not in console_html
     assert "result?.metadata?.model" not in console_html
     assert "result?.model" not in console_html
-    assert "assistantSender.innerHTML='Sarembok <span class=" not in console_html
+    assert "assistantSender.innerHTML" not in console_html
 
 
 
