@@ -385,7 +385,7 @@ def _is_fast_conversational_turn(prompt: str, image_frame: str | None = None, ad
 
 def _is_contextual_followup(prompt: str) -> bool:
     """Short prompts need persisted history after a runtime restart."""
-    text = re.sub(r"[^a-z0-9\\s]", "", str(prompt or "").strip().lower())
+    text = re.sub(r"[^a-z0-9\s]", "", str(prompt or "").strip().lower())
     exact = {
         "more", "more please", "tell me more", "go on", "continue", "do that",
         "yes", "yes please", "okay", "ok", "sure", "what else", "say more",
