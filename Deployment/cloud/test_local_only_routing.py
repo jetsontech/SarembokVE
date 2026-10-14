@@ -66,6 +66,28 @@ class LocalOnlyRoutingTests(unittest.TestCase):
         self.assertEqual(request.call_args.args[0].name, "LocalGemma")
         request.assert_called_once()
 
+    def test_streaming_calls_only_local_provider(self) -> None:
+        router = ProviderRouter()
+        deltas: list[str] = []
+        with patch.object(
+            router,
+            "_request_stream",
+            return_value=("local streamed response", {}, "chat.completions", 12.5),
+        ) as request_stream:
+            result = router.generate_stream(
+                "system",
+                "test prompt",
+                [],
+                deltas.append,
+                requested_model="gemini-3.8-flash",
+                dynamic_key="AIza-test-dynamic-key",
+            )
+        self.assertEqual(result.provider, "LocalGemma")
+        self.assertEqual(result.model, "gemma-local-test")
+        self.assertEqual(request_stream.call_args.args[0].name, "LocalGemma")
+        request_stream.assert_called_once()
+        self.assertEqual(deltas, ["local streamed response"])
+
     def test_missing_local_endpoint_fails_closed(self) -> None:
         os.environ.pop("SAREMBOK_LOCAL_GEMMA_URL", None)
         router = ProviderRouter()
