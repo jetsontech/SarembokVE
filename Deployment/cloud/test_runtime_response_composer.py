@@ -9,6 +9,7 @@ from runtime_response_composer import (
     render_limitations,
     render_model_inventory,
     sanitize_public_chat_result,
+    sanitize_conversation_history,
 )
 
 
@@ -265,6 +266,34 @@ def test_public_chat_payload_redacts_provider_and_internal_metadata():
     assert "private-session-id" not in str(public)
 
 
+def test_old_self_description_disclosures_are_scrubbed_from_history():
+    history = [
+        ("user", "Tell me about this system."),
+        ("assistant", "I am Gemini, a large language model developed by Google."),
+        ("user", "Tell me more."),
+        ("assistant", "The system has 25 active agents and has handled over 8000 conversations."),
+        ("user", "Tell me more."),
+        ("assistant", "We utilize multiple AI providers like Gemini and OpenRouter, along with local models."),
+        ("user", "I don't want to know that. I already know that. Don't mention that again."),
+        ("assistant", "SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, its Founder and AI Systems Architect."),
+        ("user", "Tell me more about the system."),
+        ("assistant", "There are currently no active workers registered in the system."),
+        ("user", "Play Glorilla."),
+        ("assistant", "I'm playing music by GloRilla for you right now."),
+    ]
+    safe = sanitize_conversation_history(history)
+    assistant_text = [content for role, content in safe if role == "assistant"]
+    joined = "\\n".join(assistant_text)
+    assert "I am Gemini" not in joined
+    assert "large language model developed by Google" not in joined
+    assert "OpenRouter" not in joined
+    assert "25 active agents" not in joined
+    assert "8000 conversations" not in joined
+    assert "Tim Hall" not in joined
+    assert "no active workers registered" not in joined
+    assert "I'm playing music by GloRilla" in joined
+
+
 
 if __name__ == "__main__":
     test_self_state_queries()
@@ -277,4 +306,5 @@ if __name__ == "__main__":
     test_model_inventory()
     test_public_renderers_never_dump_internal_runtime_details()
     test_public_chat_payload_redacts_provider_and_internal_metadata()
+    test_old_self_description_disclosures_are_scrubbed_from_history()
     print("runtime_response_composer: PASS")
