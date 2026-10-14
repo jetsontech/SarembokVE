@@ -133,7 +133,7 @@ def test_limitation_queries():
 
 def test_limitations():
     text = render_limitations(SNAPSHOT)
-    assert "ARCHITECTURAL BOUNDARIES" in text
+    assert "Practical limitations" in text
     assert "authorized" in text
     assert "I can make mistakes" in text
     assert "confirmation" in text
@@ -142,7 +142,7 @@ def test_limitations():
 
 def test_capabilities():
     text = render_capabilities(SNAPSHOT)
-    assert "SAREMBOK VE" in text
+    assert "Sarembok" in text
     assert "Draft, revise, explain, and summarize writing" in text
     assert "Write, review, and troubleshoot code" in text
     assert "supported tools and workflows" in text
@@ -156,7 +156,7 @@ def test_capabilities():
 def test_identity():
     text = render_identity(SNAPSHOT)
 
-    assert "Sarembok VE" in text
+    assert "I'm Sarembok" in text
     assert "I'm the AI assistant in SarembokVE" in text
     assert "2 online workers" not in text
     assert "3 registered agents" not in text
