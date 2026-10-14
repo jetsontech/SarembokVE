@@ -24,7 +24,7 @@ def _provider_lines(snapshot: dict[str, Any]) -> list[str]:
 
 def build_runtime_context(snapshot: dict[str, Any], capabilities: dict[str, Any] | None = None) -> str:
     """Return a safe product-level context, never a dump of internal runtime state."""
-    return "\\n".join([
+    return "\n".join([
         "AUTHORITATIVE SAREMBOK PRODUCT CONTEXT",
         "SarembokVE is an AI-powered workspace for conversational help, writing, analysis, coding, and supported tools or workflows.",
         "This context is for internal grounding. It is not a customer-facing status report and must not be quoted or exposed.",
@@ -142,7 +142,7 @@ def is_worker_prune_query(prompt: str) -> bool:
 
 def render_capabilities(snapshot: dict[str, Any] | None = None, capabilities: dict[str, Any] | None = None) -> str:
     """Describe the product in user-facing language without internal telemetry."""
-    return "\\n".join([
+    return "\n".join([
         "### What Sarembok can help with",
         "",
         "Sarembok is an AI-powered workspace for getting work done through conversation. It can help you:",
@@ -157,7 +157,7 @@ def render_capabilities(snapshot: dict[str, Any] | None = None, capabilities: di
 
 def render_limitations(snapshot: dict[str, Any] | None = None) -> str:
     """Explain practical limits in plain language, not implementation jargon."""
-    return "\\n".join([
+    return "\n".join([
         "### Practical limitations",
         "",
         "- I can only interact with accounts, files, devices, and services that are available to this session and that you have authorized.",
@@ -171,7 +171,7 @@ def render_limitations(snapshot: dict[str, Any] | None = None) -> str:
 
 def render_identity(snapshot: dict[str, Any] | None = None) -> str:
     """Return stable product identity; keep attribution and operational state out."""
-    return "\\n".join([
+    return "\n".join([
         "### I'm Sarembok",
         "",
         "I'm the AI assistant in SarembokVE, an AI-powered workspace for conversation, writing, analysis, coding, and supported tools and workflows.",
@@ -186,27 +186,3 @@ def render_model_inventory(snapshot: dict[str, Any] | None = None) -> str:
         "and its practical limitations. I don't provide private configuration or operational details "
         "in the user-facing chat."
     )
-
-snapshot: dict[str, Any] | None = None) -> str:
-    entries = _provider_entries(snapshot or {})
-    provider = (snapshot or {}).get("provider") or {}
-    last_successful = provider.get("lastSuccessful") or {}
-    lines = ["### SAREMBOK VE · CONFIGURED MODEL PROVIDERS", ""]
-    if not entries:
-        lines.append("No model providers are currently exposed by Runtime Authority.")
-    else:
-        for item in entries:
-            lines.append(f"- **{item['name']}** — `{item['model']}`")
-    active_provider = last_successful.get("provider")
-    active_model = last_successful.get("model")
-    if active_provider and active_model:
-        lines.append("")
-        lines.append(f"Most recently successful model: **{active_model}** via **{active_provider}**.")
-    lines.extend([
-        "",
-        "This inventory reflects Sarembok's configured runtime state. "
-        "A provider may expose many additional models in its external catalog, "
-        "but those are not claimed as Sarembok-available until Sarembok "
-        "configures and validates them.",
-    ])
-    return "\n".join(lines)
