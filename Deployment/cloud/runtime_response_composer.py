@@ -96,6 +96,10 @@ def contains_public_output_disclosure(text: str, prompt: str = "") -> bool:
     """Detect implementation leakage in visible text, with stricter checks for internal-detail prompts."""
     if not str(text or "").strip():
         return False
+    # Approved attribution is allowed only for a direct creator question; chat history
+    # suppression still prevents it from being repeated after the user rejects it.
+    if is_creator_query(prompt):
+        return False
     if _contains_explicit_runtime_disclosure(text):
         return True
     if is_private_runtime_detail_query(prompt):
