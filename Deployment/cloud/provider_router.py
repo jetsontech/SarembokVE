@@ -661,6 +661,8 @@ class ProviderRouter:
 
         providers = self.configured(requested_model=actual_model, dynamic_key=dynamic_key)
         if not providers:
+            if os.getenv("SAREMBOK_LOCAL_ONLY", "false").strip().lower() in {"1", "true", "yes", "on"}:
+                raise RuntimeError("local_only_configuration_error: set SAREMBOK_LOCAL_GEMMA_URL and SAREMBOK_LOCAL_GEMMA_MODEL")
             raise RuntimeError('no language-model provider configured')
         deadline = time.monotonic() + self.total_timeout
         failures: list[str] = []
