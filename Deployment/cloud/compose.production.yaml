@@ -24,6 +24,12 @@ services:
       LLM_ENDPOINT_URL: ${LLM_ENDPOINT_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-}
+      # Optional OpenAI-compatible local Gemma endpoint. Local-only mode
+      # is fail-closed and requires both URL and exact served model name.
+      SAREMBOK_LOCAL_ONLY: ${SAREMBOK_LOCAL_ONLY:-false}
+      SAREMBOK_LOCAL_GEMMA_URL: ${SAREMBOK_LOCAL_GEMMA_URL:-}
+      SAREMBOK_LOCAL_GEMMA_MODEL: ${SAREMBOK_LOCAL_GEMMA_MODEL:-}
+      SAREMBOK_LOCAL_GEMMA_KEY: ${SAREMBOK_LOCAL_GEMMA_KEY:-}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o-mini}
       GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
       SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS: ${SAREMBOK_LLM_PROVIDER_TIMEOUT_SECONDS:-25}
