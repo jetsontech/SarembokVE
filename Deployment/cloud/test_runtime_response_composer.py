@@ -230,4 +230,5 @@ if __name__ == "__main__":
     test_identity()
     test_runtime_context()
     test_model_inventory()
+    test_public_renderers_never_dump_internal_runtime_details()
     print("runtime_response_composer: PASS")
