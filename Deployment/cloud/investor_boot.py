@@ -62,7 +62,7 @@ def _truth_guard_generate(system_prompt, user_prompt, messages, **kwargs):
     guard = """
 FINAL SAREMBOK TRUTH BOUNDARY — HIGHEST PRIORITY
 Only make claims supported by the runtime context, explicit tool observations, or retrieved evidence in this request.
-Sarembok VE possesses verified in-house multimodal generation pipelines: SarembokVE Visual Synthesis Engine for photorealistic images and commercial product mockups, neural video synthesis, interactive UI/UX mockups, and industrial product design specifications. All visual synthesis is powered by SarembokVE proprietary technology.
+Do not claim that SarembokVE has proprietary image, video, or other multimodal generation pipelines unless the current request includes direct evidence that the relevant engine is configured, reachable, and successfully used. If a capability depends on a third-party provider, identify that dependency accurately. Distinguish code that exists from a feature that is deployed and verified.
 Never invent or imply unconfigured external hardware or unverified web links.
 For a website URL or research request, do not describe the target from memory or inference. Use returned retrieval evidence; if none exists, explicitly say live evidence was not retrieved.
 Never create fake citations, fake papers, fake download links, fake media IDs, or fabricated benchmark numbers.

@@ -217,7 +217,31 @@ class ProviderRouter:
     def configured(self, requested_model: str | None = None, dynamic_key: str | None = None) -> list[ProviderSpec]:
         result: dict[str, ProviderSpec] = {}
         target_model = self.resolve_model_id(requested_model)
-        
+
+        # Local-only is a hard routing policy, not a preference. It deliberately
+        # ignores client-supplied dynamic keys and all external provider settings.
+        local_only = os.getenv("SAREMBOK_LOCAL_ONLY", "false").strip().lower() in {
+            "1", "true", "yes", "on"
+        }
+        if local_only:
+            local_gemma_url = os.getenv("SAREMBOK_LOCAL_GEMMA_URL", "").strip()
+            local_gemma_model = os.getenv("SAREMBOK_LOCAL_GEMMA_MODEL", "").strip()
+            if not local_gemma_url or not local_gemma_model:
+                logger.error(
+                    "local_only_configuration_error endpoint_configured=%s model_configured=%s",
+                    bool(local_gemma_url), bool(local_gemma_model)
+                )
+                return []
+            return [
+                ProviderSpec(
+                    "LocalGemma",
+                    local_gemma_model,
+                    "openai",
+                    local_gemma_url,
+                    os.getenv("SAREMBOK_LOCAL_GEMMA_KEY", "sovereign-local").strip() or "sovereign-local",
+                )
+            ]
+
         # User dynamic key passed from client mobile device or session
         if dynamic_key:
             dk = str(dynamic_key).strip()
@@ -592,6 +616,8 @@ class ProviderRouter:
 
         providers = self.configured(requested_model=actual_model, dynamic_key=dynamic_key)
         if not providers:
+            if os.getenv("SAREMBOK_LOCAL_ONLY", "false").strip().lower() in {"1", "true", "yes", "on"}:
+                raise RuntimeError("local_only_configuration_error: set SAREMBOK_LOCAL_GEMMA_URL and SAREMBOK_LOCAL_GEMMA_MODEL")
             raise RuntimeError('no language-model provider configured')
         deadline = time.monotonic() + self.total_timeout
         failures: list[str] = []
@@ -635,6 +661,8 @@ class ProviderRouter:
 
         providers = self.configured(requested_model=actual_model, dynamic_key=dynamic_key)
         if not providers:
+            if os.getenv("SAREMBOK_LOCAL_ONLY", "false").strip().lower() in {"1", "true", "yes", "on"}:
+                raise RuntimeError("local_only_configuration_error: set SAREMBOK_LOCAL_GEMMA_URL and SAREMBOK_LOCAL_GEMMA_MODEL")
             raise RuntimeError('no language-model provider configured')
         deadline = time.monotonic() + self.total_timeout
         failures: list[str] = []
