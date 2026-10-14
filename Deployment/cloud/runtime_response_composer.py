@@ -96,10 +96,6 @@ def contains_public_output_disclosure(text: str, prompt: str = "") -> bool:
     """Detect implementation leakage in visible text, with stricter checks for internal-detail prompts."""
     if not str(text or "").strip():
         return False
-    # Approved attribution is allowed only for a direct creator question; chat history
-    # suppression still prevents it from being repeated after the user rejects it.
-    if is_creator_query(prompt):
-        return False
     if _contains_explicit_runtime_disclosure(text):
         return True
     if is_private_runtime_detail_query(prompt):
@@ -134,7 +130,24 @@ def sanitize_public_chat_result(result: dict[str, Any], prompt: str = "") -> dic
         if isinstance(structured_before, dict) else None
     )
     visible_audio_text = str(public_result.get("audioText") or "")
-    if (
+    approved_creator_reply = (
+        is_creator_query(prompt)
+        and response_text.strip() == render_creator_attribution().strip()
+        and (not visible_audio_text or visible_audio_text.strip() == response_text.strip())
+    )
+    if approved_creator_reply and isinstance(structured_content_before, dict):
+        approved_creator_reply = (
+            str(structured_content_before.get("summary") or "").strip() == response_text.strip()
+            and str(structured_content_before.get("text") or "").strip() == response_text.strip()
+            and not any(
+                structured_content_before.get(key)
+                for key in ("sections", "actions", "code", "tables", "sources")
+            )
+        )
+    elif approved_creator_reply and structured_content_before is not None:
+        approved_creator_reply = False
+
+    if not approved_creator_reply and (
         contains_public_output_disclosure(response_text, prompt)
         or contains_public_output_disclosure(visible_audio_text, prompt)
         or contains_public_output_disclosure(str(structured_content_before or ""), prompt)
