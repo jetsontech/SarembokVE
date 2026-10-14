@@ -40,7 +40,10 @@ def build_runtime_context(snapshot: dict[str, Any], capabilities: dict[str, Any]
 def sanitize_public_chat_result(result: dict[str, Any]) -> dict[str, Any]:
     """Remove internal inference telemetry before a chat result reaches a browser."""
     public_result = dict(result)
-    for key in ("source", "model", "taskCategory", "metadata"):
+    for key in (
+        "source", "model", "taskCategory", "metadata",
+        "_deferPersistence", "_persistSessionId", "_persistPrompt", "_persistReply",
+    ):
         public_result.pop(key, None)
 
     structured = public_result.get("structuredResponse")
