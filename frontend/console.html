@@ -728,7 +728,7 @@
                 <div class="msg-group">
                     <div class="msg-sender agent">
                         Sarembok
-                        <span class="msg-model-tag">system</span>
+                        
                     </div>
                     <div class="msg-body">
                         Ready. Ask me something — or say <code>remember that …</code> to store a fact I'll recall later.
@@ -1013,24 +1013,23 @@
             const updateStreamUi=(delta)=>{streamedText+=String(delta||'');if(!assistantContent){thinkingEl.innerHTML='<div class="msg-sender agent" id="streaming-assistant-sender">Sarembok</div><div class="msg-body" id="streaming-assistant-content"></div>';assistantSender=thinkingEl.querySelector('#streaming-assistant-sender');assistantContent=thinkingEl.querySelector('#streaming-assistant-content');}assistantContent.innerHTML=formatReply(streamedText);const scroll=document.getElementById('conversation-scroll');scroll.scrollTop=scroll.scrollHeight;};
             try{const result=await sendRPC('SarembokChat',{prompt:text,sessionId:sessionId,stream:true},updateStreamUi);const finalText=String(result?.response||result?.audioText||streamedText||'Response received.');
                 let assistantGroup=thinkingEl;
-                if(!assistantContent){thinkingEl.remove();assistantGroup=appendMessage('agent','Sarembok',finalText,result?.model,result?.recalledMemories);}else{assistantContent.innerHTML=formatReply(finalText);if(assistantSender&&(result?.model||result?.metadata?.model)){
- const provider=String(result?.metadata?.provider||result?.source||'').trim();
- const model=String(result?.model||result?.metadata?.model||'').trim();
- const tag=provider&&model&&provider!==model?provider+' / '+model:model||provider;
- assistantSender.innerHTML='Sarembok <span class="msg-model-tag">'+esc(tag)+'</span>';
-}}
+                if(!assistantContent){
+                    thinkingEl.remove();
+                    assistantGroup=appendMessage('agent','Sarembok',finalText,result?.recalledMemories);
+                }else{
+                    assistantContent.innerHTML=formatReply(finalText);
+                }
                 const mediaUrl=String(result?.videoUrl||extractMediaUrl(finalText)||'').trim();
                 if(mediaUrl)appendInlineMedia(assistantGroup,mediaUrl,'Response media');
                 fetchMemories();fetchRuntimeInfo();document.getElementById('conversation-scroll').scrollTop=document.getElementById('conversation-scroll').scrollHeight;
             }catch(e){thinkingEl.innerHTML='<div class="msg-sender agent">Sarembok</div><div class="msg-body" style="color:var(--amber);">Error: '+esc(e.message||e)+'</div>';}
         }
-        function appendMessage(role, sender, text, modelTag, recalledMemories) {
+        function appendMessage(role, sender, text, recalledMemories) {
             const scroll = document.getElementById('conversation-scroll');
             const group = document.createElement('div');
             group.className = 'msg-group';
 
             let html = `<div class="msg-sender ${role}">${esc(sender)}`;
-            if (modelTag) html += ` <span class="msg-model-tag">${esc(modelTag)}</span>`;
             html += '</div>';
 
             const bodyClass = role === 'user' ? 'msg-body user-msg' : 'msg-body';
