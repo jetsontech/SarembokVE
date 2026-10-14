@@ -52,6 +52,7 @@ from runtime_response_composer import (
     render_limitations,
     render_model_inventory,
     sanitize_public_chat_result,
+    sanitize_conversation_history,
 )
 from provider_router import ProviderRouter, set_stream_callback, reset_stream_callback
 from live_voice import provision_ephemeral_token
@@ -3161,7 +3162,13 @@ def sarembok_process_dialogue(
             or is_self_state_query(prompt_clean)
         )
     ):
-        fast_history = _get_fast_chat_history(session_id)
+        raw_fast_history = _get_fast_chat_history(session_id)
+        safe_fast_history = sanitize_conversation_history([
+            (str(item.get("role") or ""), str(item.get("content") or ""))
+            for item in raw_fast_history
+            if isinstance(item, dict)
+        ])
+        fast_history = [{"role": role, "content": content} for role, content in safe_fast_history]
         fast_system = (
             "You are Sarembok, the assistant within SarembokVE. "
             "Answer the user's request directly, naturally, and in the language they are using when reasonably possible. "
@@ -3226,7 +3233,11 @@ def sarembok_process_dialogue(
     deduped_history = []
     last_role = None
     last_content = None
-    for r, c in list(reversed(conv_rows)):
+    ordered_rows = sanitize_conversation_history([
+        (str(role or ""), str(content or ""))
+        for role, content in list(reversed(conv_rows))
+    ])
+    for r, c in ordered_rows:
         c_clean = str(c or "").strip()
         if not c_clean:
             continue
