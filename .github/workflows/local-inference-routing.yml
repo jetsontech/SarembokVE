@@ -1,0 +1,32 @@
+name: Local inference routing tests
+
+on:
+  pull_request:
+    paths:
+      - "Deployment/cloud/provider_router.py"
+      - "Deployment/cloud/test_local_only_routing.py"
+      - ".github/workflows/local-inference-routing.yml"
+  push:
+    branches:
+      - main
+      - "audit/local-gemma-truth-boundary-2026-10-14"
+    paths:
+      - "Deployment/cloud/provider_router.py"
+      - "Deployment/cloud/test_local_only_routing.py"
+      - ".github/workflows/local-inference-routing.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  local-only-routing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run local-only routing regression tests
+        run: python -m unittest Deployment.cloud.test_local_only_routing -v
