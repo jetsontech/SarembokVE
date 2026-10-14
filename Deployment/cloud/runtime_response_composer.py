@@ -265,10 +265,10 @@ _PRIVATE_RUNTIME_DISCLOSURE_MARKERS = (
 
 def contains_private_runtime_disclosure(text: str) -> bool:
     """Identify common disclosures that should not be reintroduced via chat history."""
-    low = re.sub(r"\\s+", " ", str(text or "").strip().lower())
+    low = re.sub(r"\s+", " ", str(text or "").strip().lower())
     if any(marker in low for marker in _PRIVATE_RUNTIME_DISCLOSURE_MARKERS):
         return True
-    if re.search(r"\\b\\d+\\s+(?:active\\s+)?(?:agents?|workers?|conversations?|memory stores|memory entries|gpu workers?)\\b", low):
+    if re.search(r"\b\d+\s+(?:active\s+)?(?:agents?|workers?|conversations?|memory stores|memory entries|gpu workers?)\b", low):
         return True
     if "tim hall" in low and ("founder" in low or "architected by" in low):
         return True
