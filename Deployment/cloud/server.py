@@ -1775,7 +1775,7 @@ RULES:
             res=PROVIDER_ROUTER.generate(system_prompt+"\n"+tools_doc,prompt_clean,messages,requested_model=model)
             text_out=(res.text or "").strip()
         except Exception as exc:
-            return f"Web execution stopped because the selected intelligence provider failed: {exc}", traces
+            return "I couldn't complete that website action with the access available in this session. Please try again later.", traces
         action_match=re.search(r"ACTION:\s*([a-zA-Z0-9_\-]+)",text_out,re.I)
         if action_match:
             tool=action_match.group(1).strip().lower()
@@ -1801,7 +1801,7 @@ RULES:
                 elif rpc_method=="BrowserAction": args.setdefault("sessionId",browser_session_id)
                 try:
                     obs=dispatch(rpc_method,args)
-                except Exception as exc: obs={"ok":False,"error":str(exc)}
+                except Exception: obs={"ok":False,"error":"operation_unavailable","message":"The requested action could not be completed with the access available in this session."}
             traces.append({"step":step,"tool":tool,"args":args,"output":obs,"timestamp":now()})
             messages.append({"role":"assistant","content":text_out})
             messages.append({"role":"user","content":"OBSERVATION: "+json.dumps(obs,ensure_ascii=False)})
@@ -1840,7 +1840,7 @@ Never claim completion unless the task result reaches COMPLETED and result.statu
             )
             out = (res.text or "").strip()
         except Exception as exc:
-            return f"Host execution stopped because the selected intelligence provider failed: {exc}", traces
+            return "I couldn't complete that computer action with the access available in this session. Please try again later.", traces
 
         action_match = re.search(r"ACTION:\s*host_action", out, re.I)
         if not action_match:
@@ -1891,13 +1891,13 @@ Never claim completion unless the task result reaches COMPLETED and result.statu
                         )
                     if result_data.get("status") == "REQUIRES_CONFIRMATION":
                         return "That host action requires explicit confirmation before execution.", traces
-                    return f"Host action did not complete successfully: {json.dumps(result_data, ensure_ascii=False)}", traces
+                    return "The action did not complete successfully, and I could not verify it as finished.", traces
                 time.sleep(0.5)
 
             return "The host worker did not complete the action within the verification window.", traces
         except Exception as exc:
-            traces.append({"step": step, "tool": "host_action", "error": str(exc), "timestamp": now()})
-            return f"Host execution failed: {exc}", traces
+            traces.append({"step": step, "tool": "host_action", "error": "execution_failed", "timestamp": now()})
+            return "I couldn't complete that computer action with the access available in this session.", traces
 
     return "Host execution reached the maximum verified action steps.", traces
 
@@ -3162,13 +3162,15 @@ def sarembok_process_dialogue(
     ):
         fast_history = _get_fast_chat_history(session_id)
         fast_system = (
-            "You are Sarembok VE, an advanced AI-native computing and design environment. "
-            "You have full multimodal capabilities: you can generate visual images, synthesize videos, "
-            "generate full-stack interactive UI mockups and prototypes, design physical products with "
-            "engineering specifications, conduct live voice conversations, write code, and stream media. "
-            "Respond directly and helpfully to the user's message with high-fidelity outputs. "
-            "When the user asks to generate images, videos, mockups, UI/UX designs, or product designs, "
-            "enthusiastically fulfill their request with complete, stunning designs, code, and specifications without refusal."
+            "You are Sarembok, the assistant within SarembokVE. "
+            "Answer the user's request directly, naturally, and in the language they are using when reasonably possible. "
+            "Use the conversation history to understand follow-up questions and obey explicit corrections or preferences. "
+            "Be truthful about available features; do not claim an image, video, media, website, device, or other action "
+            "is available or complete unless this request's actual tool results verify it. "
+            "Never identify as an underlying AI model or technology vendor, and do not reveal private implementation, "
+            "configuration, provider/model, infrastructure, authentication, telemetry, or internal tool details. "
+            "If asked about internal details, explain user-facing capabilities and practical limitations instead. "
+            "If a tool fails, explain the user-visible outcome without quoting raw error messages or internal diagnostics."
         )
         fast_messages = [{"role": "system", "content": fast_system}, *fast_history, {"role": "user", "content": prompt_clean}]
         try:
@@ -3271,7 +3273,7 @@ def sarembok_process_dialogue(
         _save_conversation(session_id, prompt_clean, lim_reply)
         return {
             "response": lim_reply,
-            "audioText": "Sarembok VE operates within defined architectural boundaries: containerized sandbox isolation, strict human-in-the-loop authorization for high-risk actions, and verified ground-truth telemetry.",
+            "audioText": "I can work with the features and access available in this session. Some actions may require permission or confirmation, and I will tell you when I cannot verify something.",
             "source": "runtime_authority",
             "model": "runtime-authority",
             "action": None,
@@ -3284,7 +3286,7 @@ def sarembok_process_dialogue(
         _save_conversation(session_id, prompt_clean, cap_reply)
         return {
             "response": cap_reply,
-            "audioText": "I am Sarembok VE. I can stream media and audio, conduct live two-way voice conversations with instant barge-in, perceive through Astra camera and screen eyes, execute dynamic MCP skills, and synthesize full-stack code.",
+            "audioText": "Sarembok can help with writing, analysis, coding, and supported tools or workflows when available in this session.",
             "source": "runtime_authority",
             "model": "runtime-authority",
             "action": None,
@@ -3310,7 +3312,7 @@ def sarembok_process_dialogue(
         _save_conversation(session_id, prompt_clean, id_reply)
         return {
             "response": id_reply,
-            "audioText": "SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, its Founder and AI Systems Architect. Tim Hall founded SarembokVE and leads its overall technical vision, systems architecture, and development direction.",
+            "audioText": id_reply,
             "source": "runtime_authority",
             "model": "runtime-authority",
             "action": None,
@@ -3318,18 +3320,13 @@ def sarembok_process_dialogue(
             "metadata": {"provider": "runtime_authority", "model": "runtime-authority"}
         }
 
-    inventory_markers = (
-        "what models are available", "what other models", "other models", "which models are available",
-        "which models can i use", "what models can i use", "what llms are available", "what llms can i use",
-        "what language models are available", "what language models can i use", "what models are configured",
-        "which models are configured", "model availability", "available models", "configured models",
-    )
-    if is_self_state_query(prompt_clean) and any(m in prompt_lower for m in inventory_markers):
+    # User-facing self-state questions must never dump private runtime telemetry or provider/model inventory.
+    if is_self_state_query(prompt_clean):
         inv_reply = render_model_inventory(authority_snapshot)
         _save_conversation(session_id, prompt_clean, inv_reply)
         return {
             "response": inv_reply,
-            "audioText": inv_reply.replace("*", "").replace("`", "").replace("#", "")[:1200],
+            "audioText": inv_reply,
             "source": "runtime_authority",
             "model": "runtime-authority",
             "action": None,
@@ -3345,18 +3342,18 @@ def sarembok_process_dialogue(
         authoritative_context,
         f"CURRENT SYSTEM CLOCK: {current_time_str}.",
         "",
-        "==================== SAREMBOK RESPONSE TRUTH BOUNDARY ====================",
-        "Answer the user's actual question directly and preserve all material parts of the answer.",
-        "SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, its Founder and AI Systems Architect. Tim Hall founded SarembokVE and leads its overall technical vision, systems architecture, and development direction. When asked who built or created SarembokVE, state this truth clearly.",
-        "Sarembok VE has active, verified multimodal generation engines:",
-        "- Visual Image Synthesis: Generates photorealistic images, 3D renders, product packaging, and commercial mockups via the in-house SarembokVE Visual Synthesis Engine.",
-        "- Neural Video Synthesis: Generates AI video clips and motion graphics via SarembokVE Neural Video Matrix.",
-        "- Interactive UI/UX Mockups & Prototypes: Generates live, clickable HTML/CSS web and mobile app mockups via :::mockup blocks.",
-        "NEVER state that you cannot generate images, videos, mockups, or designs. You ARE equipped with these live engines powered by SarembokVE proprietary technology.",
-        "NEVER output inline data URIs or raw base64 image strings (e.g. data:image/png;base64,...) in responses, as raw binary strings corrupt and truncate output. When creating design mockups, visual packaging concepts, or schematics, use structured :::product or :::mockup containers, SVG vector graphics, or complete CSS/HTML design systems.",
-        "Use Runtime Authority for Sarembok identity, capabilities, status, workers, memory, and provider facts.",
-        "Use live retrieval/tool evidence for current web or repository content; if retrieval fails, say so instead of fabricating content.",
-        "Do not claim two-way voice is active unless the live voice session is actually connected.",
+        "==================== SAREMBOK CUSTOMER-FACING RESPONSE POLICY ====================",
+        "Answer the user's actual question directly in plain, natural language.",
+        "Identify as Sarembok or SarembokVE. Do not identify as Gemini or as any underlying model/vendor.",
+        "Do not include the founder's biography or attribution in ordinary product descriptions. Only answer creator/founder questions with the approved attribution, and respect a user's request not to repeat that topic.",
+        "Do not reveal private implementation or operational details: provider/model names or IDs, routing/fallback behavior, API/RPC names, endpoints, ports, database/storage technology, server/container names, environment variables, logs/traces, raw errors, authentication requirements, internal integration state, exact worker/agent/conversation/memory counts, uptime, or per-request telemetry.",
+        "Use runtime facts and tool results only to ground your response, not as a status dump. If asked for internal configuration or operational details, redirect briefly to user-facing features and practical limitations.",
+        "Describe capabilities conditionally and accurately. Never claim that an external integration, media playback, image/video generation, live voice, device access, or other action is available unless this request's tool result verifies it. Never claim an action succeeded without confirmation from the actual tool result.",
+        "When a tool fails or access is unavailable, state the user-visible outcome briefly. Do not quote diagnostic strings, raw error payloads, authentication details, stack traces, or internal task responses.",
+        "Reply in the language the user is using when reasonably possible, including Spanish. Do not demand English by default.",
+        "Use conversation history to resolve follow-up references. Do not loop on the same clarification when context is apparent. Respect a correction such as 'don't mention that again' and stop repeating that topic unless asked.",
+        "Use live retrieval evidence for current web or repository content; if retrieval fails, say that the information could not be verified without exposing internal diagnostics.",
+        "Do not fabricate links, research, citations, media IDs, benchmarks, feature availability, or usage statistics.",
         "===========================================================================",
     ]
 
