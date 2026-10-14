@@ -383,6 +383,22 @@ def _is_fast_conversational_turn(prompt: str, image_frame: str | None = None, ad
         return False
     return not any(marker in text for marker in FAST_LANE_BLOCKERS)
 
+def _is_contextual_followup(prompt: str) -> bool:
+    """Short prompts need persisted history after a runtime restart."""
+    text = re.sub(r"[^a-z0-9\\s]", "", str(prompt or "").strip().lower())
+    exact = {
+        "more", "more please", "tell me more", "go on", "continue", "do that",
+        "yes", "yes please", "okay", "ok", "sure", "what else", "say more",
+        "explain that", "explain more", "do you have more to add",
+        "you have more to add", "you have more to add to that",
+        "tell me about this", "tell me about that",
+        "i dont want to know that", "i already know that",
+        "dont mention that again", "do not mention that again",
+        "i dont want to hear that again",
+    }
+    return text in exact or text.startswith("tell me more") or text.startswith("more about ")
+
+
 def _get_fast_chat_history(session_id: str) -> list[dict[str, str]]:
     sid = session_id or "sess_main"
     with FAST_CHAT_HISTORY_LOCK:
@@ -3151,10 +3167,13 @@ def sarembok_process_dialogue(
         }
 
     # Fast conversational lane.
-    # Ordinary dialogue should not wait on runtime inventory, SQLite history,
-    # memory recall, or real-time enrichment before Gemini can emit token 1.
+    # Preserve the low-latency path when in-memory context exists; on a runtime
+    # restart, load saved and sanitized history for short contextual follow-ups.
+    cached_fast_history = _get_fast_chat_history(session_id)
+    needs_saved_context = _is_contextual_followup(prompt_clean) and not cached_fast_history
     if (
         _is_fast_conversational_turn(prompt_clean, image_frame=image_frame, admin=is_admin)
+        and not needs_saved_context
         and not (
             is_identity_query(prompt_clean)
             or is_capability_query(prompt_clean)
@@ -3162,7 +3181,7 @@ def sarembok_process_dialogue(
             or is_self_state_query(prompt_clean)
         )
     ):
-        raw_fast_history = _get_fast_chat_history(session_id)
+        raw_fast_history = cached_fast_history
         safe_fast_history = sanitize_conversation_history([
             (str(item.get("role") or ""), str(item.get("content") or ""))
             for item in raw_fast_history
