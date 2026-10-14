@@ -7511,8 +7511,8 @@ button,
                 <div class="hud-badge latency">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
                     <div>
-                        <div class="hud-badge-kicker">EDGE LATENCY</div>
-                        <div class="hud-badge-val" id="hud-latency-val">8.6ms</div>
+                        <div class="hud-badge-kicker">SERVICE STATUS</div>
+                        <div class="hud-badge-val" id="hud-latency-val">ONLINE</div>
                     </div>
                 </div>
 
@@ -7886,7 +7886,7 @@ button,
 
                         <div class="state-list">
                             <div class="state-row"><span class="state-label">MEMORY SERVICE</span><span class="state-val cyan" id="deck-mem-backend">READY</span></div>
-                            <div class="state-row"><span class="state-label">ENTRIES</span><span class="state-val amber" id="deck-mem-entries">2 STORED</span></div>
+                            <div class="state-row"><span class="state-label">ENTRIES</span><span class="state-val amber" id="deck-mem-entries">—</span></div>
                             <div class="state-row"><span class="state-label">HEALTH</span><span class="state-val good">STABLE</span></div>
                         </div>
                     </div>
@@ -7929,14 +7929,14 @@ button,
                         </div>
 
                         <div class="state-list" style="margin-bottom: 12px;">
-                            <div class="state-row"><span class="state-label">ONLINE AGENTS</span><span class="state-val cyan" id="deck-agents-online">0 / 0</span></div>
-                            <div class="state-row"><span class="state-label">QUEUE DEPTH</span><span class="state-val" id="deck-queue-depth">0 QUEUED</span></div>
+                            <div class="state-row"><span class="state-label">ONLINE AGENTS</span><span class="state-val cyan" id="deck-agents-online">—</span></div>
+                            <div class="state-row"><span class="state-label">QUEUE DEPTH</span><span class="state-val" id="deck-queue-depth">—</span></div>
                             <div class="state-row"><span class="state-label">COMPUTE WORKERS</span><span class="state-val amber">CPU POOL</span></div>
                         </div>
 
                         <div class="reconcile-cycle-box">
                             <span class="cycle-label">RECONCILIATION CYCLE</span>
-                            <span class="cycle-val" id="deck-cycle-counter">00021</span>
+                            <span class="cycle-val" id="deck-cycle-counter">—</span>
                         </div>
                     </div>
                 </section>
@@ -12177,17 +12177,14 @@ button,
             if (sysBadge) sysBadge.textContent = info.status === "ONLINE" ? "ONLINE" : "CHECK";
         }
 
-        /* Edge Latency Ping */
+        /* Public liveness check; keep response-time telemetry private. */
         async function measureLatency() {
-            const start = performance.now();
+            const el = document.getElementById("hud-latency-val");
             try {
-                await fetch("/health", { cache: "no-store" });
-                const ms = Math.max(1, Math.round(performance.now() - start));
-                const el = document.getElementById("hud-latency-val");
-                if (el) el.textContent = `${ms}.0ms`;
+                const response = await fetch("/health", { cache: "no-store" });
+                if (el) el.textContent = response.ok ? "ONLINE" : "CHECK";
             } catch (_) {
-                const el = document.getElementById("hud-latency-val");
-                if (el) el.textContent = "ONLINE";
+                if (el) el.textContent = "CHECK";
             }
         }
         setInterval(measureLatency, 8000);
