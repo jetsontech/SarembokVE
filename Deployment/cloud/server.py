@@ -53,6 +53,7 @@ from runtime_response_composer import (
     render_model_inventory,
     sanitize_public_chat_result,
     sanitize_conversation_history,
+    contains_private_runtime_disclosure,
     contains_public_output_disclosure,
     is_private_runtime_detail_query,
     should_suppress_public_chat_stream,
@@ -3423,6 +3424,10 @@ def sarembok_process_dialogue(
             f"SELECT key, value, tier, created_at FROM memories WHERE {where_clauses} ORDER BY created_at DESC LIMIT 5",
             query_args
         ).fetchall()
+        recalled_rows = [
+            row for row in recalled_rows
+            if not contains_private_runtime_disclosure(f"{row[0]} {row[1]}")
+        ]
         if recalled_rows:
             mem_summary = "\n".join([f"- [{r[2]}] {r[0]}: {r[1]}" for r in recalled_rows])
             system_context_parts.append(f"\nPersistent Recalled Memories & Context:\n{mem_summary}\n")
