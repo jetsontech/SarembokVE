@@ -305,16 +305,37 @@ def test_public_chat_ui_hides_automated_provider_and_model_badges():
     console_html = (root / "frontend" / "console.html").read_text(encoding="utf-8")
 
     assert "SAREMBOK AI</div>" in main_html
+    assert "SAREMBOK LIVE</span>" in main_html
     assert "Auto (Recommended)" in main_html
     assert "Gemma Default" not in main_html
     assert "DYNAMIC TASK ENGINE" not in main_html
     assert "ENGINE: DYNAMIC ·" not in main_html
     assert "result?.metadata?.provider" not in main_html
     assert "result?.metadata?.model" not in main_html
+
+    model_menu = main_html.split('id="active-model-select"', 1)[1].split("</select>", 1)[0]
+    for internal_name in (
+        "Gemma 2 2B",
+        "Gemini 3.8 Flash",
+        "Qwen 2.5 Coder",
+        "Llama 3.3 70B",
+        "DeepSeek V3",
+        "GPT-4o Mini",
+    ):
+        assert internal_name not in model_menu
+
+    voice_menu = main_html.split('id="mh-voice-select"', 1)[1].split("</select>", 1)[0]
+    assert "Gemini Live Duplex" not in voice_menu
+    assert 'title="Start live two-way voice conversation"' in main_html
+    assert "This is Gemini Aoede" not in main_html
+    assert "This is Gemini Kore" not in main_html
+
     assert "result?.metadata?.provider" not in console_html
     assert "result?.metadata?.model" not in console_html
     assert "result?.model" not in console_html
     assert "assistantSender.innerHTML" not in console_html
+    assert "LIVE VOICE · GEMINI LIVE" not in console_html
+    assert "Gemini Live is the console voice authority" not in console_html
 
 
 
