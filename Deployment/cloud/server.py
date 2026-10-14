@@ -6787,11 +6787,16 @@ async def handler(websocket) -> None:
                         # work, so do not hold the global DB lock while waiting on Gemini.
                         # Complex/tool-backed dialogue keeps the serialized DB path.
                         prompt_hint = str(params.get("prompt") or params.get("message") or params.get("text") or "")
+                        session_hint = str(params.get("sessionId") or params.get("session_id") or "sess_main")
+                        cold_followup = (
+                            _is_contextual_followup(prompt_hint)
+                            and not _get_fast_chat_history(session_hint)
+                        )
                         fast_chat = _is_fast_conversational_turn(
                             prompt_hint,
                             image_frame=str(params.get("imageFrame") or params.get("image_frame") or params.get("frame") or "").strip() or None,
                             admin=bool(params.get("admin", False)),
-                        )
+                        ) and not cold_followup
                         if fast_chat:
                             result = await asyncio.to_thread(dispatch, method, params)
                         else:
