@@ -1,3 +1,4 @@
+from pathlib import Path
 from runtime_response_composer import (
     build_runtime_context,
     is_capability_query,
@@ -294,6 +295,24 @@ def test_old_self_description_disclosures_are_scrubbed_from_history():
     assert "I'm playing music by GloRilla" in joined
 
 
+def test_public_chat_ui_hides_automated_provider_and_model_badges():
+    root = Path(__file__).resolve().parents[2]
+    main_html = (root / "frontend" / "index.html").read_text(encoding="utf-8")
+    console_html = (root / "frontend" / "console.html").read_text(encoding="utf-8")
+
+    assert "SAREMBOK AI</div>" in main_html
+    assert "Auto (Recommended)" in main_html
+    assert "Gemma Default" not in main_html
+    assert "DYNAMIC TASK ENGINE" not in main_html
+    assert "ENGINE: DYNAMIC ·" not in main_html
+    assert "result?.metadata?.provider" not in main_html
+    assert "result?.metadata?.model" not in main_html
+    assert "result?.metadata?.provider" not in console_html
+    assert "result?.metadata?.model" not in console_html
+    assert "result?.model" not in console_html
+    assert "assistantSender.innerHTML='Sarembok <span class=" not in console_html
+
+
 
 if __name__ == "__main__":
     test_self_state_queries()
@@ -307,4 +326,5 @@ if __name__ == "__main__":
     test_public_renderers_never_dump_internal_runtime_details()
     test_public_chat_payload_redacts_provider_and_internal_metadata()
     test_old_self_description_disclosures_are_scrubbed_from_history()
+    test_public_chat_ui_hides_automated_provider_and_model_badges()
     print("runtime_response_composer: PASS")
