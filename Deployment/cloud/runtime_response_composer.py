@@ -251,6 +251,7 @@ _PRIVATE_RUNTIME_DISCLOSURE_MARKERS = (
     "up for about",
     "active agents running",
     "active memory stores",
+    "no active workers",
     "handled over",
     "requires authentication",
     "authentication is required",
