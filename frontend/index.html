@@ -8050,12 +8050,12 @@ button,
                     <div style="margin-bottom:18px;">
                         <label style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em;">Voice Synthesis Profile</label>
                         <select class="metahuman-select" id="mh-voice-select" onchange="changeVoiceProfile(this.value, true)">
-                            <option value="gemini-vega" selected>Vega — Gemini Live Duplex · Natural Warm</option>
-                            <option value="gemini-kore">Kore — Gemini Live Duplex · Expressive Female</option>
-                            <option value="gemini-aoede">Aoede — Gemini Live Duplex · Conversational</option>
-                            <option value="gemini-puck">Puck — Gemini Live Duplex · Dynamic Male</option>
-                            <option value="gemini-charon">Charon — Gemini Live Duplex · Calm Male</option>
-                            <option value="gemini-fenrir">Fenrir — Gemini Live Duplex · Deep Authority</option>
+                            <option value="gemini-vega" selected>Vega — Natural Warm</option>
+                            <option value="gemini-kore">Kore — Expressive Female</option>
+                            <option value="gemini-aoede">Aoede — Conversational</option>
+                            <option value="gemini-puck">Puck — Dynamic Male</option>
+                            <option value="gemini-charon">Charon — Calm Male</option>
+                            <option value="gemini-fenrir">Fenrir — Deep Authority</option>
                         </select>
                     </div>
 
@@ -8153,12 +8153,12 @@ button,
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                         <select class="cyber-select" id="active-model-select" onchange="onModelChange(this.value)" title="Active AI Model Engine">
                             <option value="auto" selected>⚡ Auto (Recommended)</option>
-                            <option value="gemma-2-2b">Gemma 2 2B (Local CPU)</option>
-                            <option value="gemini-flash">Gemini 3.8 Flash (Massive Context · Fast)</option>
-                            <option value="qwen-2.5-coder">Qwen 2.5 Coder (Code & Architecture)</option>
-                            <option value="llama-3.3-70b">Llama 3.3 70B (Deep Reasoning)</option>
-                            <option value="deepseek-v3">DeepSeek V3 (Advanced Synthesis)</option>
-                            <option value="gpt-4o-mini">GPT-4o Mini (Ultra-Responsive)</option>
+                            <option value="gemma-2-2b">Local Model (CPU)</option>
+                            <option value="gemini-flash">Fast · Large Context</option>
+                            <option value="qwen-2.5-coder">Coding & Architecture</option>
+                            <option value="llama-3.3-70b">Deep Reasoning</option>
+                            <option value="deepseek-v3">Advanced Synthesis</option>
+                            <option value="gpt-4o-mini">Fast General Responses</option>
                         </select>
                         <select class="cyber-select" id="active-language-select" onchange="onLanguageChange(this.value)" title="Language">
                             <option value="en">English (EN)</option>
@@ -8270,7 +8270,7 @@ button,
                 </div>
 
                 <div class="dialogue-input-bar">
-                    <button class="dialogue-mic-btn" id="dialogue-mic-btn" onclick="toggleLiveConversation()" title="Native Gemini Live conversation">
+                    <button class="dialogue-mic-btn" id="dialogue-mic-btn" onclick="toggleLiveConversation()" title="Start live two-way voice conversation">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
                     </button>
                     <button class="dialogue-mic-btn" id="dialogue-camera-btn" onclick="captureVisionCameraFrame()" title="Camera Vision (Attach camera snapshot)" style="background:transparent; color:var(--cyan); border-color:rgba(0,240,255,0.3);">
@@ -13343,11 +13343,11 @@ button,
                 greeting = "Greetings. I am Ada, the embodied digital intelligence of Sarembok VE. Sovereign British neural matrix online.";
                 showToast("TESTING NEURAL AUDIO: Playing Ada v1 (Sonia Neural)...");
             } else if (profile.includes("aoede")) {
-                greeting = "Greetings. This is Gemini Aoede, operating in warm studio resonance mode.";
-                showToast("TESTING NEURAL AUDIO: Playing Gemini Aoede voice...");
+                greeting = "Greetings. This is the Aoede voice profile, in a warm studio style.";
+                showToast("Testing voice profile: Aoede");
             } else if (profile.includes("kore")) {
-                greeting = "Hello there. This is Gemini Kore, running soft conversational audio.";
-                showToast("TESTING NEURAL AUDIO: Playing Gemini Kore voice...");
+                greeting = "Hello there. This is the Kore voice profile, in a soft conversational style.";
+                showToast("Testing voice profile: Kore");
             } else if (profile.includes("onyx") || profile.includes("us")) {
                 greeting = "Sarembok VE operating system online. Onyx masculine neural voice profile engaged.";
                 showToast("TESTING NEURAL AUDIO: Playing Onyx voice...");
@@ -13688,7 +13688,7 @@ button,
             try { localStorage.setItem("sarembok-live-voice", profile.voice); } catch (_) {}
             const mainSelect = document.getElementById("mh-voice-select");
             if (mainSelect && mainSelect.value !== key) mainSelect.value = key;
-            addTerminalLine("[voice] activated Frontier Gemini Live voice: " + profile.model + " · " + profile.label, "cyan");
+            addTerminalLine("[voice] activated Sarembok live voice: " + profile.model + " · " + profile.label, "cyan");
             try {
                 if (window.sarembokSocket && window.sarembokSocket.readyState === WebSocket.OPEN) {
                     window.sarembokSocket.send(JSON.stringify({ type: "SET_VOICE_PROFILE", voice: activeVoiceModel }));
