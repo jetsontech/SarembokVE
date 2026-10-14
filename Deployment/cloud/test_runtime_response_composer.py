@@ -390,12 +390,40 @@ def test_sensitive_streaming_and_output_disclosure_guards():
         "Gemini is Google's family of AI models.",
         "What is Gemini?",
     )
+    assert contains_public_output_disclosure(
+        "The current model is Gemini 3.8 Flash.",
+        "What model are you using?",
+    )
 
 
 def test_creator_attribution_remains_available_when_directly_requested():
     reply = "SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, its Founder and AI Systems Architect."
     public = sanitize_public_chat_result({"response": reply}, prompt="Who built SarembokVE?")
     assert public["response"] == reply
+
+
+def test_creator_request_cannot_hide_a_leak_in_structured_content():
+    reply = "SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, its Founder and AI Systems Architect."
+    sample = {
+        "response": reply,
+        "audioText": reply,
+        "structuredResponse": {
+            "type": "response",
+            "content": {
+                "summary": reply,
+                "text": reply,
+                "sections": [],
+                "actions": [],
+                "code": [{"language": "text", "content": "Current model: Gemini 3.8 Flash"}],
+                "tables": [],
+                "sources": [],
+            },
+            "metadata": {"schema_version": "1.0"},
+        },
+    }
+    public = sanitize_public_chat_result(sample, prompt="Who built SarembokVE?")
+    assert "Gemini 3.8 Flash" not in str(public)
+    assert public["response"].startswith("I can explain Sarembok")
 
 
 def test_public_vendor_question_is_not_mistaken_for_private_configuration():
@@ -418,6 +446,7 @@ if __name__ == "__main__":
     test_sensitive_public_chat_results_redact_text_traces_and_memories()
     test_sensitive_streaming_and_output_disclosure_guards()
     test_creator_attribution_remains_available_when_directly_requested()
+    test_creator_request_cannot_hide_a_leak_in_structured_content()
     test_public_vendor_question_is_not_mistaken_for_private_configuration()
     test_public_chat_ui_hides_automated_provider_and_model_badges()
     print("runtime_response_composer: PASS")
