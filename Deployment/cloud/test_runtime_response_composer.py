@@ -9,6 +9,7 @@ from runtime_response_composer import (
     render_identity,
     render_limitations,
     render_model_inventory,
+    render_creator_attribution,
     sanitize_public_chat_result,
     sanitize_conversation_history,
     contains_private_runtime_disclosure,
@@ -421,13 +422,13 @@ def test_sensitive_streaming_and_output_disclosure_guards():
 
 
 def test_creator_attribution_remains_available_when_directly_requested():
-    reply = "SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, its Founder and AI Systems Architect."
+    reply = render_creator_attribution()
     public = sanitize_public_chat_result({"response": reply}, prompt="Who built SarembokVE?")
     assert public["response"] == reply
 
 
 def test_creator_request_cannot_hide_a_leak_in_structured_content():
-    reply = "SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, its Founder and AI Systems Architect."
+    reply = render_creator_attribution()
     sample = {
         "response": reply,
         "audioText": reply,
