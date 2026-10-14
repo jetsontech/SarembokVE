@@ -880,10 +880,16 @@
         // ====== RUNTIME INFO ======
         async function fetchRuntimeInfo() {
             try {
-                const info = await sendRPC('GetRuntimeInfo');
-                document.getElementById('sys-uptime').textContent = formatUptime(info.uptimeSeconds || 0);
-                document.getElementById('sys-memories').textContent = info.memoryCount || 0;
-                document.getElementById('sys-conversations').textContent = info.conversationCount || 0;
+                const info = await sendRPC('GetPublicRuntimeStatus');
+                // Keep platform-wide operational counters out of the ordinary console.
+                const uptime = document.getElementById('sys-uptime');
+                const memoryCount = document.getElementById('sys-memories');
+                const conversationCount = document.getElementById('sys-conversations');
+                if (uptime) uptime.textContent = '—';
+                if (memoryCount) memoryCount.textContent = '—';
+                if (conversationCount) conversationCount.textContent = '—';
+                const status = document.getElementById('sys-status');
+                if (status) status.textContent = info.status === 'ONLINE' ? 'Online' : 'Check status';
             } catch(e) {}
         }
 
