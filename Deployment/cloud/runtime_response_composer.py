@@ -307,11 +307,23 @@ def sanitize_conversation_history(history: list[tuple[str, str]]) -> list[tuple[
         if role == "user":
             if _is_no_creator_attribution_request(content):
                 suppress_creator_attribution = True
+                # Remove prior attribution from this context once the user rejects it.
+                for index, (prior_role, prior_content) in enumerate(sanitized):
+                    prior_low = prior_content.lower()
+                    prior_is_attribution = (
+                        "tim hall" in prior_low and ("founder" in prior_low or "architected by" in prior_low)
+                    ) or "sarembokve is developed and architected by the sarembokve team" in prior_low
+                    if prior_role == "assistant" and prior_is_attribution:
+                        sanitized[index] = (
+                            "assistant",
+                            "I can focus on Sarembok's purpose, user-facing features, and practical limitations.",
+                        )
                 # Treat correction as continuation when a private topic is already active.
                 if not private_topic_active:
                     private_topic_active = True
                     root_prompt = content
             elif is_creator_query(content):
+                suppress_creator_attribution = False
                 private_topic_active = True
                 root_prompt = content
             elif is_capability_query(content):
@@ -343,7 +355,8 @@ def sanitize_conversation_history(history: list[tuple[str, str]]) -> list[tuple[
                 content = "I can focus on Sarembok's purpose, user-facing features, and practical limitations."
             elif private_topic_active and contains_private_runtime_disclosure(content):
                 if is_creator_query(root_prompt):
-                    content = "I can describe Sarembok's purpose and capabilities. Creator attribution is available when explicitly requested."
+                    if suppress_creator_attribution:
+                        content = "I can focus on Sarembok's purpose, user-facing features, and practical limitations."
                 elif is_capability_query(root_prompt):
                     content = render_capabilities()
                 elif is_limitation_query(root_prompt):
