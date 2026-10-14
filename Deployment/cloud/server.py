@@ -53,6 +53,9 @@ from runtime_response_composer import (
     render_model_inventory,
     sanitize_public_chat_result,
     sanitize_conversation_history,
+    contains_public_output_disclosure,
+    is_private_runtime_detail_query,
+    should_suppress_public_chat_stream,
 )
 from provider_router import ProviderRouter, set_stream_callback, reset_stream_callback
 from live_voice import provision_ephemeral_token
@@ -3400,7 +3403,8 @@ def sarembok_process_dialogue(
         w for w in re.findall(r"\b[a-zA-Z]{4,}\b", prompt_lower)
         if w not in ("what", "when", "where", "which", "could", "would", "should", "there", "about", "please", "sarembok")
     ][:4]
-    if keywords:
+    # Do not feed remembered private runtime facts back into answers about Sarembok itself.
+    if keywords and not is_private_runtime_detail_query(prompt_clean):
         where_clauses = " OR ".join(["key LIKE ? OR value LIKE ?"] * len(keywords))
         query_args: list[str] = []
         for kw in keywords:
@@ -6759,19 +6763,49 @@ async def handler(websocket) -> None:
                             "cancel_event": cancel_event,
                         }
 
+                    stream_prompt = str(params.get("prompt") or params.get("message") or params.get("text") or "")
+                    suppress_sensitive_stream = should_suppress_public_chat_stream(stream_prompt)
+
                     async def _send_chat_deltas() -> None:
+                        # Keep a short look-behind so a disclosure spanning several provider
+                        # chunks is detected before its identifying phrase is sent to the browser.
+                        buffered_text = ""
+                        sent_chars = 0
                         while True:
                             chunk = await delta_queue.get()
-                            if chunk is None or cancel_event.is_set():
+                            if chunk is None:
+                                if (
+                                    not suppress_sensitive_stream
+                                    and not cancel_event.is_set()
+                                    and not contains_public_output_disclosure(buffered_text, stream_prompt)
+                                ):
+                                    tail = buffered_text[sent_chars:]
+                                    if tail:
+                                        await websocket.send(json.dumps({
+                                            "jsonrpc": "2.0",
+                                            "method": "SarembokChat.delta",
+                                            "params": {"id": request.get("id"), "text": tail},
+                                        }, separators=(",", ":")))
                                 return
-                            await websocket.send(json.dumps({
-                                "jsonrpc": "2.0",
-                                "method": "SarembokChat.delta",
-                                "params": {
-                                    "id": request.get("id"),
-                                    "text": chunk,
-                                },
-                            }, separators=(",", ":")))
+                            if cancel_event.is_set():
+                                return
+                            if suppress_sensitive_stream:
+                                continue
+                            buffered_text += str(chunk or "")
+                            if contains_public_output_disclosure(buffered_text, stream_prompt):
+                                # The completed result is sanitized before the final RPC response.
+                                # Never send the unsafe portion (or further deltas) to the client.
+                                continue
+                            safe_end = max(sent_chars, len(buffered_text) - 256)
+                            if safe_end > sent_chars:
+                                safe_text = buffered_text[sent_chars:safe_end]
+                                if safe_text and not contains_public_output_disclosure(safe_text, stream_prompt):
+                                    await websocket.send(json.dumps({
+                                        "jsonrpc": "2.0",
+                                        "method": "SarembokChat.delta",
+                                        "params": {"id": request.get("id"), "text": safe_text},
+                                    }, separators=(",", ":")))
+                                    sent_chars = safe_end
 
                     def _on_delta(chunk: str) -> None:
                         if cancel_event.is_set():
@@ -6819,8 +6853,9 @@ async def handler(websocket) -> None:
                         result = await asyncio.to_thread(dispatch, method, params)
 
                 defer_persistence = isinstance(result, dict) and bool(result.get("_deferPersistence"))
+                public_prompt = str(params.get("prompt") or params.get("message") or params.get("text") or "")
                 public_result = (
-                    sanitize_public_chat_result(result)
+                    sanitize_public_chat_result(result, prompt=public_prompt)
                     if method == "SarembokChat" and isinstance(result, dict)
                     else result
                 )
