@@ -220,6 +220,7 @@ BROWSER_ALLOWED_METHODS = {
     "RecordLiveTurn",
     "SynthesizeSpeech",
     "SynthesizeSpeechStream",
+    "GetPublicRuntimeStatus",
     "GetRuntimeInfo",
     "GetProviderMetrics",
     "UploadFile",
@@ -301,6 +302,15 @@ BROWSER_ALLOWED_METHODS = {
     "RegisterConnector",
     "PublishEvent",
     "GetTopicEvents",
+}
+ADMIN_ONLY_RPC_METHODS = {
+    "GetRuntimeInfo", "GetProviderMetrics", "GetTraces", "GetAdminStatus",
+    "GetSystemIntegrationsConfig", "GetCDCChanges", "GetEntropyMetrics",
+    "GetVisualEngineStatus", "GetCapabilities", "ListAgents", "ListWorkers",
+    "ListMcpServers", "ListMCPConnectors", "ListConnectors", "GetTopicEvents",
+    "QueryVectorStore", "HybridSearch", "GetAutonomousPipeline", "ListAutonomousPipelines",
+    "ListGpuRentals", "GetGpuMarketplace", "GetVisionStatus",
+    "ListDigitalHumanSessions", "GetDigitalHumanSession", "GetFeedbackSummary",
 }
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
@@ -4190,6 +4200,10 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
     if method == "GetProviderMetrics":
         return PROVIDER_ROUTER.metrics()
 
+    if method == "GetPublicRuntimeStatus":
+        # Public liveness only; operational telemetry stays behind admin authorization.
+        return {"status": "ONLINE", "available": True}
+
     if method == "GetRuntimeInfo":
         worker_stats = get_worker_status_counts()
         agent_count = store.db.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
@@ -6475,6 +6489,20 @@ def authenticate(request: dict[str, Any], method: str) -> None:
     if not isinstance(params, dict):
         raise PermissionError("authentication_required")
 
+    # Resolve an authenticated administrator session before considering any
+    # browser-session permission. A public session token is not admin authority.
+    admin_token = params.get("adminToken") or params.get("adminSessionToken")
+    admin_record = USER_SESSIONS.get(admin_token) if isinstance(admin_token, str) else None
+    is_admin_session = bool(
+        isinstance(admin_token, str)
+        and admin_token in ADMIN_TOKENS
+        and isinstance(admin_record, dict)
+        and admin_record.get("role") == "admin"
+        and float(admin_record.get("expires", 0) or 0) > time.time()
+    )
+    if method == "ListTasks" and is_admin_session:
+        return
+
     # Worker RPCs use a separate enrollment/token boundary. Browser session
     # credentials must never authorize worker registration or worker control.
     if method in WORKER_AUTH_METHODS:
@@ -6501,9 +6529,6 @@ def authenticate(request: dict[str, Any], method: str) -> None:
         if not worker_id:
             raise PermissionError("authentication_required")
         if not supplied or not isinstance(supplied, str):
-            session_tok = params.get("sessionToken")
-            if session_tok and browser_session_valid(session_tok):
-                return
             raise PermissionError("authentication_required")
 
         row = store.db.execute(
@@ -6523,6 +6548,11 @@ def authenticate(request: dict[str, Any], method: str) -> None:
     supplied = params.get("authToken")
     if AUTH_TOKEN and isinstance(supplied, str) and _hmac.compare_digest(supplied, AUTH_TOKEN):
         return
+
+    if method in ADMIN_ONLY_RPC_METHODS:
+        if is_admin_session:
+            return
+        raise PermissionError("administrator_access_required")
 
     # Browser clients receive a short-lived, scoped session token. The master
     # runtime credential is never sent to or rendered into browser HTML.
@@ -6934,7 +6964,6 @@ async def process_http_request(connection: Any, request: Any) -> Any:
         body = json.dumps({
             "sessionToken": session_token,
             "expiresIn": BROWSER_SESSION_TTL_SECONDS,
-            "scope": sorted(BROWSER_ALLOWED_METHODS),
         }, separators=(",", ":"))
         if hasattr(connection, "respond"):
             return connection.respond(200, body)
