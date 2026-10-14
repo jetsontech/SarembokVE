@@ -3258,6 +3258,7 @@ def sarembok_process_dialogue(
             f"- **Cluster Health:** {workers_info.get('online', 0)} verified online worker(s); no hardware is fabricated."
         )
         _save_conversation(session_id, prompt_clean, prune_reply)
+        _record_fast_chat_turn(session_id, prompt_clean, prune_reply)
         return {
             "response": prune_reply,
             "audioText": f"Pruned {pruned_cnt} offline worker records. Current verified online worker count is {workers_info.get('online', 0)}.",
@@ -3271,6 +3272,7 @@ def sarembok_process_dialogue(
     if is_limitation_query(prompt_clean):
         lim_reply = render_limitations(authority_snapshot)
         _save_conversation(session_id, prompt_clean, lim_reply)
+        _record_fast_chat_turn(session_id, prompt_clean, lim_reply)
         return {
             "response": lim_reply,
             "audioText": "I can work with the features and access available in this session. Some actions may require permission or confirmation, and I will tell you when I cannot verify something.",
@@ -3284,6 +3286,7 @@ def sarembok_process_dialogue(
     if is_capability_query(prompt_clean):
         cap_reply = render_capabilities(authority_snapshot)
         _save_conversation(session_id, prompt_clean, cap_reply)
+        _record_fast_chat_turn(session_id, prompt_clean, cap_reply)
         return {
             "response": cap_reply,
             "audioText": "Sarembok can help with writing, analysis, coding, and supported tools or workflows when available in this session.",
@@ -3297,6 +3300,7 @@ def sarembok_process_dialogue(
     if is_creator_query(prompt_clean):
         attr_reply = render_creator_attribution()
         _save_conversation(session_id, prompt_clean, attr_reply)
+        _record_fast_chat_turn(session_id, prompt_clean, attr_reply)
         return {
             "response": attr_reply,
             "audioText": attr_reply,
@@ -3310,6 +3314,7 @@ def sarembok_process_dialogue(
     if is_identity_query(prompt_clean):
         id_reply = render_identity(authority_snapshot)
         _save_conversation(session_id, prompt_clean, id_reply)
+        _record_fast_chat_turn(session_id, prompt_clean, id_reply)
         return {
             "response": id_reply,
             "audioText": id_reply,
@@ -3324,6 +3329,7 @@ def sarembok_process_dialogue(
     if is_self_state_query(prompt_clean):
         inv_reply = render_model_inventory(authority_snapshot)
         _save_conversation(session_id, prompt_clean, inv_reply)
+        _record_fast_chat_turn(session_id, prompt_clean, inv_reply)
         return {
             "response": inv_reply,
             "audioText": inv_reply,
