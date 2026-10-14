@@ -36,6 +36,35 @@ def build_runtime_context(snapshot: dict[str, Any], capabilities: dict[str, Any]
         "If asked for private configuration or operational internals, briefly redirect to user-facing capabilities and practical limitations."
     ])
 
+
+def sanitize_public_chat_result(result: dict[str, Any]) -> dict[str, Any]:
+    """Remove internal inference telemetry before a chat result reaches a browser."""
+    public_result = dict(result)
+    for key in ("source", "model", "taskCategory", "metadata"):
+        public_result.pop(key, None)
+
+    structured = public_result.get("structuredResponse")
+    if isinstance(structured, dict):
+        public_structured = dict(structured)
+        metadata = public_structured.get("metadata")
+        if isinstance(metadata, dict):
+            safe_metadata = {
+                key: value
+                for key, value in metadata.items()
+                if key not in {
+                    "provider", "model", "latency_ms", "provider_api",
+                    "usage", "taskCategory",
+                }
+            }
+            if safe_metadata:
+                public_structured["metadata"] = safe_metadata
+            else:
+                public_structured.pop("metadata", None)
+        public_result["structuredResponse"] = public_structured
+
+    return public_result
+
+
 def _normalize_prompt_intent(prompt: str) -> str:
     text = (prompt or "").strip().lower().replace("'", "")
     text = re.sub(r"[^\w\s]", " ", text)
