@@ -81,6 +81,10 @@ def test_self_state_queries():
     assert is_self_state_query("what models can I use?")
     assert is_self_state_query("which models are configured?")
     assert is_self_state_query("what providers are configured?")
+    assert is_self_state_query("Are you Gemini?")
+    assert is_self_state_query("What is your underlying model?")
+    assert is_self_state_query("What is your architecture?")
+    assert is_self_state_query("How many conversations have you handled?")
     assert not is_self_state_query("write a Python function")
 
 
@@ -191,6 +195,32 @@ def test_model_inventory():
     assert "Gemini" not in text
     assert "OpenRouter" not in text
     assert "Most recently successful model" not in text
+
+
+def test_public_renderers_never_dump_internal_runtime_details():
+    outputs = [
+        build_runtime_context(SNAPSHOT),
+        render_capabilities(SNAPSHOT),
+        render_limitations(SNAPSHOT),
+        render_identity(SNAPSHOT),
+        render_model_inventory(SNAPSHOT),
+    ]
+    forbidden = (
+        "Gemini",
+        "OpenRouter",
+        "Groq",
+        "gemini-3.8-flash",
+        "openai/gpt-oss-120b",
+        "sqlite-wal",
+        "sarembok-ve-cloud-runtime",
+        "port=9000",
+        "registered=4",
+        "queue_depth=2",
+        "Tim Hall",
+    )
+    for output in outputs:
+        for item in forbidden:
+            assert item.lower() not in output.lower(), f"leaked {item!r}: {output}"
 
 
 if __name__ == "__main__":
