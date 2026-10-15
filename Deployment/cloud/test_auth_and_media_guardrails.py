@@ -1,4 +1,5 @@
 import importlib.util
+import sqlite3
 import sys
 
 import pytest
@@ -60,3 +61,91 @@ def test_runtime_identity_does_not_claim_dynamic_mcp_skills(monkeypatch):
 
     assert "dynamic mcp skills" not in output.lower()
     assert "mcp" not in output.lower()
+
+
+
+def _install_isolated_worker_db(mod, monkeypatch):
+    db = sqlite3.connect(":memory:")
+    db.execute(
+        """
+        CREATE TABLE workers (
+            worker_id TEXT PRIMARY KEY,
+            capabilities TEXT,
+            gpu_vendor TEXT,
+            gpu_model TEXT,
+            vram_mb INTEGER,
+            cuda_version TEXT,
+            available_memory_mb INTEGER,
+            supported_models TEXT,
+            latency_ms REAL,
+            status TEXT,
+            last_heartbeat TEXT,
+            active_tasks INTEGER DEFAULT 0,
+            worker_token_hash TEXT
+        )
+        """
+    )
+    monkeypatch.setattr(mod.store, "db", db)
+    monkeypatch.setattr(mod, "ensure_scheduler_schema", lambda: None)
+    return db
+
+
+def test_register_worker_rejects_browser_session_only(monkeypatch):
+    mod = load_server_module(monkeypatch)
+    mod.BROWSER_SESSIONS["browser-only-token"] = mod.time.time() + 3600
+
+    with pytest.raises(PermissionError):
+        mod.authenticate(
+            {"params": {"sessionToken": "browser-only-token"}},
+            "RegisterWorker",
+        )
+
+
+def test_enrollment_token_cannot_take_over_existing_worker(monkeypatch):
+    mod = load_server_module(monkeypatch)
+    mod.WORKER_ENROLLMENT_TOKEN = "worker-enrollment-secret"
+    db = _install_isolated_worker_db(mod, monkeypatch)
+    db.execute(
+        "INSERT INTO workers (worker_id, active_tasks, worker_token_hash) VALUES (?, ?, ?)",
+        ("existing-worker", 2, "original-token-hash"),
+    )
+    db.commit()
+
+    with pytest.raises(PermissionError, match="worker_reenrollment_requires_admin"):
+        mod._dispatch_internal(
+            "RegisterWorker",
+            {
+                "workerId": "existing-worker",
+                "enrollmentToken": "worker-enrollment-secret",
+                "capabilities": ["compute"],
+            },
+        )
+
+    row = db.execute(
+        "SELECT active_tasks, worker_token_hash FROM workers WHERE worker_id=?",
+        ("existing-worker",),
+    ).fetchone()
+    assert row == (2, "original-token-hash")
+
+
+def test_enrollment_token_can_register_new_worker(monkeypatch):
+    mod = load_server_module(monkeypatch)
+    mod.WORKER_ENROLLMENT_TOKEN = "worker-enrollment-secret"
+    db = _install_isolated_worker_db(mod, monkeypatch)
+
+    result = mod._dispatch_internal(
+        "RegisterWorker",
+        {
+            "workerId": "new-worker",
+            "enrollmentToken": "worker-enrollment-secret",
+            "capabilities": ["compute"],
+        },
+    )
+
+    assert result["registered"] is True
+    row = db.execute(
+        "SELECT worker_token_hash FROM workers WHERE worker_id=?",
+        ("new-worker",),
+    ).fetchone()
+    assert row is not None
+    assert row[0]
