@@ -55,15 +55,42 @@ if ($LASTEXITCODE -ne 0) {
     throw "Playwright is not importable after installation."
 }
 
-if (-not $env:SAREMBOK_WORKER_ENROLLMENT_TOKEN) {
+if (-not $env:SAREMBOK_WORKER_ID) {
+    $env:SAREMBOK_WORKER_ID = "win-" + $env:COMPUTERNAME.ToLower()
+}
+
+# Reuse a previously issued worker-scoped token on restarts. Only request the
+# bootstrap enrollment secret when no valid local credential exists yet.
+$workerTokenPath = ""
+if ($env:SAREMBOK_WORKER_TOKEN_FILE) {
+    $workerTokenPath = [Environment]::ExpandEnvironmentVariables($env:SAREMBOK_WORKER_TOKEN_FILE)
+    if ($workerTokenPath.StartsWith("~")) {
+        $workerTokenPath = Join-Path $HOME $workerTokenPath.Substring(1).TrimStart("\", "/")
+    }
+} else {
+    $safeWorkerId = [regex]::Replace($env:SAREMBOK_WORKER_ID, '[^A-Za-z0-9_.-]', '_').Trim('.')
+    if ([string]::IsNullOrWhiteSpace($safeWorkerId)) { $safeWorkerId = "worker" }
+    $workerTokenPath = Join-Path $env:LOCALAPPDATA "SarembokVE\WorkerCredentials\$safeWorkerId.json"
+}
+
+$hasPersistedWorkerCredential = $false
+if (Test-Path -LiteralPath $workerTokenPath -PathType Leaf) {
+    try {
+        $persistedWorkerCredential = Get-Content -LiteralPath $workerTokenPath -Raw | ConvertFrom-Json
+        $hasPersistedWorkerCredential = (
+            $persistedWorkerCredential.workerId -eq $env:SAREMBOK_WORKER_ID -and
+            -not [string]::IsNullOrWhiteSpace([string]$persistedWorkerCredential.workerToken)
+        )
+    } catch {
+        $hasPersistedWorkerCredential = $false
+    }
+}
+
+if (-not $env:SAREMBOK_WORKER_ENROLLMENT_TOKEN -and -not $hasPersistedWorkerCredential) {
     $secure = Read-Host "Enter the current Sarembok worker enrollment token" -AsSecureString
     $env:SAREMBOK_WORKER_ENROLLMENT_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringUni(
         [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
     )
-}
-
-if (-not $env:SAREMBOK_WORKER_ID) {
-    $env:SAREMBOK_WORKER_ID = "win-" + $env:COMPUTERNAME.ToLower()
 }
 
 $env:SAREMBOK_WS_URL = "wss://sarembok.com/ws"
