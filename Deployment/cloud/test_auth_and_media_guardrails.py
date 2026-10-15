@@ -149,3 +149,48 @@ def test_enrollment_token_can_register_new_worker(monkeypatch):
     ).fetchone()
     assert row is not None
     assert row[0]
+
+
+def test_existing_worker_token_can_reconnect_without_rotation(monkeypatch):
+    mod = load_server_module(monkeypatch)
+    db = _install_isolated_worker_db(mod, monkeypatch)
+    original_token = "persisted-worker-token"
+    import hashlib
+    original_hash = hashlib.sha256(original_token.encode("utf-8")).hexdigest()
+    db.execute(
+        "INSERT INTO workers (worker_id, active_tasks, worker_token_hash) VALUES (?, ?, ?)",
+        ("existing-worker", 3, original_hash),
+    )
+    db.commit()
+
+    params = {
+        "workerId": "existing-worker",
+        "workerToken": original_token,
+        "capabilities": ["compute"],
+    }
+    mod.authenticate({"params": params}, "RegisterWorker")
+    result = mod._dispatch_internal("RegisterWorker", params)
+
+    assert result["registered"] is True
+    assert "workerToken" not in result
+    row = db.execute(
+        "SELECT active_tasks, worker_token_hash FROM workers WHERE worker_id=?",
+        ("existing-worker",),
+    ).fetchone()
+    assert row == (3, original_hash)
+
+
+def test_invalid_worker_token_cannot_reconnect(monkeypatch):
+    mod = load_server_module(monkeypatch)
+    db = _install_isolated_worker_db(mod, monkeypatch)
+    db.execute(
+        "INSERT INTO workers (worker_id, active_tasks, worker_token_hash) VALUES (?, ?, ?)",
+        ("existing-worker", 1, "known-hash"),
+    )
+    db.commit()
+
+    with pytest.raises(PermissionError, match="authentication_required"):
+        mod.authenticate(
+            {"params": {"workerId": "existing-worker", "workerToken": "wrong-token"}},
+            "RegisterWorker",
+        )
