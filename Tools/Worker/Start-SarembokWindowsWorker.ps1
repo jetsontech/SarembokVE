@@ -65,7 +65,11 @@ $workerTokenPath = ""
 if ($env:SAREMBOK_WORKER_TOKEN_FILE) {
     $workerTokenPath = [Environment]::ExpandEnvironmentVariables($env:SAREMBOK_WORKER_TOKEN_FILE)
     if ($workerTokenPath.StartsWith("~")) {
-        $workerTokenPath = Join-Path $HOME $workerTokenPath.Substring(1).TrimStart("\", "/")
+        $relativeTokenPath = $workerTokenPath.Substring(1)
+        while ($relativeTokenPath.StartsWith("\") -or $relativeTokenPath.StartsWith("/")) {
+            $relativeTokenPath = $relativeTokenPath.Substring(1)
+        }
+        $workerTokenPath = Join-Path $HOME $relativeTokenPath
     }
 } else {
     $safeWorkerId = [regex]::Replace($env:SAREMBOK_WORKER_ID, '[^A-Za-z0-9_.-]', '_').Trim('.')
