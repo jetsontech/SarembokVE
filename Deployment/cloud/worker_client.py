@@ -24,6 +24,7 @@ import urllib.parse
 import urllib.request
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import websockets
@@ -160,8 +161,12 @@ class SarembokWorker:
         self.auth_token = auth_token
         self.enrollment_token = enrollment_token
         self.session_token = ""
-        self.worker_token = ""
-        self.worker_id = worker_id or f"worker-{platform.node().lower()}-{uuid.uuid4().hex[:6]}"
+        # A stable default ID lets the worker recover its own credential after
+        # a process restart. Deployments that run multiple workers on one host
+        # should supply distinct SAREMBOK_WORKER_ID values.
+        self.worker_id = worker_id or f"worker-{platform.node().lower()}"
+        self.worker_token_path = self._resolve_worker_token_path(self.worker_id)
+        self.worker_token = self._load_persisted_worker_token()
         self.heartbeat_interval = heartbeat_interval
         self.poll_interval = poll_interval
         self.gpu_info = detect_gpu_info(tier=tier)
@@ -174,6 +179,75 @@ class SarembokWorker:
         self.stop_event = asyncio.Event()
         self.req_counter = 0
         self.pending_rpcs: dict[str, asyncio.Future[Any]] = {}
+
+    @staticmethod
+    def _resolve_worker_token_path(worker_id: str) -> Path:
+        configured = os.getenv("SAREMBOK_WORKER_TOKEN_FILE", "").strip()
+        if configured:
+            return Path(configured).expanduser()
+
+        safe_id = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in worker_id)
+        safe_id = safe_id.strip(".") or "worker"
+        if os.name == "nt":
+            base = Path(os.getenv("LOCALAPPDATA") or (Path.home() / "AppData" / "Local"))
+            base = base / "SarembokVE" / "WorkerCredentials"
+        else:
+            base = Path(os.getenv("XDG_STATE_HOME") or (Path.home() / ".local" / "state"))
+            base = base / "sarembokve" / "worker-credentials"
+        return base / f"{safe_id}.json"
+
+    def _load_persisted_worker_token(self) -> str:
+        try:
+            payload = json.loads(self.worker_token_path.read_text(encoding="utf-8"))
+            token = payload.get("workerToken") if isinstance(payload, dict) else None
+            owner = payload.get("workerId") if isinstance(payload, dict) else None
+            if owner == self.worker_id and isinstance(token, str) and token.strip():
+                return token.strip()
+        except (OSError, ValueError, TypeError):
+            pass
+        return ""
+
+    def _persist_worker_token(self) -> None:
+        if not self.worker_token:
+            return
+        temp_path: Path | None = None
+        try:
+            parent = self.worker_token_path.parent
+            parent.mkdir(parents=True, exist_ok=True)
+            configured_path = bool(os.getenv("SAREMBOK_WORKER_TOKEN_FILE", "").strip())
+            if os.name != "nt" and not configured_path:
+                os.chmod(parent, 0o700)
+
+            payload = json.dumps(
+                {"version": 1, "workerId": self.worker_id, "workerToken": self.worker_token},
+                separators=(",", ":"),
+            )
+            temp_path = parent / (
+                self.worker_token_path.name + f".tmp-{os.getpid()}-{uuid.uuid4().hex[:8]}"
+            )
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+            fd = os.open(str(temp_path), flags, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_path, self.worker_token_path)
+            temp_path = None
+            if os.name != "nt":
+                os.chmod(self.worker_token_path, 0o600)
+        except Exception as exc:
+            # Do not expose the token in logs or stop a newly enrolled worker just
+            # because its local credential cache could not be written.
+            LOG.warning(
+                "Could not persist the worker credential; restart may require admin-authorized re-enrollment (%s)",
+                type(exc).__name__,
+            )
+        finally:
+            if temp_path is not None:
+                try:
+                    temp_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     def fetch_session_token(self) -> str:
         """Fetch a scoped session token from the cluster HTTP gateway."""
@@ -210,10 +284,11 @@ class SarembokWorker:
                     p["enrollmentToken"] = self.enrollment_token
                 elif self.session_token:
                     p["sessionToken"] = self.session_token
-                if self.auth_token:
-                    # An explicit operator credential authorizes re-enrollment after
-                    # a process restart, when the prior in-memory worker token is gone.
-                    p["authToken"] = self.auth_token
+            if self.auth_token:
+                # This credential is a recovery path if the locally persisted
+                # worker token is stale or has been lost. A valid worker token
+                # still takes precedence and is not rotated by the server.
+                p["authToken"] = self.auth_token
         elif self.worker_token:
             p["workerToken"] = self.worker_token
             p.setdefault("workerId", self.worker_id)
@@ -259,10 +334,11 @@ class SarembokWorker:
             self.worker_token = issued_token
         elif not self.worker_token:
             raise RuntimeError("Worker enrollment succeeded but no one-time workerToken was issued")
-        # Keep the issued worker token for authenticated reconnects. Enrollment
-        # credentials are bootstrap-only and must not be reused for re-registration.
+        # Cache the token so normal restarts use worker-scoped authority rather
+        # than needing the bootstrap enrollment credential again.
+        self._persist_worker_token()
         self.enrollment_token = ""
-        LOG.info("Registration confirmed: status=%s workerTokenIssued=yes", res.get("status"))
+        LOG.info("Registration confirmed: status=%s workerTokenIssued=%s", res.get("status"), "yes" if self.worker_token else "no")
 
     async def verify_handshake(self) -> dict[str, Any]:
         """Perform a single roundtrip P2P WebSocket handshake verification for distributed fleet execution."""
