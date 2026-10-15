@@ -4488,9 +4488,6 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
             (AUTH_TOKEN and isinstance(auth_tok, str) and _hmac.compare_digest(auth_tok, AUTH_TOKEN))
             or (any(_hmac.compare_digest(str(supplied_enrollment or ""), p) for p in ADMIN_ALLOWED_PASSCODES))
         )
-        if not (is_valid_enrollment or is_admin_session or is_valid_auth):
-            raise PermissionError("worker_enrollment_required")
-
         existing = store.db.execute(
             """
             SELECT active_tasks, worker_token_hash
@@ -4511,6 +4508,9 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
             and supplied_existing_hash
             and _hmac.compare_digest(supplied_existing_hash, existing_hash)
         )
+
+        if not (is_valid_enrollment or is_admin_session or is_valid_auth or is_valid_existing_worker_token):
+            raise PermissionError("worker_enrollment_required")
 
         if existing and not (is_admin_session or is_valid_auth or is_valid_existing_worker_token):
             # Enrollment credentials may add workers, but cannot take over or rotate
