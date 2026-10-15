@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import tempfile
 import unittest
 from typing import Any
 
@@ -17,6 +19,11 @@ class TestWorkerWebSocketHandshake(unittest.IsolatedAsyncioTestCase):
         self.ws_url = f"ws://127.0.0.1:{self.port}/ws"
         self.enrollment_token = "valid-p2p-enrollment-token"
         self.received_rpcs: list[dict[str, Any]] = []
+        self._original_token_file = os.environ.get("SAREMBOK_WORKER_TOKEN_FILE")
+        self._token_temp_dir = tempfile.TemporaryDirectory()
+        os.environ["SAREMBOK_WORKER_TOKEN_FILE"] = os.path.join(
+            self._token_temp_dir.name, "worker-token.json"
+        )
 
         async def handler(websocket):
             async for raw in websocket:
@@ -97,6 +104,11 @@ class TestWorkerWebSocketHandshake(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self) -> None:
         self.server.close()
         await self.server.wait_closed()
+        if self._original_token_file is None:
+            os.environ.pop("SAREMBOK_WORKER_TOKEN_FILE", None)
+        else:
+            os.environ["SAREMBOK_WORKER_TOKEN_FILE"] = self._original_token_file
+        self._token_temp_dir.cleanup()
 
     async def test_01_verify_handshake_flow(self) -> None:
         worker = SarembokWorker(
@@ -112,6 +124,21 @@ class TestWorkerWebSocketHandshake(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(report["workerTokenIssued"])
         self.assertIn("compute", report["capabilities"])
         self.assertIn("mcp", report["capabilities"])
+
+        # A new process instance must load the scoped token and reuse it instead
+        # of attempting to re-enroll with the bootstrap-only enrollment token.
+        restarted = SarembokWorker(
+            ws_url=self.ws_url,
+            enrollment_token=self.enrollment_token,
+            worker_id="p2p-test-worker-01",
+        )
+        self.assertEqual(restarted.worker_token, "issued-p2p-worker-token-xyz789")
+        _, reconnect_payload = restarted._rpc_request(
+            "RegisterWorker", {"workerId": "p2p-test-worker-01"}
+        )
+        reconnect_params = json.loads(reconnect_payload)["params"]
+        self.assertEqual(reconnect_params["workerToken"], "issued-p2p-worker-token-xyz789")
+        self.assertNotIn("enrollmentToken", reconnect_params)
 
         # Confirm exact sequence of dispatched RPCs
         methods = [r.get("method") for r in self.received_rpcs]

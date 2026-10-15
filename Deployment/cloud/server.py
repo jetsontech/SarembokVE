@@ -51,6 +51,12 @@ from runtime_response_composer import (
     render_identity,
     render_limitations,
     render_model_inventory,
+    sanitize_public_chat_result,
+    sanitize_conversation_history,
+    contains_private_runtime_disclosure,
+    contains_public_output_disclosure,
+    is_private_runtime_detail_query,
+    should_suppress_public_chat_stream,
 )
 from provider_router import ProviderRouter, set_stream_callback, reset_stream_callback
 from live_voice import provision_ephemeral_token
@@ -215,6 +221,7 @@ BROWSER_ALLOWED_METHODS = {
     "RecordLiveTurn",
     "SynthesizeSpeech",
     "SynthesizeSpeechStream",
+    "GetPublicRuntimeStatus",
     "GetRuntimeInfo",
     "GetProviderMetrics",
     "UploadFile",
@@ -296,6 +303,15 @@ BROWSER_ALLOWED_METHODS = {
     "RegisterConnector",
     "PublishEvent",
     "GetTopicEvents",
+}
+ADMIN_ONLY_RPC_METHODS = {
+    "GetRuntimeInfo", "GetProviderMetrics", "GetTraces", "GetAdminStatus",
+    "GetSystemIntegrationsConfig", "GetCDCChanges", "GetEntropyMetrics",
+    "GetVisualEngineStatus", "GetCapabilities", "ListAgents", "ListWorkers",
+    "ListMcpServers", "ListMCPConnectors", "ListConnectors", "GetTopicEvents",
+    "QueryVectorStore", "HybridSearch", "GetAutonomousPipeline", "ListAutonomousPipelines",
+    "ListGpuRentals", "GetGpuMarketplace", "GetVisionStatus",
+    "ListDigitalHumanSessions", "GetDigitalHumanSession", "GetFeedbackSummary",
 }
 BROWSER_SESSIONS: dict[str, float] = {}
 STARTED = time.time()
@@ -380,6 +396,22 @@ def _is_fast_conversational_turn(prompt: str, image_frame: str | None = None, ad
     if not text or len(text) > 400:
         return False
     return not any(marker in text for marker in FAST_LANE_BLOCKERS)
+
+def _is_contextual_followup(prompt: str) -> bool:
+    """Short prompts need persisted history after a runtime restart."""
+    text = re.sub(r"[^a-z0-9\s]", "", str(prompt or "").strip().lower())
+    exact = {
+        "more", "more please", "tell me more", "go on", "continue", "do that",
+        "yes", "yes please", "okay", "ok", "sure", "what else", "say more",
+        "explain that", "explain more", "do you have more to add",
+        "you have more to add", "you have more to add to that",
+        "tell me about this", "tell me about that",
+        "i dont want to know that", "i already know that",
+        "dont mention that again", "do not mention that again",
+        "i dont want to hear that again",
+    }
+    return text in exact or text.startswith("tell me more") or text.startswith("more about ")
+
 
 def _get_fast_chat_history(session_id: str) -> list[dict[str, str]]:
     sid = session_id or "sess_main"
@@ -1775,7 +1807,7 @@ RULES:
             res=PROVIDER_ROUTER.generate(system_prompt+"\n"+tools_doc,prompt_clean,messages,requested_model=model)
             text_out=(res.text or "").strip()
         except Exception as exc:
-            return f"Web execution stopped because the selected intelligence provider failed: {exc}", traces
+            return "I couldn't complete that website action with the access available in this session. Please try again later.", traces
         action_match=re.search(r"ACTION:\s*([a-zA-Z0-9_\-]+)",text_out,re.I)
         if action_match:
             tool=action_match.group(1).strip().lower()
@@ -1801,7 +1833,7 @@ RULES:
                 elif rpc_method=="BrowserAction": args.setdefault("sessionId",browser_session_id)
                 try:
                     obs=dispatch(rpc_method,args)
-                except Exception as exc: obs={"ok":False,"error":str(exc)}
+                except Exception: obs={"ok":False,"error":"operation_unavailable","message":"The requested action could not be completed with the access available in this session."}
             traces.append({"step":step,"tool":tool,"args":args,"output":obs,"timestamp":now()})
             messages.append({"role":"assistant","content":text_out})
             messages.append({"role":"user","content":"OBSERVATION: "+json.dumps(obs,ensure_ascii=False)})
@@ -1840,7 +1872,7 @@ Never claim completion unless the task result reaches COMPLETED and result.statu
             )
             out = (res.text or "").strip()
         except Exception as exc:
-            return f"Host execution stopped because the selected intelligence provider failed: {exc}", traces
+            return "I couldn't complete that computer action with the access available in this session. Please try again later.", traces
 
         action_match = re.search(r"ACTION:\s*host_action", out, re.I)
         if not action_match:
@@ -1891,13 +1923,13 @@ Never claim completion unless the task result reaches COMPLETED and result.statu
                         )
                     if result_data.get("status") == "REQUIRES_CONFIRMATION":
                         return "That host action requires explicit confirmation before execution.", traces
-                    return f"Host action did not complete successfully: {json.dumps(result_data, ensure_ascii=False)}", traces
+                    return "The action did not complete successfully, and I could not verify it as finished.", traces
                 time.sleep(0.5)
 
             return "The host worker did not complete the action within the verification window.", traces
         except Exception as exc:
-            traces.append({"step": step, "tool": "host_action", "error": str(exc), "timestamp": now()})
-            return f"Host execution failed: {exc}", traces
+            traces.append({"step": step, "tool": "host_action", "error": "execution_failed", "timestamp": now()})
+            return "I couldn't complete that computer action with the access available in this session.", traces
 
     return "Host execution reached the maximum verified action steps.", traces
 
@@ -3149,10 +3181,13 @@ def sarembok_process_dialogue(
         }
 
     # Fast conversational lane.
-    # Ordinary dialogue should not wait on runtime inventory, SQLite history,
-    # memory recall, or real-time enrichment before Gemini can emit token 1.
+    # Preserve the low-latency path when in-memory context exists; on a runtime
+    # restart, load saved and sanitized history for short contextual follow-ups.
+    cached_fast_history = _get_fast_chat_history(session_id)
+    needs_saved_context = _is_contextual_followup(prompt_clean) and not cached_fast_history
     if (
         _is_fast_conversational_turn(prompt_clean, image_frame=image_frame, admin=is_admin)
+        and not needs_saved_context
         and not (
             is_identity_query(prompt_clean)
             or is_capability_query(prompt_clean)
@@ -3160,15 +3195,23 @@ def sarembok_process_dialogue(
             or is_self_state_query(prompt_clean)
         )
     ):
-        fast_history = _get_fast_chat_history(session_id)
+        raw_fast_history = cached_fast_history
+        safe_fast_history = sanitize_conversation_history([
+            (str(item.get("role") or ""), str(item.get("content") or ""))
+            for item in raw_fast_history
+            if isinstance(item, dict)
+        ])
+        fast_history = [{"role": role, "content": content} for role, content in safe_fast_history]
         fast_system = (
-            "You are Sarembok VE, an advanced AI-native computing and design environment. "
-            "You have full multimodal capabilities: you can generate visual images, synthesize videos, "
-            "generate full-stack interactive UI mockups and prototypes, design physical products with "
-            "engineering specifications, conduct live voice conversations, write code, and stream media. "
-            "Respond directly and helpfully to the user's message with high-fidelity outputs. "
-            "When the user asks to generate images, videos, mockups, UI/UX designs, or product designs, "
-            "enthusiastically fulfill their request with complete, stunning designs, code, and specifications without refusal."
+            "You are Sarembok, the assistant within SarembokVE. "
+            "Answer the user's request directly, naturally, and in the language they are using when reasonably possible. "
+            "Use the conversation history to understand follow-up questions and obey explicit corrections or preferences. "
+            "Be truthful about available features; do not claim an image, video, media, website, device, or other action "
+            "is available or complete unless this request's actual tool results verify it. "
+            "Never identify as an underlying AI model or technology vendor, and do not reveal private implementation, "
+            "configuration, provider/model, infrastructure, authentication, telemetry, or internal tool details. "
+            "If asked about internal details, explain user-facing capabilities and practical limitations instead. "
+            "If a tool fails, explain the user-visible outcome without quoting raw error messages or internal diagnostics."
         )
         fast_messages = [{"role": "system", "content": fast_system}, *fast_history, {"role": "user", "content": prompt_clean}]
         try:
@@ -3223,7 +3266,11 @@ def sarembok_process_dialogue(
     deduped_history = []
     last_role = None
     last_content = None
-    for r, c in list(reversed(conv_rows)):
+    ordered_rows = sanitize_conversation_history([
+        (str(role or ""), str(content or ""))
+        for role, content in list(reversed(conv_rows))
+    ])
+    for r, c in ordered_rows:
         c_clean = str(c or "").strip()
         if not c_clean:
             continue
@@ -3256,6 +3303,7 @@ def sarembok_process_dialogue(
             f"- **Cluster Health:** {workers_info.get('online', 0)} verified online worker(s); no hardware is fabricated."
         )
         _save_conversation(session_id, prompt_clean, prune_reply)
+        _record_fast_chat_turn(session_id, prompt_clean, prune_reply)
         return {
             "response": prune_reply,
             "audioText": f"Pruned {pruned_cnt} offline worker records. Current verified online worker count is {workers_info.get('online', 0)}.",
@@ -3269,9 +3317,10 @@ def sarembok_process_dialogue(
     if is_limitation_query(prompt_clean):
         lim_reply = render_limitations(authority_snapshot)
         _save_conversation(session_id, prompt_clean, lim_reply)
+        _record_fast_chat_turn(session_id, prompt_clean, lim_reply)
         return {
             "response": lim_reply,
-            "audioText": "Sarembok VE operates within defined architectural boundaries: containerized sandbox isolation, strict human-in-the-loop authorization for high-risk actions, and verified ground-truth telemetry.",
+            "audioText": "I can work with the features and access available in this session. Some actions may require permission or confirmation, and I will tell you when I cannot verify something.",
             "source": "runtime_authority",
             "model": "runtime-authority",
             "action": None,
@@ -3282,9 +3331,10 @@ def sarembok_process_dialogue(
     if is_capability_query(prompt_clean):
         cap_reply = render_capabilities(authority_snapshot)
         _save_conversation(session_id, prompt_clean, cap_reply)
+        _record_fast_chat_turn(session_id, prompt_clean, cap_reply)
         return {
             "response": cap_reply,
-            "audioText": "I am Sarembok VE. I can stream media and audio, conduct live two-way voice conversations with instant barge-in, perceive through Astra camera and screen eyes, execute dynamic MCP skills, and synthesize full-stack code.",
+            "audioText": "Sarembok can help with writing, analysis, coding, and supported tools or workflows when available in this session.",
             "source": "runtime_authority",
             "model": "runtime-authority",
             "action": None,
@@ -3295,6 +3345,7 @@ def sarembok_process_dialogue(
     if is_creator_query(prompt_clean):
         attr_reply = render_creator_attribution()
         _save_conversation(session_id, prompt_clean, attr_reply)
+        _record_fast_chat_turn(session_id, prompt_clean, attr_reply)
         return {
             "response": attr_reply,
             "audioText": attr_reply,
@@ -3308,9 +3359,10 @@ def sarembok_process_dialogue(
     if is_identity_query(prompt_clean):
         id_reply = render_identity(authority_snapshot)
         _save_conversation(session_id, prompt_clean, id_reply)
+        _record_fast_chat_turn(session_id, prompt_clean, id_reply)
         return {
             "response": id_reply,
-            "audioText": "SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, its Founder and AI Systems Architect. Tim Hall founded SarembokVE and leads its overall technical vision, systems architecture, and development direction.",
+            "audioText": id_reply,
             "source": "runtime_authority",
             "model": "runtime-authority",
             "action": None,
@@ -3318,18 +3370,14 @@ def sarembok_process_dialogue(
             "metadata": {"provider": "runtime_authority", "model": "runtime-authority"}
         }
 
-    inventory_markers = (
-        "what models are available", "what other models", "other models", "which models are available",
-        "which models can i use", "what models can i use", "what llms are available", "what llms can i use",
-        "what language models are available", "what language models can i use", "what models are configured",
-        "which models are configured", "model availability", "available models", "configured models",
-    )
-    if is_self_state_query(prompt_clean) and any(m in prompt_lower for m in inventory_markers):
+    # User-facing self-state questions must never dump private runtime telemetry or provider/model inventory.
+    if is_self_state_query(prompt_clean):
         inv_reply = render_model_inventory(authority_snapshot)
         _save_conversation(session_id, prompt_clean, inv_reply)
+        _record_fast_chat_turn(session_id, prompt_clean, inv_reply)
         return {
             "response": inv_reply,
-            "audioText": inv_reply.replace("*", "").replace("`", "").replace("#", "")[:1200],
+            "audioText": inv_reply,
             "source": "runtime_authority",
             "model": "runtime-authority",
             "action": None,
@@ -3345,18 +3393,18 @@ def sarembok_process_dialogue(
         authoritative_context,
         f"CURRENT SYSTEM CLOCK: {current_time_str}.",
         "",
-        "==================== SAREMBOK RESPONSE TRUTH BOUNDARY ====================",
-        "Answer the user's actual question directly and preserve all material parts of the answer.",
-        "SarembokVE is developed and architected by the SarembokVE team, led by Tim Hall, its Founder and AI Systems Architect. Tim Hall founded SarembokVE and leads its overall technical vision, systems architecture, and development direction. When asked who built or created SarembokVE, state this truth clearly.",
-        "Sarembok VE has active, verified multimodal generation engines:",
-        "- Visual Image Synthesis: Generates photorealistic images, 3D renders, product packaging, and commercial mockups via the in-house SarembokVE Visual Synthesis Engine.",
-        "- Neural Video Synthesis: Generates AI video clips and motion graphics via SarembokVE Neural Video Matrix.",
-        "- Interactive UI/UX Mockups & Prototypes: Generates live, clickable HTML/CSS web and mobile app mockups via :::mockup blocks.",
-        "NEVER state that you cannot generate images, videos, mockups, or designs. You ARE equipped with these live engines powered by SarembokVE proprietary technology.",
-        "NEVER output inline data URIs or raw base64 image strings (e.g. data:image/png;base64,...) in responses, as raw binary strings corrupt and truncate output. When creating design mockups, visual packaging concepts, or schematics, use structured :::product or :::mockup containers, SVG vector graphics, or complete CSS/HTML design systems.",
-        "Use Runtime Authority for Sarembok identity, capabilities, status, workers, memory, and provider facts.",
-        "Use live retrieval/tool evidence for current web or repository content; if retrieval fails, say so instead of fabricating content.",
-        "Do not claim two-way voice is active unless the live voice session is actually connected.",
+        "==================== SAREMBOK CUSTOMER-FACING RESPONSE POLICY ====================",
+        "Answer the user's actual question directly in plain, natural language.",
+        "Identify as Sarembok or SarembokVE. Do not identify as Gemini or as any underlying model/vendor.",
+        "Do not include the founder's biography or attribution in ordinary product descriptions. Only answer creator/founder questions with the approved attribution, and respect a user's request not to repeat that topic.",
+        "Do not reveal which provider/model powers this Sarembok session, private routing/configuration, API/RPC names, endpoints, ports, database/storage technology, server/container names, environment variables, logs/traces, raw errors, authentication requirements, internal integration state, exact worker/agent/conversation/memory counts, uptime, or per-request telemetry. A general question about a public AI product is fine to answer as a separate topic without implying it powers Sarembok.",
+        "Use runtime facts and tool results only to ground your response, not as a status dump. If asked for internal configuration or operational details, redirect briefly to user-facing features and practical limitations.",
+        "Describe capabilities conditionally and accurately. Never claim that an external integration, media playback, image/video generation, live voice, device access, or other action is available unless this request's tool result verifies it. Never claim an action succeeded without confirmation from the actual tool result.",
+        "When a tool fails or access is unavailable, state the user-visible outcome briefly. Do not quote diagnostic strings, raw error payloads, authentication details, stack traces, or internal task responses.",
+        "Reply in the language the user is using when reasonably possible, including Spanish. Do not demand English by default.",
+        "Use conversation history to resolve follow-up references. Do not loop on the same clarification when context is apparent. Respect a correction such as 'don't mention that again' and stop repeating that topic unless asked.",
+        "Use live retrieval evidence for current web or repository content; if retrieval fails, say that the information could not be verified without exposing internal diagnostics.",
+        "Do not fabricate links, research, citations, media IDs, benchmarks, feature availability, or usage statistics.",
         "===========================================================================",
     ]
 
@@ -3366,7 +3414,8 @@ def sarembok_process_dialogue(
         w for w in re.findall(r"\b[a-zA-Z]{4,}\b", prompt_lower)
         if w not in ("what", "when", "where", "which", "could", "would", "should", "there", "about", "please", "sarembok")
     ][:4]
-    if keywords:
+    # Do not feed remembered private runtime facts back into answers about Sarembok itself.
+    if keywords and not is_private_runtime_detail_query(prompt_clean):
         where_clauses = " OR ".join(["key LIKE ? OR value LIKE ?"] * len(keywords))
         query_args: list[str] = []
         for kw in keywords:
@@ -3375,6 +3424,10 @@ def sarembok_process_dialogue(
             f"SELECT key, value, tier, created_at FROM memories WHERE {where_clauses} ORDER BY created_at DESC LIMIT 5",
             query_args
         ).fetchall()
+        recalled_rows = [
+            row for row in recalled_rows
+            if not contains_private_runtime_disclosure(f"{row[0]} {row[1]}")
+        ]
         if recalled_rows:
             mem_summary = "\n".join([f"- [{r[2]}] {r[0]}: {r[1]}" for r in recalled_rows])
             system_context_parts.append(f"\nPersistent Recalled Memories & Context:\n{mem_summary}\n")
@@ -3529,8 +3582,9 @@ def sarembok_process_dialogue(
 
         if _is_model_identity_query(prompt_clean):
             reply = (
-                f"This response is being generated by **{source}** "
-                f"using **{active_model}** via **{provider_api}**."
+                "I'm Sarembok, the AI assistant within SarembokVE. "
+                "I can explain my user-facing capabilities and practical limitations, "
+                "rather than disclose private runtime configuration."
             )
         else:
             reply = provider_result.text
@@ -4151,6 +4205,10 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
     if method == "GetProviderMetrics":
         return PROVIDER_ROUTER.metrics()
 
+    if method == "GetPublicRuntimeStatus":
+        # Public liveness only; operational telemetry stays behind admin authorization.
+        return {"status": "ONLINE", "available": True}
+
     if method == "GetRuntimeInfo":
         worker_stats = get_worker_status_counts()
         agent_count = store.db.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
@@ -4411,69 +4469,120 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
         ensure_scheduler_schema()
 
         supplied_enrollment = params.get("enrollmentToken")
-        session_tok = params.get("sessionToken")
         auth_tok = params.get("authToken")
+        admin_token = params.get("adminToken") or params.get("adminSessionToken")
+        admin_record = USER_SESSIONS.get(admin_token) if isinstance(admin_token, str) else None
+        is_admin_session = bool(
+            isinstance(admin_token, str)
+            and admin_token in ADMIN_TOKENS
+            and isinstance(admin_record, dict)
+            and admin_record.get("role") == "admin"
+            and float(admin_record.get("expires", 0) or 0) > time.time()
+        )
         is_valid_enrollment = bool(
             WORKER_ENROLLMENT_TOKEN
             and isinstance(supplied_enrollment, str)
             and _hmac.compare_digest(supplied_enrollment, WORKER_ENROLLMENT_TOKEN)
         )
-        is_valid_session = bool(isinstance(session_tok, str) and browser_session_valid(session_tok))
         is_valid_auth = bool(
             (AUTH_TOKEN and isinstance(auth_tok, str) and _hmac.compare_digest(auth_tok, AUTH_TOKEN))
             or (any(_hmac.compare_digest(str(supplied_enrollment or ""), p) for p in ADMIN_ALLOWED_PASSCODES))
         )
-        if not (is_valid_enrollment or is_valid_session or is_valid_auth):
-            raise PermissionError("worker_enrollment_required")
-
-        worker_token = secrets.token_urlsafe(48)
-        worker_token_hash = hashlib.sha256(worker_token.encode("utf-8")).hexdigest()
         existing = store.db.execute(
             """
-            SELECT active_tasks
+            SELECT active_tasks, worker_token_hash
             FROM workers
             WHERE worker_id=?
             """,
             (worker_id,),
         ).fetchone()
+        existing_worker_token = params.get("workerToken")
+        existing_hash = str(existing[1] or "") if existing else ""
+        supplied_existing_hash = (
+            hashlib.sha256(existing_worker_token.encode("utf-8")).hexdigest()
+            if isinstance(existing_worker_token, str) and existing_worker_token
+            else ""
+        )
+        is_valid_existing_worker_token = bool(
+            existing_hash
+            and supplied_existing_hash
+            and _hmac.compare_digest(supplied_existing_hash, existing_hash)
+        )
+
+        if not (is_valid_enrollment or is_admin_session or is_valid_auth or is_valid_existing_worker_token):
+            raise PermissionError("worker_enrollment_required")
+
+        if existing and not (is_admin_session or is_valid_auth or is_valid_existing_worker_token):
+            # Enrollment credentials may add workers, but cannot take over or rotate
+            # an existing worker ID. The worker's own token permits safe reconnect.
+            raise PermissionError("worker_reenrollment_requires_admin")
 
         active_tasks = int(existing[0]) if existing else 0
-
-        store.db.execute(
-            """
-            INSERT OR REPLACE INTO workers(
-                worker_id,
-                capabilities,
-                gpu_vendor,
-                gpu_model,
-                vram_mb,
-                cuda_version,
-                available_memory_mb,
-                supported_models,
-                latency_ms,
-                status,
-                last_heartbeat,
-                active_tasks,
-                worker_token_hash
+        if existing and is_valid_existing_worker_token:
+            # A valid worker token proves possession. Update the existing row in
+            # place so unrelated worker metadata and foreign-key relationships survive.
+            # Preserve the token even if an operator credential is also present.
+            worker_token = ""
+            store.db.execute(
+                """
+                UPDATE workers
+                SET capabilities=?, gpu_vendor=?, gpu_model=?, vram_mb=?,
+                    cuda_version=?, available_memory_mb=?, supported_models=?,
+                    latency_ms=?, status=?, last_heartbeat=?
+                WHERE worker_id=?
+                """,
+                (
+                    caps,
+                    vendor,
+                    model,
+                    vram,
+                    cuda,
+                    avail_mem,
+                    models,
+                    latency,
+                    status,
+                    stamp,
+                    worker_id,
+                ),
             )
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
-            """,
-            (
-                worker_id,
-                caps,
-                vendor,
-                model,
-                vram,
-                cuda,
-                avail_mem,
-                models,
-                latency,
-                status,
-                stamp,
-                active_tasks,
-                worker_token_hash,
-            ),
-        )
+        else:
+            worker_token = secrets.token_urlsafe(48)
+            worker_token_hash = hashlib.sha256(worker_token.encode("utf-8")).hexdigest()
+            store.db.execute(
+                """
+                INSERT OR REPLACE INTO workers(
+                    worker_id,
+                    capabilities,
+                    gpu_vendor,
+                    gpu_model,
+                    vram_mb,
+                    cuda_version,
+                    available_memory_mb,
+                    supported_models,
+                    latency_ms,
+                    status,
+                    last_heartbeat,
+                    active_tasks,
+                    worker_token_hash
+                )
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    worker_id,
+                    caps,
+                    vendor,
+                    model,
+                    vram,
+                    cuda,
+                    avail_mem,
+                    models,
+                    latency,
+                    status,
+                    stamp,
+                    active_tasks,
+                    worker_token_hash,
+                ),
+            )
 
         store.db.commit()
         return {
@@ -4481,7 +4590,7 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "registered": True,
             "status": status,
             "capabilities": json.loads(caps),
-            "workerToken": worker_token,
+            **({"workerToken": worker_token} if worker_token else {}),
         }
 
     if method == "ListWorkers":
@@ -6436,24 +6545,49 @@ def authenticate(request: dict[str, Any], method: str) -> None:
     if not isinstance(params, dict):
         raise PermissionError("authentication_required")
 
-    # Worker RPCs use a separate enrollment/token boundary. Browser session
-    # credentials must never authorize worker registration or worker control.
+    # Resolve an authenticated administrator session before considering any
+    # browser-session permission. A public session token is not admin authority.
+    admin_token = params.get("adminToken") or params.get("adminSessionToken")
+    admin_record = USER_SESSIONS.get(admin_token) if isinstance(admin_token, str) else None
+    is_admin_session = bool(
+        isinstance(admin_token, str)
+        and admin_token in ADMIN_TOKENS
+        and isinstance(admin_record, dict)
+        and admin_record.get("role") == "admin"
+        and float(admin_record.get("expires", 0) or 0) > time.time()
+    )
+    if method == "ListTasks" and is_admin_session:
+        return
+
+    # Worker operations use a separate token boundary. Registration remains a
+    # bootstrap exception; subsequent worker-control calls require its issued token.
     if method in WORKER_AUTH_METHODS:
         if method == "RegisterWorker":
             supplied = params.get("enrollmentToken")
-            session_tok = params.get("sessionToken")
             auth_tok = params.get("authToken")
+            worker_id = str(params.get("workerId", "")).strip()
+            worker_tok = params.get("workerToken")
             is_valid_enrollment = bool(
                 WORKER_ENROLLMENT_TOKEN
                 and isinstance(supplied, str)
                 and _hmac.compare_digest(supplied, WORKER_ENROLLMENT_TOKEN)
             )
-            is_valid_session = bool(isinstance(session_tok, str) and browser_session_valid(session_tok))
             is_valid_auth = bool(
                 (AUTH_TOKEN and isinstance(auth_tok, str) and _hmac.compare_digest(auth_tok, AUTH_TOKEN))
                 or (any(_hmac.compare_digest(str(supplied or ""), p) for p in ADMIN_ALLOWED_PASSCODES))
             )
-            if not (is_valid_enrollment or is_valid_session or is_valid_auth):
+            is_valid_worker_token = False
+            if worker_id and isinstance(worker_tok, str) and worker_tok:
+                row = store.db.execute(
+                    "SELECT worker_token_hash FROM workers WHERE worker_id=?",
+                    (worker_id,),
+                ).fetchone()
+                stored_hash = str(row[0] or "") if row else ""
+                supplied_hash = hashlib.sha256(worker_tok.encode("utf-8")).hexdigest()
+                is_valid_worker_token = bool(
+                    stored_hash and _hmac.compare_digest(supplied_hash, stored_hash)
+                )
+            if not (is_valid_enrollment or is_admin_session or is_valid_auth or is_valid_worker_token):
                 raise PermissionError("authentication_required")
             return
 
@@ -6462,9 +6596,6 @@ def authenticate(request: dict[str, Any], method: str) -> None:
         if not worker_id:
             raise PermissionError("authentication_required")
         if not supplied or not isinstance(supplied, str):
-            session_tok = params.get("sessionToken")
-            if session_tok and browser_session_valid(session_tok):
-                return
             raise PermissionError("authentication_required")
 
         row = store.db.execute(
@@ -6484,6 +6615,11 @@ def authenticate(request: dict[str, Any], method: str) -> None:
     supplied = params.get("authToken")
     if AUTH_TOKEN and isinstance(supplied, str) and _hmac.compare_digest(supplied, AUTH_TOKEN):
         return
+
+    if method in ADMIN_ONLY_RPC_METHODS:
+        if is_admin_session:
+            return
+        raise PermissionError("administrator_access_required")
 
     # Browser clients receive a short-lived, scoped session token. The master
     # runtime credential is never sent to or rendered into browser HTML.
@@ -6724,19 +6860,49 @@ async def handler(websocket) -> None:
                             "cancel_event": cancel_event,
                         }
 
+                    stream_prompt = str(params.get("prompt") or params.get("message") or params.get("text") or "")
+                    suppress_sensitive_stream = should_suppress_public_chat_stream(stream_prompt)
+
                     async def _send_chat_deltas() -> None:
+                        # Keep a short look-behind so a disclosure spanning several provider
+                        # chunks is detected before its identifying phrase is sent to the browser.
+                        buffered_text = ""
+                        sent_chars = 0
                         while True:
                             chunk = await delta_queue.get()
-                            if chunk is None or cancel_event.is_set():
+                            if chunk is None:
+                                if (
+                                    not suppress_sensitive_stream
+                                    and not cancel_event.is_set()
+                                    and not contains_public_output_disclosure(buffered_text, stream_prompt)
+                                ):
+                                    tail = buffered_text[sent_chars:]
+                                    if tail:
+                                        await websocket.send(json.dumps({
+                                            "jsonrpc": "2.0",
+                                            "method": "SarembokChat.delta",
+                                            "params": {"id": request.get("id"), "text": tail},
+                                        }, separators=(",", ":")))
                                 return
-                            await websocket.send(json.dumps({
-                                "jsonrpc": "2.0",
-                                "method": "SarembokChat.delta",
-                                "params": {
-                                    "id": request.get("id"),
-                                    "text": chunk,
-                                },
-                            }, separators=(",", ":")))
+                            if cancel_event.is_set():
+                                return
+                            if suppress_sensitive_stream:
+                                continue
+                            buffered_text += str(chunk or "")
+                            if contains_public_output_disclosure(buffered_text, stream_prompt):
+                                # The completed result is sanitized before the final RPC response.
+                                # Never send the unsafe portion (or further deltas) to the client.
+                                continue
+                            safe_end = max(sent_chars, len(buffered_text) - 256)
+                            if safe_end > sent_chars:
+                                safe_text = buffered_text[sent_chars:safe_end]
+                                if safe_text and not contains_public_output_disclosure(safe_text, stream_prompt):
+                                    await websocket.send(json.dumps({
+                                        "jsonrpc": "2.0",
+                                        "method": "SarembokChat.delta",
+                                        "params": {"id": request.get("id"), "text": safe_text},
+                                    }, separators=(",", ":")))
+                                    sent_chars = safe_end
 
                     def _on_delta(chunk: str) -> None:
                         if cancel_event.is_set():
@@ -6752,11 +6918,16 @@ async def handler(websocket) -> None:
                         # work, so do not hold the global DB lock while waiting on Gemini.
                         # Complex/tool-backed dialogue keeps the serialized DB path.
                         prompt_hint = str(params.get("prompt") or params.get("message") or params.get("text") or "")
+                        session_hint = str(params.get("sessionId") or params.get("session_id") or "sess_main")
+                        cold_followup = (
+                            _is_contextual_followup(prompt_hint)
+                            and not _get_fast_chat_history(session_hint)
+                        )
                         fast_chat = _is_fast_conversational_turn(
                             prompt_hint,
                             image_frame=str(params.get("imageFrame") or params.get("image_frame") or params.get("frame") or "").strip() or None,
                             admin=bool(params.get("admin", False)),
-                        )
+                        ) and not cold_followup
                         if fast_chat:
                             result = await asyncio.to_thread(dispatch, method, params)
                         else:
@@ -6779,18 +6950,46 @@ async def handler(websocket) -> None:
                         result = await asyncio.to_thread(dispatch, method, params)
 
                 defer_persistence = isinstance(result, dict) and bool(result.get("_deferPersistence"))
-                response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}
+                public_prompt = str(params.get("prompt") or params.get("message") or params.get("text") or "")
+                public_result = (
+                    sanitize_public_chat_result(result, prompt=public_prompt)
+                    if method == "SarembokChat" and isinstance(result, dict)
+                    else result
+                )
+                response = {"jsonrpc": "2.0", "id": request.get("id"), "result": public_result}
                 LOG.info("rpc_success method=%s request_id=%s", method, request.get("id"))
                 await websocket.send(json.dumps(response, separators=(",", ":")))
                 if defer_persistence:
                     asyncio.create_task(_persist_deferred_chat(result))
             except PermissionError as exc:
-                response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32001, "message": str(exc)}}
-                LOG.warning("rpc_auth_failed peer=%s", peer)
+                request_id = request.get("id") if isinstance(request, dict) else None
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32001,
+                        "message": "This request isn't available with the access provided in this session.",
+                    },
+                }
+                LOG.warning("rpc_auth_failed peer=%s method=%s", peer, method if "method" in locals() else "unknown")
                 await websocket.send(json.dumps(response, separators=(",", ":")))
             except Exception as exc:
-                response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None, "error": {"code": -32000, "message": str(exc)}}
-                LOG.warning("rpc_error peer=%s error=%s", peer, exc)
+                request_id = request.get("id") if isinstance(request, dict) else None
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32000,
+                        "message": "The request couldn't be completed right now. Please try again.",
+                    },
+                }
+                LOG.warning(
+                    "rpc_error peer=%s method=%s error_type=%s error=%s",
+                    peer,
+                    method if "method" in locals() else "unknown",
+                    type(exc).__name__,
+                    exc,
+                )
                 await websocket.send(json.dumps(response, separators=(",", ":")))
     except websockets.exceptions.ConnectionClosed:
         pass
@@ -6832,7 +7031,6 @@ async def process_http_request(connection: Any, request: Any) -> Any:
         body = json.dumps({
             "sessionToken": session_token,
             "expiresIn": BROWSER_SESSION_TTL_SECONDS,
-            "scope": sorted(BROWSER_ALLOWED_METHODS),
         }, separators=(",", ":"))
         if hasattr(connection, "respond"):
             return connection.respond(200, body)

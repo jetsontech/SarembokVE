@@ -728,7 +728,6 @@
                 <div class="msg-group">
                     <div class="msg-sender agent">
                         Sarembok
-                        <span class="msg-model-tag">system</span>
                     </div>
                     <div class="msg-body">
                         Ready. Ask me something — or say <code>remember that …</code> to store a fact I'll recall later.
@@ -738,7 +737,7 @@
             <div class="input-area">
                 <div class="input-row">
                     <button class="voice-btn" id="dialogue-mic-btn" type="button" onclick="toggleLiveConversation()" title="Start two-way live voice">🎙 2-WAY</button>
-                    <div class="voice-btn live-voice-status" id="hud-live-2way-btn" role="status" aria-live="polite" title="Gemini Live is the console voice authority">LIVE VOICE · GEMINI LIVE</div>
+                    <div class="voice-btn live-voice-status" id="hud-live-2way-btn" role="status" aria-live="polite" title="Live two-way voice status">LIVE VOICE</div>
                     <input type="text" class="chat-input" id="chat-input" placeholder="Message Sarembok…" autocomplete="off" spellcheck="true">
                     <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
                     <div class="voice-status" id="console-voice-status"><span class="voice-status-dot" id="console-voice-dot"></span><span id="console-voice-state">VOICE READY</span><span id="console-voice-hint"></span></div>
@@ -881,10 +880,16 @@
         // ====== RUNTIME INFO ======
         async function fetchRuntimeInfo() {
             try {
-                const info = await sendRPC('GetRuntimeInfo');
-                document.getElementById('sys-uptime').textContent = formatUptime(info.uptimeSeconds || 0);
-                document.getElementById('sys-memories').textContent = info.memoryCount || 0;
-                document.getElementById('sys-conversations').textContent = info.conversationCount || 0;
+                const info = await sendRPC('GetPublicRuntimeStatus');
+                // Keep platform-wide operational counters out of the ordinary console.
+                const uptime = document.getElementById('sys-uptime');
+                const memoryCount = document.getElementById('sys-memories');
+                const conversationCount = document.getElementById('sys-conversations');
+                if (uptime) uptime.textContent = '—';
+                if (memoryCount) memoryCount.textContent = '—';
+                if (conversationCount) conversationCount.textContent = '—';
+                const status = document.getElementById('sys-status');
+                if (status) status.textContent = info.status === 'ONLINE' ? 'Online' : 'Check status';
             } catch(e) {}
         }
 
@@ -1013,24 +1018,23 @@
             const updateStreamUi=(delta)=>{streamedText+=String(delta||'');if(!assistantContent){thinkingEl.innerHTML='<div class="msg-sender agent" id="streaming-assistant-sender">Sarembok</div><div class="msg-body" id="streaming-assistant-content"></div>';assistantSender=thinkingEl.querySelector('#streaming-assistant-sender');assistantContent=thinkingEl.querySelector('#streaming-assistant-content');}assistantContent.innerHTML=formatReply(streamedText);const scroll=document.getElementById('conversation-scroll');scroll.scrollTop=scroll.scrollHeight;};
             try{const result=await sendRPC('SarembokChat',{prompt:text,sessionId:sessionId,stream:true},updateStreamUi);const finalText=String(result?.response||result?.audioText||streamedText||'Response received.');
                 let assistantGroup=thinkingEl;
-                if(!assistantContent){thinkingEl.remove();assistantGroup=appendMessage('agent','Sarembok',finalText,result?.model,result?.recalledMemories);}else{assistantContent.innerHTML=formatReply(finalText);if(assistantSender&&(result?.model||result?.metadata?.model)){
- const provider=String(result?.metadata?.provider||result?.source||'').trim();
- const model=String(result?.model||result?.metadata?.model||'').trim();
- const tag=provider&&model&&provider!==model?provider+' / '+model:model||provider;
- assistantSender.innerHTML='Sarembok <span class="msg-model-tag">'+esc(tag)+'</span>';
-}}
+                if(!assistantContent){
+                    thinkingEl.remove();
+                    assistantGroup=appendMessage('agent','Sarembok',finalText,result?.recalledMemories);
+                }else{
+                    assistantContent.innerHTML=formatReply(finalText);
+                }
                 const mediaUrl=String(result?.videoUrl||extractMediaUrl(finalText)||'').trim();
                 if(mediaUrl)appendInlineMedia(assistantGroup,mediaUrl,'Response media');
                 fetchMemories();fetchRuntimeInfo();document.getElementById('conversation-scroll').scrollTop=document.getElementById('conversation-scroll').scrollHeight;
             }catch(e){thinkingEl.innerHTML='<div class="msg-sender agent">Sarembok</div><div class="msg-body" style="color:var(--amber);">Error: '+esc(e.message||e)+'</div>';}
         }
-        function appendMessage(role, sender, text, modelTag, recalledMemories) {
+        function appendMessage(role, sender, text, recalledMemories) {
             const scroll = document.getElementById('conversation-scroll');
             const group = document.createElement('div');
             group.className = 'msg-group';
 
             let html = `<div class="msg-sender ${role}">${esc(sender)}`;
-            if (modelTag) html += ` <span class="msg-model-tag">${esc(modelTag)}</span>`;
             html += '</div>';
 
             const bodyClass = role === 'user' ? 'msg-body user-msg' : 'msg-body';

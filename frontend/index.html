@@ -7511,8 +7511,8 @@ button,
                 <div class="hud-badge latency">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
                     <div>
-                        <div class="hud-badge-kicker">EDGE LATENCY</div>
-                        <div class="hud-badge-val" id="hud-latency-val">8.6ms</div>
+                        <div class="hud-badge-kicker">SERVICE STATUS</div>
+                        <div class="hud-badge-val" id="hud-latency-val">ONLINE</div>
                     </div>
                 </div>
 
@@ -7584,16 +7584,15 @@ button,
                 </button>
 
                 <!-- Live Edge Entropy Telemetry Badge -->
-                <button class="hud-voice-btn" id="hud-entropy-badge" onclick="switchTab('fabric')" title="Edge Shannon Entropy Loop Defense (Threshold: 0.88)" style="border-color:rgba(16,185,129,0.35); color:#10b981; background:rgba(16,185,129,0.08); font-family:var(--font-mono); font-size:11px; padding:4px 9px;">
+                <button class="hud-voice-btn" id="hud-entropy-badge" onclick="switchTab('fabric')" title="Sarembok service status" style="border-color:rgba(16,185,129,0.35); color:#10b981; background:rgba(16,185,129,0.08); font-family:var(--font-mono); font-size:11px; padding:4px 9px;">
                     <span id="hud-entropy-dot" style="width:6px; height:6px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981; display:inline-block; margin-right:4px;"></span>
-                    <span id="hud-entropy-text" style="font-weight:700;">H: 0.14</span>
-                    <span style="font-size:9px; opacity:0.6; margin-left:2px;">/0.88</span>
+                    <span id="hud-entropy-text" style="font-weight:700;">READY</span>
                 </button>
 
                 
-                <button class="hud-voice-btn" id="hud-telemetry-toggle-btn" onclick="toggleWorkspaceCockpit()" title="Toggle Advanced Developer Cockpit Telemetry" style="border-color:rgba(0,240,255,0.4); color:var(--cyan); background:rgba(0,240,255,0.08);">
+                <button class="hud-voice-btn" id="hud-telemetry-toggle-btn" onclick="toggleWorkspaceCockpit()" title="Toggle workspace status" style="border-color:rgba(0,240,255,0.4); color:var(--cyan); background:rgba(0,240,255,0.08);">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                    <span id="hud-telemetry-label">TELEMETRY COCKPIT</span>
+                    <span id="hud-telemetry-label">WORKSPACE STATUS</span>
                 </button>
 
                 <button class="hud-voice-btn" id="hud-settings-btn" onclick="switchTab('settings')" title="System Settings &amp; Enterprise MCP Integrations" style="border-color:rgba(0,240,255,0.4); color:var(--cyan); background:rgba(0,240,255,0.08);">
@@ -7713,7 +7712,7 @@ button,
                         <div class="ws-bubble-body">
                             <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
                                 <span class="cyber-card-badge cyan" style="font-size:10px; padding:2px 8px;">SOVEREIGN RUNTIME</span>
-                                <span class="cyber-card-badge cyan" style="font-size:10px; padding:2px 8px;" id="ws-model-badge">DYNAMIC TASK ENGINE</span>
+                                <span class="cyber-card-badge cyan" style="font-size:10px; padding:2px 8px;" id="ws-model-badge">SAREMBOK LIVE</span>
                             </div>
                             <h2 style="font-family:var(--font-display); font-size:18px; margin:0 0 8px 0; color:#ffffff;">
                                 Welcome to Sarembok V E
@@ -7886,8 +7885,8 @@ button,
                         </div>
 
                         <div class="state-list">
-                            <div class="state-row"><span class="state-label">BACKEND</span><span class="state-val cyan" id="deck-mem-backend">SQLITE-WAL</span></div>
-                            <div class="state-row"><span class="state-label">ENTRIES</span><span class="state-val amber" id="deck-mem-entries">2 STORED</span></div>
+                            <div class="state-row"><span class="state-label">MEMORY SERVICE</span><span class="state-val cyan" id="deck-mem-backend">READY</span></div>
+                            <div class="state-row"><span class="state-label">ENTRIES</span><span class="state-val amber" id="deck-mem-entries">—</span></div>
                             <div class="state-row"><span class="state-label">HEALTH</span><span class="state-val good">STABLE</span></div>
                         </div>
                     </div>
@@ -7930,14 +7929,14 @@ button,
                         </div>
 
                         <div class="state-list" style="margin-bottom: 12px;">
-                            <div class="state-row"><span class="state-label">ONLINE AGENTS</span><span class="state-val cyan" id="deck-agents-online">0 / 0</span></div>
-                            <div class="state-row"><span class="state-label">QUEUE DEPTH</span><span class="state-val" id="deck-queue-depth">0 QUEUED</span></div>
+                            <div class="state-row"><span class="state-label">ONLINE AGENTS</span><span class="state-val cyan" id="deck-agents-online">—</span></div>
+                            <div class="state-row"><span class="state-label">QUEUE DEPTH</span><span class="state-val" id="deck-queue-depth">—</span></div>
                             <div class="state-row"><span class="state-label">COMPUTE WORKERS</span><span class="state-val amber">CPU POOL</span></div>
                         </div>
 
                         <div class="reconcile-cycle-box">
                             <span class="cycle-label">RECONCILIATION CYCLE</span>
-                            <span class="cycle-val" id="deck-cycle-counter">00021</span>
+                            <span class="cycle-val" id="deck-cycle-counter">—</span>
                         </div>
                     </div>
                 </section>
@@ -8050,12 +8049,12 @@ button,
                     <div style="margin-bottom:18px;">
                         <label style="font-family:var(--font-mono); font-size:9.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em;">Voice Synthesis Profile</label>
                         <select class="metahuman-select" id="mh-voice-select" onchange="changeVoiceProfile(this.value, true)">
-                            <option value="gemini-vega" selected>Vega — Gemini Live Duplex · Natural Warm</option>
-                            <option value="gemini-kore">Kore — Gemini Live Duplex · Expressive Female</option>
-                            <option value="gemini-aoede">Aoede — Gemini Live Duplex · Conversational</option>
-                            <option value="gemini-puck">Puck — Gemini Live Duplex · Dynamic Male</option>
-                            <option value="gemini-charon">Charon — Gemini Live Duplex · Calm Male</option>
-                            <option value="gemini-fenrir">Fenrir — Gemini Live Duplex · Deep Authority</option>
+                            <option value="gemini-vega" selected>Vega — Natural Warm</option>
+                            <option value="gemini-kore">Kore — Expressive Female</option>
+                            <option value="gemini-aoede">Aoede — Conversational</option>
+                            <option value="gemini-puck">Puck — Dynamic Male</option>
+                            <option value="gemini-charon">Charon — Calm Male</option>
+                            <option value="gemini-fenrir">Fenrir — Deep Authority</option>
                         </select>
                     </div>
 
@@ -8151,14 +8150,14 @@ button,
                 <div class="dialogue-head">
                     <div class="dialogue-title">SAREMBOK · SOVEREIGN DIALOGUE &amp; SYNTHESIS</div>
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                        <select class="cyber-select" id="active-model-select" onchange="onModelChange(this.value)" title="Active AI Model Engine">
-                            <option value="auto" selected>⚡ Auto (Gemma Default · Task-Optimized)</option>
-                            <option value="gemma-2-2b">Gemma 2 2B (Local CPU)</option>
-                            <option value="gemini-flash">Gemini 3.8 Flash (Massive Context · Fast)</option>
-                            <option value="qwen-2.5-coder">Qwen 2.5 Coder (Code & Architecture)</option>
-                            <option value="llama-3.3-70b">Llama 3.3 70B (Deep Reasoning)</option>
-                            <option value="deepseek-v3">DeepSeek V3 (Advanced Synthesis)</option>
-                            <option value="gpt-4o-mini">GPT-4o Mini (Ultra-Responsive)</option>
+                        <select class="cyber-select" id="active-model-select" onchange="onModelChange(this.value)" title="Choose response mode">
+                            <option value="auto" selected>⚡ Auto (Recommended)</option>
+                            <option value="gemma-2-2b">Local Model (CPU)</option>
+                            <option value="gemini-flash">Fast · Large Context</option>
+                            <option value="qwen-2.5-coder">Coding & Architecture</option>
+                            <option value="llama-3.3-70b">Deep Reasoning</option>
+                            <option value="deepseek-v3">Advanced Synthesis</option>
+                            <option value="gpt-4o-mini">Fast General Responses</option>
                         </select>
                         <select class="cyber-select" id="active-language-select" onchange="onLanguageChange(this.value)" title="Language">
                             <option value="en">English (EN)</option>
@@ -8174,7 +8173,7 @@ button,
                             <span class="admin-exec-dot"></span>
                             <span id="admin-exec-btn-text">ADMIN: OFF</span>
                         </button>
-                        <div class="cyber-card-badge cyan" id="dialogue-gpu-badge" title="Active Engine">ENGINE: AUTO (GEMMA DEFAULT · TASK ROUTING)</div>
+                        <div class="cyber-card-badge cyan" id="dialogue-gpu-badge" title="Sarembok AI">SAREMBOK AI</div>
                         <button class="dialogue-voice-chip" id="dialogue-voice-toggle-chip" onclick="toggleVoiceOutput()" title="Toggle voice narration">
                             <span class="voice-chip-dot"></span>
                             <span id="dialogue-voice-chip-text">VOICE: ON</span>
@@ -8270,7 +8269,7 @@ button,
                 </div>
 
                 <div class="dialogue-input-bar">
-                    <button class="dialogue-mic-btn" id="dialogue-mic-btn" onclick="toggleLiveConversation()" title="Native Gemini Live conversation">
+                    <button class="dialogue-mic-btn" id="dialogue-mic-btn" onclick="toggleLiveConversation()" title="Start live two-way voice conversation">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
                     </button>
                     <button class="dialogue-mic-btn" id="dialogue-camera-btn" onclick="captureVisionCameraFrame()" title="Camera Vision (Attach camera snapshot)" style="background:transparent; color:var(--cyan); border-color:rgba(0,240,255,0.3);">
@@ -11622,46 +11621,15 @@ button,
                 if (links) body += `<div class="srbk-structured-sources"><strong>Sources</strong><ul>${links}</ul></div>`;
             }
 
-            const meta = structured.metadata && typeof structured.metadata === "object"
-                ? structured.metadata
-                : {};
-            const provider = String(meta.provider || "").trim();
-            const model = String(meta.model || "").trim();
-            const taskCategory = String(meta.taskCategory || "").trim();
-
-            // Model metadata belongs strictly in top-level telemetry / HUD badges, never inside the conversational chat bubble
-            if (provider || model) {
-                const engineBadge = document.getElementById("dialogue-gpu-badge");
-                if (engineBadge) {
-                    if (provider === "runtime_authority" || model === "runtime-authority") {
-                        engineBadge.textContent = "ENGINE: SAREMBOK CORE RUNTIME";
-                        engineBadge.className = "cyber-card-badge green";
-                    } else {
-                        let cleanModel = model.includes("/") ? model.split("/").pop() : model;
-                        cleanModel = cleanModel.replace(/-/g, " ").toUpperCase();
-                        if (taskCategory && taskCategory !== "MANUAL" && taskCategory !== "GENERAL") {
-                            engineBadge.textContent = `ENGINE: DYNAMIC · ${taskCategory} (${cleanModel})`;
-                        } else {
-                            engineBadge.textContent = `ENGINE: ${cleanModel}`;
-                        }
-                        engineBadge.className = "cyber-card-badge cyan";
-                    }
-                }
-            }
+            // Provider/model telemetry is deliberately not shown in the customer-facing UI.
             return body || (text ? md(text) : "");
         }
 
-        window.onModelChange = function(val) {
+        window.onModelChange = function(_val) {
             const badge = document.getElementById("dialogue-gpu-badge");
             if (!badge) return;
-            if (val === "auto") {
-                badge.textContent = "ENGINE: AUTO (GEMMA DEFAULT · TASK ROUTING)";
-                badge.className = "cyber-card-badge cyan";
-            } else {
-                let cleanName = val.replace(/-/g, " ").toUpperCase();
-                badge.textContent = `ENGINE: ${cleanName} (MANUAL)`;
-                badge.className = "cyber-card-badge amber";
-            }
+            badge.textContent = "SAREMBOK AI";
+            badge.className = "cyber-card-badge cyan";
         };
 
         function md(text) {
@@ -12184,7 +12152,7 @@ button,
            ============================================================ */
         async function refreshTelemetry() {
             try {
-                const info = await sendRPC("GetRuntimeInfo");
+                const info = await sendRPC("GetPublicRuntimeStatus");
                 updateTelemetryUI(info);
             } catch (err) {
                 console.debug("Telemetry refresh error:", err);
@@ -12194,39 +12162,29 @@ button,
         function updateTelemetryUI(info) {
             if (!info || typeof info !== "object") return;
 
-            const runtime = info.runtime || {};
-            const memory = info.memory || {};
-            const agents = info.agents || {};
-            const scheduler = info.scheduler || {};
-
-            const memCount = memory.entries ?? info.memoryCount ?? 2;
-            const agentsCount = agents.online ?? info.onlineAgents ?? info.agentCount ?? 0;
-            const agentsRegistered = agents.registered ?? info.registeredAgents ?? 0;
-
+            // Public status intentionally omits aggregate users, memories, agents,
+            // queued tasks, model/provider configuration, and process telemetry.
             const memEl = document.getElementById("deck-mem-entries");
-            if (memEl) memEl.textContent = `${memCount} STORED`;
+            if (memEl) memEl.textContent = "—";
 
             const agentsEl = document.getElementById("deck-agents-online");
-            if (agentsEl) agentsEl.textContent = `${agentsCount} / ${agentsRegistered}`;
+            if (agentsEl) agentsEl.textContent = "—";
 
             const queueEl = document.getElementById("deck-queue-depth");
-            if (queueEl) queueEl.textContent = `${scheduler.queueDepth ?? 0} QUEUED`;
+            if (queueEl) queueEl.textContent = "—";
 
             const sysBadge = document.getElementById("hud-system-status");
-            if (sysBadge) sysBadge.textContent = runtime.status || "NOMINAL";
+            if (sysBadge) sysBadge.textContent = info.status === "ONLINE" ? "ONLINE" : "CHECK";
         }
 
-        /* Edge Latency Ping */
+        /* Public liveness check; keep response-time telemetry private. */
         async function measureLatency() {
-            const start = performance.now();
+            const el = document.getElementById("hud-latency-val");
             try {
-                await fetch("/health", { cache: "no-store" });
-                const ms = Math.max(1, Math.round(performance.now() - start));
-                const el = document.getElementById("hud-latency-val");
-                if (el) el.textContent = `${ms}.0ms`;
+                const response = await fetch("/health", { cache: "no-store" });
+                if (el) el.textContent = response.ok ? "ONLINE" : "CHECK";
             } catch (_) {
-                const el = document.getElementById("hud-latency-val");
-                if (el) el.textContent = "ONLINE";
+                if (el) el.textContent = "CHECK";
             }
         }
         setInterval(measureLatency, 8000);
@@ -12543,25 +12501,8 @@ button,
                 finalText = enrichResponseOnClient(text, finalText);
                 const engineBadge = document.getElementById("dialogue-gpu-badge");
                 if (engineBadge) {
-                    const provider = String(result?.metadata?.provider || result?.source || "").trim();
-                    const modelName = String(result?.metadata?.model || result?.model || "").trim();
-                    const taskCat = String(result?.metadata?.taskCategory || result?.taskCategory || "").trim();
-
-                    if (provider === "runtime_authority" || modelName === "runtime-authority") {
-                        engineBadge.textContent = "ENGINE: SAREMBOK CORE RUNTIME";
-                        engineBadge.className = "cyber-card-badge green";
-                    } else {
-                        let cleanModel = modelName;
-                        if (cleanModel.includes("/")) cleanModel = cleanModel.split("/").pop();
-                        cleanModel = cleanModel.replace(/-/g, " ").toUpperCase();
-
-                        if (taskCat && taskCat !== "MANUAL" && taskCat !== "GENERAL") {
-                            engineBadge.textContent = `ENGINE: DYNAMIC · ${taskCat} (${cleanModel})`;
-                        } else {
-                            engineBadge.textContent = `ENGINE: ${cleanModel}`;
-                        }
-                        engineBadge.className = "cyber-card-badge cyan";
-                    }
+                    engineBadge.textContent = "SAREMBOK AI";
+                    engineBadge.className = "cyber-card-badge cyan";
                 }
                 if (result?.structuredResponse && typeof window.renderStructuredResponse === "function") {
                     content.innerHTML = renderStructuredResponse(result.structuredResponse) || md(finalText);
@@ -13391,11 +13332,11 @@ button,
                 greeting = "Greetings. I am Ada, the embodied digital intelligence of Sarembok VE. Sovereign British neural matrix online.";
                 showToast("TESTING NEURAL AUDIO: Playing Ada v1 (Sonia Neural)...");
             } else if (profile.includes("aoede")) {
-                greeting = "Greetings. This is Gemini Aoede, operating in warm studio resonance mode.";
-                showToast("TESTING NEURAL AUDIO: Playing Gemini Aoede voice...");
+                greeting = "Greetings. This is the Aoede voice profile, in a warm studio style.";
+                showToast("Testing voice profile: Aoede");
             } else if (profile.includes("kore")) {
-                greeting = "Hello there. This is Gemini Kore, running soft conversational audio.";
-                showToast("TESTING NEURAL AUDIO: Playing Gemini Kore voice...");
+                greeting = "Hello there. This is the Kore voice profile, in a soft conversational style.";
+                showToast("Testing voice profile: Kore");
             } else if (profile.includes("onyx") || profile.includes("us")) {
                 greeting = "Sarembok VE operating system online. Onyx masculine neural voice profile engaged.";
                 showToast("TESTING NEURAL AUDIO: Playing Onyx voice...");
@@ -13736,7 +13677,7 @@ button,
             try { localStorage.setItem("sarembok-live-voice", profile.voice); } catch (_) {}
             const mainSelect = document.getElementById("mh-voice-select");
             if (mainSelect && mainSelect.value !== key) mainSelect.value = key;
-            addTerminalLine("[voice] activated Frontier Gemini Live voice: " + profile.model + " · " + profile.label, "cyan");
+            addTerminalLine("[voice] activated Sarembok live voice: " + profile.model + " · " + profile.label, "cyan");
             try {
                 if (window.sarembokSocket && window.sarembokSocket.readyState === WebSocket.OPEN) {
                     window.sarembokSocket.send(JSON.stringify({ type: "SET_VOICE_PROFILE", voice: activeVoiceModel }));
@@ -13817,10 +13758,10 @@ button,
         function onModelChange(val) {
             activeModel = val;
             localStorage.setItem("srbk_model", val);
-            showToast("ENGINE: " + val.toUpperCase());
+            showToast("AI MODE UPDATED");
             const badge = document.getElementById("dialogue-gpu-badge");
             if (badge) {
-                badge.textContent = "ENGINE: " + val.toUpperCase();
+                badge.textContent = "SAREMBOK AI";
                 badge.className = "cyber-card-badge cyan";
             }
         }
@@ -15080,19 +15021,16 @@ button,
         function updateEdgeEntropyBadge() {
             var rpcFn = (typeof window.sendRPC === 'function') ? window.sendRPC : ((typeof sendRPC === 'function') ? sendRPC : null);
             if (!rpcFn) return;
-            rpcFn('GetEntropyMetrics', {}).then(function(res) {
+            rpcFn('GetPublicRuntimeStatus', {}).then(function(res) {
                 if (!res) return;
-                var val = typeof res.entropy === 'number' ? res.entropy.toFixed(2) : '0.14';
                 var txt = document.getElementById('hud-entropy-text');
                 var dot = document.getElementById('hud-entropy-dot');
                 var badge = document.getElementById('hud-entropy-badge');
-                if (txt) txt.textContent = 'H: ' + val;
-                if (res.status === 'ALERT' || res.entropy >= 0.88) {
+                var online = res.status === 'ONLINE';
+                if (txt) txt.textContent = online ? 'READY' : 'CHECK';
+                if (!online) {
                     if (dot) { dot.style.background = '#ef4444'; dot.style.boxShadow = '0 0 8px #ef4444'; }
                     if (badge) { badge.style.color = '#ef4444'; badge.style.borderColor = 'rgba(239,68,68,0.5)'; badge.style.background = 'rgba(239,68,68,0.12)'; }
-                } else if (res.entropy >= 0.70) {
-                    if (dot) { dot.style.background = '#f59e0b'; dot.style.boxShadow = '0 0 6px #f59e0b'; }
-                    if (badge) { badge.style.color = '#f59e0b'; badge.style.borderColor = 'rgba(245,158,11,0.5)'; badge.style.background = 'rgba(245,158,11,0.12)'; }
                 } else {
                     if (dot) { dot.style.background = '#10b981'; dot.style.boxShadow = '0 0 6px #10b981'; }
                     if (badge) { badge.style.color = '#10b981'; badge.style.borderColor = 'rgba(16,185,129,0.4)'; badge.style.background = 'rgba(16,185,129,0.08)'; }

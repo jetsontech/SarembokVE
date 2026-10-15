@@ -1,5 +1,11 @@
 # Sarembok VE Windows 11 Worker Launcher
 # Requires Python 3.12+ and a reachable https://sarembok.com deployment.
+# Use -RecoverWorkerCredential once to adopt an existing worker ID or recover a
+# lost/revoked local token with the trusted runtime/admin credential.
+param(
+    [switch]$RecoverWorkerCredential
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
@@ -55,15 +61,61 @@ if ($LASTEXITCODE -ne 0) {
     throw "Playwright is not importable after installation."
 }
 
-if (-not $env:SAREMBOK_WORKER_ENROLLMENT_TOKEN) {
-    $secure = Read-Host "Enter the current Sarembok worker enrollment token" -AsSecureString
-    $env:SAREMBOK_WORKER_ENROLLMENT_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringUni(
-        [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
-    )
-}
-
 if (-not $env:SAREMBOK_WORKER_ID) {
     $env:SAREMBOK_WORKER_ID = "win-" + $env:COMPUTERNAME.ToLower()
+}
+
+# Reuse a previously issued worker-scoped token on restarts. Only request the
+# bootstrap enrollment secret when no valid local credential exists yet.
+$workerTokenPath = ""
+if ($env:SAREMBOK_WORKER_TOKEN_FILE) {
+    $workerTokenPath = [Environment]::ExpandEnvironmentVariables($env:SAREMBOK_WORKER_TOKEN_FILE)
+    if ($workerTokenPath.StartsWith("~")) {
+        $relativeTokenPath = $workerTokenPath.Substring(1)
+        while ($relativeTokenPath.StartsWith("\") -or $relativeTokenPath.StartsWith("/")) {
+            $relativeTokenPath = $relativeTokenPath.Substring(1)
+        }
+        $workerTokenPath = Join-Path $HOME $relativeTokenPath
+    }
+} else {
+    $safeWorkerId = [regex]::Replace($env:SAREMBOK_WORKER_ID, '[^A-Za-z0-9_.-]', '_').Trim('.')
+    if ([string]::IsNullOrWhiteSpace($safeWorkerId)) { $safeWorkerId = "worker" }
+    $workerTokenPath = Join-Path $env:LOCALAPPDATA "SarembokVE\WorkerCredentials\$safeWorkerId.json"
+}
+
+$hasPersistedWorkerCredential = $false
+if (Test-Path -LiteralPath $workerTokenPath -PathType Leaf) {
+    try {
+        $persistedWorkerCredential = Get-Content -LiteralPath $workerTokenPath -Raw | ConvertFrom-Json
+        $hasPersistedWorkerCredential = (
+            $persistedWorkerCredential.workerId -eq $env:SAREMBOK_WORKER_ID -and
+            -not [string]::IsNullOrWhiteSpace([string]$persistedWorkerCredential.workerToken)
+        )
+    } catch {
+        $hasPersistedWorkerCredential = $false
+    }
+}
+
+if ($RecoverWorkerCredential -and -not $env:SAREMBOK_AUTH_TOKEN) {
+    $secure = Read-Host "Enter the trusted Sarembok runtime/admin credential for worker recovery" -AsSecureString
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+    try {
+        $env:SAREMBOK_AUTH_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringUni($bstr)
+    } finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        $secure.Dispose()
+    }
+}
+
+if (-not $RecoverWorkerCredential -and -not $env:SAREMBOK_WORKER_ENROLLMENT_TOKEN -and -not $hasPersistedWorkerCredential) {
+    $secure = Read-Host "Enter the current Sarembok worker enrollment token" -AsSecureString
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+    try {
+        $env:SAREMBOK_WORKER_ENROLLMENT_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringUni($bstr)
+    } finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        $secure.Dispose()
+    }
 }
 
 $env:SAREMBOK_WS_URL = "wss://sarembok.com/ws"
