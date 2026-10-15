@@ -1,5 +1,11 @@
 # Sarembok VE Windows 11 Worker Launcher
 # Requires Python 3.12+ and a reachable https://sarembok.com deployment.
+# Use -RecoverWorkerCredential once to adopt an existing worker ID or recover a
+# lost/revoked local token with the trusted runtime/admin credential.
+param(
+    [switch]$RecoverWorkerCredential
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
@@ -90,11 +96,26 @@ if (Test-Path -LiteralPath $workerTokenPath -PathType Leaf) {
     }
 }
 
-if (-not $env:SAREMBOK_WORKER_ENROLLMENT_TOKEN -and -not $hasPersistedWorkerCredential) {
+if ($RecoverWorkerCredential -and -not $env:SAREMBOK_AUTH_TOKEN) {
+    $secure = Read-Host "Enter the trusted Sarembok runtime/admin credential for worker recovery" -AsSecureString
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+    try {
+        $env:SAREMBOK_AUTH_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringUni($bstr)
+    } finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        $secure.Dispose()
+    }
+}
+
+if (-not $RecoverWorkerCredential -and -not $env:SAREMBOK_WORKER_ENROLLMENT_TOKEN -and -not $hasPersistedWorkerCredential) {
     $secure = Read-Host "Enter the current Sarembok worker enrollment token" -AsSecureString
-    $env:SAREMBOK_WORKER_ENROLLMENT_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringUni(
-        [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
-    )
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+    try {
+        $env:SAREMBOK_WORKER_ENROLLMENT_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringUni($bstr)
+    } finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        $secure.Dispose()
+    }
 }
 
 $env:SAREMBOK_WS_URL = "wss://sarembok.com/ws"
