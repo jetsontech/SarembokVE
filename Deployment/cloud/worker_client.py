@@ -202,7 +202,10 @@ class SarembokWorker:
         req_id = f"w-req-{self.req_counter}"
         p = dict(params or {})
         if method == "RegisterWorker":
-            if self.enrollment_token:
+            if self.worker_token:
+                p["workerToken"] = self.worker_token
+                p.setdefault("workerId", self.worker_id)
+            elif self.enrollment_token:
                 p["enrollmentToken"] = self.enrollment_token
             elif self.session_token:
                 p["sessionToken"] = self.session_token
@@ -249,9 +252,12 @@ class SarembokWorker:
             },
         )
         issued_token = str(res.get("workerToken") or "").strip() if isinstance(res, dict) else ""
-        if not issued_token:
+        if issued_token:
+            self.worker_token = issued_token
+        elif not self.worker_token:
             raise RuntimeError("Worker enrollment succeeded but no one-time workerToken was issued")
-        self.worker_token = issued_token
+        # Keep the issued worker token for authenticated reconnects. Enrollment
+        # credentials are bootstrap-only and must not be reused for re-registration.
         self.enrollment_token = ""
         LOG.info("Registration confirmed: status=%s workerTokenIssued=yes", res.get("status"))
 
