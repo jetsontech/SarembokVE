@@ -4519,50 +4519,71 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
 
         active_tasks = int(existing[0]) if existing else 0
         if existing and is_valid_existing_worker_token:
-            # A valid worker token proves possession. Preserve it even if an operator
-            # credential is also present; rotate only when admin-authorized recovery
-            # is needed and the supplied worker token is absent or invalid.
+            # A valid worker token proves possession. Update the existing row in
+            # place so unrelated worker metadata and foreign-key relationships survive.
+            # Preserve the token even if an operator credential is also present.
             worker_token = ""
-            worker_token_hash = existing_hash
+            store.db.execute(
+                """
+                UPDATE workers
+                SET capabilities=?, gpu_vendor=?, gpu_model=?, vram_mb=?,
+                    cuda_version=?, available_memory_mb=?, supported_models=?,
+                    latency_ms=?, status=?, last_heartbeat=?, active_tasks=?
+                WHERE worker_id=?
+                """,
+                (
+                    caps,
+                    vendor,
+                    model,
+                    vram,
+                    cuda,
+                    avail_mem,
+                    models,
+                    latency,
+                    status,
+                    stamp,
+                    active_tasks,
+                    worker_id,
+                ),
+            )
         else:
             worker_token = secrets.token_urlsafe(48)
             worker_token_hash = hashlib.sha256(worker_token.encode("utf-8")).hexdigest()
-
-        store.db.execute(
-            """
-            INSERT OR REPLACE INTO workers(
-                worker_id,
-                capabilities,
-                gpu_vendor,
-                gpu_model,
-                vram_mb,
-                cuda_version,
-                available_memory_mb,
-                supported_models,
-                latency_ms,
-                status,
-                last_heartbeat,
-                active_tasks,
-                worker_token_hash
+            store.db.execute(
+                """
+                INSERT OR REPLACE INTO workers(
+                    worker_id,
+                    capabilities,
+                    gpu_vendor,
+                    gpu_model,
+                    vram_mb,
+                    cuda_version,
+                    available_memory_mb,
+                    supported_models,
+                    latency_ms,
+                    status,
+                    last_heartbeat,
+                    active_tasks,
+                    worker_token_hash
+                )
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    worker_id,
+                    caps,
+                    vendor,
+                    model,
+                    vram,
+                    cuda,
+                    avail_mem,
+                    models,
+                    latency,
+                    status,
+                    stamp,
+                    active_tasks,
+                    worker_token_hash,
+                ),
             )
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
-            """,
-            (
-                worker_id,
-                caps,
-                vendor,
-                model,
-                vram,
-                cuda,
-                avail_mem,
-                models,
-                latency,
-                status,
-                stamp,
-                active_tasks,
-                worker_token_hash,
-            ),
-        )
 
         store.db.commit()
         return {
