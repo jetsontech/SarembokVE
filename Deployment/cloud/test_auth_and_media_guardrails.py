@@ -81,7 +81,8 @@ def _install_isolated_worker_db(mod, monkeypatch):
             status TEXT,
             last_heartbeat TEXT,
             active_tasks INTEGER DEFAULT 0,
-            worker_token_hash TEXT
+            worker_token_hash TEXT,
+            metadata_marker TEXT DEFAULT 'default-marker'
         )
         """
     )
@@ -161,6 +162,10 @@ def test_existing_worker_token_can_reconnect_without_rotation(monkeypatch):
         "INSERT INTO workers (worker_id, active_tasks, worker_token_hash) VALUES (?, ?, ?)",
         ("existing-worker", 3, original_hash),
     )
+    db.execute(
+        "UPDATE workers SET metadata_marker=? WHERE worker_id=?",
+        ("preserve-existing-row", "existing-worker"),
+    )
     db.commit()
 
     params = {
@@ -174,10 +179,10 @@ def test_existing_worker_token_can_reconnect_without_rotation(monkeypatch):
     assert result["registered"] is True
     assert "workerToken" not in result
     row = db.execute(
-        "SELECT active_tasks, worker_token_hash FROM workers WHERE worker_id=?",
+        "SELECT active_tasks, worker_token_hash, metadata_marker FROM workers WHERE worker_id=?",
         ("existing-worker",),
     ).fetchone()
-    assert row == (3, original_hash)
+    assert row == (3, original_hash, "preserve-existing-row")
 
 
 def test_invalid_worker_token_cannot_reconnect(monkeypatch):
