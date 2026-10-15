@@ -4528,7 +4528,7 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
                 UPDATE workers
                 SET capabilities=?, gpu_vendor=?, gpu_model=?, vram_mb=?,
                     cuda_version=?, available_memory_mb=?, supported_models=?,
-                    latency_ms=?, status=?, last_heartbeat=?, active_tasks=?
+                    latency_ms=?, status=?, last_heartbeat=?
                 WHERE worker_id=?
                 """,
                 (
@@ -4542,7 +4542,6 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
                     latency,
                     status,
                     stamp,
-                    active_tasks,
                     worker_id,
                 ),
             )
