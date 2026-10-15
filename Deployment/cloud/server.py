@@ -4518,9 +4518,10 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
             raise PermissionError("worker_reenrollment_requires_admin")
 
         active_tasks = int(existing[0]) if existing else 0
-        if existing and is_valid_existing_worker_token and not (is_admin_session or is_valid_auth):
-            # Preserve the current token on an authenticated reconnect; never echo it
-            # back over the wire or silently rotate it.
+        if existing and is_valid_existing_worker_token:
+            # A valid worker token proves possession. Preserve it even if an operator
+            # credential is also present; rotate only when admin-authorized recovery
+            # is needed and the supplied worker token is absent or invalid.
             worker_token = ""
             worker_token_hash = existing_hash
         else:
