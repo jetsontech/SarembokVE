@@ -194,3 +194,31 @@ def test_invalid_worker_token_cannot_reconnect(monkeypatch):
             {"params": {"workerId": "existing-worker", "workerToken": "wrong-token"}},
             "RegisterWorker",
         )
+
+
+def test_admin_credential_can_reenroll_existing_worker(monkeypatch):
+    mod = load_server_module(monkeypatch, auth_token="trusted-operator-token")
+    db = _install_isolated_worker_db(mod, monkeypatch)
+    db.execute(
+        "INSERT INTO workers (worker_id, active_tasks, worker_token_hash) VALUES (?, ?, ?)",
+        ("existing-worker", 2, "old-token-hash"),
+    )
+    db.commit()
+
+    params = {
+        "workerId": "existing-worker",
+        "authToken": "trusted-operator-token",
+        "capabilities": ["compute"],
+    }
+    mod.authenticate({"params": params}, "RegisterWorker")
+    result = mod._dispatch_internal("RegisterWorker", params)
+
+    assert result["registered"] is True
+    assert result["workerToken"]
+    row = db.execute(
+        "SELECT active_tasks, worker_token_hash FROM workers WHERE worker_id=?",
+        ("existing-worker",),
+    ).fetchone()
+    assert row[0] == 2
+    assert row[1] != "old-token-hash"
+    assert row[1] == __import__("hashlib").sha256(result["workerToken"].encode("utf-8")).hexdigest()
