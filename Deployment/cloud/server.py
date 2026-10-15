@@ -4491,23 +4491,41 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
         if not (is_valid_enrollment or is_admin_session or is_valid_auth):
             raise PermissionError("worker_enrollment_required")
 
-        worker_token = secrets.token_urlsafe(48)
-        worker_token_hash = hashlib.sha256(worker_token.encode("utf-8")).hexdigest()
         existing = store.db.execute(
             """
-            SELECT active_tasks
+            SELECT active_tasks, worker_token_hash
             FROM workers
             WHERE worker_id=?
             """,
             (worker_id,),
         ).fetchone()
+        existing_worker_token = params.get("workerToken")
+        existing_hash = str(existing[1] or "") if existing else ""
+        supplied_existing_hash = (
+            hashlib.sha256(existing_worker_token.encode("utf-8")).hexdigest()
+            if isinstance(existing_worker_token, str) and existing_worker_token
+            else ""
+        )
+        is_valid_existing_worker_token = bool(
+            existing_hash
+            and supplied_existing_hash
+            and _hmac.compare_digest(supplied_existing_hash, existing_hash)
+        )
 
-        if existing and not (is_admin_session or is_valid_auth):
-            # Enrollment credentials may add new workers, but cannot take over an
-            # existing worker ID or rotate its issued token.
+        if existing and not (is_admin_session or is_valid_auth or is_valid_existing_worker_token):
+            # Enrollment credentials may add workers, but cannot take over or rotate
+            # an existing worker ID. The worker's own token permits safe reconnect.
             raise PermissionError("worker_reenrollment_requires_admin")
 
         active_tasks = int(existing[0]) if existing else 0
+        if existing and is_valid_existing_worker_token and not (is_admin_session or is_valid_auth):
+            # Preserve the current token on an authenticated reconnect; never echo it
+            # back over the wire or silently rotate it.
+            worker_token = ""
+            worker_token_hash = existing_hash
+        else:
+            worker_token = secrets.token_urlsafe(48)
+            worker_token_hash = hashlib.sha256(worker_token.encode("utf-8")).hexdigest()
 
         store.db.execute(
             """
@@ -4551,7 +4569,7 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
             "registered": True,
             "status": status,
             "capabilities": json.loads(caps),
-            "workerToken": worker_token,
+            **({"workerToken": worker_token} if worker_token else {}),
         }
 
     if method == "ListWorkers":
@@ -6525,8 +6543,9 @@ def authenticate(request: dict[str, Any], method: str) -> None:
     if method in WORKER_AUTH_METHODS:
         if method == "RegisterWorker":
             supplied = params.get("enrollmentToken")
-            session_tok = params.get("sessionToken")
             auth_tok = params.get("authToken")
+            worker_id = str(params.get("workerId", "")).strip()
+            worker_tok = params.get("workerToken")
             is_valid_enrollment = bool(
                 WORKER_ENROLLMENT_TOKEN
                 and isinstance(supplied, str)
@@ -6536,7 +6555,18 @@ def authenticate(request: dict[str, Any], method: str) -> None:
                 (AUTH_TOKEN and isinstance(auth_tok, str) and _hmac.compare_digest(auth_tok, AUTH_TOKEN))
                 or (any(_hmac.compare_digest(str(supplied or ""), p) for p in ADMIN_ALLOWED_PASSCODES))
             )
-            if not (is_valid_enrollment or is_admin_session or is_valid_auth):
+            is_valid_worker_token = False
+            if worker_id and isinstance(worker_tok, str) and worker_tok:
+                row = store.db.execute(
+                    "SELECT worker_token_hash FROM workers WHERE worker_id=?",
+                    (worker_id,),
+                ).fetchone()
+                stored_hash = str(row[0] or "") if row else ""
+                supplied_hash = hashlib.sha256(worker_tok.encode("utf-8")).hexdigest()
+                is_valid_worker_token = bool(
+                    stored_hash and _hmac.compare_digest(supplied_hash, stored_hash)
+                )
+            if not (is_valid_enrollment or is_admin_session or is_valid_auth or is_valid_worker_token):
                 raise PermissionError("authentication_required")
             return
 
