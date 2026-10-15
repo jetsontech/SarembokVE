@@ -205,12 +205,15 @@ class SarembokWorker:
             if self.worker_token:
                 p["workerToken"] = self.worker_token
                 p.setdefault("workerId", self.worker_id)
-            elif self.enrollment_token:
-                p["enrollmentToken"] = self.enrollment_token
-            elif self.session_token:
-                p["sessionToken"] = self.session_token
-            elif self.auth_token:
-                p["authToken"] = self.auth_token
+            else:
+                if self.enrollment_token:
+                    p["enrollmentToken"] = self.enrollment_token
+                elif self.session_token:
+                    p["sessionToken"] = self.session_token
+                if self.auth_token:
+                    # An explicit operator credential authorizes re-enrollment after
+                    # a process restart, when the prior in-memory worker token is gone.
+                    p["authToken"] = self.auth_token
         elif self.worker_token:
             p["workerToken"] = self.worker_token
             p.setdefault("workerId", self.worker_id)
