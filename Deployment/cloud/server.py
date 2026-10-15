@@ -4469,19 +4469,26 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
         ensure_scheduler_schema()
 
         supplied_enrollment = params.get("enrollmentToken")
-        session_tok = params.get("sessionToken")
         auth_tok = params.get("authToken")
+        admin_token = params.get("adminToken") or params.get("adminSessionToken")
+        admin_record = USER_SESSIONS.get(admin_token) if isinstance(admin_token, str) else None
+        is_admin_session = bool(
+            isinstance(admin_token, str)
+            and admin_token in ADMIN_TOKENS
+            and isinstance(admin_record, dict)
+            and admin_record.get("role") == "admin"
+            and float(admin_record.get("expires", 0) or 0) > time.time()
+        )
         is_valid_enrollment = bool(
             WORKER_ENROLLMENT_TOKEN
             and isinstance(supplied_enrollment, str)
             and _hmac.compare_digest(supplied_enrollment, WORKER_ENROLLMENT_TOKEN)
         )
-        is_valid_session = bool(isinstance(session_tok, str) and browser_session_valid(session_tok))
         is_valid_auth = bool(
             (AUTH_TOKEN and isinstance(auth_tok, str) and _hmac.compare_digest(auth_tok, AUTH_TOKEN))
             or (any(_hmac.compare_digest(str(supplied_enrollment or ""), p) for p in ADMIN_ALLOWED_PASSCODES))
         )
-        if not (is_valid_enrollment or is_valid_session or is_valid_auth):
+        if not (is_valid_enrollment or is_admin_session or is_valid_auth):
             raise PermissionError("worker_enrollment_required")
 
         worker_token = secrets.token_urlsafe(48)
@@ -4494,6 +4501,11 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
             """,
             (worker_id,),
         ).fetchone()
+
+        if existing and not (is_admin_session or is_valid_auth):
+            # Enrollment credentials may add new workers, but cannot take over an
+            # existing worker ID or rotate its issued token.
+            raise PermissionError("worker_reenrollment_requires_admin")
 
         active_tasks = int(existing[0]) if existing else 0
 
@@ -6520,12 +6532,11 @@ def authenticate(request: dict[str, Any], method: str) -> None:
                 and isinstance(supplied, str)
                 and _hmac.compare_digest(supplied, WORKER_ENROLLMENT_TOKEN)
             )
-            is_valid_session = bool(isinstance(session_tok, str) and browser_session_valid(session_tok))
             is_valid_auth = bool(
                 (AUTH_TOKEN and isinstance(auth_tok, str) and _hmac.compare_digest(auth_tok, AUTH_TOKEN))
                 or (any(_hmac.compare_digest(str(supplied or ""), p) for p in ADMIN_ALLOWED_PASSCODES))
             )
-            if not (is_valid_enrollment or is_valid_session or is_valid_auth):
+            if not (is_valid_enrollment or is_admin_session or is_valid_auth):
                 raise PermissionError("authentication_required")
             return
 
