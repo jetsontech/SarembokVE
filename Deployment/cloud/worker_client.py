@@ -230,8 +230,13 @@ class SarembokWorker:
             self.pending_rpcs.pop(req_id, None)
 
     async def register(self, ws: websockets.ClientConnection) -> None:
-        if not self.enrollment_token and not self.auth_token and not self.session_token:
-            self.fetch_session_token()
+        # Browser session tokens expire; refresh before every re-registration.
+        if not self.enrollment_token and not self.auth_token:
+            self.session_token = ""
+            if not self.fetch_session_token():
+                raise RuntimeError(
+                    "Unable to obtain a fresh browser session token for worker registration"
+                )
         LOG.info("Registering worker '%s' (capabilities=%s)...", self.worker_id, self.capabilities)
         res = await self._send_rpc(
             ws,

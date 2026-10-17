@@ -10,6 +10,7 @@ import time
 import urllib.error
 import urllib.request
 from collections import deque
+import threading
 from typing import Any, Callable
 
 
@@ -20,6 +21,7 @@ logger = logging.getLogger("sarembok.provider_router")
 # Shared process-level provider health. ProviderRouter instances may be created
 # per request, so cooldown state must live outside the instance.
 _PROVIDER_COOLDOWNS: dict[str, float] = {}
+_LOCAL_INFERENCE_SEMAPHORE = threading.Semaphore(int(os.getenv('SAREMBOK_LOCAL_MAX_CONCURRENCY', '1')))
 
 
 def set_stream_callback(callback: Callable[[str], None] | None):
@@ -64,6 +66,10 @@ class ProviderRouter:
         if self.openrouter_reasoning not in {'minimal', 'low', 'medium', 'high', 'xhigh'}:
             self.openrouter_reasoning = 'low'
         self.max_output_tokens = max(64, int(os.getenv('SAREMBOK_LLM_MAX_OUTPUT_TOKENS', '2048')))
+        self.local_only_mode = os.getenv('SAREMBOK_LOCAL_ONLY_MODE', 'false').strip().lower() in ('true', '1', 'yes', 'on')
+        self.local_timeout = max(3, int(os.getenv('SAREMBOK_LOCAL_TIMEOUT_SECONDS', '30')))
+        self.local_max_tokens = max(16, int(os.getenv('SAREMBOK_LOCAL_MAX_OUTPUT_TOKENS', '512')))
+        self.local_max_context_chars = max(1000, int(os.getenv('SAREMBOK_LOCAL_MAX_CONTEXT_CHARS', '12000')))
         self._history: deque[dict[str, Any]] = deque(maxlen=200)
 
     @staticmethod
@@ -204,7 +210,23 @@ class ProviderRouter:
         'gemma-4': 'google/gemma-2-9b-it',
         'codegemma': 'google/codegemma-7b-it',
         'paligemma': 'google/paligemma-3b-pt-224',
+        'local': 'local',
+        'local-only': 'local-only',
+        'local_only': 'local-only',
+        'gemma-2-2b': 'gemma2:2b',
+        'gemma2:2b': 'gemma2:2b',
+        'qwen2.5:3b': 'qwen2.5:3b',
+        'qwen-2.5-3b': 'qwen2.5:3b',
     }
+
+    def is_local_only(self, requested_model: str | None = None) -> bool:
+        if self.local_only_mode:
+            return True
+        if requested_model:
+            rm = requested_model.strip().lower()
+            if rm in ('local', 'local-only', 'local_only') or rm.startswith(('local/', 'ollama/')) or rm in ('gemma2:2b', 'qwen2.5:3b', 'gemma-2-2b', 'qwen-2.5-3b'):
+                return True
+        return False
 
     def resolve_model_id(self, model_hint: str | None) -> str | None:
         if not model_hint:
@@ -215,8 +237,21 @@ class ProviderRouter:
         return model_hint.strip()
 
     def configured(self, requested_model: str | None = None, dynamic_key: str | None = None) -> list[ProviderSpec]:
-        result: dict[str, ProviderSpec] = {}
         target_model = self.resolve_model_id(requested_model)
+
+        # Explicit local-only mode: Route exclusively to local model.
+        # Fallbacks to Gemini, OpenRouter, Groq, OpenAI, or dynamic keys are prohibited.
+        if self.is_local_only(requested_model):
+            local_url = os.getenv('SAREMBOK_LOCAL_URL', os.getenv('SAREMBOK_LOCAL_GEMMA_URL', '')).strip()
+            if not local_url:
+                local_url = 'http://172.18.0.1:11434/v1/chat/completions'
+            local_model = os.getenv('SAREMBOK_LOCAL_MODEL', os.getenv('SAREMBOK_LOCAL_GEMMA_MODEL', 'gemma2:2b')).strip()
+            if target_model and target_model not in ('local', 'local-only'):
+                local_model = target_model
+            local_key = os.getenv('SAREMBOK_LOCAL_KEY', os.getenv('SAREMBOK_LOCAL_GEMMA_KEY', 'sovereign-local')).strip()
+            return [ProviderSpec('LocalGemma', local_model, 'openai', local_url, local_key)]
+
+        result: dict[str, ProviderSpec] = {}
         
         # User dynamic key passed from client mobile device or session
         if dynamic_key:
@@ -233,15 +268,24 @@ class ProviderRouter:
                 else:
                     result['UserKey'] = ProviderSpec('UserKey', target_model or 'openai/gpt-4o-mini', 'openai', 'https://openrouter.ai/api/v1/chat/completions', dk)
 
-        # Sovereign Edge Local Gemma Worker (llama.cpp / vLLM / Ollama)
-        local_gemma_url = os.getenv('SAREMBOK_LOCAL_GEMMA_URL', '').strip()
-        if local_gemma_url:
+        # Sovereign Edge Local Worker (llama.cpp / vLLM / Ollama)
+        local_url = os.getenv('SAREMBOK_LOCAL_URL', os.getenv('SAREMBOK_LOCAL_GEMMA_URL', '')).strip()
+        if not local_url and (
+            (target_model and any(m in target_model.lower() for m in ('gemma', 'local', 'qwen', 'ollama')))
+            or os.getenv('SAREMBOK_ENABLE_LOCAL_DEFAULT', 'false').strip().lower() in ('true', '1')
+        ):
+            local_url = 'http://172.18.0.1:11434/v1/chat/completions'
+
+        if local_url:
+            local_model_id = os.getenv('SAREMBOK_LOCAL_MODEL', os.getenv('SAREMBOK_LOCAL_GEMMA_MODEL', 'gemma2:2b')).strip()
+            if target_model and target_model not in ('local', 'local-only'):
+                local_model_id = target_model
             result['LocalGemma'] = ProviderSpec(
                 'LocalGemma',
-                target_model or os.getenv('SAREMBOK_LOCAL_GEMMA_MODEL', 'google/gemma-2-9b-it'),
+                local_model_id,
                 'openai',
-                local_gemma_url,
-                os.getenv('SAREMBOK_LOCAL_GEMMA_KEY', 'sovereign-local')
+                local_url,
+                os.getenv('SAREMBOK_LOCAL_KEY', os.getenv('SAREMBOK_LOCAL_GEMMA_KEY', 'sovereign-local'))
             )
 
         openai = os.getenv('OPENAI_API_KEY', '').strip()
@@ -262,8 +306,8 @@ class ProviderRouter:
             result['Custom'] = ProviderSpec('Custom', os.getenv('LLM_MODEL', 'llama-3.1-8b'), 'openai', custom, os.getenv('LLM_API_KEY', 'dummy'))
         order = [x.strip() for x in os.getenv('SAREMBOK_PROVIDER_ORDER', 'Gemini,LocalGemma,OpenRouter,Groq,OpenAI,Custom').split(',') if x.strip()]
 
-        # When Gemma model is specifically requested, prioritize LocalGemma or OpenRouter
-        if target_model and 'gemma' in target_model.lower():
+        # When Gemma model or local is specifically requested, prioritize LocalGemma or OpenRouter
+        if target_model and any(m in target_model.lower() for m in ('gemma', 'local')):
             if 'LocalGemma' in result:
                 order = ['LocalGemma'] + [x for x in order if x != 'LocalGemma']
 
@@ -391,6 +435,26 @@ class ProviderRouter:
                 normalized_messages.append({'role': 'user', 'content': 'Hello'})
 
         max_tok = self.max_output_tokens
+        if spec.name == 'LocalGemma':
+            max_tok = min(self.local_max_tokens, max_tok)
+            # Bound context window for local CPU inference
+            if normalized_messages:
+                total_chars = sum(len(str(m.get('content', ''))) for m in normalized_messages)
+                if total_chars > self.local_max_context_chars:
+                    has_sys = normalized_messages[0].get('role') == 'system'
+                    sys_msg = [normalized_messages[0]] if has_sys else []
+                    rest = normalized_messages[1:] if has_sys else normalized_messages
+                    pruned: list[dict[str, Any]] = []
+                    acc = sum(len(str(m.get('content', ''))) for m in sys_msg)
+                    for m in reversed(rest):
+                        msg_len = len(str(m.get('content', '')))
+                        if acc + msg_len <= self.local_max_context_chars or not pruned:
+                            pruned.insert(0, m)
+                            acc += msg_len
+                        else:
+                            break
+                    normalized_messages = sys_msg + pruned
+
         data: dict[str, Any] = {
             'model': spec.model,
             'messages': normalized_messages,
@@ -449,24 +513,34 @@ class ProviderRouter:
             data = self._openai_payload(spec, messages, system_prompt=system_prompt, prompt=prompt, image_frame=image_frame)
             headers = self._openai_headers(spec)
             api_name = 'chat.completions'
-        req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers)
-        attempts = 0
-        while True:
-            attempts += 1
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise TimeoutError('provider deadline exceeded')
-            timeout = min(self.provider_timeout, max(1, remaining))
-            try:
-                with urllib.request.urlopen(req, timeout=timeout) as response:
-                    payload = json.loads(response.read().decode('utf-8'))
-                if spec.kind == 'gemini':
-                    text, usage = self._extract_gemini(payload)
-                else:
-                    text, usage = self._extract_openai(payload)
-                return text, usage, api_name
-            except urllib.error.HTTPError as exc:
-                self._handle_http_error(spec, exc, attempts, deadline)
+
+        is_local = (spec.name == 'LocalGemma')
+        if is_local:
+            acquired = _LOCAL_INFERENCE_SEMAPHORE.acquire(timeout=5.0)
+            if not acquired:
+                raise RuntimeError("local_inference_concurrency_exhausted: local CPU inference engine is busy (max concurrency: 1)")
+        try:
+            req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers)
+            attempts = 0
+            while True:
+                attempts += 1
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError('provider deadline exceeded')
+                timeout = min(self.local_timeout if is_local else self.provider_timeout, max(1, remaining))
+                try:
+                    with urllib.request.urlopen(req, timeout=timeout) as response:
+                        payload = json.loads(response.read().decode('utf-8'))
+                    if spec.kind == 'gemini':
+                        text, usage = self._extract_gemini(payload)
+                    else:
+                        text, usage = self._extract_openai(payload)
+                    return text, usage, api_name
+                except urllib.error.HTTPError as exc:
+                    self._handle_http_error(spec, exc, attempts, deadline)
+        finally:
+            if is_local:
+                _LOCAL_INFERENCE_SEMAPHORE.release()
 
     def _request_stream(self, spec: ProviderSpec, system_prompt: str, prompt: str, messages: list[dict[str, Any]], deadline: float, on_delta: Callable[[str], None], image_frame: str | None = None) -> tuple[str, dict[str, Any], str, float]:
         if spec.kind == 'gemini':
@@ -510,82 +584,96 @@ class ProviderRouter:
         else:
             raise RuntimeError('streaming is unsupported for this provider')
 
-        req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers)
-        attempts = 0
-        while True:
-            attempts += 1
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise TimeoutError('provider deadline exceeded')
-            timeout = min(self.provider_timeout, max(1, remaining))
-            started = time.monotonic()
-            try:
-                text_parts: list[str] = []
-                usage: dict[str, Any] = {}
-                ttft_ms: float | None = None
-                finish_reason: str | None = None
-                with urllib.request.urlopen(req, timeout=timeout) as response:
-                    for event_name, event in self._sse_events(response):
-                        if event_name == 'done' or event is None:
-                            continue
-                        if not isinstance(event, dict):
-                            continue
-                        if spec.kind == 'gemini':
-                            if self.gemini_api == 'generatecontent':
-                                cand_list = event.get('candidates') or []
-                                if cand_list:
-                                    cand = cand_list[0] or {}
-                                    parts = cand.get('content', {}).get('parts', []) or []
-                                    for p in parts:
-                                        if isinstance(p, dict) and p.get('text'):
-                                            chunk = str(p['text'])
-                                            if ttft_ms is None:
-                                                ttft_ms = round((time.monotonic() - started) * 1000, 1)
-                                            text_parts.append(chunk)
-                                            on_delta(chunk)
-                                if event.get('usageMetadata'):
-                                    usage = event.get('usageMetadata') or usage
-                            elif event_name == 'step.delta' or event.get('event_type') == 'step.delta':
-                                delta = event.get('delta') or {}
-                                if delta.get('type') == 'text' and delta.get('text'):
-                                    chunk = str(delta['text'])
-                                    if ttft_ms is None:
-                                        ttft_ms = round((time.monotonic() - started) * 1000, 1)
-                                    text_parts.append(chunk)
-                                    on_delta(chunk)
-                            elif event_name == 'interaction.completed' or event.get('event_type') == 'interaction.completed':
-                                interaction = event.get('interaction') or {}
-                                usage = interaction.get('usage') or event.get('usage') or {}
-                        else:
-                            choices = event.get('choices') or []
-                            if choices:
-                                choice = choices[0] or {}
-                                finish_reason = choice.get('finish_reason') or finish_reason
-                                delta = choice.get('delta') or {}
-                                content = delta.get('content')
-                                if isinstance(content, list):
-                                    content = ''.join(str(x.get('text', '')) for x in content if isinstance(x, dict) and x.get('type') == 'text')
-                                if content:
-                                    chunk = str(content)
-                                    if ttft_ms is None:
-                                        ttft_ms = round((time.monotonic() - started) * 1000, 1)
-                                    text_parts.append(chunk)
-                                    on_delta(chunk)
-                            if event.get('usage'):
-                                usage = event.get('usage') or usage
-                if not text_parts:
-                    raise RuntimeError(f'{spec.name} stream returned no assistant content; finish_reason={finish_reason}')
-                usage = dict(usage)
-                if finish_reason:
-                    usage['_finish_reason'] = finish_reason
-                return ''.join(text_parts).strip(), usage, api_name, ttft_ms or round((time.monotonic() - started) * 1000, 1)
-            except urllib.error.HTTPError as exc:
-                self._handle_http_error(spec, exc, attempts, deadline)
+        is_local = (spec.name == 'LocalGemma')
+        if is_local:
+            acquired = _LOCAL_INFERENCE_SEMAPHORE.acquire(timeout=5.0)
+            if not acquired:
+                raise RuntimeError("local_inference_concurrency_exhausted: local CPU inference engine is busy (max concurrency: 1)")
+        try:
+            req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers)
+            attempts = 0
+            while True:
+                attempts += 1
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError('provider deadline exceeded')
+                timeout = min(self.local_timeout if is_local else self.provider_timeout, max(1, remaining))
+                started = time.monotonic()
+                try:
+                    text_parts: list[str] = []
+                    usage: dict[str, Any] = {}
+                    ttft_ms: float | None = None
+                    finish_reason: str | None = None
+                    with urllib.request.urlopen(req, timeout=timeout) as response:
+                        for event_name, event in self._sse_events(response):
+                            if event_name == 'done' or event is None:
+                                continue
+                            if not isinstance(event, dict):
+                                continue
+                            if spec.kind == 'gemini':
+                                if self.gemini_api == 'generatecontent':
+                                    cand_list = event.get('candidates') or []
+                                    if cand_list:
+                                        cand = cand_list[0] or {}
+                                        parts = cand.get('content', {}).get('parts', []) or []
+                                        for p in parts:
+                                            if isinstance(p, dict) and p.get('text'):
+                                                chunk = str(p['text'])
+                                                if ttft_ms is None:
+                                                    ttft_ms = round((time.monotonic() - started) * 1000, 1)
+                                                text_parts.append(chunk)
+                                                on_delta(chunk)
+                                    if event.get('usageMetadata'):
+                                        usage = event.get('usageMetadata') or usage
+                                elif event_name == 'step.delta' or event.get('event_type') == 'step.delta':
+                                    delta = event.get('delta') or {}
+                                    if delta.get('type') == 'text' and delta.get('text'):
+                                        chunk = str(delta['text'])
+                                        if ttft_ms is None:
+                                            ttft_ms = round((time.monotonic() - started) * 1000, 1)
+                                        text_parts.append(chunk)
+                                        on_delta(chunk)
+                                elif event_name == 'interaction.completed' or event.get('event_type') == 'interaction.completed':
+                                    interaction = event.get('interaction') or {}
+                                    usage = interaction.get('usage') or event.get('usage') or {}
+                            else:
+                                choices = event.get('choices') or []
+                                if choices:
+                                    choice = choices[0] or {}
+                                    finish_reason = choice.get('finish_reason') or finish_reason
+                                    delta = choice.get('delta') or {}
+                                    content = delta.get('content')
+                                    if isinstance(content, list):
+                                        content = ''.join(str(x.get('text', '')) for x in content if isinstance(x, dict) and x.get('type') == 'text')
+                                    if content:
+                                        chunk = str(content)
+                                        if ttft_ms is None:
+                                            ttft_ms = round((time.monotonic() - started) * 1000, 1)
+                                        text_parts.append(chunk)
+                                        on_delta(chunk)
+                                if event.get('usage'):
+                                    usage = event.get('usage') or usage
+                    if not text_parts:
+                        raise RuntimeError(f'{spec.name} stream returned no assistant content; finish_reason={finish_reason}')
+                    usage = dict(usage)
+                    if finish_reason:
+                        usage['_finish_reason'] = finish_reason
+                    return ''.join(text_parts).strip(), usage, api_name, ttft_ms or round((time.monotonic() - started) * 1000, 1)
+                except urllib.error.HTTPError as exc:
+                    self._handle_http_error(spec, exc, attempts, deadline)
+        finally:
+            if is_local:
+                _LOCAL_INFERENCE_SEMAPHORE.release()
 
     def generate_stream(self, system_prompt: str, prompt: str, messages: list[dict[str, Any]], on_delta: Callable[[str], None], requested_model: str | None = None, image_frame: str | None = None, dynamic_key: str | None = None) -> ProviderResult:
         task_category = "MANUAL"
         actual_model = requested_model
-        if not requested_model or requested_model.strip().lower() in ("auto", "dynamic", "default"):
+        local_only = self.is_local_only(requested_model)
+        if local_only:
+            task_category = "LOCAL_ONLY"
+            if not actual_model or actual_model.strip().lower() in ("local", "local-only", "local_only"):
+                actual_model = os.getenv('SAREMBOK_LOCAL_MODEL', os.getenv('SAREMBOK_LOCAL_GEMMA_MODEL', 'gemma2:2b')).strip()
+        elif not requested_model or requested_model.strip().lower() in ("auto", "dynamic", "default"):
             task_category, auto_model = self.classify_task_intent(prompt, image_frame)
             actual_model = auto_model
             logger.info("dynamic_model_routing_stream task=%s routed_model=%s", task_category, actual_model)
@@ -619,6 +707,8 @@ class ProviderRouter:
                 failures.append(f'{spec.name}:{type(exc).__name__}')
                 self._history.append({'provider': spec.name, 'model': spec.model, 'latency_ms': latency_ms, 'attempts': 1, 'api': self.gemini_api if spec.kind == 'gemini' else 'chat.completions', 'ok': False, 'error': type(exc).__name__, 'error_message': error_message, 'timestamp': time.time()})
                 logger.warning('provider_failed provider=%s model=%s error_type=%s error=%s', spec.name, spec.model, type(exc).__name__, error_message)
+                if local_only:
+                    raise RuntimeError(f"local_only_inference_failed: {spec.name} failed ({error_message}). External cloud-LLM fallback is prohibited in local-only mode.") from exc
         raise RuntimeError('all providers failed: ' + ','.join(failures))
 
     def generate(self, system_prompt: str, prompt: str, messages: list[dict[str, Any]], requested_model: str | None = None, image_frame: str | None = None, dynamic_key: str | None = None) -> ProviderResult:
@@ -628,7 +718,12 @@ class ProviderRouter:
 
         task_category = "MANUAL"
         actual_model = requested_model
-        if not requested_model or requested_model.strip().lower() in ("auto", "dynamic", "default"):
+        local_only = self.is_local_only(requested_model)
+        if local_only:
+            task_category = "LOCAL_ONLY"
+            if not actual_model or actual_model.strip().lower() in ("local", "local-only", "local_only"):
+                actual_model = os.getenv('SAREMBOK_LOCAL_MODEL', os.getenv('SAREMBOK_LOCAL_GEMMA_MODEL', 'gemma2:2b')).strip()
+        elif not requested_model or requested_model.strip().lower() in ("auto", "dynamic", "default"):
             task_category, auto_model = self.classify_task_intent(prompt, image_frame)
             actual_model = auto_model
             logger.info("dynamic_model_routing task=%s routed_model=%s", task_category, actual_model)
@@ -647,7 +742,7 @@ class ProviderRouter:
             try:
                 text, usage, api_name = self._request(spec, system_prompt, prompt, messages, deadline, image_frame=image_frame)
                 latency_ms = round((time.monotonic() - started) * 1000, 1)
-                self._history.append({'provider': spec.name, 'model': spec.model, 'latency_ms': latency_ms, 'attempts': 1, 'api': api_name, 'ok': True, 'task_category': task_category, 'timestamp': time.time()})
+                self._history.append({'provider': spec.name, 'model': spec.model, 'latency_ms': latency_ms, 'attempts': 1, 'api': api_name, 'ok': True, 'task_category': task_category, 'timestamp': time.time()} )
                 logger.info('provider_success provider=%s model=%s task=%s latency_ms=%s api=%s finish_reason=%s', spec.name, spec.model, task_category, latency_ms, api_name, usage.get('_finish_reason'))
                 return ProviderResult(text, spec.name, spec.model, latency_ms, 1, api_name, usage, task_category=task_category)
             except Exception as exc:
@@ -656,6 +751,8 @@ class ProviderRouter:
                 failures.append(f'{spec.name}:{type(exc).__name__}')
                 self._history.append({'provider': spec.name, 'model': spec.model, 'latency_ms': latency_ms, 'attempts': 1, 'api': self.gemini_api if spec.kind == 'gemini' else 'chat.completions', 'ok': False, 'error': type(exc).__name__, 'error_message': error_message, 'timestamp': time.time()})
                 logger.warning('provider_failed provider=%s model=%s error_type=%s error=%s', spec.name, spec.model, type(exc).__name__, error_message)
+                if local_only:
+                    raise RuntimeError(f"local_only_inference_failed: {spec.name} failed ({error_message}). External cloud-LLM fallback is prohibited in local-only mode.") from exc
         raise RuntimeError('all providers failed: ' + ','.join(failures))
 
     def metrics(self) -> dict[str, Any]:

@@ -742,13 +742,21 @@
             return;
         }
 
+        // Guard: Do NOT treat capability questions, simultaneous video queries, or playback inquiries as playback commands!
+        if (text.includes("?") || /\b(?:can you|could you|are you able to|is it possible to|how do|why|what)\b[\s\S]*\b(?:at the same time|simultaneously|together|two videos|multiple|videos? directly|music directly)\b/i.test(text)) {
+            return;
+        }
+        if (/\b(?:what video|what song|what did you|what was the|is anything playing|can you play two)\b/i.test(text)) {
+            return;
+        }
+
         // Match phrases like:
         // "play bbc news"
         // "play a glorilla video"
         // "play glorilla"
         // "play some lofi"
         // "watch a video about quantum computing"
-        var match = text.match(/(?:^|\b)(?:please\s+)?(?:can you\s+)?(?:could you\s+)?(?:play|stream|watch|put on)\s+(?:a\s+|the\s+|some\s+)?(?:video\s+(?:of|for|about)\s+|song\s+(?:of|for|by)\s+|music\s+(?:by|from)\s+)?([^,.;?!]+)/i);
+        var match = text.match(/(?:^|\b)(?:please\s+)?(?:play|stream|watch|put on)\s+(?:a\s+|the\s+|some\s+)?(?:video\s+(?:of|for|about)\s+|song\s+(?:of|for|by)\s+|music\s+(?:by|from)\s+)?([^,.;?!]+)/i);
         if (!match || !match[1]) return;
 
         var candidate = match[1].replace(/\b(?:video|song|track|audio|on youtube|in video|please|for me|now)\b/gi, "").trim();

@@ -10203,12 +10203,30 @@ button,
             if (contentEl) {
                 const target = media.ytId || media.raw || media.embedUrl;
                 const cardHtml = renderVideoCard(media.displayTitle, target);
+                const existingCard = contentEl.querySelector(".srbk-video-card, .srbk-audio-card, .media-card");
                 if (contentEl.innerHTML.includes("Computing...") || !contentEl.textContent.trim()) {
                     contentEl.innerHTML = cardHtml;
+                } else if (existingCard) {
+                    existingCard.outerHTML = cardHtml;
                 } else if (!contentEl.innerHTML.includes(target) && !contentEl.innerHTML.includes(media.displayTitle)) {
                     contentEl.insertAdjacentHTML("beforeend", `<div style="margin-top:12px;">${cardHtml}</div>`);
                 }
             }
+
+            // Record media event to session and server state
+            try {
+                if (typeof sendRPC === "function") {
+                    sendRPC("RecordMediaPlayback", {
+                        sessionId: window.activeSessionId || "default",
+                        query: urlOrQuery,
+                        title: media.displayTitle || title,
+                        url: media.directWatchUrl || media.embedUrl || (media.ytId ? `https://www.youtube.com/watch?v=${media.ytId}` : ""),
+                        platform: media.platform || "youtube",
+                        status: "EMBEDDED"
+                    }).catch(() => {});
+                }
+            } catch (_) {}
+
             scrollDialogue();
             return media;
         }
@@ -11606,6 +11624,13 @@ button,
             s = s.replace(/([.!?])\s+-\s+(?=\*\*|[A-Za-z])/g, "$1\n- ");
             s = s.replace(/\s+(?=\d+\.\s+\*\*)/g, "\n");
 
+            // Auto-promote standalone HTML application code blocks to Interactive Mockups
+            if (!s.includes(":::mockup") && !s.includes(":::design") && /```(?:html|xml)?\s*\n\s*(?:<!DOCTYPE\s+html|<html|<div class=)/i.test(s)) {
+                s = s.replace(/```(?:html|xml)?\s*\n([\s\S]*?(?:<!DOCTYPE\s+html|<html|<div class=)[\s\S]*?)```/gi, (m, code) => {
+                    return `:::mockup INTERACTIVE UI/UX PROTOTYPE\n\`\`\`html\n${code.trim()}\n\`\`\`\n:::`;
+                });
+            }
+
             // 1. Interactive UI/UX Mockups & Prototypes (:::mockup ... ::: or :::design ... :::)
             s = s.replace(/:::(?:mockup|design|prototype)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
                 return renderMockupCard(title, body);
@@ -12147,17 +12172,31 @@ button,
             if (sysBadge) sysBadge.textContent = runtime.status || "NOMINAL";
         }
 
-        /* Edge Latency Ping */
+        /* Edge Latency Ping & Core Health Telemetry */
         async function measureLatency() {
             const start = performance.now();
             try {
-                await fetch("/health", { cache: "no-store" });
+                const resp = await fetch("/health", { cache: "no-store" });
+                if (!resp.ok) throw new Error("Health check non-200");
                 const ms = Math.max(1, Math.round(performance.now() - start));
                 const el = document.getElementById("hud-latency-val");
-                if (el) el.textContent = `${ms}.0ms`;
+                if (el) el.textContent = `${ms}ms`;
+
+                // Update CORE HEALTH badge dynamically from live connection and health state
+                const healthEl = document.getElementById("hud-health-val");
+                if (healthEl) {
+                    const wsConnected = (typeof ws !== "undefined" && ws && ws.readyState === WebSocket.OPEN);
+                    healthEl.textContent = wsConnected ? "100% NOMINAL" : "ONLINE (HTTP)";
+                    healthEl.style.color = "#00f0ff";
+                }
             } catch (_) {
                 const el = document.getElementById("hud-latency-val");
-                if (el) el.textContent = "ONLINE";
+                if (el) el.textContent = "DISCONNECTED";
+                const healthEl = document.getElementById("hud-health-val");
+                if (healthEl) {
+                    healthEl.textContent = "DEGRADED";
+                    healthEl.style.color = "#ff4466";
+                }
             }
         }
         setInterval(measureLatency, 8000);

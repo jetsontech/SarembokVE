@@ -255,6 +255,7 @@ BROWSER_ALLOWED_METHODS = {
     "SearchYouTube",
     "SearchWeb",
     "ResolveMediaStream",
+    "RecordMediaPlayback",
     "RegisterWorker",
     "Heartbeat",
     "ListTasks",
@@ -2178,6 +2179,83 @@ def _query_local_media_catalog(query: str) -> Optional[dict[str, Any]]:
     return None
 
 
+SESSION_PLAYBACK_STATE: dict[str, dict[str, Any]] = {}
+
+def record_media_playback_event(session_id: str, query: str, title: str, url: str, platform: str = "youtube", status: str = "PLAYING") -> dict[str, Any]:
+    entry = {
+        "sessionId": session_id,
+        "query": query,
+        "title": title,
+        "url": url,
+        "platform": platform,
+        "status": status,
+        "timestamp": now(),
+    }
+    SESSION_PLAYBACK_STATE[session_id] = entry
+    try:
+        import sqlite3
+        if os.path.exists(DB_PATH):
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS media_playback_events (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        session_id TEXT,
+                        query TEXT,
+                        platform TEXT,
+                        url TEXT,
+                        timestamp TEXT
+                    );
+                """)
+                # Ensure session_id column exists if table was created earlier without it
+                try:
+                    conn.execute("ALTER TABLE media_playback_events ADD COLUMN session_id TEXT;")
+                except Exception:
+                    pass
+                conn.execute(
+                    "INSERT INTO media_playback_events (session_id, query, platform, url, timestamp) VALUES (?, ?, ?, ?, datetime('now'))",
+                    (session_id, f"{query} | {title}", platform, url)
+                )
+                conn.commit()
+    except Exception as exc:
+        LOG.debug("Record media playback event notice: %s", exc)
+    return entry
+
+
+def _get_last_media_playback(session_id: str | None = None) -> Optional[dict[str, Any]]:
+    if session_id and session_id in SESSION_PLAYBACK_STATE:
+        return SESSION_PLAYBACK_STATE[session_id]
+    try:
+        import sqlite3
+        if os.path.exists(DB_PATH):
+            with sqlite3.connect(DB_PATH) as conn:
+                cursor = conn.cursor()
+                if session_id:
+                    cursor.execute(
+                        "SELECT url, query, platform, timestamp FROM media_playback_events WHERE session_id = ? ORDER BY id DESC LIMIT 1",
+                        (session_id,)
+                    )
+                else:
+                    cursor.execute(
+                        "SELECT url, query, platform, timestamp FROM media_playback_events ORDER BY id DESC LIMIT 1"
+                    )
+                row = cursor.fetchone()
+                if row:
+                    q_raw = row[1] or ""
+                    parts = q_raw.split(" | ", 1)
+                    title = parts[1] if len(parts) > 1 else parts[0]
+                    return {
+                        "url": row[0],
+                        "query": parts[0],
+                        "title": title,
+                        "platform": row[2] or "youtube",
+                        "timestamp": row[3],
+                        "status": "PLAYING",
+                    }
+    except Exception as exc:
+        LOG.debug("Get last media playback error: %s", exc)
+    return None
+
+
 VERIFIED_REAL_MOVIES = {
     "spiderman": {
         "url": "https://tubitv.com/movies/100063704/spider-man-far-from-home",
@@ -2858,6 +2936,24 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
         rep,
     ).strip()
 
+    # Distinguish capability questions and playback inquiries from execution commands
+    is_playback_question = False
+    if any(m in p_low for m in (
+        "what video did you", "what did you play", "what song did you", "what was the last video",
+        "what was the last song", "what are you playing", "whats playing", "what's playing",
+        "did you play", "is anything playing"
+    )):
+        is_playback_question = True
+    elif (
+        p_low.endswith("?") or
+        any(p_low.startswith(qp) for qp in ("can you", "could you", "are you able", "is it possible", "how do", "how can", "can two", "can multiple", "why"))
+    ) and any(m in p_low for m in (
+        "two videos", "multiple videos", "at the same time", "simultaneously", "together", "both videos",
+        "play videos directly", "play video directly", "play music directly", "how do you play",
+        "can you play videos", "are you able to play videos", "can you play two"
+    )):
+        is_playback_question = True
+
     # Extract topic for dynamic video search embedding
     topic = re.sub(r"(?i)^(?:can you\s+)?(?:please\s+)?(?:play|show|open|stream|watch|listen to)\s+(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:video\s+about\s+|on\s+youtube\s+|youtube\s+)?", "", prompt).strip()
     topic = re.sub(r"(?i)\s+(?:on\s+youtube|from\s+youtube|video|stream|song)$", "", topic).strip()
@@ -2875,11 +2971,11 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
         "make an animation", "create animation", "ai video", "generate ai video",
         "text to video", "render video"
     )
-    is_video_gen = any(vgi in p_low for vgi in video_gen_intents) or (
+    is_video_gen = not is_playback_question and (any(vgi in p_low for vgi in video_gen_intents) or (
         ("video" in p_low or "animation" in p_low or "motion" in p_low)
         and any(w in p_low for w in ("generate", "synthesize", "produce", "render", "make an ai"))
         and not any(w in p_low for w in ("open youtube", "search youtube", "watch on youtube", "on youtube"))
-    )
+    ))
 
     # Check for Image Generation Intent
     image_intents = (
@@ -2890,9 +2986,21 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
         "render a 3d", "generate visual", "draw a", "generate a photo",
         "create a photo", "render a scene"
     )
-    is_image = any(ii in p_low for ii in image_intents) or (
+    is_image = not is_playback_question and (any(ii in p_low for ii in image_intents) or (
         ("image" in p_low or "picture" in p_low or "artwork" in p_low or "visual" in p_low)
         and any(w in p_low for w in ("generate", "create", "render", "synthesize", "draw", "produce", "paint"))
+    ))
+
+    # Check for Interactive HTML Mockup / Prototype Intent (must NEVER be substituted with a 2D image)
+    interactive_mockup_markers = (
+        "interactive mockup", "html mockup", "web prototype", "interactive prototype",
+        "html prototype", "clickable prototype", "interactive ui", "html preview",
+        "interactive design", "html template", "code mockup", "ui mockup in html",
+        "interactive html", "mockup in html"
+    )
+    is_interactive_mockup = any(imm in p_low for imm in interactive_mockup_markers) or (
+        any(w in p_low for w in ("mockup", "prototype", "wireframe", "dashboard", "landing page", "interface"))
+        and any(w in p_low for w in ("interactive", "html", "clickable", "css", "code"))
     )
 
     # Check for UI/UX Design & Mockup / Product Design Intent
@@ -2904,22 +3012,22 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
         "mobile app design", "web design", "interface design", "redesign",
         "design concept"
     )
-    is_design = any(dmi in p_low for dmi in design_mockup_intents) or (
+    is_design = not is_playback_question and not is_interactive_mockup and (any(dmi in p_low for dmi in design_mockup_intents) or (
         ("design" in p_low or "mockup" in p_low or "mock up" in p_low or "prototype" in p_low)
         and any(w in p_low for w in ("generate", "make", "create", "build", "show", "give me"))
-    )
-    is_product_design = any(pdi in p_low for pdi in (
+    ))
+    is_product_design = not is_playback_question and any(pdi in p_low for pdi in (
         "product design", "industrial design", "hardware design", "design a product",
         "design a gadget", "design a hardware", "wearable design", "3d model"
     ))
 
     # Check for YouTube / Video Intent (streaming references, tutorials, clips)
     youtube_intents = ("open youtube", "open yt", "play youtube", "search youtube", "watch youtube", "youtube.com", "show video", "watch video", "play video", "video of", "video about")
-    is_video = not is_video_gen and (any(yi in p_low for yi in youtube_intents) or ("video" in p_low and any(w in p_low for w in ("open", "launch", "watch", "play", "show", "search"))))
+    is_video = not is_playback_question and not is_video_gen and (any(yi in p_low for yi in youtube_intents) or ("video" in p_low and any(w in p_low for w in ("open", "launch", "watch", "play", "show", "search"))))
 
     # Check for Music & Audio playback intent
     music_intents = ("play music", "play some music", "play lofi", "play lo-fi", "play chill", "play synthwave", "play jazz", "play classical", "play ambient", "play song", "play track", "listen to music", "study music", "background music", "play audio")
-    is_music = any(mi in p_low for mi in music_intents) or any(g in p_low for g in ("lofi", "lo-fi", "synthwave", "ambient", "soundtrack", "beats"))
+    is_music = not is_playback_question and (any(mi in p_low for mi in music_intents) or any(g in p_low for g in ("lofi", "lo-fi", "synthwave", "ambient", "soundtrack", "beats")))
     # News, clips, sports, games, highlights, movies, lectures must prioritize video stream
     news_or_video_markers = (
         "news", "video", "clip", "movie", "trailer", "lecture", "interview", "documentary",
@@ -2927,7 +3035,7 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
         "highlights", "match", "soccer", "nfl", "nba", "mlb", "nhl", "premier league",
         "sport", "sports", "fight", "boxing", "ufc", "racing", "f1", "play game"
     )
-    if not is_video_gen and any(m in p_low for m in news_or_video_markers) and not (is_music and not any(m in p_low for m in ("game", "football", "highlights", "movie"))):
+    if not is_playback_question and not is_video_gen and any(m in p_low for m in news_or_video_markers) and not (is_music and not any(m in p_low for m in ("game", "football", "highlights", "movie"))):
         is_video = True
 
     # Resolve specific subclause topic for audio / video search
@@ -2961,7 +3069,7 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
             LOG.info("Neural video generation error: %s", exc)
 
     # 2. Video or Audio Card (YouTube / Media Stream)
-    elif is_video or is_music or ":::video" in rep or ":::music" in rep or "youtube.com" in rep:
+    elif (is_video or is_music or ":::video" in rep or ":::music" in rep or "youtube.com" in rep) and not is_playback_question:
         resolved = resolve_youtube_search(topic)
         real_url = resolved["url"]
         display_title = resolved.get("title") or topic.upper()
@@ -2970,7 +3078,7 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
         rep = re.sub(r':::(?:video|music|youtube)[^\n]*', '', rep).strip()
         if resolved.get("verified") and resolved.get("videoId"):
             clean_rep = re.sub(
-                r"(?i)(?:I(?:\s*['’]m| am)? not able to|I cannot|I do not have the ability to)\s+(?:play|stream)\s+(?:video|audio|media|content)[^.\n]*[.\n]?",
+                r"(?i)(?:I(?:\s*['’]m| am)?\s*(?:not able to|unable to|cannot|can't|do not have the ability to)|As an AI,?\s*I\s*(?:cannot|can't))\s+(?:play|stream|display|run)?\s+(?:videos?|audios?|media|content|music|tracks?|youtube)?[^.\n]*[.\n]?",
                 "",
                 rep
             ).strip()
@@ -3045,8 +3153,19 @@ def _enrich_multimodal_reply(prompt: str, rep: str) -> str:
         task_block = ":::tasks Multi-Task Parallel Execution\n" + "\n".join(tasks_lines) + "\n:::"
         rep = f"{task_block}\n\n{rep}".strip()
 
+    if is_interactive_mockup and ":::mockup" not in rep and "```html" in rep:
+        html_m = re.search(r"```html\s*([\s\S]*?)```", rep)
+        if html_m and ("<html" in html_m.group(1).lower() or "<!doctype" in html_m.group(1).lower() or "<div" in html_m.group(1).lower() or "<body" in html_m.group(1).lower()):
+            mockup_title = "INTERACTIVE UI/UX PROTOTYPE"
+            title_m = re.search(r"(?i)(?:mockup|prototype|design|app|dashboard|page)\s+(?:of|for)\s+([^\n.]+)", prompt_clean)
+            if title_m:
+                mockup_title = title_m.group(1).strip().upper()
+            rep = f":::mockup {mockup_title}\n{html_m.group(0)}\n:::\n\n{rep}".strip()
+
     if not rep or len(rep.strip()) < 10:
-        if is_image or is_design or is_product_design:
+        if is_playback_question:
+            rep = "I have not initiated any media streams yet in this session."
+        elif is_image or is_design or is_product_design:
             try:
                 img_data = resolve_image_generation(prompt)
                 img_badge = img_data.get("badge", "VERIFIED IMAGE GENERATION")
@@ -3146,6 +3265,52 @@ def sarembok_process_dialogue(
             "model": "runtime-clock",
             "action": None,
             "timestamp": now()
+        }
+
+    # Questions regarding playing two videos simultaneously vs capabilities
+    if any(w in prompt_lower for w in ("play two videos", "two videos at the same time", "multiple videos at once", "two songs at the same time", "can you play two videos", "simultaneously play two", "play two things at once")):
+        sim_reply = (
+            "SarembokVE supports playing a primary video or music stream inline within the conversation and "
+            "can pop it out into a floating Picture-in-Picture window that stays visible while chatting. "
+            "However, standard playback policies manage one primary audio/video stream at a time to prevent "
+            "overlapping audio, though you can open a secondary detached window if you wish to monitor multiple streams."
+        )
+        _save_conversation(session_id, prompt_clean, sim_reply)
+        return {
+            "response": sim_reply,
+            "audioText": sim_reply,
+            "source": "runtime_authority",
+            "model": "runtime-authority",
+            "taskCategory": "CAPABILITY",
+            "action": None,
+            "structuredResponse": build_structured_response(sim_reply, provider="runtime_authority", model="runtime-authority"),
+            "metadata": {"provider": "runtime_authority", "model": "runtime-authority"}
+        }
+
+    # Playback history inquiries
+    if any(m in prompt_lower for m in (
+        "what video did you just play", "what video did you play", "what did you just play",
+        "what are you playing", "what was the last video", "what was the last song",
+        "what song did you just play", "what did you play", "what video was that",
+        "what's playing", "whats playing", "is anything playing"
+    )):
+        last_item = SESSION_PLAYBACK_STATE.get(session_id) or _get_last_media_playback(session_id)
+        if last_item:
+            t = last_item.get("title") or last_item.get("query")
+            u = last_item.get("url") or ""
+            history_reply = f"The last media item queued or played in this session was **{t}**.\n\nDirect link: {u}"
+        else:
+            history_reply = "No media playback has been initiated in this session yet."
+        _save_conversation(session_id, prompt_clean, history_reply)
+        return {
+            "response": history_reply,
+            "audioText": history_reply.replace("*", "").replace("`", "")[:1200],
+            "source": "runtime_media_fabric",
+            "model": "runtime-media-controller",
+            "taskCategory": "MEDIA",
+            "action": None,
+            "structuredResponse": build_structured_response(history_reply, provider="runtime_media_fabric", model="runtime-media-controller"),
+            "metadata": {"provider": "runtime_media_fabric", "model": "runtime-media-controller"}
         }
 
     # Fast conversational lane.
@@ -3492,6 +3657,7 @@ def sarembok_process_dialogue(
     provider_latency_ms = None
     provider_api = None
     provider_usage = {}
+    provider_task = "GENERAL"
     try:
         # Pass requested model, multimodal image frame, and dynamic user api_key into ProviderRouter
         provider_result = PROVIDER_ROUTER.generate(
@@ -3533,8 +3699,15 @@ def sarembok_process_dialogue(
 
     if reply:
         reply = _enrich_multimodal_reply(prompt_clean, reply)
-    elif any(mi in prompt_clean.lower() for mi in ("play ", "stream ", "watch ", "listen to ", "open youtube", "open yt", "show video", "play song")):
+    elif (
+        any(mi in prompt_clean.lower() for mi in ("play ", "stream ", "watch ", "listen to ", "open youtube", "open yt", "show video", "play song"))
+        and not any(w in prompt_lower for w in ("can you", "could you", "are you able", "at the same time", "simultaneously", "what video did you", "what did you play", "?"))
+    ):
         reply = _enrich_multimodal_reply(prompt_clean, "")
+        if reply:
+            source = source or "runtime_media_fabric"
+            active_model = active_model or "runtime-media-controller"
+            provider_task = "MEDIA"
 
 
     refusal_markers = (
@@ -3578,6 +3751,8 @@ def sarembok_process_dialogue(
 
     if reply and reply.strip():
         reply = reply.strip()
+        source = source or "runtime_authority"
+        active_model = active_model or "runtime-fallback"
         _save_conversation(session_id, prompt_clean, reply)
         store.event("sarembok-prime", "CHAT_RESPONSE", {"prompt": prompt_clean[:200], "model": active_model, "provider": source})
         result = {
@@ -3948,6 +4123,16 @@ def _dispatch_internal(method: str, params: dict[str, Any]) -> dict[str, Any]:
         if method == "ResolveMediaStream":
             return resolve_media_stream(query, platform=platform)
         return resolve_youtube_search(query)
+
+    if method == "RecordMediaPlayback":
+        sid = str(params.get("sessionId") or "default")
+        q = str(params.get("query") or "")
+        t = str(params.get("title") or q)
+        u = str(params.get("url") or "")
+        plat = str(params.get("platform") or "youtube")
+        st = str(params.get("status") or "PLAYING")
+        rec = record_media_playback_event(sid, q, t, u, plat, st)
+        return {"status": "ok", "record": rec}
 
     if method == "SearchWeb":
         query = str(params.get("query") or params.get("q") or params.get("text") or "").strip()
@@ -6512,8 +6697,20 @@ def cancel_tts_stream(stream_id: str) -> bool:
             except Exception:
                 pass
         task = state.get("task")
-        if task is not None and not task.done():
-            task.cancel()
+        return True
+
+ACTIVE_CHAT_STREAMS: dict[str, dict[str, Any]] = {}
+ACTIVE_CHAT_STREAMS_LOCK = threading.RLock()
+
+def cancel_chat_stream(stream_id: str) -> bool:
+    with ACTIVE_CHAT_STREAMS_LOCK:
+        state = ACTIVE_CHAT_STREAMS.get(stream_id)
+        if not state:
+            return False
+        state["cancelled"] = True
+        cancel_evt = state.get("cancel_event")
+        if cancel_evt is not None:
+            cancel_evt.set()
         return True
 
 
@@ -6666,7 +6863,9 @@ async def handler(websocket) -> None:
 
                 if method == "CancelActiveStream":
                     target_id = str(params.get("streamId") or params.get("id") or "")
-                    cancelled = cancel_tts_stream(target_id) if target_id else False
+                    cancelled = False
+                    if target_id:
+                        cancelled = cancel_tts_stream(target_id) or cancel_chat_stream(target_id)
                     await websocket.send(json.dumps({
                         "jsonrpc": "2.0",
                         "id": request.get("id"),
@@ -6690,11 +6889,18 @@ async def handler(websocket) -> None:
                     # callback back onto the event loop without blocking inference.
                     loop = asyncio.get_running_loop()
                     delta_queue: asyncio.Queue[str | None] = asyncio.Queue()
+                    chat_stream_id = str(params.get("streamId") or request.get("id") or "")
+                    cancel_event = threading.Event()
+                    with ACTIVE_CHAT_STREAMS_LOCK:
+                        ACTIVE_CHAT_STREAMS[chat_stream_id] = {
+                            "cancelled": False,
+                            "cancel_event": cancel_event,
+                        }
 
                     async def _send_chat_deltas() -> None:
                         while True:
                             chunk = await delta_queue.get()
-                            if chunk is None:
+                            if chunk is None or cancel_event.is_set():
                                 return
                             await websocket.send(json.dumps({
                                 "jsonrpc": "2.0",
@@ -6706,6 +6912,8 @@ async def handler(websocket) -> None:
                             }, separators=(",", ":")))
 
                     def _on_delta(chunk: str) -> None:
+                        if cancel_event.is_set():
+                            raise RuntimeError("inference_cancelled_by_client")
                         text_chunk = str(chunk or "")
                         if text_chunk:
                             loop.call_soon_threadsafe(delta_queue.put_nowait, text_chunk)
@@ -6727,8 +6935,16 @@ async def handler(websocket) -> None:
                         else:
                             async with get_db_lock():
                                 result = await asyncio.to_thread(dispatch, method, params)
+                    except Exception as exc:
+                        if "inference_cancelled" in str(exc):
+                            LOG.info("chat_stream_cancelled stream_id=%s", chat_stream_id)
+                            result = {"cancelled": True, "streamId": chat_stream_id, "message": "inference_cancelled"}
+                        else:
+                            raise
                     finally:
                         reset_stream_callback(stream_token)
+                        with ACTIVE_CHAT_STREAMS_LOCK:
+                            ACTIVE_CHAT_STREAMS.pop(chat_stream_id, None)
                         await delta_queue.put(None)
                         await delta_sender
                 else:

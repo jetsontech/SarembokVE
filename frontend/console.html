@@ -1012,11 +1012,29 @@
             try{const result=await sendRPC('SarembokChat',{prompt:text,sessionId:sessionId,stream:true},updateStreamUi);const finalText=String(result?.response||result?.audioText||streamedText||'Response received.');
                 let assistantGroup=thinkingEl;
                 if(!assistantContent){thinkingEl.remove();assistantGroup=appendMessage('agent','Sarembok',finalText,result?.model,result?.recalledMemories);}else{assistantContent.innerHTML=formatReply(finalText);if(assistantSender&&(result?.model||result?.metadata?.model)){
- const provider=String(result?.metadata?.provider||result?.source||'').trim();
- const model=String(result?.model||result?.metadata?.model||'').trim();
- const tag=provider&&model&&provider!==model?provider+' / '+model:model||provider;
- assistantSender.innerHTML='Sarembok <span class="msg-model-tag">'+esc(tag)+'</span>';
-}}
+                    const provider=String(result?.metadata?.provider||result?.source||'').trim();
+                    const model=String(result?.model||result?.metadata?.model||'').trim();
+                    const tag=provider&&model&&provider!==model?provider+' / '+model:model||provider;
+                    assistantSender.innerHTML='Sarembok <span class="msg-model-tag">'+esc(tag)+'</span>';
+                }}
+
+                // Update active system telemetry in sidebar
+                const metaProvider = String(result?.metadata?.provider || result?.source || '').trim();
+                const metaModel = String(result?.model || result?.metadata?.model || '').trim();
+                const metaLatency = result?.metadata?.latency_ms ? `${result.metadata.latency_ms}ms` : '';
+                if (metaProvider) {
+                    const pEl = document.getElementById('sys-provider');
+                    if (pEl) pEl.textContent = metaProvider;
+                }
+                if (metaModel) {
+                    const mEl = document.getElementById('sys-model');
+                    if (mEl) mEl.textContent = metaModel;
+                }
+                if (metaLatency) {
+                    const lEl = document.getElementById('sys-latency');
+                    if (lEl) lEl.textContent = metaLatency;
+                }
+
                 const mediaUrl=String(result?.videoUrl||extractMediaUrl(finalText)||'').trim();
                 if(mediaUrl)appendInlineMedia(assistantGroup,mediaUrl,'Response media');
                 fetchMemories();fetchRuntimeInfo();document.getElementById('conversation-scroll').scrollTop=document.getElementById('conversation-scroll').scrollHeight;
@@ -1087,14 +1105,65 @@
             });
         }
 
+        function renderConsoleMockup(title, rawHtml) {
+            let code = String(rawHtml || '').trim();
+            const codeMatch = code.match(/```(?:html|xml)?\s*\n([\s\S]*?)```/i);
+            if (codeMatch) code = codeMatch[1].trim();
+            code = code.replace(/^```(?:html|xml)?\s*/i, '').replace(/\s*```$/i, '').trim();
+            if (!code.toLowerCase().includes('<html') && !code.toLowerCase().includes('<!doctype')) {
+                code = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0f172a;color:#f8fafc;}</style></head><body>' + code + '</body></html>';
+            }
+            const mockupId = 'mockup_' + Math.random().toString(36).substring(2, 9);
+            const cardTitle = esc(title || 'INTERACTIVE UI/UX PROTOTYPE');
+            return `<div class="mockup-sandbox-card" id="${mockupId}" style="margin:16px 0;border:1px solid rgba(0,240,255,0.3);border-radius:10px;background:#080e1a;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(0,240,255,0.08);border-bottom:1px solid rgba(0,240,255,0.2);">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:10px;font-weight:700;color:#00f0ff;background:rgba(0,240,255,0.15);padding:2px 8px;border-radius:4px;letter-spacing:0.5px;">🎨 INTERACTIVE PROTOTYPE</span>
+                        <span style="font-size:12px;font-weight:600;color:#f1f5f9;">${cardTitle}</span>
+                    </div>
+                    <div style="display:flex;gap:6px;">
+                        <button type="button" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;" onclick="const ifr=document.getElementById('${mockupId}_ifr');if(ifr)ifr.style.maxWidth='100%';">🖥️ DESKTOP</button>
+                        <button type="button" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;" onclick="const ifr=document.getElementById('${mockupId}_ifr');if(ifr)ifr.style.maxWidth='420px';">📱 MOBILE</button>
+                        <button type="button" style="background:#00f0ff;border:0;color:#000;font-weight:700;padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;" onclick="const w=window.open('about:blank','_blank');w.document.write(decodeURIComponent('${encodeURIComponent(code)}'));w.document.close();">⛶ FULLSCREEN</button>
+                    </div>
+                </div>
+                <div style="padding:0;background:#020617;display:flex;justify-content:center;min-height:480px;">
+                    <iframe id="${mockupId}_ifr" sandbox="allow-scripts allow-forms allow-same-origin" srcdoc="${esc(code)}" style="width:100%;height:520px;border:0;transition:max-width 0.3s;background:#0f172a;"></iframe>
+                </div>
+                <div style="padding:6px 12px;background:rgba(0,0,0,0.4);border-top:1px solid rgba(255,255,255,0.06);font-size:10px;color:#64748b;letter-spacing:0.5px;">
+                    ⚡ SAREMBOK VE LIVE DESIGN SANDBOX · REAL-TIME INTERACTIVE PROTOTYPING
+                </div>
+            </div>`;
+        }
+
         // ====== TEXT FORMATTING ======
         function formatReply(text) {
             if (!text) return '';
-            let html = esc(text);
+            let s = String(text);
+
+            // Auto-promote standalone HTML application code blocks to Interactive Mockups
+            if (!s.includes(':::mockup') && !s.includes(':::design') && /```(?:html|xml)?\s*\n\s*(?:<!DOCTYPE\s+html|<html|<div class=)/i.test(s)) {
+                s = s.replace(/```(?:html|xml)?\s*\n([\s\S]*?(?:<!DOCTYPE\s+html|<html|<div class=)[\s\S]*?)```/gi, (m, code) => {
+                    return `:::mockup INTERACTIVE UI/UX PROTOTYPE\n\`\`\`html\n${code.trim()}\n\`\`\`\n:::`;
+                });
+            }
+
+            const mockups = [];
+            s = s.replace(/:::(?:mockup|design|prototype)(?:\s+([^\n]+))?\n([\s\S]*?):::/gi, (_, title, body) => {
+                const placeholder = `__SRBK_MOCKUP_${mockups.length}__`;
+                mockups.push(renderConsoleMockup(title, body));
+                return placeholder;
+            });
+
+            let html = esc(s);
             html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
             html = html.replace(/```([\s\S]*?)```/g, '<pre>$1</pre>');
             html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
             html = html.replace(/\n/g, '<br>');
+
+            for (let i = 0; i < mockups.length; i++) {
+                html = html.replace(`__SRBK_MOCKUP_${i}__`, mockups[i]);
+            }
             return html;
         }
 
