@@ -1,4 +1,8 @@
-# SarembokVE
+# SarembokVE (Sarembok)
+
+**SarembokVE** — also known as **Sarembok** — is an AI-native execution runtime, distributed GPU and heterogeneous compute mesh, deterministic multi-agent orchestration platform, zero-trust execution fabric, and OpenAPI contract governance system.
+
+Official platform: **[SarembokVE (Sarembok) at sarembok.com](https://sarembok.com)**
 
 [![CI](https://github.com/jetsontech/SarembokVE/actions/workflows/ci.yml/badge.svg)](https://github.com/jetsontech/SarembokVE/actions/workflows/ci.yml)
 [![License: BSL-1.1](https://img.shields.io/badge/License-BSL--1.1-blue.svg)](LICENSE)

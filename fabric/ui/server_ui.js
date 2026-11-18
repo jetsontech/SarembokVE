@@ -8,12 +8,16 @@
 // For commercial inquiries, licensing, or partnerships, contact the Licensor.
 // ============================================================================
 
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFile } from 'node:child_process';
+import crypto from 'node:crypto';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
-const { execFile } = require('child_process');
-const crypto = require('crypto');
+const require = createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Supported static audio/asset extensions
 const MIME_TYPES = {
@@ -24,6 +28,9 @@ const MIME_TYPES = {
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon',
+    '.txt': 'text/plain; charset=utf-8',
+    '.xml': 'application/xml; charset=utf-8',
     '.json': 'application/json',
     '.js': 'text/javascript',
     '.css': 'text/css',
@@ -39,7 +46,7 @@ try {
     Database = DatabaseSync;
 }
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 const DB_PATH = path.resolve(__dirname, '..', 'kernel.db');
 
 const server = http.createServer((req, res) => {
@@ -361,6 +368,7 @@ const server = http.createServer((req, res) => {
             const candidatePaths = [
                 path.resolve(__dirname, '..', '..', 'frontend', cleanName),
                 path.resolve(__dirname, cleanName),
+                path.resolve(__dirname, '..', '..', 'public', cleanName),
                 path.resolve(__dirname, '..', '..', 'frontend', pathname.replace(/^\/+/, ''))
             ];
             const targetStatic = candidatePaths.find(p => fs.existsSync(p));

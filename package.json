@@ -1,7 +1,7 @@
 {
   "name": "sarembok",
   "version": "3.0.0",
-  "description": "CLI for SarembokVE: 3-tier progressive adoption platform, NVIDIA OpenShell zero-trust sandbox, OpenAPI 3.1 contract drift gating, and distributed agentic mesh.",
+  "description": "SarembokVE (Sarembok) — AI-native execution runtime, distributed compute mesh, deterministic agent orchestration, and OpenAPI contract governance.",
   "type": "module",
   "main": "bin/sarembok-cli.js",
   "exports": {
@@ -48,6 +48,12 @@
     "url": "https://github.com/jetsontech/SarembokVE/issues"
   },
   "keywords": [
+    "sarembok",
+    "sarembokve",
+    "ai-orchestration",
+    "distributed-compute",
+    "agent-runtime",
+    "openapi-validator",
     "openapi",
     "typescript",
     "api-contract",

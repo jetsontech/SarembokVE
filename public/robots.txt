@@ -1,0 +1,12 @@
+# Public product and policy pages are discoverable.
+# Administrative, session, and runtime endpoints should not be indexed.
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /rpc
+Disallow: /session
+Disallow: /ws
+Disallow: /live
+Disallow: /console.html
+
+Sitemap: https://sarembok.com/sitemap.xml
