@@ -3,8 +3,6 @@ name: Enforce IP & Repo Lockdown
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
   enforce-ip:
@@ -21,9 +19,9 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Enforce Open-Core Separation (Remove Proprietary Cloud/OS Modules Moved to Enterprise)
+      - name: Enforce Open-Core Separation (Preserve Public Frontend)
         run: |
-          git rm -rf --ignore-unmatch AI backend frontend labs sarembok-os
+          git rm -rf --ignore-unmatch AI backend labs sarembok-os
 
       - name: Add OPEN_CORE_ARCHITECTURE.md Notice
         run: |
@@ -31,6 +29,8 @@ jobs:
           # SarembokVE Open-Core & Commercial Architecture
 
           This public repository contains the **SarembokVE GitHub Marketplace Action, CLI tool, and core engine pipeline**.
+
+          The public static website in `frontend/` remains in this repository and is deployed independently from the runtime containers.
 
           ### Proprietary Enterprise Modules (`SarembokVE-Enterprise`)
           To protect commercial intellectual property, the following production cloud and OS components are maintained separately:

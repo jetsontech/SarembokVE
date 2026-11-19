@@ -58,7 +58,7 @@ for required in frontend/index.html frontend/logo.png frontend/og-banner.png fro
     fi
 done
 
-unsupported=`$(printf '%s\n' "`$changed_paths" | sed '/^$/d' | grep -Ev '^(frontend/|Docs/|README\.md`$|CHANGELOG\.md`$|package\.json`$|package-lock\.json`$|\.npmignore`$|([^/]+/)*\.npmignore`$|Tools/Deploy-To-OVH\.ps1`$|public/generated/)' || true)
+unsupported=`$(printf '%s\n' "`$changed_paths" | sed '/^$/d' | grep -Ev '^(frontend/|Docs/|README\.md`$|CHANGELOG\.md`$|OPEN_CORE_ARCHITECTURE\.md`$|package\.json`$|package-lock\.json`$|\.npmignore`$|([^/]+/)*\.npmignore`$|Tools/Deploy-To-OVH\.ps1`$|\.github/workflows/ip-lockdown\.yml`$|public/generated/)' || true)
 if [ -n "`$unsupported" ]; then
     echo "REFUSED: this script deploys the static frontend only. These changes require a separate runtime deployment plan:"
     printf '%s\n' "`$unsupported"
