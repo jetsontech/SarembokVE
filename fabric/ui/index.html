@@ -7870,6 +7870,16 @@
         /* ============================================================
            DIALOGUE DIRECTIVE EXECUTION (STREAMING ENABLED)
            ============================================================ */
+        function isDocumentationOpenRequest(text) {
+            if (/\b(?:open|show|take me to|go to)\b[^.!?]*\b(?:docs?|documentation)\b/i.test(text)) {
+                return true;
+            }
+
+            const followsDocumentationRequest = /\b(?:open|show)\s+(?:it|that|the page)\b.*\b(?:new browser|new tab|browser tab)\b/i.test(text);
+            const conversation = document.getElementById("dialogue-history")?.innerText || "";
+            return followsDocumentationRequest && /\b(?:docs?|documentation)\b/i.test(conversation);
+        }
+
         async function sendDirective(isBackground = false) {
             const _sh = document.getElementById('simple-chat-hero'); if (_sh) _sh.classList.remove('visible');
             interruptSpeech();
@@ -7886,6 +7896,29 @@
             if (isBackground || text.startsWith("/bg ") || text.startsWith("/background ") || text.startsWith("/async ")) {
                 text = text.replace(/^\/(?:bg|background|async)\s+/i, "").trim();
                 dispatchBackgroundTask(text);
+                return;
+            }
+
+            if (isDocumentationOpenRequest(text)) {
+                const documentationUrl = "https://sarembok.com/docs";
+                appendUserDialogue(text, null);
+                const assistantBubble = createAssistantDialogue();
+                const content = assistantBubble.querySelector(".srbk-content");
+                let openedTab = null;
+                try {
+                    openedTab = window.open(documentationUrl, "_blank");
+                    if (openedTab) openedTab.opener = null;
+                } catch (error) {
+                    console.warn("[Sarembok] Documentation tab could not be opened:", error);
+                }
+
+                const response = openedTab
+                    ? `Opened the official SarembokVE documentation in a new tab: [SarembokVE Documentation](${documentationUrl}).`
+                    : `I couldn't open a new tab; your browser may have blocked the pop-up. Open the official documentation here: [SarembokVE Documentation](${documentationUrl}).`;
+                content.innerHTML = md(response);
+                if (voiceEnabled) speakText(response);
+                scrollDialogue();
+                saveCurrentChatSession();
                 return;
             }
 
