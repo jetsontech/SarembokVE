@@ -6,21 +6,23 @@ Establish `SarembokVE` and `Sarembok` as one authoritative software brand and pl
 
 ## Implementation Status
 
-- Homepage title, description, canonical, Open Graph, Twitter, robots, and JSON-LD added to the local `production-index.html` artifact and tracked `fabric/ui/index.html` fallback.
+- Homepage title, description, canonical, Open Graph, Twitter, robots, and JSON-LD are present in the tracked `fabric/ui/index.html` fallback and the active VPS `frontend/index.html`.
 - Primary visible homepage identity now begins with `SarembokVE` and includes its AI compute and orchestration purpose.
 - Organization, Website, and SoftwareApplication entities added as a linked JSON-LD graph.
 - `public/robots.txt`, `public/sitemap.xml`, `public/logo.svg`, and `public/og-banner.svg` created; high-resolution `public/logo.png` and `public/og-banner.png` generated for social/schema metadata.
+- Docs-open requests in both the tracked fallback and active VPS homepage open `/docs` in a new tab; blocked pop-ups get an honest message and a clickable link.
+- PNG, SVG, robots, and sitemap assets are present in the active VPS `frontend/` web root.
 - `package.json` and `README.md` updated with exact-match brand language and an official homepage link.
 
 ## Deployment Requirements
 
-1. **Resolve the homepage source before release.** `production-index.html` is ignored by `.gitignore` and is not included in Git commits. `fabric/ui/server_ui.js` serves `frontend/index.html` when present, otherwise it serves `fabric/ui/index.html`; the latter is tracked and now contains the metadata. The live homepage currently has a different title and only a basic `WebSite` JSON-LD object, so verify which source is deployed and port the metadata into that source.
+1. Caddy mounts the VPS `frontend/` directory at `/srv`; its `frontend/index.html` is the active homepage. That file is not tracked in the repository checkout, and it has existing staged changes. Preserve and reconcile those changes before future deployment. Do not use the current OVH deploy script's `git reset --hard` until the VPS worktree is clean and its Compose files are present.
 2. Publish or copy these public assets to the domain root:
    - `/robots.txt`
    - `/sitemap.xml`
    - `/logo.png`
    - `/og-banner.png`
-3. The live audit found `/logo.png` and `/og-banner.png` currently return HTTP 404. Deploy the PNGs and verify both return HTTP 200 with `image/png` before requesting social-card crawls.
+3. The live server has been verified to return HTTP 200 for `/`, `/docs`, both PNGs, both SVGs, `/robots.txt`, and `/sitemap.xml`. The sitemap is served as `text/xml; charset=utf-8`, which is a valid XML media type.
 4. Configure the canonical host to serve `https://sarembok.com/` with redirects from `www`, HTTP, and alternate hostnames.
 5. Do not create duplicate landing pages for Sarembok and SarembokVE. Link both names consistently to the canonical homepage.
 
@@ -85,6 +87,8 @@ Do not create a Wikidata item until independently verifiable publication, packag
 - `/robots.txt` returns HTTP 200 and is plain text.
 - `/sitemap.xml` returns HTTP 200 and is valid XML.
 - `/logo.png` and `/og-banner.png` return HTTP 200 with `image/png` content types.
+- `/logo.svg` and `/og-banner.svg` return HTTP 200 with `image/svg+xml` content types.
+- Browser verification confirms docs requests open a real tab and report pop-up blocking honestly.
 - The homepage's primary visible heading begins with `SarembokVE`.
 - The JSON-LD script parses with no syntax errors.
 - Organization `@id`, Website `publisher`, and SoftwareApplication `publisher` resolve to `https://sarembok.com/#organization`.
