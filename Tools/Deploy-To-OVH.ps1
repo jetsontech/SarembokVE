@@ -44,11 +44,25 @@ fi
 git fetch origin main
 old_head=`$(git rev-parse HEAD)
 changed_paths=`$(git diff --name-only "`$old_head" origin/main)
+deleted_paths=`$(git diff --name-status "`$old_head" origin/main | awk '`$1 == "D" { print `$2 }')
+if [ -n "`$deleted_paths" ]; then
+    echo "REFUSED: origin/main deletes tracked files; review these paths before deployment:"
+    printf '%s\n' "`$deleted_paths"
+    exit 4
+fi
+
+for required in frontend/index.html frontend/logo.png frontend/og-banner.png frontend/robots.txt frontend/sitemap.xml; do
+    if ! git cat-file -e "origin/main:`$required"; then
+        echo "REFUSED: required production file is missing from origin/main: `$required"
+        exit 5
+    fi
+done
+
 unsupported=`$(printf '%s\n' "`$changed_paths" | sed '/^$/d' | grep -Ev '^(frontend/|Docs/|README\.md`$|CHANGELOG\.md`$|package\.json`$|package-lock\.json`$|\.npmignore`$|([^/]+/)*\.npmignore`$|Tools/Deploy-To-OVH\.ps1`$|public/generated/)' || true)
 if [ -n "`$unsupported" ]; then
     echo "REFUSED: this script deploys the static frontend only. These changes require a separate runtime deployment plan:"
     printf '%s\n' "`$unsupported"
-    exit 4
+    exit 6
 fi
 
 if [ "$dryRunValue" = "true" ]; then
@@ -61,7 +75,7 @@ git merge --ff-only origin/main
 
 if ! docker inspect --format '{{.State.Running}}' sarembok-edge 2>/dev/null | grep -qx true; then
     echo "ERROR: sarembok-edge is not running."
-    exit 5
+    exit 7
 fi
 
 check_route() {
@@ -74,15 +88,20 @@ check_route() {
         echo "ERROR: `$route returned HTTP `$status."
         return 1
     fi
-    case "`$expected: `$content_type" in
-        html: text/html*|png: image/png*|svg: image/svg+xml*|text: text/plain*|xml: text/xml*|xml: application/xml*)
-            echo "OK: `$route -> HTTP `$status (`$content_type)"
-            ;;
-        *)
-            echo "ERROR: `$route has unexpected Content-Type `$content_type."
-            return 1
-            ;;
+    valid_type=false
+    case "`$expected" in
+        html) case "`$content_type" in text/html*) valid_type=true ;; esac ;;
+        png) case "`$content_type" in image/png*) valid_type=true ;; esac ;;
+        svg) case "`$content_type" in image/svg+xml*) valid_type=true ;; esac ;;
+        text) case "`$content_type" in text/plain*) valid_type=true ;; esac ;;
+        xml) case "`$content_type" in text/xml*|application/xml*) valid_type=true ;; esac ;;
     esac
+    if [ "`$valid_type" = true ]; then
+        echo "OK: `$route -> HTTP `$status (`$content_type)"
+    else
+        echo "ERROR: `$route has unexpected Content-Type `$content_type."
+        return 1
+    fi
 }
 
 test -s frontend/index.html
