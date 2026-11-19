@@ -1,6 +1,6 @@
 {
   "name": "sarembok",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "SarembokVE (Sarembok) — AI-native execution runtime, distributed compute mesh, deterministic agent orchestration, and OpenAPI contract governance.",
   "type": "module",
   "main": "bin/sarembok-cli.js",
