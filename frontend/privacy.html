@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy &amp; Data Security · SarembokVE</title>
+    <meta name="description" content="SarembokVE Privacy Policy, data isolation architecture, ephemeral sandboxing controls, and enterprise data security commitments.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #080a0f;
+            --bg-surface: #0e121a;
+            --bg-elevated: #151a24;
+            --bg-card: rgba(255, 255, 255, 0.025);
+            --border-default: rgba(255, 255, 255, 0.08);
+            --accent: #38bdf8;
+            --accent-dim: rgba(56, 189, 248, 0.12);
+            --green: #10b981;
+            --green-dim: rgba(16, 185, 129, 0.12);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --font-display: 'Chakra Petch', sans-serif;
+            --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            font-size: 15px;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(8, 10, 15, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-default);
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+
+        .header-logo {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: var(--accent);
+        }
+
+        .header-nav { display: flex; align-items: center; gap: 20px; }
+        .nav-link { color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 500; transition: color 0.15s ease; }
+        .nav-link:hover, .nav-link.active { color: var(--accent); }
+
+        .btn-console {
+            background: linear-gradient(135deg, #0284c7, #38bdf8);
+            color: #080a0f;
+            font-weight: 600;
+            font-size: 13px;
+            padding: 6px 16px;
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+        }
+
+        .container {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 56px 24px 96px;
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: 34px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .effective-date {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 32px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .policy-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: 36px 40px;
+            margin-bottom: 32px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        h2 {
+            font-family: var(--font-display);
+            font-size: 20px;
+            font-weight: 600;
+            color: #fff;
+            margin: 32px 0 14px;
+        }
+
+        h2:first-of-type { margin-top: 0; }
+
+        p { color: var(--text-secondary); margin-bottom: 16px; }
+
+        ul { color: var(--text-secondary); padding-left: 20px; margin-bottom: 18px; }
+        li { margin-bottom: 8px; }
+
+        .commitment-banner {
+            background: var(--green-dim);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            border-radius: var(--radius-md);
+            padding: 20px 24px;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .commitment-icon { font-size: 24px; line-height: 1; }
+        .commitment-title { font-weight: 600; color: #fff; margin-bottom: 4px; font-size: 15px; }
+        .commitment-text { font-size: 13.5px; color: #a7f3d0; margin: 0; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <a href="/" class="header-brand">
+            <span class="header-logo">SAREMBOK VE</span>
+        </a>
+        <nav class="header-nav">
+            <a href="/" class="nav-link">Console</a>
+            <a href="/projects" class="nav-link">Projects &amp; Walkthroughs</a>
+            <a href="/docs" class="nav-link">Documentation</a>
+            <a href="/privacy" class="nav-link active">Privacy</a>
+            <a href="/terms" class="nav-link">Terms</a>
+            <a href="https://github.com/jetsontech/SarembokVE" target="_blank" rel="noopener" class="nav-link">GitHub ↗</a>
+            <a href="/" class="btn-console">Launch Console →</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h1>Privacy Policy &amp; Security Architecture</h1>
+        <div class="effective-date">Last Updated: October 17, 2026 · Sovereign Enterprise Standard</div>
+
+        <div class="commitment-banner">
+            <span class="commitment-icon">🛡️</span>
+            <div>
+                <div class="commitment-title">Our Immutable Data Guarantee</div>
+                <p class="commitment-text">SarembokVE does not sell customer data, does not monetize queries or crawled schemas, and never uses private client communications or reverse-engineered specifications to train public frontier AI models.</p>
+            </div>
+        </div>
+
+        <div class="policy-card">
+            <h2>1. Ephemeral Sandboxing &amp; Browser Isolation</h2>
+            <p>Every autonomous web specification and reverse-engineering audit executed by SarembokVE runs within a dedicated, ephemeral headless Chromium container (<code>sarembok-browser</code>). The container operates under non-root permissions with strict memory ceilings (768MB) and dropped Linux capabilities (<code>cap_drop: ALL</code>).</p>
+            <p>All temporary cookies, DOM trees, local storage, and cached network frames generated during an audit are destroyed in memory immediately upon task completion.</p>
+
+            <h2>2. Information Collection &amp; Processing Scope</h2>
+            <p>SarembokVE collects only the operational data strictly necessary to provide verification and compute orchestration services:</p>
+            <ul>
+                <li><strong>Session Identifiers:</strong> Ephemeral session tokens issued by the <code>/session</code> broker with an automated 3600-second time-to-live (TTL).</li>
+                <li><strong>Target URLs for Auditing:</strong> The specific public web targets requested by users for OpenAPI schema extraction and TypeScript contract generation.</li>
+                <li><strong>Vector Memory Graph:</strong> Episodic memories explicitly stored via user prompts (e.g., <code>remember that ...</code>). All memories are scoped to the active tenant and can be cleared instantly via <code>/clear</code> or the UI Memory Rail.</li>
+                <li><strong>Hardware Attestation Data:</strong> When external GPU nodes enroll in the sovereign compute mesh, hardware telemetry (GPU model, VRAM capacity, driver status) is gathered solely for workload routing.</li>
+            </ul>
+
+            <h2>3. Cryptographic Transmission &amp; Edge Protection</h2>
+            <p>All communication with SarembokVE is encrypted in transit using Transport Layer Security (TLS 1.3) terminated at the Caddy edge proxy. Strict security headers are enforced across every endpoint:</p>
+            <ul>
+                <li><code>Strict-Transport-Security: max-age=31536000; includeSubDomains</code> (HSTS)</li>
+                <li><code>X-Content-Type-Options: nosniff</code></li>
+                <li><code>X-Frame-Options: SAMEORIGIN</code></li>
+                <li><code>Permissions-Policy: camera=(self), microphone=(self), geolocation=()</code></li>
+            </ul>
+
+            <h2>4. Data Subject Rights &amp; Immediate Purge</h2>
+            <p>Under GDPR and CCPA standards, users possess absolute control over all stored data:</p>
+            <ul>
+                <li><strong>Right to Erase:</strong> Executing <code>/clear</code> or clicking the Purge Memory button deletes all recorded session history, conversation turns, and vector records from the persistent SQLite database immediately.</li>
+                <li><strong>Right to Export:</strong> All inferred contracts, OpenAPI schemas, and TypeScript definitions can be exported at any time via <code>/api/spec/export</code> in open, non-proprietary JSON/TS formats.</li>
+            </ul>
+
+            <h2>5. Contact &amp; Security Auditing</h2>
+            <p>For enterprise security inquiries, SOC 2 compliance reports, or vulnerability disclosures, contact the security engineering team at <a href="mailto:security@sarembok.com" style="color:var(--accent);text-decoration:none;">security@sarembok.com</a>.</p>
+        </div>
+    </div>
+</body>
+</html>

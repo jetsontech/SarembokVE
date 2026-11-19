@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms of Service · SarembokVE</title>
+    <meta name="description" content="SarembokVE enterprise Terms of Service, Acceptable Use Policy, and Compute SLA.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #080a0f;
+            --bg-surface: #0e121a;
+            --border-default: rgba(255, 255, 255, 0.08);
+            --accent: #38bdf8;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --font-display: 'Chakra Petch', sans-serif;
+            --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            font-size: 15px;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(8, 10, 15, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-default);
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+
+        .header-logo {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: var(--accent);
+        }
+
+        .header-nav { display: flex; align-items: center; gap: 20px; }
+        .nav-link { color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 500; transition: color 0.15s ease; }
+        .nav-link:hover, .nav-link.active { color: var(--accent); }
+
+        .btn-console {
+            background: linear-gradient(135deg, #0284c7, #38bdf8);
+            color: #080a0f;
+            font-weight: 600;
+            font-size: 13px;
+            padding: 6px 16px;
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+        }
+
+        .container {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 56px 24px 96px;
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: 34px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .effective-date {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 32px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .terms-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: 36px 40px;
+            margin-bottom: 32px;
+        }
+
+        h2 {
+            font-family: var(--font-display);
+            font-size: 20px;
+            font-weight: 600;
+            color: #fff;
+            margin: 32px 0 14px;
+        }
+
+        h2:first-of-type { margin-top: 0; }
+        p { color: var(--text-secondary); margin-bottom: 16px; }
+        ul { color: var(--text-secondary); padding-left: 20px; margin-bottom: 18px; }
+        li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <a href="/" class="header-brand">
+            <span class="header-logo">SAREMBOK VE</span>
+        </a>
+        <nav class="header-nav">
+            <a href="/" class="nav-link">Console</a>
+            <a href="/projects" class="nav-link">Projects &amp; Walkthroughs</a>
+            <a href="/docs" class="nav-link">Documentation</a>
+            <a href="/privacy" class="nav-link">Privacy</a>
+            <a href="/terms" class="nav-link active">Terms</a>
+            <a href="https://github.com/jetsontech/SarembokVE" target="_blank" rel="noopener" class="nav-link">GitHub ↗</a>
+            <a href="/" class="btn-console">Launch Console →</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h1>Terms of Service &amp; Acceptable Use Policy</h1>
+        <div class="effective-date">Effective: October 17, 2026 · Global Production Standard</div>
+
+        <div class="terms-card">
+            <h2>1. Agreement to Terms</h2>
+            <p>By accessing or using the SarembokVE platform, REST APIs, or sovereign compute mesh, you agree to be bound by these Terms of Service. If you are accessing the service on behalf of an enterprise or organization, you represent that you possess legal authority to bind that entity.</p>
+
+            <h2>2. Acceptable Use of Autonomous Systems</h2>
+            <p>SarembokVE is designed for lawful systems engineering, automated API schema verification, performance testing, and sovereign compute clustering. Users agree NOT to:</p>
+            <ul>
+                <li>Deploy the Playwright verification engine against unauthorized private endpoints with the intent to conduct Denial of Service (DoS) attacks or bypass authentication paywalls.</li>
+                <li>Submit unlawful, harassing, or malicious payloads designed to corrupt remote systems or compromise target infrastructures.</li>
+                <li>Attempt to escape container sandboxes or perform privilege escalation on sovereign mesh worker nodes.</li>
+            </ul>
+
+            <h2>3. Sovereign Compute Mesh Participation</h2>
+            <p>When contributing external hardware resources (such as Google Colab, RunPod, or local NVIDIA GPUs) to the SarembokVE mesh via <code>colab_worker.py</code>, you retain full ownership of your physical hardware. SarembokVE will only dispatch inference requests within the limits and models specified by the worker launcher.</p>
+
+            <h2>4. Disclaimer of Warranties &amp; Limitation of Liability</h2>
+            <p>SarembokVE is provided "as is" and "as available". While the Specification Engine applies rigorous JSON Schema Draft 2020-12 validation to inferred schemas, users are responsible for final code review of synthesized TypeScript contracts prior to production deployment.</p>
+
+            <h2>5. Service Modifications &amp; Governing Law</h2>
+            <p>SarembokVE reserves the right to modify or deprecate features with reasonable notice to enterprise users. These terms are governed by the laws of the State of Delaware, United States.</p>
+        </div>
+    </div>
+</body>
+</html>
