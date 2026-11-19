@@ -11,38 +11,92 @@
 param(
     [string]$ServerIP = "15.204.173.205",
     [string]$User = "ubuntu",
-    [string]$KeyPath = "$env:USERPROFILE\.ssh\sarembok_agent"
+    [string]$KeyPath = "$env:USERPROFILE\.ssh\sarembok_agent",
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host " SAREMBOK PRODUCTION VPS DEPLOYMENT (OVH: $ServerIP)" -ForegroundColor Cyan
+Write-Host " SAREMBOK FRONTEND DEPLOYMENT (OVH: $ServerIP)" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host ""
 
-$remoteCmd = @'
-set -e
-echo "[1/4] Pulling latest commits from origin main..."
-echo "[3/4] Updating production edge and runtime containers..."
-cd "$HOME/SarembokVE"
+$dryRunValue = if ($DryRun) { "true" } else { "false" }
+$remoteCmd = @"
+set -eu
+cd "`$HOME/SarembokVE"
+
+branch=`$(git branch --show-current)
+if [ "`$branch" != "main" ]; then
+    echo "REFUSED: expected branch main, found `$branch"
+    exit 2
+fi
+
+tracked_changes=`$(git status --porcelain --untracked-files=no)
+if [ -n "`$tracked_changes" ]; then
+    echo "REFUSED: tracked VPS changes must be committed or reconciled first."
+    git status --short --branch
+    exit 3
+fi
+
 git fetch origin main
-git checkout main
-git reset --hard origin/main
+old_head=`$(git rev-parse HEAD)
+changed_paths=`$(git diff --name-only "`$old_head" origin/main)
+unsupported=`$(printf '%s\n' "`$changed_paths" | sed '/^$/d' | grep -Ev '^(frontend/|Docs/|README\.md`$|CHANGELOG\.md`$|package\.json`$|package-lock\.json`$|\.npmignore`$|([^/]+/)*\.npmignore`$|Tools/Deploy-To-OVH\.ps1`$|public/generated/)' || true)
+if [ -n "`$unsupported" ]; then
+    echo "REFUSED: this script deploys the static frontend only. These changes require a separate runtime deployment plan:"
+    printf '%s\n' "`$unsupported"
+    exit 4
+fi
 
-docker compose -f Deployment/cloud/compose.yaml -f Deployment/cloud/compose.production.yaml up -d --build --force-recreate sarembok-runtime sarembok-edge sarembok-browser
+if [ "$dryRunValue" = "true" ]; then
+    echo "DRY RUN: eligible frontend changes from `$old_head to `$(git rev-parse origin/main):"
+    printf '%s\n' "`$changed_paths"
+    exit 0
+fi
 
-echo "[4/4] Verifying container health..."
-docker compose \
-  -f Deployment/cloud/compose.yaml \
-  -f Deployment/cloud/compose.production.yaml \
-  ps
+git merge --ff-only origin/main
 
-echo "=========================================================="
-echo " DEPLOYMENT COMPLETE: Sarembok runtime active on OVH!"
-echo "=========================================================="
-'@
+if ! docker inspect --format '{{.State.Running}}' sarembok-edge 2>/dev/null | grep -qx true; then
+    echo "ERROR: sarembok-edge is not running."
+    exit 5
+fi
+
+check_route() {
+    route=`$1
+    expected=`$2
+    result=`$(curl --resolve sarembok.com:443:127.0.0.1 -k -sS -o /dev/null -w '%{http_code}|%{content_type}' --max-time 10 "https://sarembok.com`$route")
+    status=`$(printf '%s' "`$result" | cut -d'|' -f1)
+    content_type=`$(printf '%s' "`$result" | cut -d'|' -f2-)
+    if [ "`$status" != "200" ]; then
+        echo "ERROR: `$route returned HTTP `$status."
+        return 1
+    fi
+    case "`$expected: `$content_type" in
+        html: text/html*|png: image/png*|svg: image/svg+xml*|text: text/plain*|xml: text/xml*|xml: application/xml*)
+            echo "OK: `$route -> HTTP `$status (`$content_type)"
+            ;;
+        *)
+            echo "ERROR: `$route has unexpected Content-Type `$content_type."
+            return 1
+            ;;
+    esac
+}
+
+test -s frontend/index.html
+check_route / html
+check_route /docs html
+check_route /logo.png png
+check_route /og-banner.png png
+check_route /logo.svg svg
+check_route /og-banner.svg svg
+check_route /robots.txt text
+check_route /sitemap.xml xml
+
+echo "FRONTEND DEPLOYED at `$(git rev-parse --short HEAD). Runtime containers were not rebuilt."
+"@
 
 $cleanBash = ($remoteCmd -replace "`r`n", "`n") -replace "`r", "`n"
 $b64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($cleanBash))

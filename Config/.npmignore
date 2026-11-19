@@ -1,0 +1,14 @@
+__pycache__/
+**/__pycache__/
+*.pyc
+**/*.pyc
+*.db
+**/*.db
+*.db-*
+**/*.db-*
+.env
+.env.*
+**/.env
+**/.env.*
+*.bak
+**/*.bak

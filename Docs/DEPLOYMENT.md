@@ -9,22 +9,20 @@
 
 ---
 
-## 1-Command Production Deployment
+## Safe Frontend Deployment
 
-Execute the automated deployment orchestrator script:
+The OVH edge container bind-mounts the VPS `frontend/` directory at `/srv`. Deploy tracked frontend changes with:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File Sarembok.ps1 -Deploy Cloud -Domain "sarembok.com" -AuthToken "YOUR_SECURE_TOKEN"
+powershell -ExecutionPolicy Bypass -File Tools/Deploy-To-OVH.ps1 -DryRun
+powershell -ExecutionPolicy Bypass -File Tools/Deploy-To-OVH.ps1
 ```
 
-Or run directly via Docker Compose:
+The script checks that the VPS is on `main` and has no tracked local edits, fetches `origin/main`, and uses `git merge --ff-only`. It never resets or discards VPS files. Untracked backups and configuration are preserved; an incoming tracked-file collision causes Git to stop rather than overwrite them. The script deploys the static frontend only and verifies `/`, `/docs`, the logo/banner assets, `robots.txt`, and `sitemap.xml` over local HTTPS. A Caddy restart is not required for bind-mounted static files.
 
-```bash
-export SAREMBOK_SITE_ADDRESS="sarembok.com"
-export SAREMBOK_AUTH_TOKEN="YOUR_SECURE_TOKEN"
+## Runtime Deployment Status
 
-docker compose -f Deployment/cloud/compose.yaml -f Deployment/cloud/compose.production.yaml up -d --build
-```
+The VPS runtime containers are currently managed outside the tracked repository deployment configuration. `Deployment/cloud/compose.yaml` and `compose.production.yaml` are not present in the repository. Runtime/backend releases are therefore not automated by the frontend script; add and review sanitized, tracked runtime manifests and secrets references before enabling container rebuilds.
 
 ---
 
@@ -32,7 +30,7 @@ docker compose -f Deployment/cloud/compose.yaml -f Deployment/cloud/compose.prod
 
 | Service Name | Image | Port (Internal) | Port (External) | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
-| `sarembok-edge` | `caddy:2-alpine` | `80`, `443` | `80`, `443` | TLS termination, Edge proxy, static web app |
+| `sarembok-edge` | `caddy:2-alpine` | `80`, `443` | `80`, `443` | TLS termination, edge proxy, static frontend |
 | `sarembok-runtime` | `python:3.12-slim` | `9000` | Isolated | SQLite WAL storage, WebSocket JSON-RPC server |
 
 ---

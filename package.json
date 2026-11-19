@@ -12,8 +12,8 @@
     "./sdk": "./SDK/index.js"
   },
   "bin": {
-    "sarembok": "./bin/sarembok-cli.js",
-    "sarembok-legacy": "./bin/sarembok.js"
+    "sarembok": "bin/sarembok-cli.js",
+    "sarembok-legacy": "bin/sarembok.js"
   },
   "files": [
     "bin/",

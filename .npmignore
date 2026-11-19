@@ -1,0 +1,10 @@
+**/__pycache__/
+**/*.pyc
+**/test_*.py
+Tools/Builder/
+Tools/Diagnostics/
+Tools/Evaluation/
+Tools/ovh_vps_mcp.py
+Tools/Deploy-To-OVH.ps1
+production-index.html
+.vscode/
