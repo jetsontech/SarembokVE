@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">SarembokVE</title>
+  <desc id="desc">SarembokVE distributed AI compute platform mark</desc>
+  <rect width="512" height="512" rx="96" fill="#05070b"/>
+  <circle cx="256" cy="256" r="156" fill="none" stroke="#00f0ff" stroke-width="18"/>
+  <circle cx="256" cy="256" r="76" fill="#00f0ff" fill-opacity="0.12" stroke="#10b981" stroke-width="14"/>
+  <path d="M256 100v312M100 256h312" stroke="#ffffff" stroke-opacity="0.42" stroke-width="8"/>
+  <path d="M256 180l76 76-76 76-76-76z" fill="#00f0ff"/>
+  <text x="256" y="470" fill="#ffffff" font-family="Arial,sans-serif" font-size="34" font-weight="700" text-anchor="middle">SAREMBOKVE</text>
+</svg>

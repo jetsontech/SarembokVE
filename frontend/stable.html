@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="description" content="SarembokVE — AI-native computing environment and control plane.">
+  <title>SAREMBOKVE · AI-NATIVE COMPUTING ENVIRONMENT</title>
+  <style>
+    :root{
+      --bg:#070b12;--surface:#0d1420;--surface-2:#101a28;--surface-3:#162235;
+      --border:#223247;--text:#f5f7fb;--muted:#92a1b4;--cyan:#18d7ee;--green:#25d39a;
+      --amber:#f3b34b;--red:#f06b72;--shadow:0 18px 60px rgba(0,0,0,.28);
+      --radius:14px;--sans:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
+    }
+    html[data-theme="light"]{
+      color-scheme:light;--bg:#eef2f5;--surface:#fff;--surface-2:#f7f9fb;--surface-3:#edf3f6;
+      --border:#d5dee7;--text:#17212b;--muted:#627181;--cyan:#087f9b;--green:#087a5b;--amber:#9b620b;
+      --red:#b4232c;--shadow:0 18px 50px rgba(24,39,54,.10);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans)}
+    body{overflow:hidden}
+    button,input,textarea,select{font:inherit}
+    button{cursor:pointer}
+    .app{display:grid;grid-template-columns:72px 1fr;height:100dvh}
+    .rail{display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 10px;border-right:1px solid var(--border);background:var(--surface);z-index:5}
+    .brand-mark{width:42px;height:42px;border:1px solid var(--cyan);border-radius:50%;display:grid;place-items:center;color:var(--cyan);font-weight:800;letter-spacing:.06em;margin-bottom:14px;box-shadow:0 0 22px color-mix(in srgb,var(--cyan) 22%,transparent)}
+    .nav{display:flex;flex-direction:column;gap:8px;width:100%}
+    .nav button{width:100%;height:42px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--muted);display:grid;place-items:center;transition:.18s}
+    .nav button:hover,.nav button.active{color:var(--cyan);background:color-mix(in srgb,var(--cyan) 9%,transparent);border-color:color-mix(in srgb,var(--cyan) 25%,transparent)}
+    .rail-spacer{flex:1}
+    .status-dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 12px color-mix(in srgb,var(--green) 55%,transparent)}
+    .shell{min-width:0;display:grid;grid-template-rows:auto 1fr}
+    .topbar{height:72px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(14px)}
+    .identity{display:flex;align-items:center;gap:12px;min-width:0}.identity h1{font-size:16px;letter-spacing:.16em;margin:0}.identity p{margin:3px 0 0;color:var(--muted);font:10px var(--mono);letter-spacing:.08em}
+    .top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.pill{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:999px;padding:7px 10px;color:var(--muted);font:11px var(--mono);white-space:nowrap}
+    .pill strong{color:var(--text)}
+    .theme{border:1px solid var(--border);background:var(--surface-2);color:var(--muted);border-radius:999px;padding:7px 11px;font:11px var(--mono)}
+    .content{min-height:0;overflow:auto;padding:22px}
+    .view{display:none;max-width:1200px;margin:0 auto}.view.active{display:block}
+    .hero{padding:20px 0 10px}.eyebrow{font:11px var(--mono);letter-spacing:.14em;color:var(--cyan);text-transform:uppercase}.hero h2{font-size:30px;margin:8px 0 8px;letter-spacing:-.02em}.hero p{max-width:760px;color:var(--muted);line-height:1.6;margin:0}
+    .grid{display:grid;gap:14px}.grid.stats{grid-template-columns:repeat(4,minmax(0,1fr));margin:18px 0}.grid.two{grid-template-columns:1.35fr .85fr}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;min-width:0}.card h3{font-size:13px;margin:0 0 4px}.card .sub{font-size:11px;color:var(--muted);line-height:1.5}.metric-label{font:10px var(--mono);color:var(--muted);letter-spacing:.1em}.metric-value{font-size:26px;font-weight:700;margin-top:7px}.metric-value.cyan{color:var(--cyan)}.metric-value.green{color:var(--green)}
+    .chat{display:flex;flex-direction:column;min-height:0}.messages{min-height:320px;max-height:calc(100dvh - 280px);overflow:auto;padding:2px}.msg{display:flex;margin:10px 0}.msg.user{justify-content:flex-end}.bubble{max-width:min(820px,92%);padding:12px 14px;border-radius:13px;border:1px solid var(--border);background:var(--surface-2);line-height:1.6;font-size:14px;overflow-wrap:anywhere}.user .bubble{background:color-mix(in srgb,var(--cyan) 9%,var(--surface));border-color:color-mix(in srgb,var(--cyan) 25%,var(--border))}.sender{font:10px var(--mono);color:var(--muted);letter-spacing:.08em;margin-bottom:5px}.assistant .sender{color:var(--cyan)}
+    .composer{display:flex;gap:9px;margin-top:12px}.composer input{flex:1;min-width:0;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:13px 14px;border-radius:12px;outline:none}.composer input:focus{border-color:color-mix(in srgb,var(--cyan) 55%,var(--border));box-shadow:0 0 0 3px color-mix(in srgb,var(--cyan) 10%,transparent)}.primary,.secondary{border-radius:11px;padding:0 16px;border:1px solid var(--cyan);background:var(--cyan);color:#032027;font-weight:700}.secondary{background:var(--surface-2);color:var(--cyan);border-color:color-mix(in srgb,var(--cyan) 35%,var(--border))}.primary:disabled,.secondary:disabled{opacity:.55;cursor:wait}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}.toolbar input,.toolbar select,.toolbar textarea{border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:10px;padding:10px 11px;min-width:0}.toolbar input{flex:1}.toolbar textarea{width:100%;min-height:90px;resize:vertical}
+    .list{display:flex;flex-direction:column;gap:9px}.row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2)}.row-main{min-width:0}.row-title{font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.row-meta{color:var(--muted);font:10px var(--mono);margin-top:3px;overflow-wrap:anywhere}.badge{font:10px var(--mono);border:1px solid var(--border);border-radius:999px;padding:4px 8px;color:var(--muted);white-space:nowrap}.badge.online{color:var(--green);border-color:color-mix(in srgb,var(--green) 35%,var(--border))}.badge.pending{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 35%,var(--border))}
+    pre{white-space:pre-wrap;word-break:break-word;font:11px/1.6 var(--mono);color:var(--muted);background:var(--surface-2);border:1px solid var(--border);padding:12px;border-radius:10px;max-height:430px;overflow:auto}.empty{padding:26px;text-align:center;color:var(--muted);font-size:12px}
+    .browser-preview{min-height:310px;border:1px dashed var(--border);border-radius:12px;background:var(--surface-2);display:grid;place-items:center;overflow:auto}.browser-preview img{display:block;max-width:100%;height:auto}.browser-preview iframe{width:100%;min-height:520px;border:0;background:#fff}.browser-preview .dom{width:100%;padding:14px}
+    .notice{font-size:11px;color:var(--muted);padding:8px 0}.notice strong{color:var(--text)}
+    @media(max-width:900px){.grid.stats,.grid.three,.grid.two{grid-template-columns:1fr 1fr}.topbar{height:auto;min-height:72px;padding:12px 14px}.content{padding:14px}.hero h2{font-size:24px}}
+    @media(max-width:640px){.app{grid-template-columns:58px 1fr}.rail{padding:10px 7px}.grid.stats,.grid.three,.grid.two{grid-template-columns:1fr}.top-actions .pill:nth-child(2){display:none}.messages{max-height:calc(100dvh - 300px)}.composer{flex-wrap:wrap}.composer input{width:100%;flex-basis:100%;}.primary,.secondary{height:42px}.nav button{height:40px}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="brand-mark">VE</div>
+    <nav class="nav" aria-label="Primary navigation">
+      <button data-view="dialogue" class="active" title="Dialogue">✦</button>
+      <button data-view="research" title="Research and browser">⌕</button>
+      <button data-view="tasks" title="Tasks">✓</button>
+      <button data-view="memory" title="Memory">◈</button>
+      <button data-view="workers" title="Workers">▦</button>
+      <button data-view="runtime" title="Runtime">◇</button>
+    </nav>
+    <div class="rail-spacer"></div><div class="status-dot" title="Runtime link"></div>
+  </aside>
+  <main class="shell">
+    <header class="topbar">
+      <div class="identity"><div><h1>SAREMBOKVE</h1><p>AI-NATIVE COMPUTING ENVIRONMENT</p></div></div>
+      <div class="top-actions">
+        <div class="pill"><span class="status-dot"></span><strong id="conn-status">CONNECTING</strong></div>
+        <div class="pill">LATENCY <strong id="latency">—</strong></div>
+        <div class="pill">SAREMBOK HEALTH <strong id="health">—</strong></div>
+        <button id="theme-toggle" class="theme">LIGHT</button>
+      </div>
+    </header>
+
+    <div class="content">
+      <section id="view-dialogue" class="view active">
+        <div class="hero"><div class="eyebrow">Dialogue</div><h2>One control surface. Live runtime state.</h2><p>Send directives through the Sarembok control plane. Responses are rendered from runtime output; the browser does not invent capabilities, hardware, models, or task results.</p></div>
+        <div class="grid stats">
+          <div class="card"><div class="metric-label">ACTIVE AGENTS</div><div id="m-agents" class="metric-value cyan">—</div></div>
+          <div class="card"><div class="metric-label">WORKERS ONLINE</div><div id="m-workers" class="metric-value green">—</div></div>
+          <div class="card"><div class="metric-label">QUEUED TASKS</div><div id="m-queue" class="metric-value">—</div></div>
+          <div class="card"><div class="metric-label">PERSISTENT MEMORIES</div><div id="m-memory" class="metric-value">—</div></div>
+        </div>
+        <div class="card chat">
+          <div id="messages" class="messages"></div>
+          <div class="composer"><input id="prompt" autocomplete="off" placeholder="Ask Sarembok…" maxlength="12000"><button id="send" class="primary">EXECUTE</button></div>
+          <div class="notice" id="chat-notice">Browser session and runtime link are being established.</div>
+        </div>
+      </section>
+
+      <section id="view-research" class="view">
+        <div class="hero"><div class="eyebrow">Research / Browser</div><h2>Headless Chromium research surface.</h2><p>Use the configured browser worker for live page screenshots and DOM extraction. Results shown here come directly from the runtime.</p></div>
+        <div class="card">
+          <div class="toolbar"><input id="browser-url" type="url" value="https://sarembok.com" placeholder="https://example.com"><button id="browser-shot" class="primary">SCREENSHOT</button><button id="browser-dom" class="secondary">RENDER DOM</button></div>
+          <div id="browser-preview" class="browser-preview"><div class="empty">No browser operation has been run.</div></div>
+        </div>
+      </section>
+
+      <section id="view-tasks" class="view">
+        <div class="hero"><div class="eyebrow">Tasks</div><h2>Task queue and execution state.</h2><p>Tasks are live records from the SQLite-backed runtime scheduler. A task without an eligible worker remains pending rather than being presented as completed.</p></div>
+        <div class="card"><div class="toolbar"><button id="task-refresh" class="secondary">REFRESH</button><input id="task-type" placeholder="Task type (optional)"><button id="task-create" class="primary">CREATE TASK</button></div><div id="tasks-list" class="list"><div class="empty">Loading tasks…</div></div></div>
+      </section>
+
+      <section id="view-memory" class="view">
+        <div class="hero"><div class="eyebrow">Memory</div><h2>Persistent memory bank.</h2><p>Browse and store explicit memory records through runtime RPC.</p></div>
+        <div class="grid two">
+          <div class="card"><div class="toolbar"><input id="memory-search" placeholder="Search key or value"><select id="memory-tier"><option value="">ALL TIERS</option><option>WORKING</option><option>SEMANTIC</option><option>EPISODIC</option><option>SPATIAL</option></select><button id="memory-refresh" class="secondary">REFRESH</button></div><div id="memory-list" class="list"><div class="empty">Loading memory…</div></div></div>
+          <div class="card"><h3>Store a memory</h3><div class="sub">The record will be persisted by the runtime.</div><div class="toolbar" style="margin-top:12px"><input id="memory-key" placeholder="Key"><input id="memory-value" placeholder="Value"><select id="memory-store-tier"><option>WORKING</option><option selected>SEMANTIC</option><option>EPISODIC</option></select></div><button id="memory-store" class="primary">STORE</button></div>
+        </div>
+      </section>
+
+      <section id="view-workers" class="view">
+        <div class="hero"><div class="eyebrow">Workers</div><h2>Distributed worker registry.</h2><p>Only registered workers with live runtime status are displayed. GPU capacity is shown only when a worker reports it.</p></div>
+        <div class="card"><div class="toolbar"><button id="workers-refresh" class="secondary">REFRESH</button></div><div id="workers-list" class="list"><div class="empty">Loading worker registry…</div></div></div>
+      </section>
+
+      <section id="view-runtime" class="view">
+        <div class="hero"><div class="eyebrow">Runtime</div><h2>Control-plane state.</h2><p>Operational telemetry exposed directly from Runtime Authority.</p></div>
+        <div class="grid three">
+          <div class="card"><h3>Service</h3><pre id="runtime-service">—</pre></div>
+          <div class="card"><h3>Storage</h3><pre id="runtime-storage">—</pre></div>
+          <div class="card"><h3>Checkpoint</h3><pre id="runtime-checkpoint">—</pre></div>
+        </div>
+        <div class="card" style="margin-top:14px"><h3>Runtime snapshot</h3><pre id="runtime-json">Waiting for RuntimeInfo…</pre></div>
+      </section>
+    </div>
+  </main>
+</div>
+<script>
+(() => {
+  "use strict";
+  const state = { ws:null, sessionToken:null, nextId:1, pending:new Map(), connectPromise:null, reconnectTimer:null, telemetryTimer:null, theme:"dark" };
+  const $ = id => document.getElementById(id);
+
+  function escapeHtml(value){return String(value ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#39;");}
+  function inline(text){let s=escapeHtml(text);s=s.replace(/`([^`]+)`/g,"<code>$1</code>");s=s.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");s=s.replace(/\*([^*]+)\*/g,"<em>$1</em>");s=s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener" style="color:var(--cyan)">$1</a>');return s;}
+  function markdown(text){
+    let s=String(text ?? "").replace(/\\n/g,"\n").replace(/\\([*_`#|])/g,"$1");
+    s=s.replace(/```(?:[\w-]+)?\n([\s\S]*?)```/g,(_,code)=>`<pre>${escapeHtml(code.trim())}</pre>`);
+    const blocks=s.split(/\n{2,}/).map(block=>block.trim()).filter(Boolean);
+    return blocks.map(block=>{
+      if(/^#{1,3}\s/.test(block)){const m=block.match(/^(#{1,3})\s+(.+)$/);const level=Math.min(3,m[1].length);return `<h${level} style="margin:12px 0 7px">${inline(m[2])}</h${level}>`;}
+      const lines=block.split("\n");
+      if(lines.every(l=>/^[-*]\s+/.test(l.trim()))){return `<ul style="margin:8px 0 8px 18px;padding:0">${lines.map(l=>`<li>${inline(l.trim().replace(/^[-*]\s+/,""))}</li>`).join("")}</ul>`;}
+      if(lines.every(l=>/^\d+\.\s+/.test(l.trim()))){return `<ol style="margin:8px 0 8px 18px;padding:0">${lines.map(l=>`<li>${inline(l.trim().replace(/^\d+\.\s+/,""))}</li>`).join("")}</ol>`;}
+      return `<p style="margin:0">${lines.map(inline).join("<br>")}</p>`;
+    }).join("");
+  }
+  function setConn(text,good=false){$("conn-status").textContent=text;const dot=document.querySelector(".top-actions .status-dot");if(dot)dot.style.background=good?"var(--green)":"var(--amber)";}
+  async function initSession(){
+    if(state.sessionToken)return state.sessionToken;
+    const r=await fetch("/session",{cache:"no-store",headers:{"Accept":"application/json"}});
+    if(!r.ok)throw new Error(`Session request failed (${r.status})`);
+    const data=await r.json();
+    const token=data.token || data.sessionToken || data.browserSessionToken;
+    if(!token)throw new Error("Session endpoint returned no browser token");
+    state.sessionToken=token;return token;
+  }
+  function closePending(message){for(const [id,p] of state.pending){clearTimeout(p.timer);p.reject(new Error(message));state.pending.delete(id);}}
+  function connectWs(){
+    if(state.ws && state.ws.readyState===WebSocket.OPEN)return Promise.resolve(true);
+    if(state.connectPromise)return state.connectPromise;
+    state.connectPromise=new Promise((resolve,reject)=>{
+      const proto=location.protocol==="https:"?"wss:":"ws:";
+      const url=`${proto}://${location.host}/ws`;
+      let opened=false;
+      setConn("CONNECTING");
+      let socket;
+      try{socket=new WebSocket(url);state.ws=socket;}catch(e){state.connectPromise=null;reject(e);return;}
+      socket.onopen=()=>{opened=true;state.connectPromise=null;setConn("ONLINE",true);resolve(true);refreshRuntime().catch(()=>{});startTelemetry();};
+      socket.onmessage=e=>{
+        try{const data=JSON.parse(e.data);if(data.method==="SarembokChat.delta"){const params=data.params||{};const reqId=params.id||data.id;const text=params.text ?? params.delta ?? "";const p=state.pending.get(reqId);if(p&&p.onDelta)p.onDelta(text);return;}if(data.id&&state.pending.has(data.id)){const p=state.pending.get(data.id);state.pending.delete(data.id);clearTimeout(p.timer);if(data.error)p.reject(new Error(String(data.error.message||"RPC request failed")));else p.resolve(data.result);}}catch(err){console.warn("[sarembok] websocket parse error",err);}};
+      socket.onerror=()=>{if(!opened){state.connectPromise=null;reject(new Error("WebSocket connection failed"));}setConn("DEGRADED");};
+      socket.onclose=()=>{state.ws=null;state.connectPromise=null;closePending("Runtime connection closed");setConn("RECONNECTING");if(state.reconnectTimer)clearTimeout(state.reconnectTimer);state.reconnectTimer=setTimeout(()=>connectWs().catch(()=>{}),1800);};
+    });
+    return state.connectPromise;
+  }
+  async function ensureReady(){await initSession();await connectWs();return true;}
+  async function rpc(method,params={},onDelta=null){
+    await ensureReady();
+    const id=`ui-${state.nextId++}`;const payload={...params,sessionToken:state.sessionToken};
+    return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{if(state.pending.has(id)){state.pending.delete(id);reject(new Error(`RPC Timeout: ${method}`));}},45000);state.pending.set(id,{resolve,reject,onDelta,timer});try{state.ws.send(JSON.stringify({jsonrpc:"2.0",id,method,params:payload}));}catch(e){clearTimeout(timer);state.pending.delete(id);reject(e);}});
+  }
+  function addMessage(role,text){const wrap=document.createElement("div");wrap.className=`msg ${role}`;const bubble=document.createElement("div");bubble.className="bubble";bubble.innerHTML=`<div class="sender">${role==="user"?"YOU":"SAREMBOK"}</div>${role==="user"?`<p style="margin:0">${escapeHtml(text)}</p>`:markdown(text)}`;wrap.appendChild(bubble);$("messages").appendChild(wrap);$("messages").scrollTop=$("messages").scrollHeight;return bubble;}
+  async function send(){
+    const input=$("prompt"),btn=$("send"),text=input.value.trim();if(!text)return;
+    input.value="";btn.disabled=true;addMessage("user",text);const bubble=addMessage("assistant","Computing…");let streamed="";
+    try{
+      const res=await rpc("SarembokChat",{prompt:text,stream:true,sessionId:localStorage.getItem("sarembok_active_session_id")||`web-${Date.now()}`},delta=>{streamed+=delta;bubble.innerHTML=`<div class="sender">SAREMBOK</div>${markdown(streamed)}`;$("messages").scrollTop=$("messages").scrollHeight;});
+      const finalText=res?.response || res?.audioText || streamed || "No response returned.";bubble.innerHTML=`<div class="sender">SAREMBOK</div>${markdown(finalText)}`;
+      $("chat-notice").textContent=`Runtime response received${res?.model?` · ${res.model}`:""}.`;
+    }catch(err){bubble.innerHTML=`<div class="sender">SAREMBOK</div><p style="color:var(--amber)">Execution failed: ${escapeHtml(err.message)}</p>`;$("chat-notice").textContent="Runtime connection or request failed; no client-side capability simulation was applied.";}
+    finally{btn.disabled=false;input.focus();}
+  }
+  async function refreshRuntime(){
+    try{
+      const info=await rpc("GetRuntimeInfo");
+      state.runtime=info;$("runtime-json").textContent=JSON.stringify(info,null,2);$("runtime-service").textContent=info.service||"—";$("runtime-storage").textContent=info.storage||"—";$("runtime-checkpoint").textContent=info.lastCheckpoint||"None";
+      $("m-agents").textContent=info.activeAgents ?? "0";$("m-workers").textContent=info.onlineWorkers ?? "0";$("m-queue").textContent=info.scheduler?.queueDepth ?? info.queueDepth ?? "0";$("m-memory").textContent=info.totalMemories ?? info.memory?.entries ?? "0";
+      return info;
+    }catch(e){setConn("DEGRADED");return null;}
+  }
+  function startTelemetry(){if(state.telemetryTimer)clearInterval(state.telemetryTimer);state.telemetryTimer=setInterval(()=>refreshRuntime().catch(()=>{}),25000);}
+  async function healthPing(){const t=performance.now();try{const r=await fetch("/health",{cache:"no-store"});$("health").textContent=r.ok?"OK":"ERR";$("latency").textContent=`${Math.round(performance.now()-t)}ms`;}catch{$("health").textContent="ERR";$('latency').textContent="—";}}
+  async function loadTasks(){const el=$("tasks-list");el.innerHTML='<div class="empty">Loading tasks…</div>';try{const res=await rpc("ListTasks",{});const tasks=res?.tasks||[];el.innerHTML=tasks.length?tasks.map(t=>`<div class="row"><div class="row-main"><div class="row-title">${escapeHtml(t.taskType||"task")}</div><div class="row-meta">${escapeHtml(t.taskId||"")} · ${escapeHtml(t.requiredCapability||"")} · ${escapeHtml(t.status||"")}</div></div><span class="badge ${t.status==="COMPLETED"?"online":"pending"}">${escapeHtml(t.status||"UNKNOWN")}</span></div>`).join(""):'<div class="empty">No task records found.</div>';}catch(e){el.innerHTML=`<div class="empty">${escapeHtml(e.message)}</div>`;}}
+  async function loadMemories(){const el=$("memory-list"),q=$("memory-search").value.trim(),tier=$("memory-tier").value;el.innerHTML='<div class="empty">Loading memory…</div>';try{const res=q?await rpc("SearchMemories",{query:q,tier,limit:100}):await rpc("ListMemories",{tier});const memories=res?.memories||[];el.innerHTML=memories.length?memories.map(m=>`<div class="row"><div class="row-main"><div class="row-title">${escapeHtml(m.key||"memory")}</div><div class="row-meta">${escapeHtml(m.value||"")} · ${escapeHtml(m.createdAt||"")}</div></div><span class="badge">${escapeHtml(m.tier||"")}</span></div>`).join(""):'<div class="empty">No memories match the current filter.</div>';}catch(e){el.innerHTML=`<div class="empty">${escapeHtml(e.message)}</div>`;}}
+  async function loadWorkers(){const el=$("workers-list");el.innerHTML='<div class="empty">Loading workers…</div>';try{const res=await rpc("ListWorkers",{});const workers=res?.workers||[];el.innerHTML=workers.length?workers.map(w=>{const gpu=(w.gpuModel||w.gpuVendor)?`${w.gpuVendor||""} ${w.gpuModel||""}`.trim():"CPU / unspecified accelerator";const vram=w.vramMb?`${w.vramMb} MB VRAM`:"";return `<div class="row"><div class="row-main"><div class="row-title">${escapeHtml(w.workerId||"worker")}</div><div class="row-meta">${escapeHtml(gpu)} ${vram?`· ${escapeHtml(vram)}`:""} · last heartbeat ${escapeHtml(w.lastHeartbeat||"—")}</div></div><span class="badge ${w.status==="ONLINE"?"online":"pending"}">${escapeHtml(w.status||"UNKNOWN")}</span></div>`}).join(""):'<div class="empty">No registered workers are currently visible to this browser session.</div>';}catch(e){el.innerHTML=`<div class="empty">${escapeHtml(e.message)}</div>`;}}
+  async function createTask(){const taskType=$("task-type").value.trim()||"general";try{const res=await rpc("CreateTask",{taskType,requiredCapability:"compute",payload:{source:"stable-ui"}});$("task-type").value="";await loadTasks();$("chat-notice").textContent=`Created ${res?.taskId||"task"} with status ${res?.status||"unknown"}.`;await refreshRuntime();}catch(e){$("chat-notice").textContent=`Task creation failed: ${e.message}`;}}
+  async function storeMemory(){const key=$("memory-key").value.trim(),value=$("memory-value").value.trim(),tier=$("memory-store-tier").value;if(!key||!value)return;try{await rpc("StoreMemory",{key,value,tier});$("memory-key").value="";$("memory-value").value="";await loadMemories();await refreshRuntime();}catch(e){alert(`Memory store failed: ${e.message}`);}}
+  async function browserAction(kind){const url=$("browser-url").value.trim();if(!url)return;const box=$("browser-preview");box.innerHTML=`<div class="empty">Running ${kind} for ${escapeHtml(url)}…</div>`;try{const method=kind==="SCREENSHOT"?"BrowserScreenshot":"BrowserRender";const params=kind==="SCREENSHOT"?{url,fullPage:true}:{url};const res=await rpc(method,params);if(kind==="SCREENSHOT"&&res?.screenshot){box.innerHTML=`<img src="${escapeHtml(res.screenshot)}" alt="Browser screenshot">`;}else if(kind==="RENDER DOM"&&res?.html){box.innerHTML=`<div class="dom"><div class="notice"><strong>${escapeHtml(res.title||url)}</strong> · ${escapeHtml(String(res.htmlBytes||res.html.length))} bytes</div><pre>${escapeHtml(res.html.slice(0,20000))}</pre></div>`;}else{box.innerHTML=`<div class="empty">${escapeHtml(res?.error||"Browser operation returned no displayable payload.")}</div>`;}}catch(e){box.innerHTML=`<div class="empty">Browser request failed: ${escapeHtml(e.message)}</div>`;}}
+  function switchView(name){document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===`view-${name}`));document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===name));if(name==="tasks")loadTasks();if(name==="memory")loadMemories();if(name==="workers")loadWorkers();if(name==="runtime")refreshRuntime();}
+  function applyTheme(theme){state.theme=theme;document.documentElement.dataset.theme=theme;try{localStorage.setItem("sarembok-stable-theme",theme);}catch{}$("theme-toggle").textContent=theme==="light"?"DARK":"LIGHT";}
+  function initTheme(){let t="dark";try{t=localStorage.getItem("sarembok-stable-theme")||"dark";}catch{}applyTheme(t==="light"?"light":"dark");}
+
+  document.querySelectorAll(".nav button").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.view)));
+  $("theme-toggle").addEventListener("click",()=>applyTheme(state.theme==="light"?"dark":"light"));
+  $("send").addEventListener("click",send);$("prompt").addEventListener("keydown",e=>{if(e.key==="Enter")send();});
+  $("task-refresh").addEventListener("click",loadTasks);$("task-create").addEventListener("click",createTask);
+  $("memory-refresh").addEventListener("click",loadMemories);$("memory-search").addEventListener("keydown",e=>{if(e.key==="Enter")loadMemories();});$("memory-tier").addEventListener("change",loadMemories);$("memory-store").addEventListener("click",storeMemory);
+  $("workers-refresh").addEventListener("click",loadWorkers);
+  $("browser-shot").addEventListener("click",()=>browserAction("SCREENSHOT"));$("browser-dom").addEventListener("click",()=>browserAction("RENDER DOM"));
+
+  initTheme();healthPing();setInterval(healthPing,8000);
+  addMessage("assistant","SarembokVE is ready. Establishing the live control-plane session…");
+  (async()=>{try{await initSession();await connectWs();await refreshRuntime();$("chat-notice").textContent="Live runtime connected. Enter a directive to execute.";}catch(e){setConn("DEGRADED");$("chat-notice").textContent=`Startup error: ${e.message}`;}})();
+})();
+</script>
+</body>
+</html>
