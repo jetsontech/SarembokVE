@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation · SarembokVE Autonomous Systems Engine</title>
+    <meta name="description" content="Technical documentation, architecture specifications, API references, and quickstart guides for SarembokVE.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #080a0f;
+            --bg-surface: #0e121a;
+            --bg-elevated: #151a24;
+            --bg-card: rgba(255, 255, 255, 0.025);
+            --border-default: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.16);
+            --accent: #38bdf8;
+            --accent-dim: rgba(56, 189, 248, 0.12);
+            --accent-glow: rgba(56, 189, 248, 0.25);
+            --green: #10b981;
+            --green-dim: rgba(16, 185, 129, 0.12);
+            --amber: #f59e0b;
+            --purple: #a855f7;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --font-display: 'Chakra Petch', sans-serif;
+            --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            font-size: 15px;
+            line-height: 1.65;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Top Nav */
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(8, 10, 15, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-default);
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+
+        .header-logo {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: var(--accent);
+        }
+
+        .header-nav {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: color 0.15s ease;
+        }
+
+        .nav-link:hover, .nav-link.active { color: var(--accent); }
+
+        .btn-console {
+            background: linear-gradient(135deg, #0284c7, #38bdf8);
+            color: #080a0f;
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 13px;
+            padding: 6px 16px;
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+            transition: opacity 0.15s ease;
+        }
+
+        .btn-console:hover { opacity: 0.9; }
+
+        /* Documentation Layout */
+        .docs-container {
+            display: grid;
+            grid-template-columns: 260px minmax(0, 1fr) 220px;
+            max-width: 1440px;
+            margin: 0 auto;
+            min-height: calc(100vh - 56px);
+        }
+
+        /* Sidebar Nav */
+        .sidebar {
+            position: sticky;
+            top: 56px;
+            height: calc(100vh - 56px);
+            overflow-y: auto;
+            padding: 28px 20px;
+            border-right: 1px solid var(--border-default);
+        }
+
+        .sidebar-group { margin-bottom: 24px; }
+        .sidebar-title {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .sidebar-link {
+            display: block;
+            padding: 6px 10px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 13px;
+            border-radius: var(--radius-sm);
+            transition: all 0.15s ease;
+            margin-bottom: 2px;
+        }
+
+        .sidebar-link:hover {
+            color: var(--text-primary);
+            background: var(--bg-card);
+        }
+
+        .sidebar-link.active {
+            color: var(--accent);
+            background: var(--accent-dim);
+            font-weight: 600;
+        }
+
+        /* Main Content */
+        .content {
+            padding: 40px 48px 80px;
+            max-width: 860px;
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: #fff;
+            margin-bottom: 12px;
+        }
+
+        .lead {
+            font-size: 17px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+
+        h2 {
+            font-family: var(--font-display);
+            font-size: 22px;
+            font-weight: 600;
+            color: #fff;
+            margin: 40px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-default);
+        }
+
+        h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 24px 0 10px;
+        }
+
+        p { margin-bottom: 16px; color: var(--text-secondary); }
+
+        ul, ol { margin-bottom: 16px; padding-left: 20px; color: var(--text-secondary); }
+        li { margin-bottom: 6px; }
+
+        /* Code & Pre */
+        code {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            background: var(--bg-elevated);
+            color: var(--accent);
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid var(--border-default);
+        }
+
+        pre {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            padding: 16px 20px;
+            overflow-x: auto;
+            margin: 16px 0 24px;
+            position: relative;
+        }
+
+        pre code {
+            background: none;
+            border: none;
+            padding: 0;
+            color: #e2e8f0;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-default);
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-family: var(--font-mono);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+        /* Cards & Architecture Diagram */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin: 24px 0;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+        }
+
+        .feature-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+
+        .card-icon {
+            font-size: 20px;
+            margin-bottom: 8px;
+            display: inline-block;
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+
+        .card-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        /* Right Table of Contents */
+        .toc {
+            position: sticky;
+            top: 56px;
+            height: calc(100vh - 56px);
+            overflow-y: auto;
+            padding: 28px 20px;
+            border-left: 1px solid var(--border-default);
+        }
+
+        .toc-title {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .toc-link {
+            display: block;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 4px 0;
+            transition: color 0.15s ease;
+        }
+
+        .toc-link:hover { color: var(--text-primary); }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-family: var(--font-mono);
+            font-weight: 500;
+        }
+        .badge-live { background: var(--green-dim); color: var(--green); border: 1px solid rgba(16,185,129,0.2); }
+        .badge-mesh { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(56,189,248,0.2); }
+
+        .mobile-docs-nav { display: none; }
+
+        @media (max-width: 1024px) {
+            .docs-container { grid-template-columns: 220px 1fr; }
+            .toc { display: none; }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                height: auto;
+                padding: 10px 16px;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            .header-nav {
+                width: 100%;
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                gap: 12px;
+                padding-bottom: 2px;
+                scrollbar-width: none;
+            }
+            .header-nav::-webkit-scrollbar { display: none; }
+            .nav-link { white-space: nowrap; font-size: 13px; }
+            .btn-console { white-space: nowrap; font-size: 12px; padding: 5px 12px; }
+            html, body { overflow-x: hidden; }
+            .docs-container { grid-template-columns: minmax(0, 1fr) !important; min-width: 0 !important; width: 100% !important; max-width: 100vw !important; overflow-x: hidden !important; }
+            .sidebar { display: none !important; }
+            .content { padding: 20px 16px 60px !important; min-width: 0 !important; max-width: 100% !important; overflow-x: hidden !important; width: 100% !important; }
+            .feature-grid { grid-template-columns: 1fr !important; }
+            pre { min-width: 0 !important; max-width: 100% !important; overflow-x: auto !important; font-size: 11px !important; }
+            pre code { display: block; overflow-x: auto; max-width: 100%; }
+
+            .mobile-docs-nav {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 20px;
+                padding: 10px 14px;
+                background: var(--bg-surface);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-sm);
+                font-size: 13px;
+                color: var(--text-secondary);
+                width: 100%;
+            }
+            .mobile-docs-nav select {
+                flex: 1;
+                background: var(--bg-elevated);
+                border: 1px solid var(--border-default);
+                color: var(--text-primary);
+                font-family: var(--font-sans);
+                font-size: 13px;
+                padding: 6px 10px;
+                border-radius: var(--radius-sm);
+                outline: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <a href="/" class="header-brand">
+            <span class="header-logo">SAREMBOK VE</span>
+            <span class="badge badge-live">● PRODUCTION LIVE</span>
+        </a>
+        <nav class="header-nav">
+            <a href="/" class="nav-link">Console</a>
+            <a href="/projects" class="nav-link">Projects &amp; Walkthroughs</a>
+            <a href="/docs" class="nav-link active">Documentation</a>
+            <a href="/status" class="nav-link">Status</a>
+            <a href="/changelog" class="nav-link">Changelog</a>
+            <a href="/security" class="nav-link">Security</a>
+            <a href="/about" class="nav-link">About</a>
+            <a href="/privacy" class="nav-link">Privacy</a>
+            <a href="/terms" class="nav-link">Terms</a>
+            <a href="https://github.com/jetsontech/SarembokVE" target="_blank" rel="noopener" class="nav-link">GitHub ↗</a>
+            <a href="/" class="btn-console">Launch Console →</a>
+        </nav>
+    </header>
+
+    <div class="docs-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-group">
+                <div class="sidebar-title">Getting Started</div>
+                <a href="#overview" class="sidebar-link active">Platform Overview</a>
+                <a href="#architecture" class="sidebar-link">System Architecture</a>
+                <a href="#core-capabilities" class="sidebar-link">Core Capabilities</a>
+            </div>
+            <div class="sidebar-group">
+                <div class="sidebar-title">Verification Engine</div>
+                <a href="#spec-engine" class="sidebar-link">Headless Schema Synthesis</a>
+                <a href="#openapi-export" class="sidebar-link">OpenAPI 3.1 &amp; TypeScript</a>
+                <a href="#cicd-integration" class="sidebar-link">CI/CD Pipeline Integration</a>
+            </div>
+            <div class="sidebar-group">
+                <div class="sidebar-title">Sovereign Mesh</div>
+                <a href="#sovereign-workers" class="sidebar-link">1-Click GPU Mesh Worker</a>
+                <a href="#sovereign-workers" class="sidebar-link">Qwen-2.5-Coder Runtime</a>
+                <a href="#hardware-attestation" class="sidebar-link">Hardware Attestation</a>
+            </div>
+            <div class="sidebar-group">
+                <div class="sidebar-title">API &amp; Developer Tools</div>
+                <a href="#rest-api" class="sidebar-link">Headless REST API</a>
+                <a href="#rpc-protocol" class="sidebar-link">JSON-RPC 2.0 Interface</a>
+                <a href="#voice-engine" class="sidebar-link">Kokoro Neural Voice</a>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="content">
+            <div class="mobile-docs-nav">
+                <span>Navigate:</span>
+                <select onchange="if(this.value) location.hash = this.value;">
+                    <option value="">Jump to topic...</option>
+                    <option value="#overview">Platform Overview</option>
+                    <option value="#architecture">System Architecture</option>
+                    <option value="#spec-engine">Headless Schema Synthesis</option>
+                    <option value="#openapi-export">OpenAPI 3.1 &amp; TypeScript</option>
+                    <option value="#cicd-integration">CI/CD Pipeline Integration</option>
+                    <option value="#sovereign-workers">1-Click GPU Mesh Worker</option>
+                    <option value="#sovereign-workers">Qwen-2.5-Coder Runtime</option>
+                    <option value="#hardware-attestation">Hardware Attestation</option>
+                    <option value="#rest-api">Headless REST API</option>
+                    <option value="#rpc-protocol">JSON-RPC 2.0 Interface</option>
+                    <option value="#voice-engine">Kokoro Neural Voice</option>
+                </select>
+            </div>
+            <h1 id="overview">SarembokVE Documentation</h1>
+            <p class="lead">SarembokVE is an enterprise-grade autonomous systems verification engine, reverse-engineering platform, and sovereign AI compute mesh designed for mission-critical engineering teams.</p>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <span class="card-icon">⚡</span>
+                    <div class="card-title">Autonomous Spec Synthesis</div>
+                    <p class="card-desc">Deep Playwright Chromium crawl engine that deduces OpenAPI 3.1 schemas and TypeScript type declarations from live undocumented web applications.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="card-icon">🌐</span>
+                    <div class="card-title">Multi-Sector Real-Time Fan-Out</div>
+                    <p class="card-desc">Concurrent parallel grounding decomposing complex queries across 15+ industry sectors and GICS benchmarks (<code>XLK</code>, <code>XLE</code>, <code>XLV</code>, <code>XLF</code>, etc.) in under 1.0 second.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="card-icon">📊</span>
+                    <div class="card-title">Argon Substrate &amp; Vector Synthesis</div>
+                    <p class="card-desc">Autonomous self-healing infrastructure layer with extended decode reasoning, native dark-mode SVG vector visual synthesis, and Shannon entropy loop defense.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="card-icon">🛡️</span>
+                    <div class="card-title">Truth Boundaries &amp; Attestation</div>
+                    <p class="card-desc">Strict zero-hallucination policy: no synthetic benchmark claims, mathematically verified SQLite integrity, and cryptographic hardware attestation.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="card-icon">🎙️</span>
+                    <div class="card-title">Real-Time Voice Dialogue</div>
+                    <p class="card-desc">Low-latency dual-channel Kokoro neural voice synthesis streaming at sub-200ms latency directly inside the browser console.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="card-icon">🖥️</span>
+                    <div class="card-title">Sovereign GPU Compute Mesh</div>
+                    <p class="card-desc">1-click external GPU worker bridge (Google Colab, RunPod, Kaggle) hosting verified Qwen-2.5-Coder weights with zero reliance on costly proprietary APIs.</p>
+                </div>
+            </div>
+
+            <h2 id="architecture">System Architecture</h2>
+            <p>SarembokVE is architected around an isolated 4-container production topology with strict security boundaries, defense-in-depth networking, and automated lifecycle recovery:</p>
+
+            <pre><code>[ Internet / Users / CI Runners ]
+                  │
+                  ▼ HTTPS / WSS (Ports 80 &amp; 443)
+       ┌──────────────────────────┐
+       │   Caddy Edge Gateway     │ ── TLS 1.3 Termination, HSTS, Rate Limiting
+       └──────────────────────────┘
+                  │ Internal Docker Network (sarembok-runtime:9000)
+                  ▼
+       ┌──────────────────────────┐
+       │  Sarembok Core Runtime   │ ── Session Broker, JSON-RPC 2.0 Engine,
+       │    (Python 3.12 / WAL)   │    Vector Memory, Autonomous Task Executor
+       └──────────────────────────┘
+             │             │             │
+             ▼             ▼             ▼
+      ┌────────────┐ ┌────────────┐ ┌──────────────────────────┐
+      │ Playwright │ │ Kokoro TTS │ │ Sovereign GPU Mesh       │
+      │ Chromium   │ │ Voice Pod  │ │ (Colab/RunPod Workers    │
+      │ (Port 9100)│ │ (Port 9200)│ │  via WSS Reverse Tunnel) │
+      └────────────┘ └────────────┘ └──────────────────────────┘</code><button class="copy-btn" onclick="copySnippet(this)">Copy</button></pre>
+
+            <h2 id="spec-engine">Headless Schema Synthesis</h2>
+            <p>Traditional API discovery requires engineers to write swagger files manually or hope API providers keep documentation up to date. SarembokVE automatically reverse-engineers target services in real time by deploying a sandboxed headless Chromium browser that observes network payloads, DOM interactions, forms, and client bundles.</p>
+
+            <h3>How It Works</h3>
+            <ol>
+                <li><strong>Sandboxed Navigation:</strong> The Playwright container loads the requested URL in an ephemeral Chromium profile with memory and CPU boundaries.</li>
+                <li><strong>Network &amp; DOM Interception:</strong> Outgoing fetch and XHR calls, form structures, and JSON payloads are inspected and recorded.</li>
+                <li><strong>Schema Induction:</strong> The Specification Engine maps inferred primitives, nested objects, and arrays into standard JSON Schema draft 2020-12 representations.</li>
+                <li><strong>Format Synthesis:</strong> The raw schema is compiled into an OpenAPI 3.1 JSON document and an idiomatic TypeScript <code>.d.ts</code> contract interface.</li>
+            </ol>
+
+            <h2 id="openapi-export">OpenAPI 3.1 &amp; TypeScript Exports</h2>
+            <p>Every generated specification can be downloaded directly from the browser or fetched programmatically via standard curl commands.</p>
+
+            <pre><code># Download verified OpenAPI 3.1 JSON specification
+curl -sLO "https://sarembok.com/api/spec/export?target=https://httpbin.org&amp;format=openapi"
+
+# Download type-safe TypeScript interfaces
+curl -sLO "https://sarembok.com/api/spec/export?target=https://httpbin.org&amp;format=typescript"</code><button class="copy-btn" onclick="copySnippet(this)">Copy</button></pre>
+
+            <h2 id="cicd-integration">CI/CD Pipeline Integration</h2>
+            <p>Integrate SarembokVE directly into GitHub Actions or GitLab CI to fail pull requests whenever an upstream dependency or internal endpoint changes without an updated contract:</p>
+
+            <pre><code>name: API Drift Detection Gate
+on: [pull_request]
+
+jobs:
+  audit-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit Target API with SarembokVE
+        run: |
+          SPEC=$(curl -sf "https://sarembok.com/api/spec?target=https://api.staging.internal")
+          VERIFIED=$(echo "$SPEC" | jq -r '.verified')
+          if [ "$VERIFIED" != "true" ]; then
+            echo "API Verification Failed!"
+            exit 1
+          fi
+          echo "Verified in $(echo "$SPEC" | jq -r '.latencyMs')ms"</code><button class="copy-btn" onclick="copySnippet(this)">Copy</button></pre>
+
+            <h2 id="sovereign-workers">1-Click Sovereign GPU Worker Mesh</h2>
+            <p>To eliminate reliance on expensive commercial cloud APIs (OpenAI, Anthropic), SarembokVE supports decentralized worker clustering. Any machine with a CUDA-enabled GPU (including free Google Colab T4 or A100 instances) can join the cluster in seconds.</p>
+
+            <h3>Launching a Colab Worker</h3>
+            <pre><code># Inside a Google Colab notebook (GPU Runtime):
+!curl -sSL https://sarembok.com/Deployment/cloud/colab_worker.py -o colab_worker.py
+!python colab_worker.py --server wss://sarembok.com/worker/ws --models qwen-2.5-coder-32b,qwen-2.5-coder-7b</code><button class="copy-btn" onclick="copySnippet(this)">Copy</button></pre>
+            <p>Once registered, the central SarembokVE runtime automatically routes inference tasks to your connected sovereign worker over encrypted WebSockets, prioritizing zero-cost local compute.</p>
+
+            <h2 id="rest-api">Headless REST API Reference</h2>
+            <p>The public REST API provides fast, scriptable access for automated tools and CI runners without browser session overhead.</p>
+
+            <div style="margin: 20px 0;">
+                <p><strong>Endpoint:</strong> <code>GET /api/spec</code></p>
+                <p><strong>Query Parameters:</strong></p>
+                <ul>
+                    <li><code>target</code> (required): Fully qualified URL to inspect (e.g., <code>https://httpbin.org</code>).</li>
+                </ul>
+                <p><strong>Example Response:</strong></p>
+                <pre><code>{
+  "target": "https://httpbin.org",
+  "engine": "chromium",
+  "automation": "playwright",
+  "latencyMs": 2675,
+  "verified": true,
+  "openApiSpec": {
+    "openapi": "3.1.0",
+    "info": { "title": "Inferred Specification for httpbin.org", "version": "1.0.0" },
+    "paths": { ... }
+  },
+  "typeScriptContracts": "export interface Endpoint_Get_spec_json_Response { ... }"
+}</code><button class="copy-btn" onclick="copySnippet(this)">Copy</button></pre>
+            </div>
+        </main>
+
+        <!-- Table of Contents -->
+        <aside class="toc">
+            <div class="toc-title">On This Page</div>
+            <a href="#overview" class="toc-link">Platform Overview</a>
+            <a href="#architecture" class="toc-link">System Architecture</a>
+            <a href="#spec-engine" class="toc-link">Headless Schema Synthesis</a>
+            <a href="#openapi-export" class="toc-link">OpenAPI &amp; TypeScript Exports</a>
+            <a href="#cicd-integration" class="toc-link">CI/CD Pipeline Integration</a>
+            <a href="#sovereign-workers" class="toc-link">1-Click Sovereign GPU Mesh</a>
+            <a href="#rest-api" class="toc-link">Headless REST API</a>
+        </aside>
+    </div>
+
+    <script>
+        function copySnippet(btn) {
+            const code = btn.parentElement.querySelector('code').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                const prev = btn.innerText;
+                btn.innerText = 'Copied!';
+                setTimeout(() => { btn.innerText = prev; }, 1800);
+            });
+        }
+    </script>
+</body>
+</html>

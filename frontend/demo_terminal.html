@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SarembokVE — Live Terminal Simulator & Command Outcomes Tour</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #090c10;
+      --bg-surface: #0d1117;
+      --bg-surface-elevated: #161b22;
+      --bg-card: #1c2129;
+      --border: #30363d;
+      --border-accent: #388bfd;
+      --text-main: #f0f6fc;
+      --text-muted: #8b949e;
+      --text-dim: #6e7681;
+      --accent-green: #3fb950;
+      --accent-cyan: #58a6ff;
+      --accent-purple: #bc8cff;
+      --accent-gold: #d29922;
+      --accent-red: #f85149;
+      --accent-gradient: linear-gradient(135deg, #58a6ff 0%, #bc8cff 50%, #3fb950 100%);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    header {
+      background: rgba(13, 17, 23, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: var(--accent-gradient);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #000;
+      font-size: 16px;
+      box-shadow: 0 0 16px rgba(88, 166, 255, 0.35);
+    }
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-badge {
+      background: rgba(56, 139, 253, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(56, 139, 253, 0.3);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      background: var(--bg-surface-elevated);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      background: #21262d;
+      border-color: #8b949e;
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: #238636;
+      border-color: #2ea043;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(35, 134, 54, 0.4);
+    }
+
+    .btn-primary:hover {
+      background: #2ea043;
+      border-color: #3fb950;
+    }
+
+    .btn-danger {
+      background: rgba(248, 81, 73, 0.1);
+      border-color: rgba(248, 81, 73, 0.4);
+      color: var(--accent-red);
+    }
+
+    .btn-danger:hover {
+      background: rgba(248, 81, 73, 0.2);
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1.12fr 0.88fr;
+      gap: 20px;
+      padding: 20px;
+      max-width: 1720px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* Left Pane: Terminal Simulation */
+    .terminal-container {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+      height: calc(100vh - 170px);
+      min-height: 580px;
+    }
+
+    .terminal-header {
+      background: var(--bg-surface-elevated);
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }
+
+    .traffic-lights {
+      display: flex;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .dot-red { background: #ff5f56; }
+    .dot-yellow { background: #ffbd2e; }
+    .dot-green { background: #27c93f; }
+
+    .terminal-title {
+      font-family: 'Fira Code', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .terminal-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .terminal-badge {
+      background: rgba(255, 255, 255, 0.06);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .terminal-body {
+      flex: 1;
+      padding: 18px 20px;
+      font-family: 'Fira Code', monospace;
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: #e6edf3;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .terminal-body::-webkit-scrollbar {
+      width: 8px;
+    }
+    .terminal-body::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    .term-prompt {
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    .term-cmd {
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .term-success { color: var(--accent-green); }
+    .term-error { color: var(--accent-red); }
+    .term-warning { color: var(--accent-gold); }
+    .term-info { color: var(--accent-cyan); }
+    .term-purple { color: var(--accent-purple); }
+    .term-dim { color: var(--text-dim); }
+
+    .cursor {
+      display: inline-block;
+      width: 8px;
+      height: 15px;
+      background: var(--accent-cyan);
+      vertical-align: middle;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+
+    /* Right Pane: End-User Perspective & Explainer */
+    .explainer-container {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+      height: calc(100vh - 170px);
+      min-height: 580px;
+    }
+
+    .explainer-header {
+      background: var(--bg-surface-elevated);
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .explainer-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .step-indicator {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    /* Mode Switcher Tabs */
+    .mode-switcher {
+      display: flex;
+      background: var(--bg-base);
+      border-radius: 8px;
+      padding: 3px;
+      border: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+
+    .mode-tab {
+      flex: 1;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      border-radius: 6px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .mode-tab.active-nominal {
+      background: rgba(63, 185, 80, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(63, 185, 80, 0.3);
+    }
+
+    .mode-tab.active-failure {
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--accent-red);
+      border: 1px solid rgba(248, 81, 73, 0.3);
+    }
+
+    .explainer-content {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .explainer-content::-webkit-scrollbar {
+      width: 8px;
+    }
+    .explainer-content::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    .pill-tier {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 3px 10px;
+      border-radius: 20px;
+      width: fit-content;
+    }
+
+    .pill-tier-1 { background: rgba(56, 139, 253, 0.15); color: #58a6ff; border: 1px solid rgba(56, 139, 253, 0.3); }
+    .pill-tier-2 { background: rgba(188, 140, 255, 0.15); color: #bc8cff; border: 1px solid rgba(188, 140, 255, 0.3); }
+    .pill-tier-3 { background: rgba(63, 185, 80, 0.15); color: #3fb950; border: 1px solid rgba(63, 185, 80, 0.3); }
+    .pill-hitl { background: rgba(210, 153, 34, 0.15); color: #d29922; border: 1px solid rgba(210, 153, 34, 0.3); }
+
+    .command-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .command-text {
+      font-family: 'Fira Code', monospace;
+      font-size: 12.5px;
+      color: #79c0ff;
+      word-break: break-all;
+    }
+
+    .card-section {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .card-section-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-section-body {
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text-main);
+    }
+
+    .card-section-body ul {
+      margin-left: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .outcome-highlight {
+      background: rgba(63, 185, 80, 0.08);
+      border-left: 3px solid var(--accent-green);
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      font-size: 13px;
+    }
+
+    .outcome-violation {
+      background: rgba(248, 81, 73, 0.08);
+      border-left: 3px solid var(--accent-red);
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      font-size: 13px;
+    }
+
+    .failure-card {
+      background: rgba(248, 81, 73, 0.05);
+      border: 1px solid rgba(248, 81, 73, 0.3);
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .failure-reason-box {
+      background: var(--bg-card);
+      border-left: 3px solid var(--accent-gold);
+      padding: 10px 12px;
+      border-radius: 0 6px 6px 0;
+      font-size: 12.5px;
+    }
+
+    .failure-res-box {
+      background: rgba(63, 185, 80, 0.08);
+      border-left: 3px solid var(--accent-green);
+      padding: 10px 12px;
+      border-radius: 0 6px 6px 0;
+      font-size: 12.5px;
+    }
+
+    .code-inline {
+      font-family: 'Fira Code', monospace;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #79c0ff;
+    }
+
+    /* Bottom Command Carousel / Nav */
+    .command-nav {
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .command-nav::-webkit-scrollbar {
+      height: 6px;
+    }
+    .command-nav::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    .nav-pill {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      font-family: 'Fira Code', monospace;
+    }
+
+    .nav-pill:hover {
+      background: #21262d;
+      color: var(--text-main);
+      border-color: #8b949e;
+    }
+
+    .nav-pill.active {
+      background: rgba(56, 139, 253, 0.2);
+      border-color: var(--accent-cyan);
+      color: var(--text-main);
+      box-shadow: 0 0 10px rgba(88, 166, 255, 0.25);
+    }
+
+    .nav-pill-num {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+    .view-mode-tabs {
+      display: flex;
+      gap: 4px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 3px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .view-tab {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .view-tab.active {
+      background: var(--bg-surface-elevated);
+      color: var(--accent-cyan);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    }
+
+    .channel-btn {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .channel-btn:hover {
+      color: var(--text-main);
+      border-color: #8b949e;
+    }
+
+    .channel-btn.active {
+      background: rgba(56, 139, 253, 0.2);
+      border-color: var(--accent-cyan);
+      color: #fff;
+    }
+
+    .video-viewport {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: radial-gradient(circle at center, #0e131b 0%, #040609 100%);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .video-viewport img {
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 8px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7);
+      border: 1px solid var(--border);
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-logo">S</div>
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="brand-title">SarembokVE v3.0.0</span>
+          <span class="brand-badge">Interactive Terminal Simulator</span>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted);">Modular AI-Native Computing Environment & Zero-Trust Supervisor</div>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <button class="btn" id="btn-prev" onclick="prevStep()">⏮ Previous</button>
+      <button class="btn btn-primary" id="btn-play" onclick="toggleAutoPlay()">▶ Play Simulation</button>
+      <button class="btn btn-next" onclick="nextStep()">⏭ Next</button>
+      <button class="btn" style="background: rgba(88, 166, 255, 0.15); border-color: rgba(88, 166, 255, 0.4); color: var(--accent-cyan);" onclick="switchMainView('video')">🎬 Watch Demo Video</button>
+      <button class="btn btn-danger" onclick="resetTerminal()">↺ Reset</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Left: Terminal Simulation & Video Player -->
+    <section class="terminal-container">
+      <div class="terminal-header">
+        <div class="traffic-lights">
+          <div class="dot dot-red"></div>
+          <div class="dot dot-yellow"></div>
+          <div class="dot dot-green"></div>
+        </div>
+        <div class="terminal-title">
+          <span>bash — sarembok@node: ~/SarembokVE</span>
+          <span class="terminal-badge" id="term-status-badge">READY</span>
+        </div>
+        <div class="terminal-actions">
+          <div class="view-mode-tabs">
+            <button class="view-tab active" id="tab-term" onclick="switchMainView('terminal')">💻 Terminal</button>
+            <button class="view-tab" id="tab-vid" onclick="switchMainView('video')">🎬 Live Video</button>
+          </div>
+          <span class="terminal-badge" id="term-mode-badge">MODE: NOMINAL</span>
+          <span class="terminal-badge">Node v24.11.1</span>
+        </div>
+      </div>
+
+      <!-- Interactive Terminal View -->
+      <div class="terminal-body" id="term-output"></div>
+
+      <!-- Embedded Video Player View -->
+      <div id="term-video-view" style="display: none; flex: 1; flex-direction: column; overflow: hidden; background: #000;">
+        <div style="background: var(--bg-surface-elevated); padding: 8px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <div style="font-size: 11.5px; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+            <span>ACTIVE RECORDING:</span>
+            <span id="current-channel-label" style="color: var(--accent-cyan); font-family: 'Fira Code', monospace;">Troubleshooting & Failure Modes Tour</span>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button class="channel-btn active" id="chan-fail" onclick="changeVideoChannel('videos/sarembok_cli_troubleshooting_demo.webp', 'Troubleshooting & Failure Modes Tour', this)">⚠️ Troubleshooting Demo</button>
+            <button class="channel-btn" id="chan-nom" onclick="changeVideoChannel('videos/sarembok_terminal_simulation_tour.webp', 'Nominal CLI Execution Tour', this)">✔ Nominal Tour</button>
+            <button class="channel-btn" id="chan-pkg" onclick="changeVideoChannel('videos/sarembok_npm_package_walkthrough.webp', 'GitHub NPM Registry Walkthrough', this)">📦 NPM Package Tour</button>
+          </div>
+        </div>
+        <div class="video-viewport">
+          <img id="main-video-element" src="videos/sarembok_cli_troubleshooting_demo.webp" alt="SarembokVE Live Simulation Video">
+        </div>
+      </div>
+    </section>
+
+    <!-- Right: Explainer Panel -->
+    <section class="explainer-container">
+      <div class="explainer-header">
+        <div class="explainer-title">
+          <span>💡 Command Deep-Dive, Outcomes & Troubleshooting</span>
+        </div>
+        <div class="step-indicator" id="step-count">Step 1 of 16</div>
+      </div>
+
+      <div class="explainer-content" id="explainer-view">
+        <!-- Injected via JavaScript -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom Command Carousel -->
+  <nav class="command-nav" id="command-nav-bar">
+    <!-- Injected via JavaScript -->
+  </nav>
+
+  <script>
+    const COMMAND_DATA = [
+      {
+        id: "install",
+        name: "npm install",
+        tier: "Tier 1: Drop-In Action & Package",
+        tierClass: "pill-tier-1",
+        command: "npm install @jetsontech/sarembok@3.0.0",
+        purpose: "Install the sovereign Sarembok runtime CLI and client libraries directly into any Node.js/Next.js repository from the GitHub Package Registry.",
+        outcomeType: "success",
+        outcome: "Adds @jetsontech/sarembok@3.0.0 to package.json dependencies and installs the `sarembok` executable into node_modules/.bin.",
+        endUserPerspective: "An engineer wants zero-friction API drift gating and zero-trust policy execution inside their existing frontend, fullstack, or agentic repository without hosting an external server.",
+        whyUseIt: [
+          "Instantly gives developers access to `npx sarembok` commands locally or in CI.",
+          "Lightweight footprint: Requires only Node >=22 with zero native compilation bottlenecks.",
+          "Prepares the environment for automated contract reverse-engineering and AST policy checks."
+        ],
+        failure: {
+          errorTitle: "404 Not Found / 401 Unauthorized (Registry Authentication Failure)",
+          reason: "npm is querying public registry.npmjs.org instead of GitHub Packages (npm.pkg.github.com), or the machine is missing a GitHub Personal Access Token (PAT) with read:packages scope.",
+          resolution: "Configure npm to route the @jetsontech scope to GitHub Packages and supply your authentication token:\n1. Run: npm config set @jetsontech:registry https://npm.pkg.github.com\n2. Add to ~/.npmrc: //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}\n3. Ensure your token has 'read:packages' permission.",
+          terminalOutput: [
+            `\x1b[36m$ npm install @jetsontech/sarembok@3.0.0\x1b[0m`,
+            `\x1b[31mnpm ERR! code E404\x1b[0m`,
+            `\x1b[31mnpm ERR! 404 Not Found - GET https://registry.npmjs.org/@jetsontech%2fsarembok - Not found\x1b[0m`,
+            `\x1b[33mnpm ERR! [REASON] Package is hosted on GitHub Packages, not public npmjs.org\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] Run: npm config set @jetsontech:registry https://npm.pkg.github.com\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ npm install @jetsontech/sarembok@3.0.0\x1b[0m`,
+          `added 2 packages, and audited 118 packages in 1.42s`,
+          `found 0 vulnerabilities`,
+          `\x1b[32m✔ Package installed successfully. CLI binary available via 'npx sarembok'\x1b[0m\n`
+        ]
+      },
+      {
+        id: "quickstart",
+        name: "quickstart",
+        tier: "Tier 1: Health & Verification",
+        tierClass: "pill-tier-1",
+        command: "npm run quickstart",
+        purpose: "Performs an instantaneous, zero-dependency health check verifying both the NVIDIA OpenShell Zero-Trust Supervisor and the Sovereign Autonomous Systems Cluster.",
+        outcomeType: "success",
+        outcome: "Displays OpenShell control plane status (active profile: strict, 3 credentials masked, 13 AST deny rules) and confirms the remote cluster is online with 87 enabled scopes.",
+        endUserPerspective: "As a DevOps engineer or security analyst, you run this immediately upon cloning to verify that your local security policy enforcement and connection to the Sarembok mesh are 100% operational in under 2 seconds.",
+        whyUseIt: [
+          "Guarantees that your local environment is protected by deny-by-default execution boundaries.",
+          "Validates network connectivity to cluster endpoints (https://sarembok.com).",
+          "Requires 0 external background services to verify readiness."
+        ],
+        failure: {
+          errorTitle: "Node.js Engine Incompatibility / Missing SQLite Feature",
+          reason: "Running on Node.js version older than v22 (e.g. Node 18 or 20) where built-in node:sqlite or native bindings are missing.",
+          resolution: "Upgrade your Node.js runtime to version 22 or 24 using nvm:\n1. Run: nvm install 22\n2. Run: nvm use 22\n3. Re-run: npm run quickstart",
+          terminalOutput: [
+            `\x1b[36m$ npm run quickstart\x1b[0m`,
+            `\x1b[31mnode:internal/modules/cjs/loader:1147 Error: Cannot find module 'node:sqlite'\x1b[0m`,
+            `\x1b[33mRequire stack: c:\\SarembokVE\\fabric\\src\\memory\\wal_store.js\x1b[0m`,
+            `\x1b[31m✕ Node version v20.10.0 does not satisfy required engine '>=22'\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] Upgrade Node to v22+ via: nvm use 22\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ npm run quickstart\x1b[0m`,
+          `> node bin/sarembok-cli.js openshell status && node bin/sarembok-cli.js health\n`,
+          `🛡️  NVIDIA OpenShell Security Control Plane Status\n`,
+          `  Engine:               OpenShell-Compatible Zero-Trust Supervisor v1.0 (NVIDIA OpenShell Policy Schema)`,
+          `  Active Profile:       strict`,
+          `  Read-Only Root:       ✔ Enforced`,
+          `  Secret Zero Tokens:   3 credentials masked`,
+          `  Pending HITL Gates:   0 actions awaiting approval`,
+          `  Deny Command Rules:   13 deterministic AST & regex signatures`,
+          `  Allowed Domains:      github.com, api.github.com, registry.npmjs.org, sarembok.com, *.sarembok.com, localhost\n`,
+          `=======================================================`,
+          `   SAREMBOK VE · AUTONOMOUS SYSTEMS VERIFICATION`,
+          `=======================================================`,
+          `\x1b[32m✔ Sarembok Cluster Online: https://sarembok.com\x1b[0m`,
+          `  Available Scopes: 87 methods enabled\n`
+        ]
+      },
+      {
+        id: "spec",
+        name: "spec synthesis",
+        tier: "Tier 2: API Contract Synthesizer",
+        tierClass: "pill-tier-2",
+        command: "npx sarembok spec https://httpbin.org --out api.json",
+        purpose: "Uses Playwright and headless Chromium to reverse-engineer live HTTP/REST endpoints from any web application URL and synthesize formal OpenAPI 3.1 & TypeScript contracts in seconds.",
+        outcomeType: "success",
+        outcome: "Intercepts network traffic, reverse-engineers request/response payloads, and generates a standards-compliant `api.json` (OpenAPI 3.1) file in ~4 seconds.",
+        endUserPerspective: "A frontend or QA engineer working with legacy systems or fast-moving backends with missing API documentation needs an up-to-date, accurate OpenAPI contract without writing schemas by hand.",
+        whyUseIt: [
+          "Zero human documentation overhead: Generates AST schemas directly from browser execution.",
+          "Captures real header types, response status codes, and JSON schemas accurately.",
+          "Produces schemas ready for automated drift gating in GitHub Actions."
+        ],
+        failure: {
+          errorTitle: "Playwright Headless Timeout / Target Network Unreachable",
+          reason: "Target URL took longer than the default 5000ms timeout to respond, or Playwright Chromium binaries are not downloaded.",
+          resolution: "1. Install Playwright browser dependencies: npx playwright install chromium\n2. Increase execution timeout flag: npx sarembok spec https://httpbin.org --out api.json --timeout 15000\n3. Verify destination URL is reachable via curl.",
+          terminalOutput: [
+            `\x1b[36m$ npx sarembok spec https://httpbin.org --out api.json\x1b[0m`,
+            `⚡ Dispatched Playwright Chromium verification: https://httpbin.org...`,
+            `\x1b[31m✖ Specification failed: Request timed out after 5000ms\x1b[0m`,
+            `\x1b[33m[REASON] High remote latency or target endpoint throttling requests\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] Run: npx sarembok spec <url> --timeout 15000\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ npx sarembok spec https://httpbin.org --out api.json\x1b[0m`,
+          `=======================================================`,
+          `   SAREMBOK VE · AUTONOMOUS SYSTEMS VERIFICATION`,
+          `=======================================================`,
+          `⚡ Dispatched Playwright Chromium verification to cluster: https://httpbin.org...`,
+          `✔ Verification Complete in 4287ms (Cluster Latency: 4100.34ms)`,
+          `  Automation Engine: chromium (playwright)`,
+          `  Extraction: OK`,
+          `\x1b[32m✔ Exported OPENAPI contract to: api.json (86.9 KB)\x1b[0m\n`
+        ]
+      },
+      {
+        id: "verify-safe",
+        name: "openshell verify (safe)",
+        tier: "Tier 2: Zero-Trust Security",
+        tierClass: "pill-tier-2",
+        command: "npx sarembok openshell verify \"npm test\"",
+        purpose: "Statically inspects an OS command against NVIDIA OpenShell deterministic AST and regex deny-by-default rules before allowing execution.",
+        outcomeType: "success",
+        outcome: "Returns exit code 0: 'Policy Check Passed: Command conforms to OpenShell deny-by-default rules.'",
+        endUserPerspective: "An AI agent orchestration pipeline or developer wants to ensure a planned command is safe to execute in an automated workflow.",
+        whyUseIt: [
+          "Deterministic verification: No LLM hallucination in security boundaries.",
+          "Prevents unauthorized commands from ever reaching the OS subshell.",
+          "Fast sub-millisecond static verification."
+        ],
+        failure: {
+          errorTitle: "Disallowed Shell Chaining / Redirection Under Strict Profile",
+          reason: "Command uses shell piping (|) or redirect (>) which is disallowed under the active 'strict' profile to prevent subshell escaping.",
+          resolution: "1. For safe pipelines, switch profile: npx sarembok openshell profile developer\n2. Or refactor the command to pass flags directly instead of shell redirects.",
+          terminalOutput: [
+            `\x1b[36m$ npx sarembok openshell verify "npm test | tee log.txt"\x1b[0m`,
+            `\x1b[31m✕ Policy Violation: [OpenShell Sandbox Invariant] Pipe operator '|' prohibited in strict profile\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] Run without pipes or switch profile: npx sarembok openshell profile developer\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ npx sarembok openshell verify "npm test"\x1b[0m`,
+          `\x1b[32m✔ Policy Check Passed: Command 'npm test' conforms to OpenShell deny-by-default rules.\x1b[0m\n`
+        ]
+      },
+      {
+        id: "verify-malicious",
+        name: "openshell verify (blocked)",
+        tier: "Tier 2: Zero-Trust Security",
+        tierClass: "pill-tier-2",
+        command: "npx sarembok openshell verify \"rm -rf /\"",
+        purpose: "Demonstrates instantaneous deterministic blocking of destructive or unauthorized commands before they can run.",
+        outcomeType: "violation",
+        outcome: "Returns exit code 1 with: '✕ Policy Violation: [OpenShell Deny-By-Default Policy Breach] Command matches prohibited pattern: rm -rf [/~]'.",
+        endUserPerspective: "A system administrator or enterprise architect needs absolute mathematical certainty that autonomous agents or untrusted prompts cannot delete production filesystems.",
+        whyUseIt: [
+          "Prevents disastrous hallucinated `rm -rf`, disk wipes, fork bombs, and reverse shells.",
+          "Fails closed: If any token matches a deny rule, execution is blocked immediately.",
+          "Creates an auditable trail of blocked attempts."
+        ],
+        failure: {
+          errorTitle: "Deterministic Policy Breach (Expected Security Block)",
+          reason: "Command triggers deterministic regex/AST signature: 'rm\\s+-rf\\s+[/~]' designed to prevent root filesystem destruction.",
+          resolution: "THIS IS AN INTENTIONAL SECURITY BLOCK. Do NOT bypass in production. If you legitimately need to clean a build directory, use a scoped relative path: npx sarembok openshell verify 'rm -rf ./dist'.",
+          terminalOutput: [
+            `\x1b[36m$ npx sarembok openshell verify "rm -rf /"\x1b[0m`,
+            `\x1b[31m✕ Policy Violation: [OpenShell Deny-By-Default Policy Breach] Command matches prohibited pattern: 'rm\\s+-rf\\s+[/~]'\x1b[0m`,
+            `\x1b[33m[REASON] Root path deletion blocked by deterministic supervisor invariant\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] Scope deletion to local workspace: rm -rf ./build\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ npx sarembok openshell verify "rm -rf /"\x1b[0m`,
+          `\x1b[31m✕ Policy Violation: [OpenShell Deny-By-Default Policy Breach] Command matches prohibited pattern: 'rm\\s+-rf\\s+[/~]'\x1b[0m\n`
+        ]
+      },
+      {
+        id: "token-mint",
+        name: "token mint (macaroon)",
+        tier: "Tier 2: Cryptographic Capabilities",
+        tierClass: "pill-tier-2",
+        command: "npx sarembok token mint --scope execute --ttl 3600",
+        purpose: "Mints an unforgeable, cryptographically signed HMAC-SHA256 Macaroon capability token granting scoped, time-bounded execution permissions to agents.",
+        outcomeType: "success",
+        outcome: "Outputs a tamper-proof Base64 Macaroon token with embedded caveats (scope, pathPrefix, TTL, nonce, rootSignature).",
+        endUserPerspective: "In an enterprise multi-agent swarm, you want agents to hold only minimum required cryptographic permissions rather than blanket root or API access.",
+        whyUseIt: [
+          "Chained attenuation: Third-party agents can narrow token capabilities but can never expand them.",
+          "Cryptographic tamper resistance: Any altered byte invalidates the HMAC signature.",
+          "Strict TTL: Automatically expires after the specified duration (e.g. 1 hour)."
+        ],
+        failure: {
+          errorTitle: "Invalid Capability Scope Requested / Uninitialized Secret",
+          reason: "User requested an unsupported capability scope (e.g. --scope admin_destroy) or SAREMBOK_AUDIT_SECRET is unconfigured.",
+          resolution: "1. Use supported scopes: 'execute', 'read', 'spec', 'audit'.\n2. Set SAREMBOK_AUDIT_SECRET in your environment or use default development credentials.",
+          terminalOutput: [
+            `\x1b[36m$ npx sarembok token mint --scope destroy_all --ttl 3600\x1b[0m`,
+            `\x1b[31mError: Invalid capability scope requested: 'destroy_all'\x1b[0m`,
+            `\x1b[33mAvailable Scopes: execute, read, spec, audit, wal_replay\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] Run: npx sarembok token mint --scope execute\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ npx sarembok token mint --scope execute --ttl 3600\x1b[0m`,
+          `\x1b[33m🔑 Minted Sovereign Capability Macaroon Token\x1b[0m\n`,
+          `  Token ID:    cap-f05d7ef6-1621-430c-adcc-76b24ee6eb81`,
+          `  Agent ID:    worker`,
+          `  Scope:       execute`,
+          `  Path Prefix: C:\\SarembokVE`,
+          `  TTL:         3600s (expires: +1h)`,
+          `  HMAC Sig:    357ffe0f16111059...\n`,
+          `Base64 Encoded Token:`,
+          `\x1b[35meyJ0b2tlbklkIjoiY2FwLWYwNWQ3ZWY2LTE2MjEtNDMwYy1hZGNjLTc2YjI0ZWU2ZWI4MSIsImFnZW50SWQiOiJ3b3JrZXIiLCJjYXBhYmlsaXRpZXMiOlsiZXhlY3V0ZSJdfQ==\x1b[0m\n`
+        ]
+      },
+      {
+        id: "openshell-run",
+        name: "openshell run (isolated)",
+        tier: "Tier 2: Supervised Sandbox",
+        tierClass: "pill-tier-2",
+        command: "npx sarembok openshell run \"node -v\"",
+        purpose: "Executes an OS command inside the OpenShell supervised sandbox with working directory jailing, environment sanitation, and secret masking.",
+        outcomeType: "success",
+        outcome: "Executes command within sandbox and outputs Node.js version (`v24.11.1`).",
+        endUserPerspective: "You want to run a developer tool or command in an isolated environment where environment secrets cannot leak to sub-processes.",
+        whyUseIt: [
+          "Supervised process boundary outside the child process.",
+          "Pre-execution policy verification.",
+          "Automatic logging of all stdout/stderr to an append-only SQLite-WAL ledger."
+        ],
+        failure: {
+          errorTitle: "Sandbox Working Directory Jailing Violation",
+          reason: "Command attempts to traverse outside the project directory root (e.g. cd ../../../ && cat /etc/passwd) while containment profile has jail boundaries enabled.",
+          resolution: "Ensure all commands execute within the current repository workspace or mount external directories explicitly in Config/openshell.policy.yaml.",
+          terminalOutput: [
+            `\x1b[36m$ npx sarembok openshell run "cd ../../../ && dir"\x1b[0m`,
+            `\x1b[31m✕ Sandbox Breach: Path traversal outside jail boundary C:\\SarembokVE is blocked\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] Keep command execution bounded within the project root\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ npx sarembok openshell run "node -v"\x1b[0m`,
+          `\x1b[32mv24.11.1\x1b[0m\n`
+        ]
+      },
+      {
+        id: "secret-zero",
+        name: "secret zero credential masking",
+        tier: "Tier 2: Zero-Trust Security",
+        tierClass: "pill-tier-2",
+        command: "npx sarembok openshell run \"curl -H 'Authorization: Bearer {{SECRET:GITHUB_TOKEN}}' https://api.github.com/user\"",
+        purpose: "Demonstrates Secret Zero injection: Credentials are kept outside the child process and dynamically substituted during network transmission so tokens never appear in process memory or logs.",
+        outcomeType: "success",
+        outcome: "Substitutes {{SECRET:GITHUB_TOKEN}} at egress and redacts raw secrets from all standard output and audit logs.",
+        endUserPerspective: "Developers sharing workflows or running AI-generated scripts who need guarantees that sensitive tokens (GitHub, AWS, database keys) are never logged or exposed in terminal transcripts.",
+        whyUseIt: [
+          "Zero Credential Leakage: Child processes never receive the raw secret string.",
+          "Log Sanitation: Automatic masking in terminal output and persistent storage.",
+          "Compliance ready: Satisfies SOC 2 / ISO 27001 secret management requirements."
+        ],
+        failure: {
+          errorTitle: "PowerShell Quotation Escaping / Unregistered Secret Key",
+          reason: "On Windows PowerShell, unescaped single quotes around {{SECRET:...}} cause curl to misinterpret braces, or GITHUB_TOKEN environment variable is not defined in Secret Zero store.",
+          resolution: "1. In PowerShell, escape double quotes: `node bin/sarembok-cli.js openshell run \"curl -H \\\"Authorization: Bearer {{SECRET:GITHUB_TOKEN}}\\\" https://api.github.com/user\"`\n2. Export token: $env:GITHUB_TOKEN=\"ghp_xxxx\".",
+          terminalOutput: [
+            `\x1b[36m$ npx sarembok openshell run "curl -H 'Authorization: Bearer {{SECRET:UNKNOWN_KEY}}' https://api.github.com/user"\x1b[0m`,
+            `\x1b[31m[Secret Zero Error] Requested token 'UNKNOWN_KEY' is not registered in Secret Zero vault\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] Export environment variable before invoking OpenShell: export GITHUB_TOKEN=...\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ npx sarembok openshell run "curl -H 'Authorization: Bearer {{SECRET:GITHUB_TOKEN}}' https://api.github.com/user"\x1b[0m`,
+          `[Secret Zero] Injecting credential for token: GITHUB_TOKEN (external supervisor)`,
+          `[Secret Zero] Output sanitized: raw secrets redacted from stream`,
+          `\x1b[32m✔ Process exited cleanly with zero credential exposure\x1b[0m\n`
+        ]
+      },
+      {
+        id: "mcp-tools",
+        name: "mcp tools (JSON-RPC)",
+        tier: "Tier 2 / 3: Model Context Protocol",
+        tierClass: "pill-tier-2",
+        command: "npx sarembok mcp tools",
+        purpose: "Lists all registered tools on SarembokVE's Model Context Protocol (MCP v1.0.0 JSON-RPC 2.0) server, ready to mount into Claude Desktop, Cursor, or Antigravity.",
+        outcomeType: "success",
+        outcome: "Displays 8 active registered MCP tools: `openshell_verify`, `openshell_status`, `contract_spec`, `entropy_evaluate`, `wal_verify`, `sarembok_execute_turn`, `sarembok_reconstitute_state`, `sarembok_audit_verify`.",
+        endUserPerspective: "An AI engineer using Claude Desktop or Cursor wants their AI assistant to invoke zero-trust verification and SQLite-WAL state tools directly inside their editor.",
+        whyUseIt: [
+          "Standard Anthropic MCP specification compliance.",
+          "Mountable via stdio in Claude Desktop / Cursor settings.",
+          "Empowers external LLMs with deterministic verification superpowers."
+        ],
+        failure: {
+          errorTitle: "Stdio Protocol Contamination / Stale Server Process",
+          reason: "An unhandled console.log or warning contaminated the JSON-RPC stdio stream, causing Claude Desktop or Cursor to fail schema initialization.",
+          resolution: "Ensure Sarembok is launched with --silent mode or inspect registered tools cleanly with: node bin/sarembok-cli.js mcp tools. All diagnostics are redirected to stderr.",
+          terminalOutput: [
+            `\x1b[36m$ npx sarembok mcp\x1b[0m`,
+            `\x1b[31mParseError: Invalid JSON-RPC 2.0 payload received over stdio\x1b[0m`,
+            `\x1b[33m[REASON] Raw text printed to stdout before handshake\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] Redirect debug logs to stderr or use: sarembok mcp tools\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ npx sarembok mcp tools\x1b[0m`,
+          `[Sarembok MCP Standard Tools] (8 active registered tools)`,
+          `  \x1b[32m✔ openshell_verify\x1b[0m - Statically verify an OS command against OpenShell deny-by-default policies.`,
+          `  \x1b[32m✔ openshell_status\x1b[0m - Inspect OpenShell-Compatible Zero-Trust Supervisor v1.0 security runtime.`,
+          `  \x1b[32m✔ contract_spec\x1b[0m - Retrieve formal OpenAPI 3.1 contracts and schemas from registry.`,
+          `  \x1b[32m✔ entropy_evaluate\x1b[0m - Evaluate Shannon entropy of agent output to prevent recursive loops.`,
+          `  \x1b[32m✔ wal_verify\x1b[0m - Verify SHA-256 Merkle hash chain integrity of the SQLite-WAL transactional ledger.`,
+          `  \x1b[32m✔ sarembok_execute_turn\x1b[0m - Execute a full autonomous flywheel turn (Strategist, Worker, Auditor).`,
+          `  \x1b[32m✔ sarembok_reconstitute_state\x1b[0m - Rebuild complete state machine from append-only SQLite-WAL.`,
+          `  \x1b[32m✔ sarembok_audit_verify\x1b[0m - Verify cryptographic SHA-256 seal and structural isolation signature.\n`
+        ]
+      },
+      {
+        id: "openshell-profile",
+        name: "openshell profile strict",
+        tier: "Tier 2: Zero-Trust Security",
+        tierClass: "pill-tier-2",
+        command: "node bin/sarembok-cli.js openshell profile strict",
+        purpose: "Switches containment profiles dynamically (strict, enterprise, audit, developer) to match target security requirements.",
+        outcomeType: "success",
+        outcome: "Switches profile to `strict`, enforcing read-only root filesystems, whitelist-only domain egress, and mandatory human approval for database writes.",
+        endUserPerspective: "A DevOps lead configuring staging vs production environments switches to `strict` mode to ensure maximum security boundaries.",
+        whyUseIt: [
+          "Flexible policy postures: Developer workstation (relaxed) vs Production Banking (strict).",
+          "One-command policy enforcement.",
+          "Configured via transparent `Config/openshell.policy.yaml`."
+        ],
+        failure: {
+          errorTitle: "Invalid Profile Name Specified",
+          reason: "User specified an unrecognized profile name (e.g. 'hardened' or 'prod') not defined in Config/openshell.profiles.json.",
+          resolution: "Select one of the four supported pre-configured profiles:\n- strict (Read-only root, whitelist only, strict HITL)\n- enterprise (Intranet allowed, DB mutations guarded)\n- audit (Playwright web crawler profile, HTTP only)\n- developer (Local workstation, unrestricted read-write)",
+          terminalOutput: [
+            `\x1b[36m$ node bin/sarembok-cli.js openshell profile ultra_safe\x1b[0m`,
+            `\x1b[31mError: Profile 'ultra_safe' not recognized.\x1b[0m`,
+            `\x1b[33mSupported profiles: strict, enterprise, audit, developer\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] Run: node bin/sarembok-cli.js openshell profile strict\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ node bin/sarembok-cli.js openshell profile strict\x1b[0m`,
+          `\x1b[32m✔ OpenShell profile switched to: strict\x1b[0m\n`
+        ]
+      },
+      {
+        id: "pending-hitl",
+        name: "hitl governance",
+        tier: "Human-In-The-Loop Governance",
+        tierClass: "pill-hitl",
+        command: "node bin/sarembok-cli.js pending",
+        purpose: "Inspects the SQLite-WAL governance queue for high-risk mutations (e.g. cloud teardowns, database drops, financial payouts) awaiting human operator approval.",
+        outcomeType: "success",
+        outcome: "Displays '✔ No pending HITL authorization requests. All systems nominal.' (Or lists approval IDs for `sarembok approve <id>`).",
+        endUserPerspective: "An operations manager supervising autonomous agents ensures no high-risk or irreversible action occurs without human authorization.",
+        whyUseIt: [
+          "Human-in-the-loop guarantee for destructive operations.",
+          "Cryptographically logs operator identity and approval timestamp.",
+          "Zero accidental cloud deletions or unauthorized financial mutations."
+        ],
+        failure: {
+          errorTitle: "Approval Request Expired or Not Found",
+          reason: "Attempting to approve or reject an invalid, already resolved, or expired HITL action ID.",
+          resolution: "Always query active pending items first:\n1. Run: node bin/sarembok-cli.js pending\n2. Copy the active request ID: hitl-af21e83e\n3. Run: node bin/sarembok-cli.js approve hitl-af21e83e",
+          terminalOutput: [
+            `\x1b[36m$ node bin/sarembok-cli.js approve hitl-expired-99\x1b[0m`,
+            `\x1b[31mError: HITL Request ID 'hitl-expired-99' not found or already completed\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] Run: node bin/sarembok-cli.js pending to view live requests\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ node bin/sarembok-cli.js pending\x1b[0m`,
+          `\x1b[32m✔ No pending HITL authorization requests. All systems nominal.\x1b[0m\n`
+        ]
+      },
+      {
+        id: "audit-drift",
+        name: "audit (drift gate)",
+        tier: "Tier 1: Drop-In CI/CD Action",
+        tierClass: "pill-tier-1",
+        command: "node bin/sarembok-cli.js audit https://httpbin.org",
+        purpose: "Runs the CI/CD breaking drift gate by fetching the live API, comparing it against the committed `.sarembok/baseline.json`, and rendering a visual HTML report.",
+        outcomeType: "success",
+        outcome: "Generates high-fidelity HTML report at `public/generated/visuals/audit_report.html` and confirms 0 breaking changes against baseline.",
+        endUserPerspective: "A web development team drops this into GitHub Actions to fail PRs whenever backend changes accidentally break frontend API contracts.",
+        whyUseIt: [
+          "Prevents breaking changes from ever reaching production.",
+          "Distinguishes between harmless additive changes and breaking field removals.",
+          "Generates an executive-ready HTML visual audit report."
+        ],
+        failure: {
+          errorTitle: "Breaking API Drift Detected / Contract Gate Failed",
+          reason: "The live web application removed an endpoint or changed a property type compared to .sarembok/baseline.json.",
+          resolution: "1. If the API change was unintentional: Revert the backend breaking change.\n2. If the change was planned: Update baseline and commit to git: node bin/sarembok-cli.js audit <url> --update-baseline",
+          terminalOutput: [
+            `\x1b[36m$ node bin/sarembok-cli.js audit https://staging.api.com\x1b[0m`,
+            `[AUDIT] Extracting live contract: https://staging.api.com...`,
+            `\x1b[31m✖ BREAKING DRIFT DETECTED: 1 endpoint removed, 2 fields retyped\x1b[0m`,
+            `  - removed: GET /v1/user/profile`,
+            `  ~ retyped: POST /v1/checkout (payload.amount: string -> number)`,
+            `\x1b[31m✖ PR Gate Failed. Exiting with status 1\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] If intentional, update baseline: sarembok audit <url> --update-baseline\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ node bin/sarembok-cli.js audit https://httpbin.org\x1b[0m`,
+          `=======================================================`,
+          `   SAREMBOK VE · AUTONOMOUS SYSTEMS VERIFICATION`,
+          `=======================================================`,
+          `[AUDIT] Extracting live contract (fresh, uncached): https://httpbin.org`,
+          `  + new endpoint: GET /spec.json`,
+          `\x1b[32m✔ [Audit Visualizer] High-fidelity HTML report generated: public/generated/visuals/audit_report.html\x1b[0m`,
+          `\x1b[32m✔ No breaking changes vs baseline (1 operations, 1 additive).\x1b[0m\n`
+        ]
+      },
+      {
+        id: "audit-export",
+        name: "audit export (SOC 2)",
+        tier: "Governance & Compliance",
+        tierClass: "pill-hitl",
+        command: "node bin/sarembok-cli.js audit export --format json --out ./audit_log.json",
+        purpose: "Exports an immutable, tamper-proof audit trail from the append-only SQLite-WAL ledger for SOC 2, ISO 27001, and regulatory compliance.",
+        outcomeType: "success",
+        outcome: "Exports 134 tamper-proof records to `C:\\SarembokVE\\audit_log.json` with cryptographic Merkle verification.",
+        endUserPerspective: "A security compliance officer exporting cryptographic proof of all agent actions, policy evaluations, and approvals for external auditors.",
+        whyUseIt: [
+          "Merkle tree integrity: Prevents retroactive database tampering.",
+          "Standard JSON/CSV export format.",
+          "Immutable record of every single CLI and agent action."
+        ],
+        failure: {
+          errorTitle: "Target File Path Write Permission Denied",
+          reason: "User specified a read-only directory or target file is currently locked by another application.",
+          resolution: "Specify an explicit writable path in your workspace or user home directory: --out ./exports/audit_log.json.",
+          terminalOutput: [
+            `\x1b[36m$ node bin/sarembok-cli.js audit export --out /root/audit.json\x1b[0m`,
+            `\x1b[31mError: EACCES: permission denied, open '/root/audit.json'\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] Specify writable relative path: --out ./audit_log.json\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ node bin/sarembok-cli.js audit export --format json --out ./audit_log.json\x1b[0m`,
+          `\x1b[32m✔ Audit trail exported successfully: C:\\SarembokVE\\audit_log.json (134 tamper-proof records)\x1b[0m\n`
+        ]
+      },
+      {
+        id: "eval-benchmarks",
+        name: "eval (benchmarks)",
+        tier: "Cognitive Optimization & Benchmarks",
+        tierClass: "pill-tier-3",
+        command: "node bin/sarembok-cli.js eval",
+        purpose: "Executes the 5-point Sarembok-Eval automated agentic regression suite measuring drift accuracy, Shannon entropy bounds, OpenShell isolation, cache hits, and circuit breakers.",
+        outcomeType: "success",
+        outcome: "Passes 5/5 benchmarks with a Composite Score of 100/100 in 64ms.",
+        endUserPerspective: "An AI system engineer verifying that algorithmic optimizations (loop defense, semantic caching, fallback routers) are operating within mathematical tolerances.",
+        whyUseIt: [
+          "Automated regression testing for autonomous cognitive engines.",
+          "Shannon Entropy boundary ensures agent outputs never enter repetitive hallucination loops.",
+          "Verifies model fallback circuit breaker triggers under 429 rate limit conditions."
+        ],
+        failure: {
+          errorTitle: "Shannon Entropy Threshold Violation / Degraded Output Loop",
+          reason: "An agent output generated identical or repetitive tokens exceeding the Shannon entropy threshold (H < 0.88), indicating a recursive hallucination loop.",
+          resolution: "Sarembok automatically activates the halt trace vector and cuts execution. Verify temperature parameters or increase prompt variation in the agent configuration.",
+          terminalOutput: [
+            `\x1b[36m$ node bin/sarembok-cli.js eval\x1b[0m`,
+            `\x1b[31m✖ [FAIL] Shannon Entropy Boundary: H = 0.42 (Threshold >= 0.88)\x1b[0m`,
+            `\x1b[33m[REASON] Repetitive hallucination loop detected in token generation\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] Vector rollback executed. Check halt trace SVG: halt_trace_map.svg\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ node bin/sarembok-cli.js eval\x1b[0m`,
+          `[Sarembok-Eval] Initiating Autonomous Agent Benchmark Harness...\n`,
+          `[Visualizer] Halt trace vector compiled to: public/generated/visuals/halt_trace_map.svg`,
+          `[Model Router] gemini-3.1-flash encountered 429. Tripping circuit breaker -> gemini-2.5-flash`,
+          `\x1b[32mSuite Results: Sarembok-Eval v1.0 · Status: NOMINAL_GREEN\x1b[0m`,
+          `\x1b[32mComposite Score: 100/100 | Duration: 64ms\x1b[0m\n`,
+          `  \x1b[32m✔ [PASSED] API Drift Detection Accuracy (1.19ms)\x1b[0m - 2 breaking changes detected accurately`,
+          `  \x1b[32m✔ [PASSED] Shannon Entropy Boundary (H >= 0.88) (22.57ms)\x1b[0m - Recursive loop halted within 5 iterations`,
+          `  \x1b[32m✔ [PASSED] OpenShell Zero-Trust Isolation (16.21ms)\x1b[0m - Malicious commands blocked outside boundary`,
+          `  \x1b[32m✔ [PASSED] Semantic Reasoning Cache (12.20ms)\x1b[0m - 350 tokens saved per intermediate step`,
+          `  \x1b[32m✔ [PASSED] Model Fallback Circuit Breaker (11.22ms)\x1b[0m - Graceful degradation to gemini-2.5-flash\n`
+        ]
+      },
+      {
+        id: "cache-stats",
+        name: "cache stats",
+        tier: "Cognitive Optimization",
+        tierClass: "pill-tier-3",
+        command: "node bin/sarembok-cli.js cache stats",
+        purpose: "Inspects the Semantic Reasoning Cache statistics to monitor prompt caching efficiency, token reductions, and real-time dollar savings.",
+        outcomeType: "success",
+        outcome: "Displays: 21 Cache Hits, 147,000 tokens saved, and estimated cost reduction of $0.4410 on intermediate steps.",
+        endUserPerspective: "An AI product manager or CTO monitoring agent infrastructure costs to maximize efficiency and minimize repetitive API spending.",
+        whyUseIt: [
+          "Reduces frontier model token expenses by up to 40%.",
+          "Dramatically lowers latency by returning cached reasoning vectors.",
+          "Transparent ROI telemetry."
+        ],
+        failure: {
+          errorTitle: "Zero Cache Hits / Cache Layer Inactive",
+          reason: "Semantic cache was flushed or disabled in sarembok.config.json, resulting in full LLM re-computation on every prompt turn.",
+          resolution: "Ensure semantic caching is enabled in sarembok.config.json:\n{\n  \"cache\": { \"enabled\": true, \"similarityThreshold\": 0.85 }\n}",
+          terminalOutput: [
+            `\x1b[36m$ node bin/sarembok-cli.js cache stats\x1b[0m`,
+            `Semantic Reasoning Cache Statistics:\n`,
+            `  Cached Reasoning Entries:  0`,
+            `  Total Cache Hits:          0`,
+            `\x1b[33m  Estimated Tokens Saved:    0 tokens (Cache Disabled in config)\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] Set \"cache.enabled\": true in sarembok.config.json\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ node bin/sarembok-cli.js cache stats\x1b[0m`,
+          `Semantic Reasoning Cache Statistics (Phase 1):`,
+          `  Cached Reasoning Entries:  1`,
+          `  Total Cache Hits:          21`,
+          `  \x1b[32mEstimated Tokens Saved:    147,000 tokens\x1b[0m`,
+          `  \x1b[32mEstimated Cost Reduction:  $0.4410\x1b[0m\n`
+        ]
+      },
+      {
+        id: "test-suite",
+        name: "npm test",
+        tier: "Tier 3: Full Verification",
+        tierClass: "pill-tier-3",
+        command: "npm test",
+        purpose: "Runs the complete SarembokVE deterministic automated test suite across all 4 architectural pillars.",
+        outcomeType: "success",
+        outcome: "Passes 34/34 tests cleanly in ~1.6s with 0 failures.",
+        endUserPerspective: "Any contributor or enterprise engineer validating that contract diffing, Macaroon crypto, SQLite-WAL, Raft consensus, MCP server, and OpenShell isolation pass 100% of integration checks.",
+        whyUseIt: [
+          "Complete test coverage of consensus, memory, crypto, and security.",
+          "Executes with zero external daemons required.",
+          "Ensures production readiness."
+        ],
+        failure: {
+          errorTitle: "Port Conflict / Lingering WebSocket Voice Fabric Daemon",
+          reason: "Test suite fails on WebSocket voice orchestrator tests due to port 9001 or 9055 already being held by a lingering background process.",
+          resolution: "Identify and terminate the lingering process on port 9001/9055:\n- In PowerShell: Stop-Process -Id (Get-NetTCPConnection -LocalPort 9001).OwningProcess -Force\n- In Bash: lsof -ti :9001 | xargs kill -9",
+          terminalOutput: [
+            `\x1b[36m$ npm test\x1b[0m`,
+            `\x1b[31mError: listen EADDRINUSE: address already in use :::9001\x1b[0m`,
+            `\x1b[33m[REASON] Lingering node process holding voice fabric socket\x1b[0m`,
+            `\x1b[32m✔ [RESOLUTION] Kill lingering process on port 9001 and re-run npm test\x1b[0m\n`
+          ]
+        },
+        terminalOutput: [
+          `\x1b[36m$ npm test\x1b[0m`,
+          `> sarembok@3.0.0 test`,
+          `> node --test test/*.test.js\n`,
+          `✔ identical specs produce no drift (3.6ms)`,
+          `✔ removed response field is breaking (0.6ms)`,
+          `✔ Cryptographic Hardening: Nested HMAC-SHA256 Macaroon Token Chaining (4.5ms)`,
+          `✔ Merkle WAL Ledger Integrity: verifyIntegrity() & Tamper Detection (5.7ms)`,
+          `✔ MCP JSON-RPC 2.0 Server: initialize, tools/list, tools/call (39.5ms)`,
+          `✔ OpenShell Sandbox: Secret Zero Stream Redaction & Working Directory Jailing (128.9ms)`,
+          `✔ Pillar 1: Raft Consensus Cluster - Leader Election & Quorum Commit (82.2ms)`,
+          `✔ Pillar 2: Agent-to-Agent (A2A) Federation Gateway - Cryptographic Attestation (1.5ms)`,
+          `✔ Pillar 3: Pre-Dispatch Formal Policy Verifier & Capability Tokens (4.7ms)`,
+          `✔ Pillar 4: Cloud-Native API Schema Registry & eBPF Continuous Telemetry (1.6ms)`,
+          `✔ SarembokEval executes complete regression suite with 100/100 score (35.9ms)\n`,
+          `\x1b[32mℹ tests 34 | pass 34 | fail 0 | duration 1599ms\x1b[0m\n`
+        ]
+      }
+    ];
+
+    let currentStep = 0;
+    let viewMode = 'nominal'; // 'nominal' or 'failure'
+    let isAutoPlaying = false;
+    let autoPlayTimer = null;
+
+    // Render Navigation Pills
+    function initNav() {
+      const nav = document.getElementById("command-nav-bar");
+      nav.innerHTML = COMMAND_DATA.map((item, idx) => `
+        <div class="nav-pill ${idx === 0 ? 'active' : ''}" id="pill-${idx}" onclick="goToStep(${idx})">
+          <span class="nav-pill-num">${idx + 1}</span>
+          <span>${item.name}</span>
+        </div>
+      `).join("");
+    }
+
+    // ANSI parser to HTML
+    function formatAnsi(text) {
+      return text
+        .replace(/\x1b\[31m/g, '<span class="term-error">')
+        .replace(/\x1b\[32m/g, '<span class="term-success">')
+        .replace(/\x1b\[33m/g, '<span class="term-warning">')
+        .replace(/\x1b\[35m/g, '<span class="term-purple">')
+        .replace(/\x1b\[36m/g, '<span class="term-info">')
+        .replace(/\x1b\[0m/g, '</span>');
+    }
+
+    function setViewMode(mode) {
+      viewMode = mode;
+      renderStep(currentStep);
+    }
+
+    function renderStep(idx) {
+      currentStep = idx;
+      const data = COMMAND_DATA[idx];
+
+      // Update Step Counter
+      document.getElementById("step-count").innerText = `Step ${idx + 1} of ${COMMAND_DATA.length}`;
+
+      // Update Nav Pills
+      document.querySelectorAll(".nav-pill").forEach((el, i) => {
+        el.classList.toggle("active", i === idx);
+      });
+
+      // Update Mode Badge in Terminal
+      const modeBadge = document.getElementById("term-mode-badge");
+      if (viewMode === 'nominal') {
+        modeBadge.innerText = "MODE: NOMINAL RUN";
+        modeBadge.style.color = "var(--accent-green)";
+      } else {
+        modeBadge.innerText = "MODE: FAILURE SIMULATION";
+        modeBadge.style.color = "var(--accent-red)";
+      }
+
+      // Build Explainer HTML
+      const explainer = document.getElementById("explainer-view");
+      explainer.innerHTML = `
+        <div class="mode-switcher">
+          <div class="mode-tab ${viewMode === 'nominal' ? 'active-nominal' : ''}" onclick="setViewMode('nominal')">
+            <span>✔ Expected / Nominal Run</span>
+          </div>
+          <div class="mode-tab ${viewMode === 'failure' ? 'active-failure' : ''}" onclick="setViewMode('failure')">
+            <span>⚠️ Failure Mode & Resolution</span>
+          </div>
+        </div>
+
+        <div>
+          <span class="pill-tier ${data.tierClass}">${data.tier}</span>
+          <h2 style="font-size: 19px; font-weight: 700; margin-top: 6px;">${data.name.toUpperCase()}</h2>
+        </div>
+
+        <div class="command-box">
+          <span class="command-text">${data.command}</span>
+          <button class="btn" style="padding: 4px 10px; font-size: 11px;" onclick="copyCmd('${data.command}')">Copy</button>
+        </div>
+
+        <div class="card-section">
+          <div class="card-section-title">🎯 Purpose (What it does)</div>
+          <div class="card-section-body">${data.purpose}</div>
+        </div>
+
+        ${viewMode === 'nominal' ? `
+          <div class="card-section">
+            <div class="card-section-title">📊 Specific Outcome & Output</div>
+            <div class="card-section-body">
+              <div class="${data.outcomeType === 'violation' ? 'outcome-violation' : 'outcome-highlight'}">
+                ${data.outcome}
+              </div>
+            </div>
+          </div>
+
+          <div class="card-section">
+            <div class="card-section-title">💡 End-User Perspective (Why & When You Use It)</div>
+            <div class="card-section-body">
+              <p style="margin-bottom: 8px;"><strong>Use Case:</strong> ${data.endUserPerspective}</p>
+              <ul>
+                ${data.whyUseIt.map(item => `<li>${item}</li>`).join("")}
+              </ul>
+            </div>
+          </div>
+        ` : `
+          <div class="failure-card">
+            <div style="font-size: 13.5px; font-weight: 700; color: var(--accent-red); display: flex; align-items: center; gap: 6px;">
+              <span>🚨 Failure Mode:</span> ${data.failure.errorTitle}
+            </div>
+
+            <div class="failure-reason-box">
+              <div style="font-weight: 700; color: var(--accent-gold); margin-bottom: 4px;">🔍 Root Cause / Reason:</div>
+              <div>${data.failure.reason}</div>
+            </div>
+
+            <div class="failure-res-box">
+              <div style="font-weight: 700; color: var(--accent-green); margin-bottom: 4px;">🛠️ Resolution & Actionable Fix:</div>
+              <div style="white-space: pre-wrap; font-family: 'Fira Code', monospace; font-size: 12px; line-height: 1.5;">${data.failure.resolution}</div>
+            </div>
+          </div>
+        `}
+      `;
+
+      // Render Terminal Output
+      const term = document.getElementById("term-output");
+      term.innerHTML = "";
+      
+      if (viewMode === 'nominal') {
+        if (idx > 0) {
+          term.innerHTML += `<div class="term-dim"># [Nominal execution. Showing Step ${idx + 1}]</div>\n`;
+        }
+        data.terminalOutput.forEach(line => {
+          term.innerHTML += `<div>${formatAnsi(line)}</div>`;
+        });
+        document.getElementById("term-status-badge").innerText = data.outcomeType === 'violation' ? 'BLOCKED (403)' : 'SUCCESS (200)';
+        document.getElementById("term-status-badge").style.color = data.outcomeType === 'violation' ? 'var(--accent-red)' : 'var(--accent-green)';
+      } else {
+        term.innerHTML += `<div class="term-dim"># [Simulated Failure Mode & Resolution for Step ${idx + 1}]</div>\n`;
+        data.failure.terminalOutput.forEach(line => {
+          term.innerHTML += `<div>${formatAnsi(line)}</div>`;
+        });
+        document.getElementById("term-status-badge").innerText = 'FAILURE (500/ERR)';
+        document.getElementById("term-status-badge").style.color = 'var(--accent-red)';
+      }
+
+      term.innerHTML += `<div><span class="term-prompt">sarembok@mesh:~/SarembokVE$ </span><span class="cursor"></span></div>`;
+      term.scrollTop = term.scrollHeight;
+    }
+
+    function goToStep(idx) {
+      renderStep(idx);
+    }
+
+    function nextStep() {
+      if (currentStep < COMMAND_DATA.length - 1) {
+        renderStep(currentStep + 1);
+      } else {
+        renderStep(0);
+      }
+    }
+
+    function prevStep() {
+      if (currentStep > 0) {
+        renderStep(currentStep - 1);
+      } else {
+        renderStep(COMMAND_DATA.length - 1);
+      }
+    }
+
+    function toggleAutoPlay() {
+      const btn = document.getElementById("btn-play");
+      if (isAutoPlaying) {
+        clearInterval(autoPlayTimer);
+        isAutoPlaying = false;
+        btn.innerText = "▶ Play Simulation";
+        btn.classList.remove("btn-danger");
+        btn.classList.add("btn-primary");
+      } else {
+        isAutoPlaying = true;
+        btn.innerText = "⏸ Pause Simulation";
+        btn.classList.remove("btn-primary");
+        btn.classList.add("btn-danger");
+        autoPlayTimer = setInterval(() => {
+          nextStep();
+        }, 3400);
+      }
+    }
+
+    function resetTerminal() {
+      if (isAutoPlaying) toggleAutoPlay();
+      viewMode = 'nominal';
+      renderStep(0);
+    }
+
+    function copyCmd(cmd) {
+      navigator.clipboard.writeText(cmd);
+      alert("Copied to clipboard: " + cmd);
+    }
+
+    function switchMainView(view) {
+      const termOutput = document.getElementById("term-output");
+      const videoView = document.getElementById("term-video-view");
+      const tabTerm = document.getElementById("tab-term");
+      const tabVid = document.getElementById("tab-vid");
+
+      if (view === 'video') {
+        termOutput.style.display = 'none';
+        videoView.style.display = 'flex';
+        tabTerm.classList.remove('active');
+        tabVid.classList.add('active');
+      } else {
+        termOutput.style.display = 'block';
+        videoView.style.display = 'none';
+        tabTerm.classList.add('active');
+        tabVid.classList.remove('active');
+      }
+    }
+
+    function changeVideoChannel(src, label, btn) {
+      document.getElementById("main-video-element").src = src;
+      document.getElementById("current-channel-label").innerText = label;
+      document.querySelectorAll(".channel-btn").forEach(el => el.classList.remove("active"));
+      if (btn) btn.classList.add("active");
+    }
+
+    // Initialize
+    initNav();
+    renderStep(0);
+  </script>
+</body>
+</html>
