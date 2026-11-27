@@ -1,0 +1,11 @@
+# SarembokVE
+
+> SarembokVE is an AI execution runtime and developer CLI for orchestration, distributed compute, and OpenAPI contract governance.
+
+## Documentation
+
+- [SarembokVE](https://sarembok.com/): Official project site.
+- [Documentation](https://sarembok.com/docs): Platform and developer documentation.
+- [About](https://sarembok.com/about): Project overview.
+- [SarembokVE on GitHub](https://github.com/jetsontech/SarembokVE): Public source, CLI usage, and release history.
+- [Security](https://sarembok.com/security): Security information.
