@@ -18,8 +18,18 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify package version matches release tag
+        run: |
+          node --input-type=commonjs <<'NODE'
+          const { version } = require('./package.json');
+          if (process.env.GITHUB_REF_NAME !== 'v' + version) {
+            console.error('Release tag must match package version v' + version);
+            process.exit(1);
+          }
+          NODE
 
       - name: Install dependencies & run fast tests
         run: |

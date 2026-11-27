@@ -29,7 +29,11 @@ runs:
   steps:
     - uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: '24'
+    - name: Install SarembokVE dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --omit=dev
     - name: Run SarembokVE Contract & Security Gate
       shell: bash
       env:
@@ -39,7 +43,7 @@ runs:
         PROFILE: ${{ inputs.profile }}
         UPDATE_BASELINE: ${{ inputs.update_baseline }}
       run: |
-        node "${{ github.action_path }}/bin/sarembok-cli.js" openshell profile "$PROFILE" || true
+        node "${{ github.action_path }}/bin/sarembok-cli.js" openshell profile "$PROFILE"
         args=(audit "$TARGET" --baseline "$BASELINE")
         if [ "$FAIL_ON_DRIFT" = "false" ]; then args+=(--no-fail); fi
         if [ "$UPDATE_BASELINE" = "true" ]; then args+=(--update-baseline); fi
