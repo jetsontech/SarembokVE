@@ -1,30 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://sarembok.com/</loc>
+    <loc>https://sarembok.com</loc>
+    <lastmod>2026-11-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://sarembok.com/about</loc>
-  </url>
-  <url>
-    <loc>https://sarembok.com/docs</loc>
-  </url>
-  <url>
-    <loc>https://sarembok.com/projects</loc>
-  </url>
-  <url>
-    <loc>https://sarembok.com/status</loc>
-  </url>
-  <url>
-    <loc>https://sarembok.com/changelog</loc>
-  </url>
-  <url>
-    <loc>https://sarembok.com/security</loc>
-  </url>
-  <url>
-    <loc>https://sarembok.com/privacy</loc>
-  </url>
-  <url>
-    <loc>https://sarembok.com/terms</loc>
+    <loc>https://sarembok.com/llms.txt</loc>
+    <lastmod>2026-11-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
   </url>
 </urlset>

@@ -1,0 +1,20 @@
+# SarembokVE (Sarembok)
+
+> SarembokVE (also known as Sarembok) is an AI-native execution runtime, zero-trust sandbox fabric, sovereign GPU compute mesh, and deterministic OpenAPI 3.1 contract drift gating platform architected by Tim Hall (jetsontech).
+
+## Core Capabilities
+- **Autonomous Specification Synthesis:** Deploys ephemeral headless Playwright Chromium containers (`cap_drop: ALL`, 768MB RAM limit) to intercept live HTTP traffic and generate OpenAPI 3.1 JSON schemas and TypeScript definitions.
+- **Deterministic CI/CD Contract Drift Gate:** Halts deployment pipelines (`exit code 1`) when upstream or internal APIs introduce breaking schema changes, missing endpoints, or type mutations, with zero false alarms on additive keys.
+- **Sovereign GPU Compute Mesh:** Connects external NVIDIA GPU nodes (Google Colab T4, Kaggle, RunPod A100) over encrypted WebSockets (`wss://sarembok.com`) to serve models like Qwen 2.5 Coder 32B/7B without cloud API token burn.
+- **Zero-Trust Execution & Cognitive Loop Defense:** Enforces NVIDIA OpenShell containment profiles (`strict`, `enterprise`, `audit`, `developer`), SQLite-WAL semantic state persistence, and Shannon Entropy loop defense ($H(X) \ge 0.88$) with atomic state rollback.
+
+## Quickstart & CLI
+- **Zero-Install CLI:** `npx sarembok spec https://httpbin.org -o openapi.json`
+- **REST API Spec Extraction:** `GET https://sarembok.com`
+- **GitHub Action:** `jetsontech/SarembokVE@v1`
+
+## Official Links & Repositories
+- **Platform & Interactive Playground:** https://sarembok.com
+- **Open-Core Repository & GitHub Action:** https://github.com/jetsontech/SarembokVE
+- **Enterprise Mesh Repository:** https://github.com/jetsontech/SarembokVE-Enterprise
+- **npm Package:** https://www.npmjs.com/package/sarembok
